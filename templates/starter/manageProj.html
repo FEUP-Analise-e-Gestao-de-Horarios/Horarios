@@ -1,0 +1,111 @@
+{% extends '../common/base.html' %}
+
+{% block title %}
+  Gerir grupos
+{% endblock title %}
+
+{% block page %}
+
+  <style>
+    * {
+      margin: 0.5rem;
+    }
+    input {
+        margin: 0.4rem;
+    }
+</style>
+
+<header class="p-3 bg-dark header">
+  <div class="container-fluid">
+    <div class="d-flex align-items-center justify-content-between ">
+
+      <ul class="nav mb-2 justify-content-center mb-md-0">
+        <a class="btn btn-warning me-2" href="/">Início</a>
+      </ul>
+
+      <div class="text-end">
+        <button type="button" class="btn btn-warning" data-bs-toggle="modal" onclick="window.location.href='/login/password_change';">Mudar palavra-passe</button>
+        <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#logoutPopup">Logout</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<form class="flex-wrap d-flex flex-column m-3 pb-3 bg-dark" action="" method="post">
+  {% csrf_token %}
+
+  <h3>
+    Adicionar Grupos
+  </h3>
+  <fieldset>
+    <legend>Convidar:</legend>
+    {% for group in groups.0 %}
+    <div>
+      <input type="checkbox" id="Join" name="Join" value="{{ group.0 }}" unchecked>
+      <label for="Join">{{ group.0 }}, {{ group.1 }}</label>
+    </div>
+    {% endfor %}
+
+  </fieldset>
+
+  <fieldset>
+    <legend>Remover:</legend>
+    {% for group in groups.1 %}
+    <div>
+      <input type="checkbox" id="Remove" name="Remove" value="{{ group.0 }}" unchecked>
+      <label for="Join">{{ group.0 }}, {{ group.1 }}</label>
+    </div>
+    {% endfor %}
+
+  </fieldset>
+
+<hr>
+
+
+<div class="col">
+    <!-- Simple link -->
+    <button type="submit" class="btn btn-warning btn-block mb-4">Guardar</button>
+</div>
+</form>
+
+
+<form class="flex-wrap d-flex flex-column m-3 pb-3 bg-dark" action="" method="post">
+  {% csrf_token %}
+
+  <h3>
+    Adicionar Pessoas
+  </h3>
+  <fieldset>
+    <legend>Convidar:</legend>
+    {% for person in people.0 %}
+    <div>
+      <input type="checkbox" id="JoinP" name="JoinP" value="{{ person }}" unchecked>
+      <label for="Join">{{ person }}</label>
+    </div>
+    {% endfor %}
+
+  </fieldset>
+
+  <fieldset>
+    <legend>Remover:</legend>
+    {% for person in people.1 %}
+    <div>
+      <input type="checkbox" id="RemoveP" name="RemoveP" value="{{ person }}" unchecked>
+      <label for="Join">{{ person }}</label>
+    </div>
+    {% endfor %}
+
+  </fieldset>
+
+<hr>
+
+
+<div class="col">
+    <!-- Simple link -->
+    <button type="submit" class="btn btn-warning btn-block mb-4">Guardar</button>
+</div>
+</form>
+
+
+
+{% endblock page %}

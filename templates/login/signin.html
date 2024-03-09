@@ -1,0 +1,48 @@
+{% extends '../common/base.html' %}
+
+{% block title %}
+  Sign In
+{% endblock title %}
+
+{% block page %}
+
+<style>
+  .box{
+      min-height: 96vh;
+      padding-left: 20em;
+      padding-right: 20em;
+      padding-top: 10em;
+  }
+</style>
+<form class="flex-wrap d-flex flex-column box m-3 pb-3 box bg-dark" action="" method="post">
+  <!-- Email input -->
+  {% csrf_token %}
+  <h3>Sign In</h3>
+  <div class="form-outline mb-4">
+    <input type="text" id="username" class="form-control" placeholder="Username" name="username" required/>
+    <label class="form-label" for="username">Nome de utilizador</label>
+  </div>
+
+  <!-- Password input -->
+  <div class="form-outline mb-4">
+    <input type="password" id="pass" class="form-control" placeholder="********" name="pass" required/>
+    <label class="form-label" for="pass">Palavra-passe</label>
+    {% for message in messages %}
+    <h5>{{ message }}</h5>
+    {% endfor %}
+  </div>
+
+  <!-- 2 column grid layout for inline styling -->
+  <div class="row mb-4">
+
+    <div class="col">
+      <!-- Simple link -->
+      <a href="/login/forgot_password">Esqueci-me da palavra-passe</a>
+    </div>
+  </div>
+
+  <!-- Submit button -->
+  <button type="submit" class="btn btn-warning btn-block mb-4">Sign in</button>
+</form>
+
+{% endblock page %}

@@ -1,0 +1,8 @@
+=> Criar Docente 1234567890123 - Luis Cabral - LCB
+=> Aula AADL01 (Quarta - 17:00 [Turma: turmaCTAADL1]) : + Docente DCS
+=> Aula CP01 (Sexta - 10:30 [Turma : turmaCTCPT12]) : Sala B214 -> Sala B331
+=> Aula EMG0026 (Segunda - 11:00 [Turma : 2L.EMG01]) : Sala B331 -> Sala B214
+=> Aula EMG0026 (Quinta - 14:00 [Turma: 2L.EMG01]) : + Docente DCS
+=> Aula L.BIO038 (Quarta - 10:00 [Turma: L.BIO.EBL_3A]) : + Docente LGBC
+=> Aula L.BIO038 [Turma: L.BIO.EBL_3A] : (Quarta - 10:00) -> (Quarta - 17:00)
+=> Aula L.EA008 (Quinta - 08:30 [Turma: L.EA 103]) : Docente DCS -> Docente HMVMS

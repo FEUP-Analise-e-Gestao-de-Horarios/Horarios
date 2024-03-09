@@ -1,0 +1,41 @@
+<!-- standar navigation header, with popup menus for navigation-->
+
+{% load static %}
+
+<style>
+  .header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 999;
+    background-color: #fff;
+  }
+</style>
+
+<header class="p-3 bg-dark header">
+    <div class="container-fluid">
+      <div class="d-flex align-items-center justify-content-between ">
+
+        <ul class="nav mb-2 justify-content-center mb-md-0">
+          <a class="btn btn-warning me-2" href="/">Início</a>
+          <button type="button" class="btn btn-outline-light me-2" data-bs-toggle="modal" data-bs-target="#createPopup">Novo Projeto</button>
+          <button type="button" class="btn btn-outline-light me-2 dropdown-toggle" id="openDropDown" data-bs-toggle="dropdown" aria-expanded="false">Abrir Projeto</button>
+          <div class="dropdown">
+            <ul class="dropdown-menu" aria-labelledby="openDropDown">
+              {% for projeto in projetos %}
+                <li><a class="dropdown-item" href="/editturnos/{{projeto.id}}">{{projeto.nome}}</a></li>
+              {% endfor %}
+            </ul>
+          </div>
+          <button type="button" class="btn btn-outline-light me-2" onclick="location.href='/groups';" data-bs-toggle="modal">Grupos</button>
+          {% include './exportButton.html' %}
+        </ul>
+
+        <div class="text-end">
+          <button type="button" class="btn btn-warning" data-bs-toggle="modal" onclick="window.location.href='/login/password_change';">Mudar palavra-passe</button>
+          <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#logoutPopup">Logout</button>
+        </div>
+      </div>
+    </div>
+</header>

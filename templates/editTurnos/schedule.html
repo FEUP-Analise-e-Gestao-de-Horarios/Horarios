@@ -1,0 +1,80 @@
+
+{% load my_filters %}
+
+<table id="table_vistas">
+    <thead>
+    <tr>
+        <th>Horário</th>
+        
+        <th colspan="1" class = "segunda" >Segunda</th>
+        <th colspan="1" class = "terça" >Terça</th>
+        <th colspan="1" class = "quarta" >Quarta</th>
+        <th colspan="1" class = "quinta" >Quinta</th>
+        <th colspan="1" class = "sexta" >Sexta</th>
+        <th colspan="1" class = "sábado" >Sábado</th>
+
+    </tr>
+    </thead>
+
+    <tbody>
+    <tr>
+        <th>Turma</th>
+        {% for i in 1|times:6 %} <!-- Itera sobre os dias da semana -->
+            {% for numTurno in 1|times:numeroTurnos %} <!-- Itera sobre o nº de turnos -->
+                {% with turmasPorTurno|getTurmasTurno:numTurno as turmasTurno %}
+                {% for turma in turmasTurno %} <!-- Itera sobre as turmas do turno -->
+                    <th class={{ "turno"|concat:numTurno}} id={{ "turma_"|concat:turma }}> {{ turma }} </th>
+                {% endfor %}
+                {% endwith %}
+            {% endfor %}
+        {% endfor %}
+    </tr>
+
+    {% for hour in 8|times:19 %}
+    {% with hour|firstHalfHour as first%}
+    {% with hour|secondHalfHour as second%}
+    {% with hour|concat:"00" as firstHora%}
+    {% with hour|concat:"30" as secondHora%}
+
+        <tr>
+        <td id={{firstHora}}>{{ first }}</td>
+        {% with numeroTurmas|multiply:6 as totalCells %}
+        {% for i in 1|times:totalCells %}
+        {% with numeroTurmas|getDay:i as day %}
+        {% with numeroTurmas|getTurma:i as turma %} <!-- turma = nº da turma, não o nome -->
+        {% with turmasAno|getTurmaName:turma as turmaNome %} <!-- turmaNome = nome completo da turma -->
+        {% with turmasPorTurno|getTurno:turmaNome as turno%}
+        <td id={{ "turma_"|concat:turmaNome|concat:'_'|concat:day|concat:'_'|concat:firstHora }} class={{ "turno"|concat:turno }}>  </td>
+        {% endwith %}
+        {% endwith %}
+        {% endwith %}
+        {% endwith %}
+        {% endfor %}
+        {% endwith %}
+        </tr>
+
+        <tr>
+        <td id={{secondHora}}>{{ second }}</td>
+        {% with numeroTurmas|multiply:6 as totalCells %}
+        {% for i in 1|times:totalCells %}
+        {% with numeroTurmas|getDay:i as day %}
+        {% with numeroTurmas|getTurma:i as turma %} <!-- turma = nº da turma, não o nome -->
+        {% with turmasAno|getTurmaName:turma as turmaNome %} <!-- turmaNome = nome completo da turma -->
+        {% with turmasPorTurno|getTurno:turmaNome as turno%}
+        <td id={{ "turma_"|concat:turmaNome|concat:'_'|concat:day|concat:'_'|concat:secondHora }} class={{ "turno"|concat:turno }}>  </td>
+        {% endwith %}
+        {% endwith %}
+        {% endwith %}
+        {% endwith %}
+        {% endfor %}
+        {% endwith %}
+        </tr>
+    {% endwith %}
+    {% endwith %}
+    {% endwith %}
+    {% endwith %}     
+    {% endfor %}
+    </tbody>
+
+</table>
+

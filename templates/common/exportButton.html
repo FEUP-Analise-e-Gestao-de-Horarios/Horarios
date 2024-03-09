@@ -1,0 +1,12 @@
+{% load static %}
+
+<div class="dropdown">
+    <button class="btn btn-outline-light me-2 dropdown-toggle" type="button" id="dropdownMenuButton1" data-bs-toggle="dropdown" aria-expanded="false">
+        Exportar
+    </button>
+    <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
+      {% for projeto in projetos %}
+        <li><a class="dropdown-item" href="/export/{{projeto.id}}">{{projeto.nome}}</a></li>
+      {% endfor %}
+    </ul>
+  </div>

@@ -1,0 +1,22 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+django = "*"
+bs4 = "*"
+requests = "*"
+readerwriterlock = "*"
+unicode = "*"
+six = "*"
+networkx = "*"
+matplotlib = "*"
+whitenoise = "*"
+daphne = "*"
+bleach = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.10"

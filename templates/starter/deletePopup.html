@@ -1,0 +1,61 @@
+<div class="container">
+    <!-- delete project confirmation Modal -->
+    
+    <div class="modal fade" id="deletePopup" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title text-black" id="deletePopup">Tem a certeza que quer apagar o projeto?</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body">
+                    <h6 class="text-danger"> Esta ação não pode ser revertida. </h6>
+                </div>
+                
+                <div class="modal-footer">
+                    <form id="deleteProjForm" method="post">
+                        {% csrf_token%}
+                        <input type="hidden" id="deleteProjId" name="id">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" href="#" class="btn btn-danger" data-bs-dismiss="modal">Apagar Projeto</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* deleteProjForm submit
+
+    event 'confirmar' button pressed
+
+    retrieves the selected project id
+    creates a Post Ajax request that deletes the project, if possible
+    removes corresponding project card
+    */
+    $(document).ready(function () {
+        $('#deleteProjForm').submit(function () {
+            // create an AJAX call
+            $.ajax({
+                data: $(this).serialize(), // get the form data
+                type: $(this).attr('method'), // GET or POST
+                url: "deleteProject",
+
+                // on success
+                success: function (response) {
+                    const projCard = document.querySelector("#proj_"+ response.id + "_card")
+                    projCard.remove()
+                },
+                // on error
+                error: function (response) {
+                    //delete temporary card
+                    alert(response.error)
+                    console.log(response.error)
+                }
+            });
+            return false;
+        });
+    })
+</script>

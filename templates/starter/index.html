@@ -1,0 +1,30 @@
+{% extends '../common/base.html' %}
+
+{% block page %}
+
+{% for message in messages %}
+<div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+    <strong>Mensagem:</strong> {{ message }}
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+    <span aria-hidden="true">&times;</span>
+    </button>
+</div>
+
+{% endfor %}
+
+
+<h3>Bem-vindo ao Feup Schedule Editor</h3>
+
+{% if user.is_authenticated %}
+<h3>Olá {{ fname }}</h3>
+<h4>Login bem sucedido</h4>
+
+<button type = "submit"> <a href="signout"> SignOut</a></button>
+
+{% else %}
+
+<button type = "submit"> <a href=""> SignIn</a></button>
+
+{% endif %}
+
+{% endblock page %}

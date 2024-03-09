@@ -1,0 +1,15 @@
+<!-- cog that display a popup menu with delete project and edit users options-->
+
+{% load static %}
+
+<div class="dropdown">
+    <a class="btn" href="#" role="button" id="dropdownMenuLink" data-bs-toggle="dropdown" aria-expanded="false">
+        ⚙️
+    </a>
+  
+    <ul class="dropdown-menu" aria-labelledby="dropdownMenuLink">
+        <li><a class="dropdown-item" href="#">Utilizadores</a></li>
+        <button type="button" class="btn" data-bs-toggle="modal" data-bs-target="#deletePopup" onclick="updateDeleteId({{projeto.id}})"> Apagar</button>
+    </ul>
+</div>
+

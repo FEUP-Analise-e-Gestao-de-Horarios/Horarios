@@ -1,0 +1,48 @@
+<!-- base starter page-->
+
+{% extends '../common/base.html' %}
+{% load static %}
+
+
+{% block page %}
+    <style>
+        .box{
+            min-height: 87.5vh;
+        }
+
+        .contentMargin{
+            margin-top: 5.5em;
+            margin-left: 1em;
+            margin-right: 1em;
+        }
+    </style>
+    
+    
+    {% include '../common/header.html' %}
+    
+    <section class="contentMargin  pb-3 box bg-dark">
+        <div class="d-flex flex-wrap">
+            {% include './newProject.html' %}
+            {% include './parsingCard.html' %}
+            {% for projeto in projetos %}
+                {% include './projectCard.html' %}
+            {% endfor %}
+        </div>
+    </section>
+
+    {% include '../common/createPopup.html' %}
+    {% include './deletePopup.html' %}
+
+    <script>
+        function updateDeleteId(id){
+            const hidInp = document.querySelector("#deleteProjId")
+            hidInp.value = id
+        }
+
+        $(document).ready(function() {
+            setInterval(function() {
+                location.reload();    
+            }, 300000);
+        });   
+    </script>
+{% endblock page %}

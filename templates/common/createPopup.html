@@ -1,0 +1,97 @@
+<!-- new project popup modal -->
+
+<div class="container">
+    <!-- Modal -->
+    <div class="modal fade" id="createPopup" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title text-black" id="createPopup">Novo Projeto</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="post" id="createProjForm">
+                    {% csrf_token %}
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="name" class="col-form-label text-black">Nome do Projeto:</label>
+                            <input required="required" type="text" class="form-control" id="name" name="name">
+                        </div>
+                        <div class="mb-3">
+                            <label for="paginas" class="col-form-label text-black">Link dos horários:</label>
+                            <input required="required" type="text" class="form-control" id="paginas" name="paginas">
+                            <div id="error-container"></div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" >Criar Projeto</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+    /* createProjForm submit
+    
+    event 'criar projeto' button pressed
+
+    retrieves the input url and project name
+    checks url for http:// or https:// to insure it works on the parsing
+    displays an error message otherwise
+    sends a Post Ajax request that creates a new project and starts a new parse
+    */
+    $(document).ready(function () {
+        $('#createProjForm').submit(function () {
+            event.preventDefault()
+
+            const url = $('#paginas').val()
+            const errorContainer = $('#error-container')
+            
+            //remove any error message
+            errorContainer.empty()
+            
+            if(!(url.startsWith('https://') || url.startsWith('http://'))){
+                const errorMessage = $('<p class="text-danger">Link errado! Tem de começar com \"https://\" ou \"http://\"</p>')
+                errorContainer.append(errorMessage)
+                return
+            }
+
+            $('#createPopup').modal('hide')
+            // create an AJAX call
+            $.ajax({
+                data: $(this).serialize(), // get the form data
+                type: $(this).attr('method'), // GET or POST
+                url: "/parser/parse/",
+
+                // on success
+                success: function (response) {
+                    //delete temporary card
+                    //create project card
+                    //alert("project loaded")
+                    window.location.reload()
+                },
+                // on error
+                error: function (response, status, error) {
+                    //delete temporary card
+                    hiddenCard = document.querySelector('#parsingCard')
+                    hiddenCard.classList.toggle('hidden-card')
+                    cardName = document.querySelector('#loadingName')
+                    cardName.innerHTML = ""
+                    // alert the error if any error occured
+                    alert(response.responseText);
+                    console.log(response.responseText)
+                }
+            });
+            //unhide loading
+            nameElement = document.querySelector('#createProjForm #name')
+            hiddenCard = document.querySelector('#parsingCard')
+            hiddenCard.classList.toggle('hidden-card')
+            cardName = document.querySelector('#loadingName')
+            cardName.innerHTML = nameElement.value
+            return false;
+        });
+    })
+</script>

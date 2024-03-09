@@ -1,0 +1,302 @@
+<!-- contains both the editTurnos expansible topbar and the editing sidebar -->
+
+{% load static %}
+<style>
+    .selectWidth{
+        max-width: 8%;
+    }
+    .multiselect {
+      width: 200px;
+    }
+    
+    .selectBox {
+      position: relative;
+    }
+    
+    .selectBox select {
+      width: 100%;
+      font-weight: bold;
+    }
+    
+    .overSelect {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      bottom: 0;
+    }
+    
+    .checkboxes {
+      display: none;
+      border: 1px #dadada solid;
+    }
+    
+    .checkboxes label {
+      display: block;
+    }
+    
+    .checkboxes label:hover {
+      background-color: #1e90ff;
+    }
+    .header2 {
+      position: fixed;
+      top: 4.35em;
+      left: 0;
+      width: 100%;
+      z-index: 800;
+      background-color: #fff;
+    }
+    .header2-undo {
+      position: static;
+      top: auto;
+      left: auto;
+      width: auto;
+      z-index: auto;
+      background-color: transparent;
+      min-height: 25em;
+    }    
+    .contentMargin2{
+      margin-top: 10em;
+  }
+</style>
+
+{% load my_filters %}
+
+<!-- second header-->
+<div class="header2">
+  <div class="collapse show" id="navbarToggleExternalContent">
+      <header id="editHeader" class="p-3 bg-dark" >
+          <div class="container-fluid d-flex justify-content-between">
+              <div class="d-flex gap-2 align-items-center flex-fill">
+                <select class="form-select selectWidth bg-dark text-light" aria-label="Default select example" id="cursoBtn">
+                  <option selected>Curso</option>
+                </select>
+                <select class="form-select selectWidth bg-dark text-light" aria-label="Default select example" id="anoBtn">
+                  <option selected>Ano</option>
+                </select>
+                  <select class="mr-3 ml-3 form-select selectWidth bg-dark text-light" aria-label="Default select example" title="Vista" id="turnosBtn">
+                    <option selected>Turnos</option>
+                    </select>
+                  <select class="form-select selectWidth bg-dark text-light" aria-label="Default select example" id="turmasBtn">
+                      <option selected>Turma</option>
+                    </select>
+                    <select class="form-select selectWidth bg-dark text-light" aria-label="Default select example" id="semanasBtn">
+                      <option selected>Semanas</option>
+                    </select>
+                    <button type="button" class="btn btn-outline-light me-2" id="showDistributionBtn"> Distribuição </button>
+              </div>
+              <h3> {{ projeto.nome }} </h3>
+          </div>
+      
+      </header>
+  </div>
+  <!--toggle button under header2 line-->
+  <nav class="navbar-dark bg-dark" id="editSideBarCanvas">
+    <div class="container-fluid d-flex justify-content-center">
+      <!-- header2 toggle button -->
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarToggleExternalContent" aria-controls="navbarToggleExternalContent" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <nav class="navbar-dark bg-dark">
+        <div class="container-fluid">
+          <!-- sidebar toggle button -->
+          <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasDarkNavbar" aria-controls="offcanvasDarkNavbar">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+          <!-- side bar modal-->
+          <div class="offcanvas offcanvas-end text-bg-dark mono-font" tabindex="-1" id="offcanvasDarkNavbar" aria-labelledby="offcanvasDarkNavbarLabel">
+            <div class="offcanvas-header">
+              <h5 class="offcanvas-title" id="offcanvasDarkNavbarLabel">Menu de Edição</h5>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            </div>
+            <div class="offcanvas-body">
+              <!-- message displayed when sidebar form is hidden-->
+              <div id="edit-form-hidden-div">
+                <h3>Selecione uma aula</h3>
+              </div>
+              <!-- sidebar form -->
+              <div id="edit-form-div" class="hidden">
+                <form id="editSideBarForm" method="POST" class="header2-undo">
+                  {% csrf_token %}
+                  <input type="hidden" id="selectedID" name="selectedID" value="1">
+                  <p>UC Selecionada: 
+                    <select name="cadeiraEdit" id="cadeiraEdit"></select>
+                  </p>
+                  <p>
+                  Hora Inicio: 
+                  <select name="hora-inicio" id="hora-inicio">
+                    <option value=800>8:00</option>
+                    <option value=830>8:30</option>
+                    <option value=900>9:00</option>
+                    <option value=930>9:30</option>
+                    <option value=1000>10:00</option>
+                    <option value=1030>10:30</option>
+                    <option value=1100>11:00</option>
+                    <option value=1130>11:30</option>
+                    <option value=1200>12:00</option>
+                    <option value=1230>12:30</option>
+                    <option value=1300>13:00</option>
+                    <option value=1330>13:30</option>
+                    <option value=1400>14:00</option>
+                    <option value=1430>14:30</option>
+                    <option value=1500>15:00</option>
+                    <option value=1530>15:30</option>
+                    <option value=1600>16:00</option>
+                    <option value=1630>16:30</option>
+                    <option value=1700>17:00</option>
+                    <option value=1730>17:30</option>
+                    <option value=1800>18:00</option>
+                    <option value=1830>18:30</option>
+                    <option value=1900>19:00</option>
+                    <option value=1930>19:30</option>
+                  </select>
+                  </p>
+                  <p>
+                  Hora Fim: 
+                  <select name="hora-fim" id="hora-fim">
+                    <option value=800>8:00</option>
+                    <option value=830>8:30</option>
+                    <option value=900>9:00</option>
+                    <option value=930>9:30</option>
+                    <option value=1000>10:00</option>
+                    <option value=1030>10:30</option>
+                    <option value=1100>11:00</option>
+                    <option value=1130>11:30</option>
+                    <option value=1200>12:00</option>
+                    <option value=1230>12:30</option>
+                    <option value=1300>13:00</option>
+                    <option value=1330>13:30</option>
+                    <option value=1400>14:00</option>
+                    <option value=1430>14:30</option>
+                    <option value=1500>15:00</option>
+                    <option value=1530>15:30</option>
+                    <option value=1600>16:00</option>
+                    <option value=1630>16:30</option>
+                    <option value=1700>17:00</option>
+                    <option value=1730>17:30</option>
+                    <option value=1800>18:00</option>
+                    <option value=1830>18:30</option>
+                    <option value=1900>19:00</option>
+                    <option value=1930>19:30</option>
+                    <option value=2000>20:00</option>
+                  </select>
+                  </p>
+                  <p>
+                    Dia: 
+                    <select name="dia" id="dia">
+                      <option value=0>Segunda-Feira</option>
+                      <option value=1>Terça-Feira</option>
+                      <option value=2>Quarta-Feira</option>
+                      <option value=3>Quinta-Feira</option>
+                      <option value=4>Sexta-Feira</option>
+                      <option value=5>Sábado</option>
+                    </select>
+                  </p>
+                  <p>
+                    <a class="link-light link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover" href="/editturnos/{{projId}}/editDocentes">Docentes:</a>
+                    <!-- jquery multiple select dropdown docentes-->
+                    <div class="docentesDropDown">
+                      <select  name="" multiple>
+                        {% for docente in docentesList %}
+                          <option value={{docente.numeroMecanografico}}> {{docente.abreviacao}} - {{docente.nome}} </option>
+                        {% endfor %}
+                      </select>
+                    </div>
+                  </p>
+                  <p>
+                    Salas:
+                    <!-- jquery multiple select dropdown salas-->
+                    <div class="salasDropDown">
+                      <select  name="" multiple>
+                        {% for sala in salasList %}
+                          <option value={{sala.numero}}> {{sala.numero}} </option>
+                        {% endfor %}
+                      </select>
+                    </div>
+                  </p>
+                  <p>
+                    Turmas:
+                    <!-- jquery multiple select dropdown turmas-->
+                    <div class="turmasDropDown">
+                      <select name="" multiple></select>
+                    </div>
+                  </p>
+                  <div class="d-flex justify-content-center">
+                    <button type="submit" class="btn btn-warning"> Submit </button>
+                  </div>
+                </form>
+              </div>
+              <hr style="border-color: white;">
+
+              <h3>Conflitos</h3>
+              <!-- conflicts list -->
+              <ul id="conflictsList">
+                {% for conflito in conflitos %}
+                  <li>{{conflito}}</li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+        </div>
+        
+      </nav>
+  </nav>
+</div>
+
+<div class="container">
+  <!-- new Docente Modal -->
+  <div class="modal fade" id="newDocenteModal" tabindex="-1" aria-labelledby="newDocenteModal" aria-hidden="true">
+      <div class="modal-dialog">
+          <div class="modal-content">
+              <div class="modal-header">
+                  <h5 class="modal-title text-black" id="newDocenteModal">Novo Docente</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <form method="post" id="newDocenteForm">
+                  {% csrf_token %}
+                  <div class="modal-body">
+                      <div class="mb-3">
+                          <label for="idDocente" class="col-form-label text-black">Número Mecanográfico:</label>
+                          <input onkeypress="return (event.charCode !=8 && event.charCode ==0 || (event.charCode >= 48 && event.charCode <= 57))" required="required" type="number" class="form-control" id="idDocente" name="idDocente">
+                          <div id="error-container-docente"></div>
+                      </div>
+                      <div class="mb-3">
+                          <label for="nomeDocente" class="col-form-label text-black">Nome:</label>
+                          <input required="required" type="text" class="form-control" id="nomeDocente" name="nomeDocente">
+                      </div>
+                      <div class="mb-3">
+                        <label for="siglaDocente" class="col-form-label text-black">Sigla:</label>
+                        <input required="required" type="text" class="form-control" id="siglaDocente" name="siglaDocente">
+                    </div>
+                  </div>
+                  <div class="modal-footer">
+                      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                      <button type="submit" class="btn btn-primary" >Criar Docente</button>
+                  </div>
+              </form>
+          </div>
+      </div>
+  </div>
+</div>
+
+<script>
+  // initializing dropdowns for docentes salas and turmas using jquery.dropdown.js
+  $('.docentesDropDown').dropdown({
+    // options here
+    multipleMode: 'label',
+    searchable: true,
+    searchNoData: '<li class="cursorHover changeCursor" data-bs-toggle="modal" data-bs-target="#newDocenteModal">Novo Docente</li>'
+  });
+  
+  $('.salasDropDown').dropdown({
+    // options here
+    multipleMode: 'label',
+    searchable: true,
+  });
+
+  $('.turmasDropDown').dropdown({
+    // options here
+    multipleMode: 'label',
+    searchable: true,
+  });
+</script>

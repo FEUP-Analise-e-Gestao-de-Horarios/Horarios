@@ -1,0 +1,58 @@
+<!-- export page, 
+displays differences between initial database and general database 
+in a natural language format
+-->
+
+{% extends '../common/base.html' %}
+{% load static %}
+{% load my_filters %}
+
+{% block page %}
+
+<style>
+    .box{
+        min-height: 84.5vh;
+    }
+
+    .main_vista_container {
+        margin-bottom: 180px;
+    }
+
+    .secondary_vista_container {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: auto;
+        z-index: 100;
+    }
+    .contentMargin{
+        margin-top: 5.5em;
+    }
+
+    .box {
+        min-height: 87.5vh;
+    }
+    .bottom-border {
+        border-bottom: 2px solid lightgray;
+    }
+</style>
+
+{% include '../common/header.html' %}
+
+{% include '../common/createPopup.html' %}
+
+<section class="h-100 contentMargin ms-3 me-3 mb-3 pb-3 box bg-dark" id="exportContent">
+    <div class="container-fluid">
+        <h1 class="bottom-border pb-3 pt-3 d-flex flex-row justify-content-center"> Projeto: {{projeto}} </h1>
+        <div class="d-flex flex-row justify-content-center">
+            <div class="mt-5">
+                {% for string in message %}
+                    <h3>{{string}}</h3>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</section>
+
+{% endblock page %}

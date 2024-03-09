@@ -1,0 +1,33 @@
+<!-- standard project card, with navigation to editturnos and a cog for options -->
+
+{% load static %}
+
+<style>
+  .img-res{
+    width:200px;
+    object-fit:contain;
+  }
+  .text-size{
+    max-width:125px;
+    word-wrap: break-word;
+  }
+</style>
+
+<div class="card m-3" id="proj_{{projeto.id}}_card">
+    {% if projeto.isParsed %}
+      <img src="https://i.imgur.com/zcwO1X5.jpg" class="img-res p-3 changeCursor myDIV cursorHover" onclick="location.href='editturnos/{{projeto.id}}'"/>
+    {% else %}
+      <img src="https://i.imgur.com/grSWs12.gif" class="img-res p-3 myDIV"/>
+    {% endif %}
+
+    <div class="card-body mt-1 ">
+
+        <div class="d-flex justify-content-between">
+          <h5 class="card-title pb-0 text-size">{{ projeto.nome }}</h5>
+
+          {% if projeto.isParsed %}
+            {% include './starterProjCog.html' %}
+          {% endif %}
+      </div>
+    </div>
+</div>

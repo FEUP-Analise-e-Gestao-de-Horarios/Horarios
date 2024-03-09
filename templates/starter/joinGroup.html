@@ -1,0 +1,129 @@
+{% extends '../common/base.html' %}
+
+{% block title %}
+  Gerir grupos
+{% endblock title %}
+
+{% block page %}
+
+  <style>
+    * {
+      margin: 0.5rem;
+    }
+    input {
+      margin: 0.4rem;
+    }
+    #select {
+      user-select: none;
+    }
+</style>
+
+<header class="p-3 bg-dark header">
+  <div class="container-fluid">
+    <div class="d-flex align-items-center justify-content-between ">
+
+      <ul class="nav mb-2 justify-content-center mb-md-0">
+        <a class="btn btn-warning me-2" href="/">Início</a>
+      </ul>
+
+      <div class="text-end">
+        <button type="button" class="btn btn-warning" data-bs-toggle="modal" onclick="window.location.href='/login/password_change';">Mudar palavra-passe</button>
+        <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#logoutPopup">Logout</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+
+<form class="flex-wrap d-flex flex-column m-3 pb-3 bg-dark" action="" method="post">
+  {% csrf_token %}
+  <h3>
+    Criar novo grupo
+  </h3>
+  
+  <input type="hidden" id="create" name="Create" value="create">
+
+  <label for="fname">Nome completo:</label>
+  <input type="text" id="name" name="name" placeholder="Mestrado em Engenharia Informática e Computação"><br>
+  {% if messages %}
+    <ul class="messages">
+        {% for message in messages %}
+        <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>
+            {% if message.level == DEFAULT_MESSAGE_LEVELS.ERROR %}Important: {% endif %}
+            {{ message }}
+        </li>
+        {% endfor %}
+    </ul>
+  {% endif %}
+
+  <div class="col">
+    <!-- Simple link -->
+    <button type="submit" class="btn btn-warning btn-block mb-4">Criar</button>
+  </div>
+</form>
+
+{% for group in groups %}
+<div class="flex-wrap d-flex flex-column m-3 pb-3 bg-dark">
+  <h3 id="select" onclick="myFunction('{{ group.0.1 }}')">
+    {{ group.0.0 }}, {{ group.0.1 }}.
+  </h3>
+  <div id="{{ group.0.1 }}" class="hidden">
+    <form action="" method="post">
+      {% csrf_token %}
+
+      <input type="hidden" id="group" name="Group" value="{{ group.0.1 }}">
+      <fieldset>
+        <legend>Convidar:</legend>
+        {% for user in group.1 %}
+        <div>
+          <input type="checkbox" id="Join" name="Join" value="{{ user }}" unchecked>
+          <label for="Join">{{ user }}</label>
+        </div>
+        {% endfor %}
+
+      </fieldset>
+
+      <fieldset>
+        <legend>Remover:</legend>
+        {% for user in group.2 %}
+        <div>
+          <input type="checkbox" id="Remove" name="Remove" value="{{ user }}" unchecked>
+          <label for="Join">{{ user }}</label>
+        </div>
+        {% endfor %}
+
+      </fieldset>
+
+    <hr>
+
+
+    <div class="col">
+        <!-- Simple link -->
+        <button type="submit" class="btn btn-warning btn-block mb-4">Guardar</button>
+      </form>
+      <form action="" method="post">
+
+        {% csrf_token %}
+
+        <input type="hidden" id="create" name="Out" value="{{ group.0.1 }}">
+        <button type="submit" class="btn btn-danger btn-block mb-4">Sair do grupo</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+
+
+<script>
+function myFunction(x) {
+  var x = document.getElementById(x);
+  if (x.style.display === "none") {
+    x.style.display = "block";
+  } else {
+    x.style.display = "none";
+  }
+}
+</script>
+
+{% endblock page %}

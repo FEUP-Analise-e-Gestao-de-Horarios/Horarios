@@ -1,0 +1,1 @@
+Aula 1CINF01 (1500 - Quarta [Turma: CINF011]) / Aula 1CINF01 (1500 - Quarta [Turma: CINF011]) : ['Docente 514881 is occupied', 'Sala B201 is occupied', 'Turma 1CINF01 is occupied', 'Uc CINF011 is occupied']
