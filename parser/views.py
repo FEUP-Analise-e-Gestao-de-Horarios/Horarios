@@ -1,3 +1,4 @@
+from collections import defaultdict
 from ctypes import sizeof
 from django.shortcuts import render, redirect
 from django.http import HttpResponse, JsonResponse
@@ -19,55 +20,97 @@ import linecache
 import traceback
 
 turnosMap = {}
-
-max_workers = 4  # Set the maximum number of parallel threads
+max_workers = 4  # Estabelece o número máximo de threads permitidas
 executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
 
-# table_to_matrix
-#
-# receives an html table element
-# and converts to a matrix
-# the matrix is composed of <td> elements
-# it repeats the elements so they occupy the same number of rows and columns
-# as their rowspans and colspans
-# makes it easier to map aula date and duration
-def table_to_matrix(table):
-    # Find all rows in the table
+# Algumas tipologias encontradas
+# 14 - O
+# 15 - OT
+# 16 - Pratica
+# 17 - PL
+# 18 - S
+# 19 - Teorica
+# 20 - TC
+# 21 - Teorico-Pratica
+
+# Não existe tipologia para além da 21, por isso consideram-se apenas tipologias entre td_tipologia_1 e td_tipologia_21
+tipologias = ['td_tipologia_' + str(id) for id in range(1, 22)]
+
+class Aula:
+    """
+    Classe auxiliar para encontrar aulas duplicadas
+    """
+
+    def __init__(self, dictionary):
+        for key,value in dictionary.items():
+            setattr(self, key, value)
+
+    def __hash__(self):
+        items = []
+        for key, value in sorted(self.__dict__.items()):
+            if isinstance(value, list):
+                value = tuple(value)
+            items.append((key, value))
+        return hash(tuple(items))
+    
+    def __eq__(self, other):
+        if isinstance(other, Aula):
+            return self.__dict__ == other.__dict__
+        return False
+
+# -----------------------------------------------------------------------
+# Funções auxiliares
+# -----------------------------------------------------------------------
+
+def table_to_matrix(table: any) -> list[list[any]]:
+    """
+    Transforma uma tabela HTML numa matriz.
+
+    Recebe um elemento table HTML composto por elementos <td> e converte-o
+    numa matriz, repetindo os elementos para que ocupem o mesmo número de
+    linhas e colunas que os seus rowspans e colspans. Facilita o processo
+    de mapear datas e durações de aulas.
+    """
+
+    # Encontra todas as linhas de uma tabela
     rows = table.find_all('tr')
     rows = rows[3:]
     
-    # Determine the number of rows and columns in the table
+    # Determina o número de linhas e colunas na tabela
     num_rows = len(rows)
     num_cols = max([len(row.find_all(['td', 'th'])) for row in rows])
     
-    # Create a matrix to store the table data
+    # Cria uma matriz para armazenar os dados
     matrix = [[None for _ in range(num_cols)] for _ in range(num_rows)]
-    # Iterate over each cell in the table
+    # Itera sobre cada célula na tabela
     for i, row in enumerate(rows):
         cells = row.find_all('td')
         j = 0
         for cell in cells:
-            # Find the rowspan and colspan of the cell
+            # Encontra o rowspan e colspan da célula
             rowspan = int(cell.get('rowspan', 1))
             colspan = int(cell.get('colspan', 1))
             
-            # Insert the data into the matrix
+            # Insere a data na matriz
             while matrix[i][j] is not None:
                 j += 1
             for k in range(rowspan):
                 for l in range(colspan):
                     matrix[i+k][j+l] = cell
             
-            # Move the column index to the next available cell
+            # Avança o índice da coluna para a próxima célula disponível
             j += colspan
     return matrix
 
-# get_index
-#
-# receives a <td> html element and the matrix
-# searchs for it in the matrix, returning the column in which it was found
-# when it is found, all of its positions are changed to null
-def get_index(item, matrix):
+def get_index(item: any, matrix: list[list[any]]) -> tuple[any, list[list[any]]]:
+    """
+    Encontra a coluna de um item numa matriz.
+
+    Recebe um elemento <td> HTML e uma matriz. Procura pelo elemento na
+    matriz, e guarda a sua coluna. A todas as posições da matriz é
+    atribuído o valor None, e é devolvido um tuplo da coluna e a nova matriz.
+    """
+
     for i, row in enumerate(matrix):
         for j, td in enumerate(row):
             if item == td:
@@ -78,51 +121,12 @@ def get_index(item, matrix):
                 for y in range(i+1, i+int(rowspan)):
                     matrix[y][j]=None
                 return j, matrix
+            
+def get_dia_from_index(index: int, spanMap: dict[str, any]) -> str:
+    """
+    Recebe um índice e um mapa de spans HTML, devolvendo o dia da semana.
+    """
 
-# getWeekDay
-#
-# receives the index day number and returns the corresponding weekday
-def getWeekDay(index):
-    match index:
-        case 1:
-            return 'Segunda'
-        case 2:
-            return 'Terça'
-        case 3:
-            return 'Quarta'
-        case 4:
-            return 'Quinta'
-        case 5:
-            return 'Sexta'
-        case 6:
-            return 'Sábado'
-        case other:
-            return None
-
-# get_code
-#
-# parses a page for the code of a docente or a uc
-def get_code(req, tipo):
-    soup = BeautifulSoup(req.content, "html.parser")
-    table = soup.find('center').find('table')
-    cabecalho = table.find('td', {'class':'cabtitulo'})
-    text = cabecalho.text
-    temp = re.findall(r'\d+', text)
-
-    match tipo:
-        case 'docente':
-            return list(map(int, temp))[0]
-        case 'uc':
-            # falta boscar a sigla
-            return list(map(int, temp))[3]
-        case other:
-            return None
-
-# get_dia_from_index
-#
-# receives the index and a spanMap
-# maps the currect index to the correct day number
-def get_dia_from_index(index, spanMap):
     if index == 1:
         return 'Segunda'
     count = 0
@@ -130,136 +134,245 @@ def get_dia_from_index(index, spanMap):
         count += int(span)
         if count >= index:
             return dia
+        
+# -----------------------------------------------------------------------
+# Funções de interação com a base de dados
+# -----------------------------------------------------------------------
 
-#parse_horarios_vermelhos
-#
-# receives the page request 
-# and returns a list with the relevant attributes
-def parse_horario_vermelhos(req):
-    lista = []
+def pre_inserir_blocos_vermelhos() -> None:
+    """
+    Preenche a tabela dos blocos vermelhos no arranque do parse.
+
+    A tabela de blocos vermelhos, usada para consulta na base de dados, 
+    é preenchida com todos os possíveis blocos de indisponibilidade que
+    podem ser encontrados nos restantes horários.
+    """
+
+    # Verificar se a tabela já está preenchida
+    stmt_count = '''SELECT COUNT(*) FROM blocosVermelhos'''
+    cursor.execute(stmt_count)
+    count = cursor.fetchone()[0]
+    
+    # Se a tabela estiver vazia, então preenche
+    if count == 0:
+        for dia in ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta','Sábado']:
+            for hora in range(800, 2201, 100):  # Horários de 8h às 22h em intervalos de 100 minutos
+                for minuto in [0, 30]:  # Minutos 0 e 30
+                    horario = hora + minuto
+                    stmt = '''INSERT INTO blocosVermelhos (hora, diaSemana) VALUES (?, ?)'''
+                    cursor.execute(stmt, (horario, dia))
+                    conn.commit()
+
+def insert_cursos(cursos: list[tuple[str, str]], cursor: sqlite3.Cursor) -> None:
+    """
+    Recebe a lista dos cursos e insere-os na base de dados.
+    """
+    
+    for (nome, abreviatura) in cursos:
+        stmt = '''INSERT INTO curso(designacao, abreviacao) VALUES(?, ?)'''
+        cursor.execute(stmt, (nome, abreviatura))
+    return
+
+def insert_ucs(ucs: dict[str, list[str, str, str]], id_curso: str, cursor: sqlite3.Cursor) -> None:
+    """
+    Recebe a lista das UCs e insere-as na base de dados
+    """
+    
+    for sigla, (codigo, nome, numero) in ucs.items():
+        stmt = '''INSERT OR IGNORE INTO uc (codigo, idCurso, nome, sigla, codOcorrencia) VALUES (?, ?, ?, ?, ?)'''
+        cursor.execute(stmt, (codigo, id_curso, nome, sigla, numero))
+    return
+
+def insert_turma(id_curso: str, ano: str, codigo_turma: str, cursor: sqlite3.Cursor) -> None:
+    """
+    Recebe dados sobre uma turma e insere a informação na base de dados.
+    """
+    
+    stmt = '''INSERT INTO turmas (idCurso, ano, codigo) VALUES (?, ?, ?)'''
+    cursor.execute(stmt, (id_curso, ano, codigo_turma))
+    return
+
+def insert_aula(aula: Aula, cursor: sqlite3.Cursor) -> None:
+    """
+    Recebe um objeto Aula, extrai os seus dados e insere-os na base de dados.
+    """
+    
+    isTeorica = aula.isTeorica
+    duracao = aula.span
+    salas = aula.salas
+    turmas = aula.turmas
+    docentes = aula.docentes
+    hora = aula.hora
+    dia = aula.dia
+    semanaIni = aula.semanaIni
+    semanaFin = aula.semanaFim
+    codigo_uc = aula.cod_uc
+
+    stmtC = '''INSERT OR IGNORE INTO aula (horaInicial, duracao, diaSemana, teorico, semanaInicial, semanaFinal) VALUES (?, ?, ?, ?, ?, ?)'''
+    cursor.execute(stmtC, (hora, duracao, dia, isTeorica, semanaIni, semanaFin,))
+    id_aula = cursor.lastrowid
+
+    stmtAUC = '''INSERT OR IGNORE INTO aulaUC (idAula, idUC) VALUES (?, ?)'''
+    cursor.execute(stmtAUC, (id_aula, codigo_uc,))
+    
+    for docente in docentes:
+        stmtADC = '''INSERT OR IGNORE INTO aulaDocente (idAula, idDocente) VALUES (?, ?)'''
+        cursor.execute(stmtADC, (id_aula, docente,))
+
+    for turma in turmas: 
+        stmtAT = '''INSERT OR IGNORE INTO aulaTurmas (idAula, idTurma) VALUES (?, ?)'''
+        cursor.execute(stmtAT, (id_aula, turma,))
+
+        stmtTUC = '''INSERT OR IGNORE INTO turmaUC (idTurma, idUC) VALUES (?, ?)'''
+        cursor.execute(stmtTUC, (turma, codigo_uc,))
+        
+    for sala in salas.split(';'): 
+        stmtAS = '''INSERT OR IGNORE INTO aulaSala (idAula, idSala) VALUES (?, ?)'''
+        cursor.execute(stmtAS, (id_aula, sala,))
+    return
+
+# -----------------------------------------------------------------------
+# Funções de parse
+# -----------------------------------------------------------------------
+        
+def parse_horario_vermelhos(req: any, cursor: sqlite3.Cursor) -> list[int]: 
+    """
+    Recebe uma página e devole uma lista dos IDs de blocos vermelhos presentes.
+
+    Realiza o parse dos blocos vermelhos num horário. O horário pode ser de
+    turma, docente, sala ou UC. Devolve uma lista que contém os IDs de todos
+    os blocos vermelhos encontrados, de acordo com a tabela de blocos vermelhos
+    na base de dados.
+    """
+
     soup = BeautifulSoup(req.content, "html.parser")
+
+    # Obtém todos os elementos de bloco vermelho no horário
     vermelhos = soup.find_all('td', {'class':'td_vermelha'})
-    table = soup.find('center').find('table', {'class':'tabela_principal'})
     
-    matrix = table_to_matrix(table)
-
+    # Se não existirem blocos vermelhos, devolve a lista vazia
     if len(vermelhos) == 0:
-        return lista
-
-    dias = vermelhos[0].parent.parent.findChildren(recursive=False)[3]
-    diaSpans = {}
+        return []
     
-    for i, dia in enumerate(dias.findChildren()):
-        if i == 0: continue
-        diaSpans[dia.text] = dia.get('colspan')
-
-    for item in vermelhos:
-        pai = item.parent
-        hora = int(pai.findChild().text.replace(':', ''))
-        index, matrix = get_index(item, matrix)
-        dia = get_dia_from_index(index, diaSpans)
-        lista.append((dia, hora))
-
-    return lista
-
-#some of the tipologias found:
-# 21 - Teroico-Pratica
-# 19 - Teorica
-# 16 - Pratica
-# 14 - O
-# 18 - S
-# 17 - PL
-# 20 - TC
-# 15 - OT
-
-#no typology over 21 found, so consider anything from td_tipologia_1 to td_tipologia_21
-tipologias = ['td_tipologia_' + str(id) for id in range(1, 22)]
-
-#parse_horario
-#
-# receives the page request and the UC code
-# parses the schedule and returns a list with the relevant attributes
-def parse_horario(req, cod_uc):
-    turnos = []
-    lista = []
-    soup = BeautifulSoup(req.content, "html.parser")
-    aulas = soup.find('center').find_all('td', {'class':tipologias})
-    semanas = soup.find('td', {'class' : 'cabtitulo'}).contents
-    semanas = str(semanas[-1])
-    semanaIniEFin = semanas.split("Semanas: ")[1]
-    if (" - " in semanaIniEFin):
-        semanaIni = semanaIniEFin.split(" - ")[0]
-        semanaFin = semanaIniEFin.split(" - ")[1]
-    else:
-        semanaIni = semanaIniEFin.split(" - ")[0]
-        semanaFin = semanaIni
-
-
+    redBlockList = []
     table = soup.find('center').find('table', {'class':'tabela_principal'})
     matrix = table_to_matrix(table)
 
+    days = vermelhos[0].parent.parent.findChildren(recursive=False)[3]
+    daySpans = {}
     
-    dias = aulas[0].parent.parent.findChildren(recursive=False)[3]
+    for i, day in enumerate(days.findChildren()):
+        if i == 0: continue
+        daySpans[day.text] = day.get('colspan')
+
+    # Para cada elemento de bloco vermelho
+    for item in vermelhos:
+        parent = item.parent
+        index, matrix = get_index(item, matrix)
+
+        # Obtém o dia e a hora
+        time = int(parent.findChild().text.replace(':', ''))
+        day = get_dia_from_index(index, daySpans)
+
+        # Procura na BD o ID do bloco deste dia e hora
+        stmt = '''SELECT id FROM blocosVermelhos WHERE hora=? AND diaSemana=?'''
+        result = cursor.execute(stmt, (time, day)).fetchone()
+
+        # Adiciona o ID do bloco à lista de blocos vermelhos
+        redBlockList.append(result[0])
+           
+    return redBlockList
+
+def parse_horario(req: requests.Response, curso_or_uc: str, parsingTurma: bool, lista_de_aulas: set[Aula]) -> None:
+    """
+    Realiza o parse do horário completo de uma página.
+
+    Recebe uma página e realiza o parse do horário. A página pode ser de UC
+    ou de turma (indicado pelo booleano parsingTurma). Todas as aulas
+    encontradas são transformadas em objetos Aula e colocados num set, para
+    garantir que não há ocorrências duplicadas.
+    """
+
+    soup = BeautifulSoup(req.content, "html.parser")
+    
+    # Obtenção de todos os blocos de aulas no horário
+    aulaBlocks = soup.find('center').find_all('td', {'class':tipologias})
+
+    # Parse de semana de início e fim deste horário
+    semanas = soup.find('td', {'class':'cabtitulo'}).contents
+    semanas = str(semanas[-1])
+    semanaIniEFim = semanas.split("Semanas: ")[1]
+    semanaIni, _, semanaFim = semanaIniEFim.partition(" - ")
+    if not semanaFim:
+        semanaFim = semanaIni
+
+    si_obj = datetime.strptime(semanaIni, "%d/%m/%Y")
+    sf_obj = datetime.strptime(semanaFim, "%d/%m/%Y")
+
+    semanaIni = si_obj.strftime("%Y-%m-%d")
+    semanaFim = sf_obj.strftime("%Y-%m-%d")
+
+    # Parse de todas as UCs do horário (uma turma)
+    if parsingTurma:
+        ucs = parse_ucs(req)
+
+        insert_ucs(ucs, curso_or_uc, cursor)
+        conn.commit()
+
+    # Parse e construção de uma tabela de docentes da turma
+    docentes_table = soup.findAll('table')[3].findAll('tr')[2:]
+    docentes_table = list(map(str, docentes_table))
+    
+    docentes_temp = defaultdict(list)
+
+    for item in docentes_table:
+        parts = item.split('<td align="left" valign="middle">')
+        abrevs = parts[2].split('</td>')[0]
+        codes = parts[3].split('</td>')[0]
+        docentes_temp[abrevs].append(codes)
+
+    # Parse das colunas dos dias de aulas
+    dias = aulaBlocks[0].parent.parent.findChildren(recursive=False)[3]
     diaSpans = {}
-    
     for i, dia in enumerate(dias.findChildren()):
         if i == 0: continue
         diaSpans[dia.text] = dia.get('colspan')
 
-    for aula in aulas: 
+    # Criação de matriz a partir do horário
+    table = soup.find('center').find('table', {'class': 'tabela_principal'})
+    matrix = table_to_matrix(table)
+
+    # Parse da informação nos blocos de aulas
+    for aulaBlock in aulaBlocks:
         count = 0
-        att = {}
-        if aula.get('class')[0] == 'td_tipologia_19':
-            att['isTeorica'] = True
-        else:
-            att['isTeorica'] = False
-
-        att['span'] = aula.get('rowspan')
+        aula = {}
+        aula['isTeorica'] = aulaBlock.get('class')[0] == 'td_tipologia_19'
+        aula['span'] = aulaBlock.get('rowspan')
         pattern = r'\[(.*?)\]'
-        matches = re.findall(pattern, aula.text)
-        #print(f"Cod_UC: {cod_uc} + Matches Length: {len(matches)} + Matches: {matches}")
-        if (len(matches) > 2): 
-            att['salas'] = matches[2]
-        else: 
-            att['salas'] = "Online"
-        att['turmas'] = matches[0].split('; ')
+        matches = re.findall(pattern, aulaBlock.text)
+        aula['salas'] = matches[2] if len(matches) > 2 else "Online"
+        aula['turmas'] = matches[0].split('; ')
 
-        tempdocentes = matches[1].replace('(', '').replace(')', '').split('; ')
-        att['semanaIni'] = semanaIni
-        att['semanaFin'] = semanaFin
-        #print(f"Cod_UC: {cod_uc} + Lista {lista}")
-        docentes_dict = soup.findAll('table')[3].findAll('tr')[2:]
-        for i in range(len(docentes_dict)):
-            docentes_dict[i] = str(docentes_dict[i])
-        result = {}
+        docentes_aulaBlock = matches[1].replace('(', '').replace(')', '').split('; ')
 
-        # Loop through each element in the list
-        for item in docentes_dict:
-            # Extract the text between the <td> tags
-            abrevs = item.split('<td align="left" valign="middle">')[2]
-            abrevs = abrevs.split('</td>')[0]
-            codes = item.split('<td align="left" valign="middle">')[3]
-            codes = codes.split('</td>')[0]
+        aula['semanaIni'] = semanaIni
+        aula['semanaFim'] = semanaFim
 
-            if abrevs not in result:
-                result[abrevs] = [codes]
+        lista_docentes = []
+        for i in docentes_aulaBlock:
+            if (len(docentes_temp[i]) == 1):
+                lista_docentes.append(docentes_temp[i][0])
             else:
-                result[abrevs].append(codes)
-            # If there are three elements, assume it's the name, code, and value
-        listadedocentes = []
-        for i in tempdocentes:
-            #print(f"Docente: {i} and Result: {result[i]} and Len: {len(result[i])}")
-            if (len(result[i])==1):
-                listadedocentes.append(result[i][0])
-            else:
-                listadedocentes.append(result[i][count])
+                lista_docentes.append(docentes_temp[i][count])
                 count += 1
 
+        aula['docentes'] = lista_docentes
 
-        att['docentes'] = listadedocentes
-        
-        if (att['isTeorica']):
-            turnos = att['turmas']
+        # Adição de turnos da UC ao mapa de turnos global
+        sigla = aulaBlock.contents[0]
+        cod_uc = curso_or_uc if not parsingTurma else ucs[sigla][0]
+        if (aula['isTeorica']):
+            turnos = aula['turmas']
             if cod_uc in turnosMap: #se já existe esta UC
                 if turnos not in turnosMap[cod_uc].values(): # se não existe este turno
                    numeroTurno = max(turnosMap[cod_uc].keys())
@@ -275,36 +388,38 @@ def parse_horario(req, cod_uc):
             else:
                 turnosMap[cod_uc] = {1: turnos}
 
-        pai = aula.parent
-        att['hora'] = int(pai.findChild().text.replace(':', ''))
-        index, matrix = get_index(aula, matrix)
-        att['dia'] = get_dia_from_index(index, diaSpans)
-        lista.append(att)    
-    return lista
+        # Parse de dia e hora da aulaBlock
+        pai = aulaBlock.parent
+        aula['hora'] = int(pai.findChild().text.replace(':', ''))
+        index, matrix = get_index(aulaBlock, matrix)
 
+        aula['dia'] = get_dia_from_index(index, diaSpans)
+        aula['cod_uc'] = cod_uc
+        
+        # Inserir aulaBlock no set
+        aula_obj = Aula(aula)
+        lista_de_aulas.add(aula_obj)
 
-# parse_docentes
-#
-# parses all docentes in the sidebar
-# parses their schedule page for the relevant attributes
-# and the list of red block attributes
-def parse_docentes(docentes):
+    return
+
+def parse_docentes(docentes: requests.Response) -> None:
+    """
+    Realiza o parse de todo o menu de docentes.
+
+    Realiza o parse do menu de docentes, visitando cada uma das páginas
+    individuais. Obtém os dados relevantes de cada docente, incluindo
+    os seus blocos vermelhos.
+    """
+
     children = docentes.find('ul').findChildren(recursive=False)
     for child in children:
         content = child.find('ul').find_all('li', recursive=False)
         k = 0
         for i in content:
-            a = i.find('a', recursive=False)
-            semanas = str(a.contents).split("'")[1]
-            semana = semanas.split(" - ")
-            semanaInicio = semana[0].split(" ").pop()
-            if len(semana) != 1:
-                semanaFim = semana.pop()
-            else:
-                semanaFim = semanaInicio
+            a = i.find('a', recursive=False)            
             link = a['href']
             req = requests.get(paginas+link)
-            vermelho = parse_horario_vermelhos(req)
+
             #Se ainda não tiver recolhido o nome, sigla e codigo
             if (k == 0):
                 web_s = req.content
@@ -333,284 +448,141 @@ def parse_docentes(docentes):
                     nome = sigla
                 nome = re.sub(r'[^\w\s]', '', nome)
                 k = 1
-            for (day, hour) in vermelho:
-                stmtB = '''INSERT INTO blocosVermelhos (hora, diaSemana) VALUES (?, ?)'''
-                cursor.execute(stmtB, (hour, day,))
+
+            vermelhos = parse_horario_vermelhos(req, cursor)
+            for idBlocoVermelho in vermelhos:
+                stmtT = '''INSERT OR IGNORE INTO blocoDocente (idBloco, idDocente) VALUES (?, ?)'''
+                cursor.execute(stmtT, (idBlocoVermelho, codigo))
                 conn.commit()
 
-                
-                
-                    
-                stmtCounter = '''SELECT COUNT(*) FROM blocosVermelhos'''
-                counter = cursor.execute(stmtCounter).fetchone()[0]
-
-                stmtT = '''INSERT INTO blocoDocente (idBloco, idDocente) VALUES (?, ?)'''
-                cursor.execute(stmtT, (counter, codigo))
-                conn.commit()
-
-                
-                
         stmt = '''INSERT INTO docentes (numeroMecanografico, nome, abreviacao) VALUES (?, ?, ?)'''
         cursor.execute(stmt, (codigo, nome, sigla,))
         conn.commit()
 
     return
 
-def parse_cursos(cursos):
+def parse_cursos(cursos: requests.Response) -> set[tuple[str, str]]:
+    """
+    Realiza o parse do menu de cursos.
+
+    Realiza o parse do menu de cursos, obtendo a informação relevante. 
+    Os tuplos (nome, abreviatura) são colocados num set para garantir que
+    não há duplicados. Devolve o set de tuplos.
+    """
+
     allCursos = set()
+
     for curso in cursos:
         info = curso.find('a').contents
         abreviatura = info[0].split(' - ')[0]
         nome = info[0].split(' - ', 1)[1]
         allCursos.add((nome, abreviatura))
+
     return allCursos
 
-# parse_turmas
-#
-# parses all turmas in the sidebar
-# parses their schedule page for the relevant attributes
-# and the list of red block attributes
-def parse_turmas(turmas):
-    children = turmas.find('ul').findChildren(recursive = False)
-    allCursos = parse_cursos(children)
-    for child in children: 
+def parse_turmas(menu_turmas: any) -> None:
+    """
+    Realiza o parse do menu de turmas.
+
+    Realiza o parse de todas as turmas, visitando cada horário individual.
+    Obtém todas as aulas de cada horário, inserindo a informação relevante
+    na base de dados.
+    """
+
+    children = menu_turmas.find('ul').findChildren(recursive=False)
+    
+    # Parse de cursos a partir do menu lateral
+    cursos = parse_cursos(children)
+    # Inserir cursos na DB
+    insert_cursos(cursos, cursor)
+    
+    for child in children:
         idCurso = child.find('a').contents
-        idCursoStr = idCurso[0].split(' - ')[0]
-        anos = child.find('ul').findChildren(recursive = False)
+        idCurso = idCurso[0].split(" - ")[0]
+        anos = child.find('ul').findChildren(recursive=False)
+
         for ano in anos:
             numeroAno = ano.find('a').contents
             numeroStr = numeroAno[0]
-            numeroDois = numeroStr.split(" ")[1]
+            numeroStr = numeroStr.split(" ")[1]
             plano_turmas = ano.find('ul').find('li')
-            turmas = plano_turmas.find('ul')
-            for turma in turmas.findChildren(recursive = False):
-                str_nome = turma.find('a').contents
-                nome = str(str_nome).split("'")[1]
-                stmt = '''INSERT INTO turmas (idCurso, ano, codigo) VALUES (?, ?, ?)'''
-                cursor.execute(stmt, (idCursoStr, numeroDois, nome))
-                conn.commit()
+            turmas = plano_turmas.find('ul').findChildren(recursive=False)
 
+            lista_de_aulas = set()
+
+            for turma in turmas:
+                nome = turma.find('a').contents
+                nome = str(nome).split("'")[1]
                 semanasLi = turma.find('ul').find_all('li')
-                for thisSemana in semanasLi:
-                    a = thisSemana.find('a', recursive=False)
-                    semanas = str(a.contents).split("'")[1]
-                    semana = semanas.split(" - ")
-                    semanaInicio = semana[0].split(" ").pop()
-                    if len(semana) != 1:
-                        semanaFim = semana.pop()
-                    else:
-                        semanaFim = semanaInicio
-                    link = a['href']
-                    req = requests.get(paginas+link)
-                    vermelho = parse_horario_vermelhos(req)
-                    for (day, hour) in vermelho:
-                        stmtB = '''INSERT INTO blocosVermelhos (hora, diaSemana) VALUES (?, ?)'''
-                        cursor.execute(stmtB, (hour, day,))
-                        conn.commit()
-                        
-                        stmtCounter = '''SELECT COUNT(*) FROM blocosVermelhos'''
-                        counter = cursor.execute(stmtCounter).fetchone()[0]
 
-                        stmtT = '''INSERT INTO blocoTurma (idBloco, idTurma) VALUES (?, ?)'''
-                        cursor.execute(stmtT, (counter, nome))
-                        conn.commit()
-
-                        
-                        
-
-    for (nomeC, abrev) in allCursos:
-        stmtCurs = '''INSERT INTO curso(designacao, abreviacao) VALUES(?,?)'''
-        cursor.execute(stmtCurs, (nomeC, abrev,))
-        conn.commit()
-    return
-
-def parse_uc_link(req):
-    web_s = req.content
-    soup_links = BeautifulSoup(web_s, "html.parser")
-    header = soup_links.find('body').find('center').find('table').find('tr')
-    info = header.find('td').find('table').find('tr').find('td', {'class': 'cabtitulo'}).contents
-    newInfo = [item for item in info if not str(item).startswith("<br/>")]
-    curso = newInfo[0].split(" - ")[0]
-    sigla = newInfo[1].split("Sigla: ")[1]
-    
-    codigo = newInfo[2].split("Código: ")[1]
-    return (sigla, codigo, curso)
-
-
-# parse_ucs
-#
-# parses all ucs in the sidebar
-# parses their schedule page for the relevant attributes
-# the list of aulas attributes
-# and the list of red block attributes
-# 
-# when parsing the schedule, it makes sure that the L.EIC and M.EIC courses are parsed
-# otherwise the parse fails
-# any other course may fail and the parse continues
-def parse_ucs(ucs):
-    children = ucs.find('ul').findChildren(recursive = False)
-    count = 0
-    for child in children:
-        count += 1  
-        li = child.find('ul').find('li')
-        content = child.find('a').contents
-        ucs = str(content).split("'")[1]
-        if (' - ' in ucs):
-            cod_uc = ucs.split(' - ', 1)[0]
-            name_uc = ucs.split(' - ', 1)[1]
-        else:
-            cod_uc = ucs.split('- ', 1)[0]
-            name_uc = ucs.split('- ', 1)[1]
-        semana_content = li.find('a').contents
-        semana_link = li.find('a')['href']
-
-        req = requests.get(paginas+semana_link)
-        (sigla, codigo, curso) = parse_uc_link(req)
-        for i, char in enumerate(curso):
-            if char.isdigit():
-                curso = curso[:i]
-        
-        stmt = '''INSERT INTO uc (codigo, idCurso, nome, sigla, codOcorrencia) VALUES (?, ?, ?, ?, ?)'''
-        cursor.execute(stmt, (cod_uc, curso, name_uc, sigla, codigo,))
-        conn.commit()
-
-        #Semanas das UCs
-        lis = child.find('ul').find_all('li')
-        for i, li in enumerate(lis):
-            semana_content = li.find('a').contents
-            semana_link = li.find('a')['href']
-            semana = str(semana_content).split("'")[1]
-            dates = semana.split(" ", 1)[1]
-            semanas = str(dates).split(" - ")
-            str_semanainicial = semanas[0]
-            str_semanafinal = semanas[-1]
-            date_format = '%d/%m/%Y'
-            date_obj_fst = datetime.strptime(str_semanainicial, date_format).date()
-            sqlite_date_ini = date_obj_fst.strftime('%d/%m/%Y')
-            date_obj_snd = datetime.strptime(str_semanafinal, date_format).date()
-            sqlite_date_fin = date_obj_snd.strftime('%d/%m/%Y')
-
-            req = requests.get(paginas+semana_link)
-            (sigla, codigo, uc_nome) = parse_uc_link(req)
-
-            vermelhos = parse_horario_vermelhos(req)
-            for (day, hour) in vermelhos:
-                stmtB = '''INSERT INTO blocosVermelhos (hora, diaSemana) VALUES (?, ?)'''
-                cursor.execute(stmtB, (hour, day,))
+                # Inserir turma na BD
+                insert_turma(idCurso, numeroStr, nome, cursor)
+                idTurma = cursor.lastrowid
                 conn.commit()
+
+                parsed_vermelhos = False
+
+                for semana in semanasLi:
+                    a = semana.find('a', recursive=False)
                 
-            if (curso != "M.EIC" and curso != "L.EIC"):
-                try:
-                    horario = parse_horario(req, cod_uc)
-                    for aula in horario:
-                        isTeorica = aula['isTeorica']
-                        duracao = aula['span']
-                        salas = aula['salas']
-                        turmas = aula['turmas']
-                        docentes = aula['docentes']
-                        hora = aula['hora']
-                        dia = aula['dia']
-                        semanaIni = aula['semanaIni']
-                        semanaFin = aula['semanaFin']
+                    # Link para horário da semana
+                    link = a['href']
+                    req = requests.get(paginas + link)
 
+                    parse_horario(req, idCurso, True, lista_de_aulas)
 
-                        stmtC = '''INSERT INTO aula (horaInicial, duracao, diaSemana, teorico, semanaInicial, semanaFinal) VALUES (?, ?, ?, ?, ?, ?)'''
-                        cursor.execute(stmtC, (hora, duracao, dia, isTeorica, semanaIni, semanaFin,))
-                        conn.commit()
-
-                        stmtCounter = '''SELECT COUNT(*) FROM aula'''
-                        counter = cursor.execute(stmtCounter).fetchone()[0]
-
-                        stmtAUC = '''INSERT INTO aulaUC (idAula, idUC) VALUES (?, ?)'''
-                        cursor.execute(stmtAUC, (counter, cod_uc,))
-                        conn.commit()
-
-                        for docente in docentes:
-                            stmtADC = '''INSERT INTO aulaDocente (idAula, idDocente) VALUES (?, ?)'''
-                            cursor.execute(stmtADC, (counter, docente,))
+                    # Os blocos vermelhos de uma turma só precisam de ser 
+                    # parsed uma vez, já que não mudam entre semanas
+                    if not parsed_vermelhos:
+                        vermelhos = parse_horario_vermelhos(req, cursor)
+                        for idBlocoVermelho in vermelhos:
+                            stmt = '''INSERT OR IGNORE INTO blocoTurma (idBloco, idTurma) VALUES (?, ?)'''
+                            cursor.execute(stmt, (idBlocoVermelho, idTurma))
                             conn.commit()
+                        parsed_vermelhos = True
 
-                        for turma in turmas: 
-                            stmtAT = '''INSERT INTO aulaTurmas (idAula, idTurma) VALUES (?, ?)'''
-                            cursor.execute(stmtAT, (counter, turma,))
-                            conn.commit()
+            for aula in lista_de_aulas:
+                insert_aula(aula, cursor)
 
-                            stmtChecker = '''SELECT * FROM turmaUC WHERE idTurma=? AND idUC=?'''
-                            cursor.execute(stmtChecker, (turma, cod_uc,))
-                            result=cursor.fetchall()
-                            if (len(result) == 0):
-                                stmtTUC = '''INSERT INTO turmaUC (idTurma, idUC) VALUES (?, ?)'''
-                                cursor.execute(stmtTUC, (turma, cod_uc,))
-                                conn.commit()
-                            
-                        for sala in salas.split(';'): 
-                            stmtAS = '''INSERT INTO aulaSala (idAula, idSala) VALUES (?, ?)'''
-                            cursor.execute(stmtAS, (counter, sala,))
-                            conn.commit()
-                except:
-                    print(traceback.format_exc())
-                    continue
-            else:
-                horario = parse_horario(req, cod_uc)
-                for aula in horario:
-                    isTeorica = aula['isTeorica']
-                    duracao = aula['span']
-                    salas = aula['salas']
-                    turmas = aula['turmas']
-                    docentes = aula['docentes']
-                    hora = aula['hora']
-                    dia = aula['dia']
-                    semanaIni = aula['semanaIni']
-                    semanaFin = aula['semanaFin']
+    conn.commit()
 
-                    stmtC = '''INSERT INTO aula (horaInicial, duracao, diaSemana, teorico, semanaInicial, semanaFinal) VALUES (?, ?, ?, ?, ?, ?)'''
-                    cursor.execute(stmtC, (hora, duracao, dia, isTeorica, semanaIni, semanaFin,))
-                    conn.commit()
+def parse_ucs(req: requests.Response) -> dict[str, list[str, str, str]]:
+    """
+    Realiza o parse de UCs na página de cada turma.
 
-                    stmtCounter = '''SELECT COUNT(*) FROM aula'''
-                    counter = cursor.execute(stmtCounter).fetchone()[0]
+    Recebe uma página de horário de uma turma e realiza o parse de todas
+    as UCs presentes. Devolve um dicionário com entradas indexadas pela
+    sigla da UC.
+    """
 
-                    stmtAUC = '''INSERT INTO aulaUC (idAula, idUC) VALUES (?, ?)'''
-                    cursor.execute(stmtAUC, (counter, cod_uc,))
-                    conn.commit()
-                    
-                    for docente in docentes:
-                        stmtADC = '''INSERT INTO aulaDocente (idAula, idDocente) VALUES (?, ?)'''
-                        cursor.execute(stmtADC, (counter, docente,))
-                        conn.commit()
+    soup = BeautifulSoup(req.content, "html.parser")
 
-                    for turma in turmas: 
-                        stmtAT = '''INSERT INTO aulaTurmas (idAula, idTurma) VALUES (?, ?)'''
-                        cursor.execute(stmtAT, (counter, turma,))
-                        conn.commit()
+    table = [str(row) for row in soup.findAll('table')[4].findAll('tr')[2:]]
+    
+    ucs = {}
+    for row in table:
+        row_items = row.split('<td align="left" valign="middle">')[1:]
+        (codigo_nome, sigla, numero_uc) = map(lambda item: item.split('</td>')[0], row_items)
+        (codigo, nome) = codigo_nome.split(" - ", 1)
 
-                        stmtChecker = '''SELECT * FROM turmaUC WHERE idTurma=? AND idUC=?'''
-                        cursor.execute(stmtChecker, (turma, cod_uc,))
-                        result=cursor.fetchall()
-                        if (len(result) == 0):
-                            stmtTUC = '''INSERT INTO turmaUC (idTurma, idUC) VALUES (?, ?)'''
-                            cursor.execute(stmtTUC, (turma, cod_uc,))
-                            conn.commit()
-                        
-                    for sala in salas.split(';'): 
-                        stmtAS = '''INSERT INTO aulaSala (idAula, idSala) VALUES (?, ?)'''
-                        cursor.execute(stmtAS, (counter, sala,))
-                        conn.commit()
-    return
+        ucs[sigla] = [codigo, nome, numero_uc]
+    return ucs
 
-# parse_salas
-#
-# parses all salas in the sidebar
-# parses their schedule page for the relevant attributes
-# and the list of red block attributes
-def parse_salas(salas):
+def parse_salas(salas: any) -> None:
+    """
+    Realiza o parse das salas a partir do menu lateral.
+
+    Recebe o elemento do menu correspondente às salas e realiza o parse de
+    cada uma, guardando os elementos relevantes, incluindo os blocos
+    vermelhos. 
+    """
+
     children = salas.find('ul').findChildren(recursive=False)
     for child in children:
         a_list = child.find_all('a', {'class':"timetable-link"})
         content = child.find('a').contents
         if ("__cf_email__" in str(content)):
             content = ['EaD']
-        #print(f"Child: {child} \n Content: {str(content)}")
         sala = str(content).split("'")[1]
         with open("parser/Salas.txt", "r") as file:
             alreadyInserted = False
@@ -644,35 +616,24 @@ def parse_salas(salas):
                 cursor.execute(stmt, (sala, "Desconhecido", "Desconhecido", "Desconhecido",))
                 conn.commit()     
 
-                
-                
-        for a in a_list:
-            semanas = str(a.contents).split("'")[1]
-            semana = semanas.split(" - ")
-            semanaInicio = semana[0].split(" ").pop()
-            if len(semana) != 1:
-                semanaFim = semana.pop()
-            else:
-                semanaFim = semanaInicio
-            
+        for a in a_list:            
             link = a.get('href')
             req = requests.get(paginas+link)
-            vermelhos = parse_horario_vermelhos(req)
-            for (day, hour) in vermelhos:
-                stmtB = '''INSERT INTO blocosVermelhos (hora, diaSemana) VALUES (?, ?)'''
-                cursor.execute(stmtB, (hour, day,))
-                conn.commit()
-                
-                stmtCounter = '''SELECT COUNT(*) FROM blocosVermelhos'''
-                counter = cursor.execute(stmtCounter).fetchone()[0]
-
-                stmtT = '''INSERT INTO salaBloco (idBloco, idSala) VALUES (?, ?)'''
-                cursor.execute(stmtT, (counter, sala))
+            vermelhos = parse_horario_vermelhos(req, cursor)
+            for idBlocoVermelho in vermelhos:
+                stmtT = '''INSERT OR IGNORE INTO salaBloco (idBloco, idSala) VALUES (?, ?)'''
+                cursor.execute(stmtT, (idBlocoVermelho, sala))
                 conn.commit()   
     return
 
+def parse_turnos() -> None:
+    """
+    Insere os turnos encontrados na base de dados.
 
-def parse_turnos():
+    Usa a informação na estrutua global turnosMap para preencher a tabela
+    correspondente aos turnos na base de dados.
+    """
+
     for uc in turnosMap:
         for number in turnosMap[uc]:
             for turno in turnosMap[uc][number]:
@@ -693,11 +654,15 @@ def parse_turnos():
                     if (len(result)==0):
                         stmtT = '''INSERT INTO turno (numero, idTurma, idUC) VALUES (?, ?, ?)'''
                         cursor.execute(stmtT, (number, turno, uc))
-                        conn.commit()   
+                        conn.commit()
 
+def fix_turmas_without_turnos() -> None:
+    """
+    Atribui um turno às turmas que não têm um turno associado na base de dados.
 
-def fix_turmas_without_turnos():
-    # Get the list of turmas from turmaUC that are not present in turnos
+    """
+
+    # Obtém a lista de turmas em turmaUC que não existem na tabela turnos
     query = '''
         SELECT tu.idTurma, tu.idUC
         FROM turmaUC tu
@@ -707,27 +672,83 @@ def fix_turmas_without_turnos():
     cursor.execute(query)
     missing_turmas = cursor.fetchall()
 
-    # Create entries in turnos for each missing turma
+    # Cria entradas em turnos para cada turma em falta
     for turma in missing_turmas:
         idTurma, idUC = turma
         query = '''
             INSERT INTO turno (numero, idTurma, idUC)
             VALUES (0, ?, ?)
         '''
-        cursor.execute(query, (idTurma, idUC))
-        
-    # Commit the changes and close the connection
+        cursor.execute(query, (idTurma, idUC))        
     conn.commit()
-    conn.close()
-    
 
-# parse
-#
-# Post Ajax request handler function
-#
-# starts a new project parse
-# starts a new thread from a pool, if available
-def parse(request):    
+def aulas_simultaneas():
+    """
+    Encontra aulas simultâneas no horário e insere a informação na base de dados.
+
+    Realiza uma query à base de dados para encontrar aulas simultâneas de 
+    cursos diferentes. Aulas simultâneas têm os mesmos: docente, sala, dia, e
+    hora. Há também uma sobreposição nas semanas em que ocorrem. No entanto,
+    o curso e a UC têm de ser diferentes. Depois de encontradas as aulas, são
+    inseridas numa tabela apropriada na base de dados.
+    """
+
+    query = '''
+        SELECT DISTINCT
+            CASE WHEN a1.id < a2.id THEN a1.id ELSE a2.id END AS id_aula1,
+            CASE WHEN a1.id < a2.id THEN a2.id ELSE a1.id END AS id_aula2,
+            uc1.idCurso AS id_curso1,
+            uc2.idCurso AS id_curso2
+        FROM aula AS a1
+        JOIN aulaSala AS asala1 ON a1.id = asala1.idAula
+        JOIN aulaDocente AS ad1 ON a1.id = ad1.idAula
+        JOIN aulaUC AS auc1 ON a1.id = auc1.idAula
+        JOIN uc AS uc1 ON auc1.idUC = uc1.codigo
+        JOIN aula AS a2
+        JOIN aulaSala AS asala2 ON a2.id = asala2.idAula
+        JOIN aulaDocente AS ad2 ON a2.id = ad2.idAula
+        JOIN aulaUC AS auc2 ON a2.id = auc2.idAula
+        JOIN uc AS uc2 ON auc2.idUC = uc2.codigo
+        WHERE a2.id > a1.id
+            AND ad1.idDocente = ad2.idDocente
+            AND asala1.idSala = asala2.idSala
+            AND a1.diaSemana = a2.diaSemana
+            AND a1.horaInicial = a2.horaInicial
+            AND (
+                (a1.semanaInicial <= a2.semanaFinal AND a1.semanaFinal >= a2.semanaInicial)
+                OR
+                (a1.semanaInicial >= a2.semanaInicial AND a1.semanaFinal <= a2.semanaFinal)
+                OR
+                (a1.semanaInicial <= a2.semanaInicial AND a1.semanaFinal >= a2.semanaFinal)
+            )
+            AND uc1.idCurso <> uc2.idCurso;
+    '''
+    cursor.execute(query)
+    aulas_sim = cursor.fetchall()
+
+    for entry in aulas_sim:
+        idAula1, idAula2, idCurso1, idCurso2 = entry
+        query = '''
+            INSERT into aulasSimultaneas (aula1, aula2, curso1, curso2)
+            VALUES (?, ?, ?, ?)
+        '''
+        cursor.execute(query, (idAula1, idAula2, idCurso1, idCurso2))
+    
+    conn.commit()
+
+# -----------------------------------------------------------------------
+# Função parse()
+# -----------------------------------------------------------------------
+
+def parse(request: requests.Request) -> JsonResponse:    
+    """
+    Inicia o parse de um novo projeto.
+
+    Prepara as variáveis e realiza as verificações necessárias para realizar
+    o parse da página de horários. Chama a função run_parser numa nova thread,
+    enquanto houver threads disponíveis.
+    """
+
     if (not request.user.is_authenticated):
         return JsonResponse({"error": "User is not authenticated"}, status=401)
     
@@ -742,20 +763,20 @@ def parse(request):
     if active_workers >=5:
         return JsonResponse({"error": "Número máximo de parses simultâneos excedidos. Por favor espere um pouco antes de tentar novamente."}, status=423)
     
-    # run_parser
-    #
-    # parser function to be ran in the thread
-    # gets the page url and the project name from the Post request
-    # creates the project entry in the database
-    # creates the project directory
-    # creates the connection to the general_database
-    # calls the other parse functions
-    # copies the contents of the general_database to the intial_database
-    # marks the the project as parsed
-    # 
-    # in case the parsing fails for any reason, the database entry is removed and the directory is deleted
-
     def run_parser():
+        """
+        Função executora do parse.
+
+        Função de parse que corre em cada thread, chamada por parse().
+        Obtém o URL da página a realizar o parse e o nome do projeto a partir
+        do POST request. Cria a entrada do projeto na base de dados, o
+        a diretoria do projeto, e a ligação à base de dados. Chama as outras
+        funções de parse para preencher a base de dados. No final, copia o
+        conteúdo da general_database criada para a initial_database, e marca
+        o projeto como parsed. Em caso de falha do parse, a base de dados é
+        eliminada e a diretoria é eliminada.
+        """
+        
         try:
             global conn
             global cursor
@@ -770,7 +791,7 @@ def parse(request):
 
             assert path is not None
 
-            conn = sqlite3.connect(path + '/general_database.db', check_same_thread=False)
+            conn = sqlite3.connect(path + '/test.db', check_same_thread=False)
             cursor = conn.cursor()
 
             req = requests.get(paginas)
@@ -785,16 +806,15 @@ def parse(request):
             soup_links = BeautifulSoup(web_s, "html.parser")
             
             menu = soup_links.find('ul', {'id': 'menu'})
-            # Start the timer
-            start_time = time.time()
-
+            
             print("Project Started")
+            pre_inserir_blocos_vermelhos()
             parse_docentes(menu.findChildren(recursive=False)[0])
             parse_turmas(menu.findChildren(recursive=False)[1])
             parse_salas(menu.findChildren(recursive=False)[2])
-            parse_ucs(menu.findChildren(recursive=False)[3])
             parse_turnos()
             fix_turmas_without_turnos()
+            aulas_simultaneas()
 
             shutil.copy2(path + '/general_database.db', path + '/initial_database.db')
 
@@ -802,9 +822,6 @@ def parse(request):
             proj.save()
             print("Project Parsed")
 
-            end_time = time.time()
-            execution_time = end_time - start_time
-            print("Execution Time:", execution_time, "seconds")
             conn.close()
             
         except Exception as e:
