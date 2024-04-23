@@ -736,6 +736,55 @@ def aulas_simultaneas():
     
     conn.commit()
 
+def turmas_simultaneas():
+    """
+    Encontra turmas simultâneas da mesma UC no horário e insere a informação na base de dados.
+
+    Realiza uma query à base de dados para encontrar aulas simultâneas do mesmo curso.
+    Aulas simultâneas têm os mesmos: hora, dia, UC e curso. Depois de encontradas estas aulas,
+    são inseridas numa tabela apropriada na base de dados.
+    """
+
+    query = '''
+        SELECT
+            CASE WHEN a1.id < a2.id THEN a1.id ELSE a2.id END AS id_aula1,
+            CASE WHEN a1.id < a2.id THEN a2.id ELSE a1.id END AS id_aula2,
+            at1.idTurma AS id_turma1,
+            at2.idTurma AS id_turma2
+        FROM aula AS a1
+        JOIN aulaTurmas AS at1 ON a1.id = at1.idAula
+        JOIN aulaUC AS auc1 ON a1.id = auc1.idAula
+        JOIN uc AS uc1 ON auc1.idUC = uc1.codigo
+        JOIN aula AS a2
+        JOIN aulaTurmas AS at2 ON a2.id = at2.idAula
+        JOIN aulaUC AS auc2 ON a2.id = auc2.idAula
+        JOIN uc AS uc2 ON auc2.idUC = uc2.codigo
+        WHERE a2.id > a1.id
+            AND a1.diaSemana = a2.diaSemana
+            AND a1.horaInicial = a2.horaInicial
+            AND uc1.codigo = uc2.codigo
+            AND uc1.idCurso = 'M.EIC'
+            AND (
+                (a1.semanaInicial <= a2.semanaFinal AND a1.semanaFinal >= a2.semanaInicial)
+                OR
+                (a1.semanaInicial >= a2.semanaInicial AND a1.semanaFinal <= a2.semanaFinal)
+                OR
+                (a1.semanaInicial <= a2.semanaInicial AND a1.semanaFinal >= a2.semanaFinal)
+            );
+    '''
+    cursor.execute(query)
+    turmas_sim = cursor.fetchall()
+
+    for entry in turmas_sim:
+        idAula1, idAula2, idTurma1, idTurma2 = entry
+        query = '''
+            INSERT into turmasSimultaneas (aula1, aula2, turma1, turma2)
+            VALUES (?, ?, ?, ?)
+        '''
+        cursor.execute(query, (idAula1, idAula2, idTurma1, idTurma2))
+    
+    conn.commit()
+
 # -----------------------------------------------------------------------
 # Função parse()
 # -----------------------------------------------------------------------
@@ -791,7 +840,7 @@ def parse(request: requests.Request) -> JsonResponse:
 
             assert path is not None
 
-            conn = sqlite3.connect(path + '/test.db', check_same_thread=False)
+            conn = sqlite3.connect(path + '/general_database.db', check_same_thread=False)
             cursor = conn.cursor()
 
             req = requests.get(paginas)
@@ -815,6 +864,7 @@ def parse(request: requests.Request) -> JsonResponse:
             parse_turnos()
             fix_turmas_without_turnos()
             aulas_simultaneas()
+            turmas_simultaneas()
 
             shutil.copy2(path + '/general_database.db', path + '/initial_database.db')
 
