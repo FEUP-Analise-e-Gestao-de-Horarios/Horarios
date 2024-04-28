@@ -511,13 +511,12 @@ def parse_turmas(menu_turmas: any) -> None:
             lista_de_aulas = set()
 
             for turma in turmas:
-                nome = turma.find('a').contents
-                nome = str(nome).split("'")[1]
+                codigo = turma.find('a').contents
+                codigo = str(codigo).split("'")[1]
                 semanasLi = turma.find('ul').find_all('li')
 
                 # Inserir turma na BD
-                insert_turma(idCurso, numeroStr, nome, cursor)
-                idTurma = cursor.lastrowid
+                insert_turma(idCurso, numeroStr, codigo, cursor)
                 conn.commit()
 
                 parsed_vermelhos = False
@@ -537,7 +536,7 @@ def parse_turmas(menu_turmas: any) -> None:
                         vermelhos = parse_horario_vermelhos(req, cursor)
                         for idBlocoVermelho in vermelhos:
                             stmt = '''INSERT OR IGNORE INTO blocoTurma (idBloco, idTurma) VALUES (?, ?)'''
-                            cursor.execute(stmt, (idBlocoVermelho, idTurma))
+                            cursor.execute(stmt, (idBlocoVermelho, codigo))
                             conn.commit()
                         parsed_vermelhos = True
 
