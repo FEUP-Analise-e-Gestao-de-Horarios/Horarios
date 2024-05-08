@@ -1,5 +1,4 @@
 import sqlite3
-import getHorariosFromDB.auxiliaryScheduleFunctions as aux
 
 def converter_horario(num):
     hora, minuto = divmod(num, 100)
