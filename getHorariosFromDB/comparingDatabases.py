@@ -214,7 +214,7 @@ def handleAulaDocente(setFinal, setInicial, ProjectNumber): # TESTED AND WORKING
 
 
     for index in range(0, len(listaInicial)-1, 2):
-        print("Index: ", index)
+        # print("Index: ", index)
         key = listaInicial[index]
         value = listaInicial[index+1]
         if key in dicFinal:
@@ -293,7 +293,7 @@ def handleAulaUC(setFinal, setInicial, ProjectNumber): # TESTED AND WORKING
 
 
     for index in range(0, len(listaInicial)-1, 2):
-        print("Index: ", index)
+        # print("Index: ", index)
         key = listaInicial[index]
         value = listaInicial[index+1]
         if key in dicFinal:
@@ -351,7 +351,7 @@ def handleAulaTurmas(setFinal, setInicial, ProjectNumber): # TESTED AND WORKING
             listaFinal.append(k[l])
 
     for index in range(0, len(listaInicial)-1, 2):
-        print("Index: ", index)
+        # print("Index: ", index)
         key = listaInicial[index]
         value = listaInicial[index+1]
         if key in dicFinal:
@@ -415,12 +415,12 @@ def handleAulaSala(setFinal, setInicial, ProjectNumber): # TESTED AND WORKING
     dicFinal = {}
     listaInicial = []
     listaFinal = []
-    print("Diff1: ", diff1)
-    print("Diff2: ", diff2)
-    print("Lista Inicial: ", listaInicial)
-    print("Lista Final: ", listaFinal)
-    print("Dic Inicial: ", dicInicial)
-    print("Dic Final: ", dicFinal)
+    # print("Diff1: ", diff1)
+    # print("Diff2: ", diff2)
+    # print("Lista Inicial: ", listaInicial)
+    # print("Lista Final: ", listaFinal)
+    # print("Dic Inicial: ", dicInicial)
+    # print("Dic Final: ", dicFinal)
     for k in diff1:
         for l in range(0, len(k)):
             listaInicial.append(k[l])
@@ -430,7 +430,7 @@ def handleAulaSala(setFinal, setInicial, ProjectNumber): # TESTED AND WORKING
             listaFinal.append(k[l])
     
     for index in range(0, len(listaInicial)-1, 2):
-        print("Index: ", index)
+        # print("Index: ", index)
         key = listaInicial[index]
         value = listaInicial[index+1]
         if key in dicFinal:
@@ -472,14 +472,14 @@ def handleAulaSala(setFinal, setInicial, ProjectNumber): # TESTED AND WORKING
             stmtTurma = '''SELECT * FROM aulaTurmas WHERE idAula=?'''
             cursorFin.execute(stmtTurma, (key,))
             resultTurma = cursorFin.fetchone()
-            print(f"ResultTurma: {resultTurma}")
+            # print(f"ResultTurma: {resultTurma}")
             change = globalNaturalLanguage("salasAdd", resultAulaUC["idUC"], resultAula["diaSemana"], "", converter_horario(resultAula["horaInicial"]), "", elem, "", "", "", resultTurma["idTurma"], "", "", key, "", "")
             allChanges.append(change)
     return allChanges
             
 
 def sortChanges(item):
-    print(f"Item: {item}")
+    # print(f"Item: {item}")
     (precedence, string, id) = item
     return (id, precedence)
 
