@@ -339,9 +339,17 @@ while len(queue) > 0:
     input("Press Enter to continue...")
         
         
+
+print("\n\n")
+print("changesDict")
+for change in changesDict:
+    if change == 0:
+        continue
+    table, prev, new = changesDict[change]
+    print(change, table, prev, new)
+print("\n\n")
+
 # drawing the directed conflict graph
 pos = nx.spring_layout(G)
-nx.draw(G, pos, with_labels=True, node_size=3000, node_color="skyblue", node_shape="s", alpha=0.5, linewidths=4)
-plt.title("Graph")
+nx.draw(G, pos, with_labels=True, arrows=True)
 plt.show()
-
