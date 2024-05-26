@@ -52,48 +52,6 @@ function fillSalas(ano) {
 }
 
 function fillUcs(ano) {
-    const colorDictionary = {
-        0: ["#FFDABF", "#FFEED9"],   // Light Orange
-        1: ["#EAEAB5", "#F4F4CE"],  // Light Olive
-        2: ["#CCFFCC", "#E6FFE6"],   // Light Green
-        3: ["#FFFFCC", "#FFFFE6"],   // Light Yellow
-        4: ["#fcdcdc", "#f2e1e1"],  // Misty Rose
-        5: ["#FFCCFF", "#FFE6FF"],   // Light Magenta
-        6: ["#FFD1D9", "#FFE0E8"],   // Light Pink
-        7: ["#E7CEFF", "#F0DFFF"],   // Light Purple
-        8: ["#BDFFBD", "#D9FFD9"],   // Light Dark Green
-        9: ["#BDBDFF", "#D9D9FF"],   // Light Navy
-        10: ["#FFBDBD", "#FFD9D9"],  // Light Maroon
-        11: ["#BDFEFF", "#D9FFFF"],  // Light Teal
-        12: ["#D9D9D9", "#ECECEC"],  // Light Gray
-        13: ["#FFEBC6", "#FFF5E0"],  // Light Apricot
-        14: ["#DEFFB3", "#EFFFCC"],  // Light Lime
-        15: ["#FFFCE6", "#FFFFF0"],  // Lemon Chiffon
-        16: ["#FFD1D9", "#FFE0E8"],  // Light Pink
-        17: ["#C6E6E9", "#D6EBED"],  // Light Powder Blue
-        18: ["#E6D9E6", "#F0EAF0"],  // Light Thistle
-        19: ["#FFEC96", "#FFF5CC"],  // Light Gold
-        20: ["#FFEED9", "#FFF7E6"],  // Light Bisque
-        21: ["#CCCCFF", "#E6E6FF"],  // Light Blue
-        22: ["#E0FFFF", "#F0FFFF"],  // Cyan / Aqua
-        23: ["#B8F4D8", "#CCFCE3"],  // Aquamarine
-        24: ["#FFF8E7", "#FFFDF0"],  // Light Blanched Almond
-        25: ["#B0E0F8", "#CCE8FF"],  // Light Sky Blue
-        26: ["#F0C8F0", "#F7DFF7"],  // Plum
-        27: ["#FFC4B3", "#FFD9CA"],  // Light Salmon
-        28: ["#5CD8B2", "#8CF5CB"],  // Light Sea Green
-        29: ["#A3AEB9", "#C1CDD3"],  // Light Slate Gray
-        30: ["#F0FFFF", "#F5FFFF"],  // Light Cyan
-        31: ["#FFD1D9", "#FFE0E8"],   // Light Pink
-        32: ["#F0F0FF", "#F5F5FF"],  // Lavender
-        33: ["#FFF5FB", "#FFFAFF"],  // Lavender Blush
-        34: ["#CCFFFF", "#E6FFFF"],  // Light Cyan
-        35: ["#B3F586", "#D2FFA0"],  // Lawn Green
-        36: ["#C1F0FF", "#D6F7FF"],  // Light Sky Blue
-        37: ["#C6E6F5", "#D6ECF7"],  // Light Blue
-        38: ["#FAB0B0", "#FFCCCC"],  // Light Coral
-        39: ["#FAB0B0", "#FFCCCC"]  // Light Coral
-    };
     const allUCs = curso.ucs;
     let ucAnoSet = new Set();
     let ucAnoBool = false;
@@ -161,11 +119,11 @@ function fillUcs(ano) {
                     console.log("Turmas: ", turmas);
                     console.log("Turmas lista: ", turmasLista);*/
                     var turmaIndex = turmasLista.indexOf(turma);
-                    for(var t=0; t+turmaIndex<turmasLista.length; t++) {
+                    for (var t = 0; t + turmaIndex < turmasLista.length; t++) {
                         //console.log("Turma a preencher: ", turmas[k+t]);
                         //console.log("Turma na lista: ", turmasLista[turmaIndex+t]);
-                        if(turmas[k+t] == turmasLista[turmaIndex+t]) {
-                            deleteHorizontal+=1;
+                        if (turmas[k + t] == turmasLista[turmaIndex + t]) {
+                            deleteHorizontal += 1;
                         }
                         else {
                             break;
@@ -191,15 +149,15 @@ function fillUcs(ano) {
                     cell.setAttribute("colspan", turmas.length);
                     cell.setAttribute("data-originalcolspan", turmas.length);
                     cell.setAttribute("style", "border: 2px solid black;");
-                    cell.setAttribute("style", "background-color: " + colorDictionary[ucAnoSet.size][1]);
+                    cell.setAttribute("style", "background-color: " + window.colorDictionary[ucAnoSet.size][1]);
                     cell.setAttribute("data-teorica", 1)
                     break;
                 }
                 else {
-                    cell.setAttribute("colspan", deleteHorizontal +1);
-                    cell.setAttribute("data-originalcolspan", deleteHorizontal+1);
+                    cell.setAttribute("colspan", deleteHorizontal + 1);
+                    cell.setAttribute("data-originalcolspan", deleteHorizontal + 1);
                     cell.setAttribute("style", "border: 2px solid black;");
-                    cell.setAttribute("style", "background-color: " + colorDictionary[ucAnoSet.size][0]);
+                    cell.setAttribute("style", "background-color: " + window.colorDictionary[ucAnoSet.size][0]);
                     cell.setAttribute("data-teorica", 0);
                 }
             }
@@ -312,7 +270,7 @@ function deleteCells(cell, cellsRight, cellsBottom) {
         while (count >= 0) {
             var cellToDelete = row.cells[cellIndex + count];
             var cellToGetHeight = row.cells[0];
-            var cellToGetWidth = firstRow.cells[cellIndex+count];
+            var cellToGetWidth = firstRow.cells[cellIndex + count];
             var idToDelete = cellToDelete.id;
             var div = document.createElement("div");
             div.classList.add("inside_tds");
@@ -407,7 +365,7 @@ function fillDocentes(ano) {
                 p_element.classList.add("docente");
                 p_element.id = docente.numMecanografico;
                 p_element.innerHTML = docente.abreviacao;
-                
+
                 var br = document.createElement("br");
                 p_element.style.display = "inline-block";
                 cell.appendChild(br);
@@ -601,7 +559,7 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
                     }
                     handleDistributionBtn(true);
                 }
-            } catch(error) {
+            } catch (error) {
                 console.error("An error occurred in canSwap or swapFullCells:", error);
             }
             showEditBarOptions(false);
@@ -616,20 +574,20 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
         $('td:not(:first-child)').removeClass('selected');
         var idCellBefore = $('td:not(:first-child)').attr('id');
 
-        if(prevSelectedCell.length == 0) {
+        if (prevSelectedCell.length == 0) {
             //Select da primeira célula selecionada
             $(td).addClass('selected');
             if ($(td).has('p').length > 0) {
                 displayBlocosVermelhosTurma(turma, true);
             }
         }
-        
-        if(td.children.length > 0){
+
+        if (td.children.length > 0) {
             showEditBarOptions(true);
             selectedCellSelectSideBar(targetElement, false);
         }
         else showEditBarOptions(false);
-    }   
+    }
 });
 
 $(document).on('mouseenter', '#table_vistas td:not(:first-child):has(p) p.uc', function (event) {
@@ -650,10 +608,10 @@ $(document).on('mouseenter', '#table_vistas td:not(:first-child):has(p) p.uc', f
                 tooltipcontainer.setAttribute("id", "tooltipcontainer");
                 tooltipcontainer.style.position = "fixed";
                 tooltipcontainer.style.left = Math.max(event.clientX + 10, 0) + "px";
-                tooltipcontainer.style.top = Math.max(event.clientY - 25, 0) + "px"; 
+                tooltipcontainer.style.top = Math.max(event.clientY - 25, 0) + "px";
                 tooltipcontainer.style.zIndex = 999;
 
-                
+
                 tooltip = document.createElement("div");
                 tooltip.style.position = "fixed";
 
@@ -664,20 +622,20 @@ $(document).on('mouseenter', '#table_vistas td:not(:first-child):has(p) p.uc', f
                 tooltip.style.zIndex = "999";
                 tooltip.style.fontSize = "13px";
                 tooltip.textContent = name;
-                
+
 
                 tooltipcontainer.appendChild(tooltip);
-                
+
                 tableVistas = document.getElementById("table_vistas").parentNode;
-                tableVistas.insertBefore(tooltipcontainer,tableVistas.firstChild);
+                tableVistas.insertBefore(tooltipcontainer, tableVistas.firstChild);
             }
             //uc.textContent = name;
             //uc.style.whiteSpace = "nowrap"; // Set white-space to nowrap
         }
     }
-    
-    
-    
+
+
+
 });
 
 $(document).on('mouseleave', '#table_vistas td:not(:first-child):has(p) p.uc', function (event) {
@@ -705,7 +663,7 @@ $(document).on('mouseleave', '#table_vistas td:not(:first-child):has(p) p.uc', f
 $(document).on('mouseenter', '#table_vistas td:not(:first-child):has(p) p.docente', function (event) {
     // MUDAR UCS
     //console.log("Entered cell");    
-    
+
     // MUDAR DOCENTES
     var docente = this;
     var siglaDocente = this.textContent;
@@ -719,13 +677,13 @@ $(document).on('mouseenter', '#table_vistas td:not(:first-child):has(p) p.docent
                 tooltipcontainer.setAttribute("id", "tooltipcontainer");
                 tooltipcontainer.style.position = "fixed";
                 tooltipcontainer.style.left = Math.max(event.clientX + 10, 0) + "px";
-                tooltipcontainer.style.top = Math.max(event.clientY - 25, 0) + "px"; 
+                tooltipcontainer.style.top = Math.max(event.clientY - 25, 0) + "px";
                 tooltipcontainer.style.zIndex = 999;
                 tooltipcontainer.style.opacity = 0;
                 tooltipcontainer.style.transition = "opacity 1s ease-in";
                 tooltipcontainer.style.opacity = 1;
 
-                
+
                 tooltip = document.createElement("div");
                 tooltip.style.position = "fixed";
 
@@ -736,12 +694,12 @@ $(document).on('mouseenter', '#table_vistas td:not(:first-child):has(p) p.docent
                 tooltip.style.zIndex = "999";
                 tooltip.style.fontSize = "13px";
                 tooltip.textContent = name;
-                
+
 
                 tooltipcontainer.appendChild(tooltip);
-                
+
                 tableVistas = document.getElementById("table_vistas").parentNode;
-                tableVistas.insertBefore(tooltipcontainer,tableVistas.firstChild);
+                tableVistas.insertBefore(tooltipcontainer, tableVistas.firstChild);
             }
         }
 
@@ -759,7 +717,7 @@ $(document).on('mouseleave', '#table_vistas td:not(:first-child):has(p) p.docent
     var docente = this;
     var nomeDocente = this.textContent;
 
-    for (var i = 0; i < curso.docentes.length; i++) {  
+    for (var i = 0; i < curso.docentes.length; i++) {
         var nome_doc = curso.docentes[i].nome;
         if (nomeDocente == nome_doc) {
             var sigla = curso.docentes[i].abreviacao;
@@ -823,7 +781,7 @@ $(document).on('click', 'td:not(:first-child) p', function (event) {
 
     $('td:not(:first-child) p').removeClass('selected');
 
-    if(prevSelectedCell.length == 0) {
+    if (prevSelectedCell.length == 0) {
         // add class to clicked p
         $(p).addClass('selected');
         showEditBarOptions(true);
@@ -979,19 +937,19 @@ function swapFullCells(firstCell, secondCell) {
         createCells(secondCell, colspanSecond - 1, rowspanSecond, 0);
     }
     else if (rowspanFirst >= rowspanSecond && colspanFirst <= colspanSecond) {
-        if(rowspanFirst>rowspanSecond) {
+        if (rowspanFirst > rowspanSecond) {
             //console.log("Inside 2.0 before");
-            createCells(firstCell, colspanFirst-1, rowspanFirst, 0);
+            createCells(firstCell, colspanFirst - 1, rowspanFirst, 0);
             createCells(secondCell, colspanSecond - 1, rowspanSecond, 0);
         }
         else {
-            createCells(firstCell, colspanFirst-1, rowspanSecond, 0);
+            createCells(firstCell, colspanFirst - 1, rowspanSecond, 0);
         }
     }
     else if (rowspanFirst < rowspanSecond && colspanFirst >= colspanSecond) {
-        if(colspanFirst>colspanSecond) {
+        if (colspanFirst > colspanSecond) {
             //console.log("Inside 3.0 before");
-            createCells(firstCell, colspanFirst-1, rowspanFirst, 0);
+            createCells(firstCell, colspanFirst - 1, rowspanFirst, 0);
             createCells(secondCell, colspanSecond - 1, rowspanSecond, 0);
         }
         else {
@@ -1034,22 +992,22 @@ function swapFullCells(firstCell, secondCell) {
     }
     else if (rowspanFirst > rowspanSecond && colspanFirst <= colspanSecond) {
         //console.log("Inside 2");
-        if(colspanFirst<colspanSecond) {
+        if (colspanFirst < colspanSecond) {
             console.log("Inside 2.0");
-            deleteCells(secondCell, colspanSecond - colspanFirst, rowspanSecond-1);
+            deleteCells(secondCell, colspanSecond - colspanFirst, rowspanSecond - 1);
             deleteCells(firstCell, colspanFirst - 1, rowspanFirst - 1);
         }
         else {
             console.log("Inside 2.1");
             createCells(secondCell, colspanSecond - colspanFirst + 1, rowspanFirst, 1);
-            deleteCells(firstCell, colspanSecond-colspanFirst, rowspanFirst - 1);
+            deleteCells(firstCell, colspanSecond - colspanFirst, rowspanFirst - 1);
         }
     }
     else if (rowspanFirst <= rowspanSecond && colspanFirst > colspanSecond) {
-        if(rowspanFirst<rowspanSecond) {
+        if (rowspanFirst < rowspanSecond) {
             //console.log("Inside 3.0");
-            deleteCells(firstCell, colspanFirst-colspanSecond, rowspanFirst-1);
-            deleteCells(secondCell, colspanSecond - 1, rowspanSecond - 1);            
+            deleteCells(firstCell, colspanFirst - colspanSecond, rowspanFirst - 1);
+            deleteCells(secondCell, colspanSecond - 1, rowspanSecond - 1);
         }
         else {
             //console.log("Inside 3.1");
@@ -1074,15 +1032,15 @@ function canSwap(cell1, cell2) {
     var originalcolspanSecond = cell2.getAttribute('data-originalcolspan') ? parseInt(cell2.getAttribute('data-originalcolspan')) : 1;
     var rowspanSecond = cell2.getAttribute('rowspan') ? parseInt(cell2.getAttribute('rowspan')) : 1;
 
-    if(originalcolspanFirst != colspanFirst || originalcolspanSecond != colspanSecond) {
+    if (originalcolspanFirst != colspanFirst || originalcolspanSecond != colspanSecond) {
         console.log("A aula que está a tentar mover pertence a mais do que uma turma.\nPor favor mude para a vista de todas as turmas");
-        
-        if(!document.getElementById("tooltipcontainer")) {
+
+        if (!document.getElementById("tooltipcontainer")) {
             tooltipcontainer = document.createElement("div");
             tooltipcontainer.setAttribute("id", "tooltipcontainer");
             tooltipcontainer.style.position = "fixed";
             tooltipcontainer.style.left = Math.max(cell1.clientX + 10, 0) + "px";
-            tooltipcontainer.style.top = Math.max(cell1.clientY - 25, 0) + "px"; 
+            tooltipcontainer.style.top = Math.max(cell1.clientY - 25, 0) + "px";
             tooltipcontainer.style.zIndex = 999;
 
             tooltip = document.createElement("div");
@@ -1094,20 +1052,20 @@ function canSwap(cell1, cell2) {
             tooltip.style.padding = "5px";
             tooltip.style.zIndex = "999";
             tooltip.style.fontSize = "13px";
-            tooltip.textContent = "A aula que está a tentar mover pertence a mais do que uma turma.\nPor favor mude para a vista de todas as turmas";      
+            tooltip.textContent = "A aula que está a tentar mover pertence a mais do que uma turma.\nPor favor mude para a vista de todas as turmas";
 
             tooltipcontainer.appendChild(tooltip);
 
             tableVistas = document.getElementById("table_vistas").parentNode;
-            tableVistas.insertBefore(tooltipcontainer,tableVistas.firstChild);
+            tableVistas.insertBefore(tooltipcontainer, tableVistas.firstChild);
         }
-        
+
         return false;
     }
 
     var swap;
 
-    if(rowspanFirst == rowspanSecond && colspanFirst == colspanSecond) {
+    if (rowspanFirst == rowspanSecond && colspanFirst == colspanSecond) {
         swap = true;
     }
     else if (rowspanFirst >= rowspanSecond && colspanFirst >= colspanSecond) {
@@ -1148,7 +1106,7 @@ function checkIfSwapPossible(cell, cell2, cellsRight, cellsBottom) {
     for (var i = 0; i <= cellsBottom; i++) {
         count = cellsRight;
         while (count >= 0) {
-            if (i<rowspan && count<colspan) {
+            if (i < rowspan && count < colspan) {
                 count--;
                 continue;
             }
@@ -1161,16 +1119,16 @@ function checkIfSwapPossible(cell, cell2, cellsRight, cellsBottom) {
 
             var newCell = document.querySelector("td#" + newCellId);
 
-            if(!newCell)
+            if (!newCell)
                 return false;
 
-            if(newCellId == cell2.id)
+            if (newCellId == cell2.id)
                 return true;
 
             var content = newCell.innerHTML;
             content = content.replace(/\s/g, "");
 
-            if (content !='') {
+            if (content != '') {
                 return false;
             }
 
@@ -1192,15 +1150,15 @@ function checkIfSwapPossible(cell, cell2, cellsRight, cellsBottom) {
 }
 
 function displayBlocosVermelhosTurma(turma, display) {
-    if(!display) {
+    if (!display) {
         const redCellsTd = document.querySelectorAll('td[style="background-color: red; opacity: 0.6;"]');
         const redCellsDiv = document.querySelectorAll('div[style="background-color: red; opacity: 0.6;"]');
 
-        for(var i=0; i<redCellsTd.length; i++) {
+        for (var i = 0; i < redCellsTd.length; i++) {
             redCellsTd[i].setAttribute("style", "");
         }
 
-        for(var i=0; i<redCellsDiv.length; i++) {
+        for (var i = 0; i < redCellsDiv.length; i++) {
             redCellsDiv[i].setAttribute("style", "");
         }
         return;
@@ -1211,12 +1169,12 @@ function displayBlocosVermelhosTurma(turma, display) {
     $.ajax({
         url: '/blocosturma/',  // Update with your actual URL
         type: 'GET',
-        data: {'turma': turma, 'projId': projId},
-        success: function(data) {
+        data: { 'turma': turma, 'projId': projId },
+        success: function (data) {
             displayBlocosVermelhos(data.blocos, true, turma);
 
         },
-        error: function(xhr, textStatus, error) {
+        error: function (xhr, textStatus, error) {
             // Handle any errors
         }
     });
@@ -1263,7 +1221,7 @@ function displayBlocosVermelhosGlobal(className, id, display) {
 function displayBlocosVermelhos(blocosVermelhos, display, turma) {
     console.log("Display: ", display);
     //console.log("Blocos: ", blocosVermelhos);
-    for(var i=0; i<blocosVermelhos.length; i++) {
+    for (var i = 0; i < blocosVermelhos.length; i++) {
         var bloco = blocosVermelhos[i];
         console.log("Bloco: ", bloco);
         var dia = bloco.diaSemana;
@@ -1271,7 +1229,7 @@ function displayBlocosVermelhos(blocosVermelhos, display, turma) {
         var substring = dia.toLowerCase() + "_" + bloco.hora;
         var targetElements, targetElements2;
 
-        if(turma=='any') {
+        if (turma == 'any') {
             //Blocos vermelhos que estarão em células já preenchidas
             var selector = "div[id*=" + substring + "]";
             targetElements = document.querySelectorAll(selector);
@@ -1289,7 +1247,7 @@ function displayBlocosVermelhos(blocosVermelhos, display, turma) {
             var selector2 = 'td:not(:has(div))[id*="' + substring + '"][id*="' + turma + '"]';
             targetElements2 = $(selector2);
         }
-        
+
         //Blocos vermelhos que estão em células já preenchidas
         for (var j = 0; j < targetElements.length; j++) {
             var element = targetElements[j];

@@ -7,7 +7,7 @@
 {% block page %}
 
 <style>
-    .box{
+    .box {
         min-height: 84.5vh;
     }
 
@@ -23,37 +23,49 @@
         height: auto;
         z-index: 100;
     }
-    .contentMargin{
+
+    .last-column {
+        border-right: 1px solid #666;
+    }
+
+    .contentMargin {
         margin-top: 6.1em;
     }
 
     .box {
         min-height: 87.5vh;
     }
+
     #table_vistas p {
         height: auto;
         padding: 0px;
         background-color: transparent;
         margin-bottom: -5px;
     }
+
     #table_vistas td div {
         padding: 0px;
     }
+
     #table_vistas tr {
         overflow: auto;
-        max-height:100%;
+        max-height: 100%;
     }
+
     #table_vistas table {
         border-collapse: collapse;
         width: 100%;
         margin-top: 20px;
-    
+
     }
-    #table_vistas th, td {
+
+    #table_vistas th,
+    td {
         text-align: center;
         border: 1px solid #ddd;
         width: 100px;
     }
+
     #table_vistas th {
         background-color: #f2f2f2;
         color: #333;
@@ -71,11 +83,13 @@
         height: 20px;
         overflow: hidden;
     }
+
     #table_vistas td:first-child {
-        width:200px;
+        width: 200px;
     }
+
     #table_vistas td:not(:first-child) {
-        width:250px;
+        width: 250px;
         cursor: pointer;
         position: relative;
     }
@@ -90,7 +104,8 @@
 
     .inside_tds {
         position: absolute;
-        z-index: 1; /* Place the divs behind the TD content */
+        z-index: 1;
+        /* Place the divs behind the TD content */
         margin-top: 0px;
     }
 
@@ -100,7 +115,7 @@
 
     #table_vistas td:not(:first-child) p {
         position: relative;
-        z-index:2;
+        z-index: 2;
     }
 
     @media (max-width: 767px) {
@@ -122,19 +137,20 @@
 {% include '../common/editHeader.html' %}
 
 <script src="{% static './page.js' %}" data-cursos='{{ cursos|safe }}' data-proj-id='{{ projId }}'></script>
+<script src="{% static './colorDictionary.js' %}"></script>
 <script src="{% static './schedule.js' %}"></script>
-<script src="{% static './distribuicao.js' %}"></script>
+<script src="{% static './distribuicao.js' %}" defer></script>
 
 <section class="contentMargin mb-3 pb-3 box bg-dark" id="editPageContent">
     <div class="main_vista_container">
 
     </div>
-    
+
     <div class="secondary_vista_container">
-        
+
     </div>
-    
-</section>    
+
+</section>
 
 
 {% endblock page %}
