@@ -135,6 +135,37 @@ def get_dia_from_index(index: int, spanMap: dict[str, any]) -> str:
         if count >= index:
             return dia
         
+def are_weeks_overlapped(si1: str, sf1:str, si2: str, sf2: str) -> bool:
+    """
+    Recebe dois intervalos de datas e determina se há sobreposição entre eles.
+    """
+    # Converte as strings para objetos datetime
+    si1_obj = datetime.strptime(si1, "%Y-%m-%d")
+    si2_obj = datetime.strptime(si2, "%Y-%m-%d")
+    sf1_obj = datetime.strptime(sf1, "%Y-%m-%d")
+    sf2_obj = datetime.strptime(sf2, "%Y-%m-%d")
+
+    # Verifica se há overlap nos intervalos semanais
+    return si1_obj <= sf2_obj and sf1_obj >= si2_obj
+
+def min_date(date1: str, date2: str) -> str:
+    """
+    Recebe duas datas e devolve a que ocorre mais cedo.
+    """
+    date1_obj = datetime.strptime(date1, "%Y-%m-%d")
+    date2_obj = datetime.strptime(date2, "%Y-%m-%d")
+    early =  min(date1_obj, date2_obj)
+    return datetime.strftime(early, "%Y-%m-%d")
+
+def max_date(date1: str, date2: str) -> str:
+    """
+    Recebe duas datas e devolve a que ocorre mais tarde.
+    """
+    date1_obj = datetime.strptime(date1, "%Y-%m-%d")
+    date2_obj = datetime.strptime(date2, "%Y-%m-%d")
+    late = max(date1_obj, date2_obj)
+    return datetime.strftime(late, "%Y-%m-%d")
+
 # -----------------------------------------------------------------------
 # Funções de interação com a base de dados
 # -----------------------------------------------------------------------
@@ -208,6 +239,26 @@ def insert_aula(aula: Aula, cursor: sqlite3.Cursor) -> None:
     semanaFin = aula.semanaFim
     codigo_uc = aula.cod_uc
 
+    stmtTest = '''SELECT * FROM aula 
+                    JOIN aulaDocente 
+                    ON aula.id = aulaDocente.idAula 
+                    WHERE diaSemana=? AND horaInicial=? AND duracao=? AND teorico=? AND idDocente=?'''
+    cursor.execute(stmtTest, (dia, hora, duracao, isTeorica, docentes[0]))
+    result = cursor.fetchone()
+    if result:
+        idAula = result[0]
+        si = result[5]
+        print(si)
+        sf = result[6]
+        print(sf)
+        if are_weeks_overlapped(si, sf, semanaIni, semanaFin):
+            ssi = min_date(si, semanaIni)
+            ssf = max_date(sf, semanaFin)
+            stmtUpdate = '''UPDATE aula SET semanaInicial=?, semanaFinal=?
+                            WHERE id=?'''
+            cursor.execute(stmtUpdate, (ssi, ssf, idAula))
+            return
+        
     stmtC = '''INSERT OR IGNORE INTO aula (horaInicial, duracao, diaSemana, teorico, semanaInicial, semanaFinal) VALUES (?, ?, ?, ?, ?, ?)'''
     cursor.execute(stmtC, (hora, duracao, dia, isTeorica, semanaIni, semanaFin,))
     id_aula = cursor.lastrowid
