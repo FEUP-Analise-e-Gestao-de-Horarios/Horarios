@@ -17,33 +17,6 @@ function fillTable() {
     // Obtém o número máximo de turnos das UCs para determinar o tamanho da tabela
     let maxTurnos = getMaxTurnos(Object.entries(ucsDistribuicao));
 
-    // Cria e adiciona o cabeçalho dos dias e soma
-    function createHeaderTurno() {
-        const headerTurno = days.map(day => `<th colspan='1' class='${day.toLowerCase()}'>${day}</th>`).join('') +
-            "<th colspan='1' class='last-column'>Soma</th>";
-        tableHeader.innerHTML += headerTurno;
-    }
-
-    // Cria uma célula vazia com uma dada cor
-    function createEmptyCell(backgroundColor) {
-        return `<td style='background-color: ${backgroundColor};'></td>`;
-    }
-
-    // Cria células para uma UC específica e respetiva distribuição
-    function createCellsForDays(distribuicaoTurno) {
-        let cells = "";
-        let sum = 0;
-
-        days.forEach(day => {
-            const count = distribuicaoTurno[day] || 0;
-            sum += count;
-            cells += `<td>${count}</td>`;
-        });
-
-        cells += `<td class='last-column'>${sum}</td>`;
-        return cells;
-    }
-
     // Loop principal para lidar com as distribuições dos tipos
     Object.entries(ucsDistribuicao).forEach(([sigla, distribuicao]) => {
         const ucColor = `style='background-color: ${window.colorDictionary[countUCs][0]};'`;
@@ -61,16 +34,19 @@ function fillTable() {
                     createHeaderTurno();
                 }
 
+                // Se o turno não existir, cria uma célula vazia
                 if (!distribuicao[tipo][i]) {
                     fullLine += days.map(() => createEmptyCell(window.colorDictionary[29][1])).join('') +
                         createEmptyCell(window.colorDictionary[29][1]);
                     continue;
                 }
 
+                // Adiciona as células de cada dia à linha da UC para este tipo
                 const cells = createCellsForDays(distribuicao[tipo][i]);
                 fullLine += cells;
             }
 
+            // Adiciona a linha completa à tabela
             addTurnoHeader = false;
             tableBody.innerHTML += fullLine + "</tr>";
         });
@@ -93,4 +69,43 @@ function getMaxTurnos(ucs) {
         }
         return maxTurnos;
     }, 0);
+}
+
+/**
+ * Função auxiliar que cria o header para um turno
+ * @return { void } Não retorna um resultado
+ */
+function createHeaderTurno() {
+    const headerTurno = days.map(day => `<th colspan='1' class='${day.toLowerCase()}'>${day}</th>`).join('') +
+        "<th colspan='1' class='last-column'>Soma</th>";
+    tableHeader.innerHTML += headerTurno;
+}
+
+
+/**
+ * Cria uma célula vazia com uma dada cor
+ * @param { number[] } backgroundColor - Cor da célula vazia
+ * @returns { String } String que representa o elemento HTML da célula
+ */
+function createEmptyCell(backgroundColor) {
+    return `<td style='background-color: ${backgroundColor};'></td>`;
+}
+
+/**
+ * Cria células para uma UC específica e respetiva distribuição
+ * @param { Object } distribuicaoTurno - Objeto que representa um tipo de aulas da UC com a distribuição pelos dias
+ * @returns { String } String que representa a linha da tabela para esta UC
+ */
+function createCellsForDays(distribuicaoTurno) {
+    let cells = "";
+    let sum = 0;
+
+    days.forEach(day => {
+        const count = distribuicaoTurno[day] || 0;
+        sum += count;
+        cells += `<td>${count}</td>`;
+    });
+
+    cells += `<td class='last-column'>${sum}</td>`;
+    return cells;
 }
