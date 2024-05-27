@@ -129,8 +129,16 @@ def getProjetosListAux(request, userId):
 
 def starter(request: HttpRequest) -> HttpResponse:
     '''
-    Retrieves relevant projects and renders the starter page
-    '''    
+    Obtém a lista de projetos atuais e cria a página `starter`
+    
+    Parameters:
+    request (HttpRequest): O objeto HTTP request
+        
+    Returns:
+    HttpResponse: O objeto HTTP response, correspondente à página `starter`
+    '''
+
+    # Se o utlizador não estiver autenticado, redireciona para a página de login
     if (not request.user.is_authenticated):
         return redirect('login/')
     
@@ -140,9 +148,17 @@ def starter(request: HttpRequest) -> HttpResponse:
 
 def manageProjects(request: HttpRequest, projId: int) -> HttpResponse:
     '''
-    Renders the page for managing people and groups in projects
+    Cria a página `manageProjects` para gestão de pessoas e grupos associados a projetos.
+
+    Parameters:
+    request (HttpRequest): O objeto HTTP request.
+    projId (int): O ID do projeto.
+
+    Returns:
+    HttpResponse: O objeto HTTP response, correspondente à página `manageProjects`.
     '''
-    # Se o utlizador
+    
+    # Se o utlizador não estiver autenticado, redireciona para a página de login
     if (not request.user.is_authenticated):
         return redirect('login/')
 
