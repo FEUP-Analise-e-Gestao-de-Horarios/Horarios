@@ -125,11 +125,12 @@ def getProjetosListAux(request, userId):
     related.reverse()
     return related
 
+# ---------------------------------------------------------------------------------------------------------
 
-# starter
-#
-# Retrieves relevant projects and renders the starter page
-def starter(request):    
+def starter(request: HttpRequest) -> HttpResponse:
+    '''
+    Retrieves relevant projects and renders the starter page
+    '''    
     if (not request.user.is_authenticated):
         return redirect('login/')
     
@@ -137,7 +138,11 @@ def starter(request):
 
     return render(request, 'starter/starter.html', {'projetos' : projetos})
 
-def manageProjects(request, projId):
+def manageProjects(request: HttpRequest, projId: int) -> HttpResponse:
+    '''
+    Renders the page for managing people and groups in projects
+    '''
+    # Se o utlizador
     if (not request.user.is_authenticated):
         return redirect('login/')
 
@@ -157,7 +162,6 @@ def manageProjects(request, projId):
 
     projCourses = Project.objects.values("group").filter(pk = projId)
 
-    
     temp = []
     for x in courses:
         check = True
