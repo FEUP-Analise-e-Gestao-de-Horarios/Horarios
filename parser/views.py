@@ -239,26 +239,29 @@ def insert_aula(aula: Aula, cursor: sqlite3.Cursor) -> None:
     semanaFin = aula.semanaFim
     codigo_uc = aula.cod_uc
 
-    stmtTest = '''SELECT * FROM aula 
-                    JOIN aulaDocente 
-                    ON aula.id = aulaDocente.idAula 
-                    WHERE diaSemana=? AND horaInicial=? AND duracao=? AND teorico=? AND idDocente=?'''
-    cursor.execute(stmtTest, (dia, hora, duracao, isTeorica, docentes[0]))
-    result = cursor.fetchone()
-    if result:
-        idAula = result[0]
-        si = result[5]
-        print(si)
-        sf = result[6]
-        print(sf)
-        if are_weeks_overlapped(si, sf, semanaIni, semanaFin):
-            ssi = min_date(si, semanaIni)
-            ssf = max_date(sf, semanaFin)
-            stmtUpdate = '''UPDATE aula SET semanaInicial=?, semanaFinal=?
-                            WHERE id=?'''
-            cursor.execute(stmtUpdate, (ssi, ssf, idAula))
-            return
+    # Uma vez que pode haver mais do que um docente associado a esta aula,
+    # é necessário verificar se a aula já existe para qualquer um deles
+    for docente in docentes:
+        stmtTest = '''SELECT * FROM aula 
+                      JOIN aulaDocente 
+                      ON aula.id = aulaDocente.idAula 
+                      WHERE diaSemana=? AND horaInicial=? AND duracao=? AND teorico=? AND idDocente=?'''
+        cursor.execute(stmtTest, (dia, hora, duracao, isTeorica, docente))
+        result = cursor.fetchone()
+        # Caso a aula já exista para algum docente, a entrada na DB é atualizada
+        if result:
+            idAula = result[0]
+            si = result[5]
+            sf = result[6]
+            if are_weeks_overlapped(si, sf, semanaIni, semanaFin):
+                ssi = min_date(si, semanaIni)
+                ssf = max_date(sf, semanaFin)
+                stmtUpdate = '''UPDATE aula SET semanaInicial=?, semanaFinal=?
+                                WHERE id=?'''
+                cursor.execute(stmtUpdate, (ssi, ssf, idAula))
+                return
         
+    # Caso a aula não exista, são realizadas as inserções necessárias na DB
     stmtC = '''INSERT OR IGNORE INTO aula (horaInicial, duracao, diaSemana, teorico, semanaInicial, semanaFinal) VALUES (?, ?, ?, ?, ?, ?)'''
     cursor.execute(stmtC, (hora, duracao, dia, isTeorica, semanaIni, semanaFin,))
     id_aula = cursor.lastrowid
