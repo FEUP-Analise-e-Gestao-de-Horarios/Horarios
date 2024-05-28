@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 import requests
 import re
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 from .directories import createDir
 import operator
@@ -146,7 +146,14 @@ def are_weeks_overlapped(si1: str, sf1:str, si2: str, sf2: str) -> bool:
     sf2_obj = datetime.strptime(sf2, "%Y-%m-%d")
 
     # Verifica se há overlap nos intervalos semanais
-    return si1_obj <= sf2_obj and sf1_obj >= si2_obj
+    overlap = si1_obj <= sf2_obj and sf1_obj >= si2_obj
+
+    # Verifica se sf1 e si2 estão separados por uma semana ou menos
+    one_week_or_less1 = abs(sf1_obj - si2_obj) <= timedelta(weeks=1)
+
+    # Verifica se si1 e sf2 estão separados por uma semana ou menos
+    one_week_or_less2 = abs(si1_obj - sf2_obj) <= timedelta(weeks=1)
+    return overlap or one_week_or_less1 or one_week_or_less2
 
 def min_date(date1: str, date2: str) -> str:
     """
@@ -238,28 +245,6 @@ def insert_aula(aula: Aula, cursor: sqlite3.Cursor) -> None:
     semanaIni = aula.semanaIni
     semanaFin = aula.semanaFim
     codigo_uc = aula.cod_uc
-
-    # Uma vez que pode haver mais do que um docente associado a esta aula,
-    # é necessário verificar se a aula já existe para qualquer um deles
-    for docente in docentes:
-        stmtTest = '''SELECT * FROM aula 
-                      JOIN aulaDocente 
-                      ON aula.id = aulaDocente.idAula 
-                      WHERE diaSemana=? AND horaInicial=? AND duracao=? AND teorico=? AND idDocente=?'''
-        cursor.execute(stmtTest, (dia, hora, duracao, isTeorica, docente))
-        result = cursor.fetchone()
-        # Caso a aula já exista para algum docente, a entrada na DB é atualizada
-        if result:
-            idAula = result[0]
-            si = result[5]
-            sf = result[6]
-            if are_weeks_overlapped(si, sf, semanaIni, semanaFin):
-                ssi = min_date(si, semanaIni)
-                ssf = max_date(sf, semanaFin)
-                stmtUpdate = '''UPDATE aula SET semanaInicial=?, semanaFinal=?
-                                WHERE id=?'''
-                cursor.execute(stmtUpdate, (ssi, ssf, idAula))
-                return
         
     # Caso a aula não exista, são realizadas as inserções necessárias na DB
     stmtC = '''INSERT OR IGNORE INTO aula (horaInicial, duracao, diaSemana, teorico, semanaInicial, semanaFinal) VALUES (?, ?, ?, ?, ?, ?)'''
@@ -910,16 +895,57 @@ def parse(request: requests.Request) -> JsonResponse:
             menu = soup_links.find('ul', {'id': 'menu'})
             
             print("Project Started")
+            total_time_start = time.perf_counter()
+
+            start_time = time.perf_counter()
             pre_inserir_blocos_vermelhos()
+            end_time = time.perf_counter()
+            print(f"pre_inserir_blocos_vermelhos took {end_time - start_time} seconds")
+
+            start_time = time.perf_counter()
             parse_docentes(menu.findChildren(recursive=False)[0])
+            end_time = time.perf_counter()
+            print(f"parse_docentes took {end_time - start_time} seconds")
+
+            start_time = time.perf_counter()
             parse_turmas(menu.findChildren(recursive=False)[1])
+            end_time = time.perf_counter()
+            print(f"parse_turmas took {end_time - start_time} seconds")
+            
+            start_time = time.perf_counter()
             parse_salas(menu.findChildren(recursive=False)[2])
+            end_time = time.perf_counter()
+            print(f"parse_salas took {end_time - start_time} seconds")
+
+            start_time = time.perf_counter()
             parse_turnos()
+            end_time = time.perf_counter()
+            print(f"parse_turnos took {end_time - start_time} seconds")
+
+            start_time = time.perf_counter()
             fix_turmas_without_turnos()
+            end_time = time.perf_counter()
+            print(f"fix_turmas_without_turnos took {end_time - start_time} seconds")
+
+            start_time = time.perf_counter()
+            cleanup_aulas()
+            end_time = time.perf_counter()
+            print(f"cleanup_aulas took {end_time - start_time} seconds")
+
+            start_time = time.perf_counter()
             aulas_simultaneas()
+            end_time = time.perf_counter()
+            print(f"aulas_simultaneas took {end_time - start_time} seconds")
+
+            start_time = time.perf_counter()
             turmas_simultaneas()
+            end_time = time.perf_counter()
+            print(f"turmas_simultaneas took {end_time - start_time} seconds")
 
             shutil.copy2(path + '/general_database.db', path + '/initial_database.db')
+
+            total_time_end = time.perf_counter()
+            print(f"total parse time was {total_time_end - total_time_start} seconds")
 
             proj.isParsed = True
             proj.save()
@@ -943,3 +969,41 @@ def parse(request: requests.Request) -> JsonResponse:
         return JsonResponse({}, status=200)
     except Exception as e:
         return JsonResponse({"error": "Nao foi possivel fazer parse do site"}, status=400)
+    
+def cleanup_aulas() -> None:
+    # Get all unique aulas
+    stmtAulas = '''SELECT DISTINCT diaSemana, horaInicial, duracao, teorico, idDocente 
+                     FROM aula JOIN aulaDocente 
+                    ON aula.id = aulaDocente.idAula'''
+    cursor.execute(stmtAulas)
+    aulas = cursor.fetchall()
+
+    for aula in aulas:
+        dia, hora, duracao, isTeorica, docente = aula
+        # Get all entries for this aula
+        stmtTest = '''SELECT * FROM aula 
+                      JOIN aulaDocente 
+                      ON aula.id = aulaDocente.idAula 
+                      WHERE diaSemana=? AND horaInicial=? AND duracao=? AND teorico=? AND idDocente=?'''
+        cursor.execute(stmtTest, (dia, hora, duracao, isTeorica, docente))
+        results = cursor.fetchall()
+
+        # Merge all overlapping entries
+        while len(results) > 1 and any(are_weeks_overlapped(results[i][5], results[i][6], results[j][5], results[j][6]) for i in range(len(results)) for j in range(i+1, len(results))):
+            # Sort results by semanaInicial
+            results.sort(key=lambda x: x[5])
+            # Check if the first two entries overlap
+            idAula1, si1, sf1 = results[0][0], results[0][5], results[0][6]
+            idAula2, si2, sf2 = results[1][0], results[1][5], results[1][6]
+            if are_weeks_overlapped(si1, sf1, si2, sf2):
+                # Merge the two entries
+                ssi = min_date(si1, si2)
+                ssf = max_date(sf1, sf2)
+                stmtUpdate = '''UPDATE aula SET semanaInicial=?, semanaFinal=?
+                                WHERE id=?'''
+                cursor.execute(stmtUpdate, (ssi, ssf, idAula1))
+                # Delete the second entry
+                stmtDelete = '''DELETE FROM aula WHERE id=?'''
+                cursor.execute(stmtDelete, (idAula2,))
+            # Remove the first entry from the results
+            results.pop(0)
