@@ -371,11 +371,22 @@ def deleteProject(request):
     except Exception as e:
         return JsonResponse({"error": "Could not delete project, exception: \"{}\"".format(e), "id": projId}, status=400)
 
-# editTurnos
-#
-# Renders the selected project's edit turns page
-# Retrieves the project's information and course json, as well as its current conflicts
-def editTurnos(request, projId):
+
+def editTurnos(request: HttpRequest, projId: int) -> HttpResponse:
+    """
+    Cria a página `editTurnos` para o projeto selecionado.
+
+    Começa por obter a informação do projeto e o json dos cursos, assim como
+    os conflitos existentes até à altura. Usa essa informação para 
+    fazer o render da página.
+
+    Parameters:
+    request (HttpRequest): O objeto Http request.
+    projId (int): O ID do projeto.
+
+    Returns:
+    HttpResponse: O objeto Http response que contém a página `editTurnos` criada.
+    """
     if (not request.user.is_authenticated):
         return redirect('login/')
     #projetos = Project.objects.filter(person = Person.objects.get(username = request.user.pk))
