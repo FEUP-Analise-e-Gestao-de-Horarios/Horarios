@@ -999,11 +999,29 @@ def cleanup_aulas() -> None:
                 # Merge the two entries
                 ssi = min_date(si1, si2)
                 ssf = max_date(sf1, sf2)
+                # Update the new dates in the results array
+                results_list = list(results[0])
+
+                results_list[5] = ssi
+                results_list[6] = ssf
+
+                results[0] = tuple(results_list)
                 stmtUpdate = '''UPDATE aula SET semanaInicial=?, semanaFinal=?
                                 WHERE id=?'''
                 cursor.execute(stmtUpdate, (ssi, ssf, idAula1))
+                # Update references in tables referencing aula
+                tables = ['aulaDocente', 'aulaUC', 'aulaSala', 'aulaTurmas']
+                for table in tables:
+                    stmtDeleteRef = f'''DELETE FROM {table}
+                                        WHERE idAula=?'''
+                    cursor.execute(stmtDeleteRef, (idAula2,))
                 # Delete the second entry
                 stmtDelete = '''DELETE FROM aula WHERE id=?'''
                 cursor.execute(stmtDelete, (idAula2,))
+                
+                # Remove the entry of aula2 from the results
+                results.pop(1)
+                continue
             # Remove the first entry from the results
             results.pop(0)
+    conn.commit()

@@ -139,6 +139,7 @@ GitHub.sublime-settings
 db.sqlite3
 database/*
 test.db
+test.py
 
 # Migration Directories
 **/migrations/
