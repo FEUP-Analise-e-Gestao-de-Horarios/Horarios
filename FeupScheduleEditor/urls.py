@@ -17,7 +17,6 @@ from django.contrib import admin
 from django.urls import path, include
 from . import views
 
-
 urlpatterns = [
     path('admin/', admin.site.urls), #redirects to urls.py in admin module
     path('parser/', include('parser.urls')), #redirects to urls.py in parser module
