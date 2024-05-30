@@ -136,7 +136,6 @@ GitHub.sublime-settings
 .history
 
 # Database #
-db.sqlite3
 database/*
 test.db
 test.py
