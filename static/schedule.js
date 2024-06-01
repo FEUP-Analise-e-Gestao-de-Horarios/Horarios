@@ -1,3 +1,9 @@
+/**
+ * Preenche o campo da sala nas células do horário
+ * 
+ * @param {number} ano - O ano para o qual devem ser geradas as salas
+ * @returns {null} - Não retorna qualquer valor
+ */
 function fillSalas(ano) {
     const allSalas = curso.salas;
 
@@ -53,75 +59,60 @@ function fillSalas(ano) {
 
 function fillUcs(ano) {
     const allUCs = curso.ucs;
-    let ucAnoSet = new Set();
+    const ucAnoSet = new Set();
+    const turmasSet = new Set();
     let ucAnoBool = false;
-    let turmasSet = new Set();
-
-    //console.log("UCS: ", allUCs);
 
     for (let i = 0; i < allUCs.length; i++) {
-        var uc = allUCs[i];
-        var aulas = uc.aulas; //FORMATO -> [Aula(id, horaInicial, duracao, diaSemana, isTeorica)]
-        //console.log("UC: ", uc);
+        let uc = allUCs[i];
+        let aulas = uc.aulas; //FORMATO -> [Aula(id, horaInicial, duracao, diaSemana, isTeorica)]
         ucAnoBool = false;
 
-
         for (let j = 0; j < aulas.length; j++) {
-            var aula = aulas[j];
+            let aula = aulas[j];
 
             if (semana !== "Semanas") {
-                var semanaInicial = semana.split(" - ")[0];
-                var semanaFinal = semana.split(" - ")[1];
+                let semanaInicial = semana.split(" - ")[0];
+                let semanaFinal = semana.split(" - ")[1];
 
                 if (aula.semanaInicial !== semanaInicial || aula.semanaFinal !== semanaFinal) {
                     continue;
                 }
             }
 
-            var turmas = aula.turmas; //FORMATO -> {ano: [codigoTurma]}
+            let turmas = aula.turmas; //FORMATO -> {ano: [codigoTurma]}
 
             if (!(ano in turmas)) { //Caso não tenha turmas do ano em que a tabela está
                 continue;
             }
             ucAnoBool = true;
 
-            //console.log("Aula: ", aula);
-
             turmas = turmas[ano];
 
-            var dia = aula.diaSemana.toLowerCase();
-            var hora = aula.horaInicial;
+            const dia = aula.diaSemana.toLowerCase();
+            const hora = aula.horaInicial;
 
             for (let k = 0; k < turmas.length; k++) {
-                var turma = turmas[k];
+                let turma = turmas[k];
                 turmasSet.add(turma);
 
-                var idString = "turma_" + turma + "_" + dia + "_" + hora;   //id da célula a que pertence a aula
+                let idString = "turma_" + turma + "_" + dia + "_" + hora;   //id da célula a que pertence a aula
 
-
-                var cell = document.querySelector("tbody td:not(:first-child)[id='" + idString + "']"); //célula a que pertence a aula
+                let cell = document.querySelector("tbody td:not(:first-child)[id='" + idString + "']"); //célula a que pertence a aula
                 if (cell == null) {
                     continue;
                 }
 
-                //console.log("Turma: ", turma);
-
                 cell.setAttribute("data-aulaID", aula.id);
 
-                var deleteHorizontal = 0;
-                var deleteVertical = aula.duracao - 1;
+                let deleteHorizontal = 0;
+                let deleteVertical = aula.duracao - 1;
                 if (aula.isTeorica) {
                     deleteHorizontal = turmas.length - 1;
                 } else {
-                    var turmasLista = curso.anos[0].turmas;
-                    /*
-                    console.log("Uc: ", uc);
-                    console.log("Turmas: ", turmas);
-                    console.log("Turmas lista: ", turmasLista);*/
-                    var turmaIndex = turmasLista.indexOf(turma);
-                    for (var t = 0; t + turmaIndex < turmasLista.length; t++) {
-                        //console.log("Turma a preencher: ", turmas[k+t]);
-                        //console.log("Turma na lista: ", turmasLista[turmaIndex+t]);
+                    let turmasLista = curso.anos[0].turmas;
+                    let turmaIndex = turmasLista.indexOf(turma);
+                    for (let t = 0; t + turmaIndex < turmasLista.length; t++) {
                         if (turmas[k + t] == turmasLista[turmaIndex + t]) {
                             deleteHorizontal += 1;
                         }
@@ -135,8 +126,8 @@ function fillUcs(ano) {
 
                 deleteCells(cell, deleteHorizontal, deleteVertical);
 
-                var sigla = uc.sigla.slice(0, uc.sigla.indexOf("("));
-                var p_element = document.createElement("p");
+                const sigla = uc.sigla.slice(0, uc.sigla.indexOf("("));
+                const p_element = document.createElement("p");
                 p_element.classList.add("uc");
                 p_element.id = uc.codigo;
                 p_element.innerHTML = sigla;
@@ -323,14 +314,20 @@ function deleteCells(cell, cellsRight, cellsBottom) {
     }
 }
 
+/**
+ * Preenche o campo do docente nas células do horário
+ *
+ * @param {string} ano - O ano para o qual as células devem ser preenchidas
+ * @returns {null} - Não retorna qualquer valor
+ */
 function fillDocentes(ano) {
     const allDocentes = curso.anos[0].docentes;
     for (let i = 0; i < allDocentes.length; i++) {
-        var docente = allDocentes[i];
-        var aulas = docente.aulas;
+        let docente = allDocentes[i];
+        let aulas = docente.aulas;
 
         for (let j = 0; j < aulas.length; j++) {
-            var aula = aulas[j];
+            let aula = aulas[j];
 
             if (semana !== "Semanas") {
                 var semanaInicial = semana.split(" - ")[0];
@@ -341,32 +338,32 @@ function fillDocentes(ano) {
                 }
             }
 
-            var turmas = aula.turmas; //FORMATO -> {ano: [codigoTurma]}
+            let turmas = aula.turmas; //FORMATO -> {ano: [codigoTurma]}
 
             if (!(ano in turmas)) { //Caso não tenha turmas do ano em que a tabela está
                 continue;
             }
 
             turmas = turmas[ano];
-            var dia = aula.diaSemana.toLowerCase();
-            var hora = aula.horaInicial;
+            let dia = aula.diaSemana.toLowerCase();
+            let hora = aula.horaInicial;
 
             for (let k = 0; k < turmas.length; k++) {
-                var turma = turmas[k];
+                let turma = turmas[k];
 
-                var idString = "turma_" + turma + "_" + dia + "_" + hora;
+                let idString = "turma_" + turma + "_" + dia + "_" + hora;
 
-                var cell = document.querySelector("tbody td:not(:first-child)[id='" + idString + "']"); //célula a que pertence a aula
+                let cell = document.querySelector("tbody td:not(:first-child)[id='" + idString + "']"); //célula a que pertence a aula
                 if (cell == null) {
                     continue;
                 }
 
-                var p_element = document.createElement("p");
+                const p_element = document.createElement("p");
                 p_element.classList.add("docente");
                 p_element.id = docente.numMecanografico;
                 p_element.innerHTML = docente.abreviacao;
 
-                var br = document.createElement("br");
+                const br = document.createElement("br");
                 p_element.style.display = "inline-block";
                 cell.appendChild(br);
                 cell.appendChild(p_element);

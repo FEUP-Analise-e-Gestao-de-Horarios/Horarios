@@ -458,10 +458,6 @@ def fillPageForCursoAno(request):
     docentesRows = auxfunc.getDocentesFromCurso(projId, cursoNome)
     docentes = [ Docente(row['numeroMecanografico'], row['nome'], row['abreviacao']) for row in docentesRows]
     
-    for docente in docentes:
-        docente.set_aulas([])
-        docente.set_blocos([])
-    
     curso.set_docentes(docentes)
     
     #Fazer fetch de todas as ucs de um curso
@@ -486,12 +482,13 @@ def fillPageForCursoAno(request):
     #Fetch de todas as turmas de um dado ano
     turmasAno = auxfunc.getTurmasFromAnoCurso(projId, cursoNome, anoNum)
     turmasPorTurno = auxfunc.getTurmasPorTurnoCursoAno(projId, cursoNome, anoNum)
+    numTurnos = len(turmasPorTurno)
+
     # Sort the list of turmas for each turno
     for turno, turmas in turmasPorTurno.items():
         turmas.sort()  # Sort in-place
         #turmas = sorted(turmas, key=lambda x: int(re.findall(r'\d+', x)[0]))
-        numTurnos = len(turmasPorTurno)
-    
+        
     #Fetch de todos os docentes de um dado ano
     docentesAnoRows = auxfunc.getDocentesFromAnoFromCurso(projId, cursoNome, anoNum)
     docentesAno = [ Docente(row['numeroMecanografico'], row['nome'], row['abreviacao']) for row in docentesAnoRows]

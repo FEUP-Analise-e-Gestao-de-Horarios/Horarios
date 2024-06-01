@@ -268,13 +268,21 @@ def getTurmasPorTurnoCursoAno(ProjectNumber, curso, ano):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # SQL statement to retrieve the data needed
-    stmt = '''SELECT turno.numero AS turno, GROUP_CONCAT(DISTINCT turmas.codigo) AS turmas
-              FROM turno
-              JOIN turmas ON turno.idTurma = turmas.codigo
-              JOIN curso ON turmas.idCurso = curso.abreviacao
-              WHERE curso.abreviacao = ? AND turmas.ano = ?
-              GROUP BY turno.numero'''
+    stmt = '''
+        SELECT turno, GROUP_CONCAT(turmas) as turmas
+        FROM (
+            SELECT turno.numero AS turno, turmas.codigo AS turmas,
+                COUNT(*) AS count,
+                ROW_NUMBER() OVER (PARTITION BY turmas.codigo ORDER BY COUNT(*) DESC) AS rn
+            FROM turno
+            JOIN turmas ON turno.idTurma = turmas.codigo
+            JOIN curso ON turmas.idCurso = curso.abreviacao
+            WHERE curso.abreviacao = ? AND turmas.ano = ?
+            GROUP BY turno.numero, turmas.codigo
+        ) t
+        WHERE rn = 1
+        GROUP BY turno
+    '''
 
     # Execute the SQL statement and fetch all the rows
     cursor.execute(stmt, (curso, ano))
