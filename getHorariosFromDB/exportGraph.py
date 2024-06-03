@@ -13,8 +13,11 @@ import matplotlib.pyplot as plt
 from itertools import groupby
 import shutil
 import os
+import time
+
 
 projectNumber = 23
+changeOrder = 1
 
 def getDifferencesFromDatabases(ProjectNumber):
     functions = {
@@ -104,7 +107,7 @@ def getDifferencesFromDatabases(ProjectNumber):
 
 # declare a pair
 # number of change : (table name, {previous data}, {new data}})
-changesDict = {0:("",{},{})}
+changesDict = dict()
 
 def addChangeToDict(table_name, primaryKey, diff_data1, diff_data2):
     # print("Table: ", table_name)
@@ -116,7 +119,7 @@ def addChangeToDict(table_name, primaryKey, diff_data1, diff_data2):
     for prev in prev_changes:
         for new in new_changes:
             if prev[primaryKey] == new[primaryKey]:
-                changesDict[len(changesDict)] = (table_name, prev, new)
+                changesDict[len(changesDict)+1] = (table_name, prev, new)
                 break
 
 
@@ -165,12 +168,6 @@ def changeAulaTurma(ProjectNumber, idAula, idTurma):
     stmt = '''UPDATE aulaTurmas SET idTurma=? WHERE idAula=?'''
     cursor.execute(stmt, (idTurma, idAula))
     conn.commit()
-
-
-# 1 aula {'id': 784, 'horaInicial': 830, 'duracao': 4, 'diaSemana': 'Terça', 'teorico': 0, 'semanaInicial': '2024-02-05', 'semanaFinal': '2024-05-20'} {'id': 784, 'horaInicial': 1030, 'duracao': 4, 'diaSemana': 'Segunda', 'teorico': 0, 'semanaInicial': '2024-02-05', 'semanaFinal': '2024-05-20'}
-# 2 aula {'id': 817, 'horaInicial': 1030, 'duracao': 4, 'diaSemana': 'Segunda', 'teorico': 0, 'semanaInicial': '2024-02-05', 'semanaFinal': '2024-05-20'} {'id': 817, 'horaInicial': 830, 'duracao': 4, 'diaSemana': 'Terça', 'teorico': 0, 'semanaInicial': '2024-02-05', 'semanaFinal': '2024-05-20'}
-# 3 aulaSala {'idAula': 817, 'idSala': 'B219'} {'idAula': 817, 'idSala': 'B334'}
-# 4 aulaSala {'idAula': 784, 'idSala': 'B334'} {'idAula': 784, 'idSala': 'B219'}
 
 def changeAula(ProjectNumber, aula):
     path = "Project"+str(ProjectNumber)
@@ -228,7 +225,7 @@ def applyChangeToDB(table, new):
         aulaId = new["idAula"]
         # print("diaAula: ", diaAula, " horaAula: ", horaAula, " aulaId: ", aulaId)
         conflicts = findAnyConflicts(projectNumber, diaAula, horaAula, aulaId)
-        print("conflicts: ", conflicts, "\n")
+        #print("conflicts: ", conflicts, "\n")
 
     elif table == "aula":
         changeAula(projectNumber, new)
@@ -237,7 +234,7 @@ def applyChangeToDB(table, new):
         aulaId = new["id"]
         # print("diaAula: ", diaAula, " horaAula: ", horaAula, " aulaId: ", aulaId)
         conflicts = findAnyConflicts(projectNumber, diaAula, horaAula, aulaId)
-        print("conflicts: ", conflicts, "\n")
+        #print("conflicts: ", conflicts, "\n")
 
     elif table == "aulaSala":
         changeAulaSala(projectNumber, new["idAula"], new["idSala"])
@@ -245,7 +242,7 @@ def applyChangeToDB(table, new):
         aulaId = new["idAula"]
         # print("diaAula: ", diaAula, " horaAula: ", horaAula, " aulaId: ", aulaId)
         conflicts = findAnyConflicts(projectNumber, diaAula, horaAula, aulaId)
-        print("conflicts: ", conflicts, "\n")
+        #print("conflicts: ", conflicts, "\n")
 
     elif table == "aulaDocente":
         changeAulaDocente(projectNumber, new["idAula"], new["idDocente"])
@@ -253,22 +250,75 @@ def applyChangeToDB(table, new):
         aulaId = new["idAula"]
         # print("diaAula: ", diaAula, " horaAula: ", horaAula, " aulaId: ", aulaId)
         conflicts = findAnyConflicts(projectNumber, diaAula, horaAula, aulaId)
-        print("conflicts: ", conflicts, "\n")
+        #print("conflicts: ", conflicts, "\n")
 
     return conflicts
+
+def generateConflicts(table, prev, new):
+    print(f'{table} {prev} {new}')
+    
+    conflicts = applyChangeToDB(table, new)
+    time.sleep(1)
+    applyChangeToDB(table, prev)
+    print("Conflicts next: ", conflicts)
+    
+    if len(conflicts) > 0:
+        return True
+    else:
+        return False
+
 
 def checkChangeToDB(generated_conflict, table, prev, new):
     print("Applying change to DB: ", new)
     new_conflicts = applyChangeToDB(table, new)
 
-    print("Checking if change is a solution...")
     if generated_conflict in new_conflicts:
-        print("Change is NOT a solution")
-        applyChangeToDB(table, prev)
+        print("Change is NOT a solution\n")
+        new_conflicts = applyChangeToDB(table, prev)
+        print("New Conlficts", new_conflicts)
         return False, new_conflicts
     else:
-        print("Change IS a solution")
+        print("Change IS a solution\n")
+        print("New Conlficts", new_conflicts)
         return True, new_conflicts
+
+def findBestChange(conflict, visited):
+    print("Finding change for conflict: ", conflict)
+    for change in changesDict:
+        if change in visited:
+            continue
+        table, prev, new = changesDict[change]
+        print("Checking if change", change, "is a solution...")
+        solve_conflict, new_conflicts = checkChangeToDB(conflict, table, prev, new)
+        if solve_conflict:
+            return change, new_conflicts
+    print("ERROR: No solution found for conflict: ", conflict)
+    return None, None
+
+def dfs_visit(graph, change, visited):
+    global changeOrder
+    print("\n")
+    print("Visiting change", change)
+    print("Visited changes", visited)
+    if change not in visited:
+        table, prev, new = changesDict[change]
+        visited.add(change)
+        conflicts = applyChangeToDB(table, new)
+        graph.add_node(change, table=table, prev=prev, new=new, order=changeOrder)
+        changeOrder += 1
+        print("Conflicts: ", conflicts)
+        while len(conflicts) > 0:
+            conflict = conflicts.pop(0)
+            # find the next change that solves the conflict
+            next_change, new_conflicts = findBestChange(conflict, visited)
+            table, prev, new = changesDict[next_change]
+            graph.add_node(next_change, table=table, prev=prev, new=new, order=changeOrder)
+            graph.add_edge(change, next_change)
+            # print("New Conflicts: ", new_conflicts)
+            # input("Press Enter to continue...")
+            conflicts = dfs_visit(graph, next_change, visited)
+            # print("Conflicts: ", conflicts)
+        return conflicts
 
 ret = getDifferencesFromDatabases(projectNumber)
 
@@ -285,71 +335,60 @@ duplicateInitialDB.row_factory = sqlite3.Row
 
 queue = []
 for change in changesDict:
-    if change == 0:
-        continue
     table, prev, new = changesDict[change]
     queue.append((change, table, prev, new))
 
 # create a directed graph
 G = nx.DiGraph()
 
-conflicts = []
-while len(queue) > 0:
-    change, table, prev, new = queue.pop(0)
-    print(change, table, prev, new)
-    
-    G.add_node(change, table=table, prev=prev, new=new)
+visited = set()
 
-    # Aplicar a alteração desse nó à BD
-    new_conflicts = applyChangeToDB(table, new)
+changeNum = 1
+while changeNum <= len(changesDict):
+    table, prev, new = changesDict[changeNum]
+    print("\nChange", changeNum)
+    if changeNum not in visited and not generateConflicts(table, prev, new):
+        applyChangeToDB(table, new)
+        visited.add(changeNum)
+        G.add_node(changeNum, table=table, prev=prev, new=new, order=changeOrder)
+        changeOrder += 1
+        changeNum = 1
+        continue
+    changeNum += 1
 
-    # Verificar se isso gera um conflito
-    if len(new_conflicts) > 0:
-        # Procurar nó que resolve o conflito
-        generated_conflicts = list(set(new_conflicts))
-        node_source = change
-        print("Generated conflicts: ", generated_conflicts)
-        while len(generated_conflicts) > 0:
-            generated_conflict = generated_conflicts.pop(0)
-            print("Fixing the generated conflict: ", generated_conflict)
-            conflict_solved = False
 
-            while not conflict_solved:
-                node = queue.pop(0)
-                change, table, prev, new = node
+for change, table, prev, new in queue:
+    # print(change, table, prev, new)
+    print("For Loop", change)
+    if change not in visited:
+        dfs_visit(G, change, visited)
 
-                # Aplicar essa alteração à base de dados e verificar se resolve o conflito
-                isSolution, new_conflicts = checkChangeToDB(generated_conflict, table, prev, new)
-                input("Press Enter to continue...")
-
-                if isSolution:
-                    conflict_solved = True
-
-                    # Criar aresta entre os nós (direcionada, na direção do que resolve o conflito)
-                    print("Adding edge between ", node_source, change)
-                    G.add_edge(node_source, change)
-
-                    # new_generated_conflicts = list(set(new_conflicts) - set(conflicts))
-
-                else:
-                    queue.append(node)
-                    print("Adding node back to queue: ", node)
-        conflicts = new_conflicts
-
-    input("Press Enter to continue...")
-        
+    # input("Press Enter to continue...")
         
 
 print("\n\n")
 print("changesDict")
+changesDescription = str()
 for change in changesDict:
     if change == 0:
         continue
     table, prev, new = changesDict[change]
+    changesDescription += f"{change} {table} \n    Prev: {prev} \n    New: {new}\n"
     print(change, table, prev, new)
 print("\n\n")
 
-# drawing the directed conflict graph
-pos = nx.spring_layout(G)
-nx.draw(G, pos, with_labels=True, arrows=True)
+plt.text(-2.5, -1, changesDescription, fontsize=10, bbox=None)
+
+pos = nx.spring_layout(G, k=1.1)
+
+for key, value in pos.items():
+    pos[key] = (value[0] + 1, value[1])
+
+labels = {node: f'{node}\nOrd:{G.nodes[node]["order"]}' for node in G.nodes()}
+
+nx.draw(G, pos, labels=labels, with_labels=True, arrows=True, node_size=1200, font_size=10, node_shape="s")
+
+plt.xlim(-2, 2)
+plt.ylim(-2, 2)
+
 plt.show()

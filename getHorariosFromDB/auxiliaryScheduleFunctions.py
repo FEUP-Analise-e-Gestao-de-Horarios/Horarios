@@ -165,7 +165,7 @@ def getAulaFromDocenteAndTime(ProjectNumber, hora_inicial, dia_semana, docente, 
                 duracao -= 1
     finalResult = []
     for i in result:
-        print(f"This is the id: {i} as opposed to the idToCheck: {idAulaToCheck}" )
+        # print(f"This is the id: {i} as opposed to the idToCheck: {idAulaToCheck}" )
         if (int(i)!=int(idAulaToCheck)):
             finalResult.append(i) 
     if (finalResult == []):
@@ -224,13 +224,13 @@ def getAulaFromTurmaAndTime(ProjectNumber, hora_inicial, dia_semana, turma, idAu
                     result.append(a[0])
                 duracao -= 1
     finalResult = []
-    print(f"Turma: {turma} -> Result {result}")
+    # print(f"Turma: {turma} -> Result {result}")
 
     for i in result:
-        print(f"Result i: {i}")
+        # print(f"Result i: {i}")
         if (int(i)!=int(idAulaToCheck)):
             finalResult.append(i) 
-    print(f"finalResult: {finalResult}")
+    # print(f"finalResult: {finalResult}")
     if (finalResult == []):
         query = """SELECT duracao FROM aula WHERE id=?"""
         cursor.execute(query, (idAulaToCheck,))
