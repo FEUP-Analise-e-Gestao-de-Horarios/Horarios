@@ -375,18 +375,15 @@ function fillDocentes(ano) {
 
 function mergeTurnos() {
     const cells = $("#table_vistas").find("td:not(:first-child):has(p)").toArray();
-
-    //console.log(cells)
-
     cells.forEach(function (cell) {
-        var colspan = parseInt(cell.getAttribute('colspan'));
-        var originalColspan = parseInt(cell.getAttribute('data-originalcolspan'));
+        const colspan = parseInt(cell.getAttribute('colspan'));
+        const originalColspan = parseInt(cell.getAttribute('data-originalcolspan'));
 
         if (colspan === originalColspan || !colspan)
             return;
 
-        var aulaId = cell.getAttribute('data-aulaid');
-        var nextSibling = document.querySelector("tbody td:not(:first-child).turno2[data-aulaid='" + aulaId + "']");
+        const aulaId = cell.getAttribute('data-aulaid');
+        const nextSibling = document.querySelector("tbody td:not(:first-child).turno2[data-aulaid='" + aulaId + "']");
         if (nextSibling) {
             nextSibling.remove();
         }

@@ -4,7 +4,6 @@ const projId = document.currentScript.getAttribute('data-proj-id');
 const cursoBtn = document.getElementById("cursoBtn");
 let curso, ano, semana, ucsDistribuicao;
 let dataLoadBool = false;
-//var numeroTurnos, numeroTurmas, turmasPorTurno, turmasAno, semanasAno;
 
 for (let i = 0; i < cursosLista.length; i++) {
     const new_option = document.createElement("option");

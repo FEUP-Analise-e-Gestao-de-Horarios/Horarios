@@ -269,19 +269,20 @@ def getTurmasPorTurnoCursoAno(ProjectNumber, curso, ano):
     cursor = conn.cursor()
 
     stmt = '''
-        SELECT turno, GROUP_CONCAT(turmas) as turmas
+        SELECT uc, turno, GROUP_CONCAT(turmas) as turmas
         FROM (
-            SELECT turno.numero AS turno, turmas.codigo AS turmas,
+            SELECT uc.sigla AS uc, turno.numero AS turno, turmas.codigo AS turmas,
                 COUNT(*) AS count,
-                ROW_NUMBER() OVER (PARTITION BY turmas.codigo ORDER BY COUNT(*) DESC) AS rn
+                ROW_NUMBER() OVER (PARTITION BY uc.sigla, turmas.codigo ORDER BY COUNT(*) DESC) AS rn
             FROM turno
             JOIN turmas ON turno.idTurma = turmas.codigo
             JOIN curso ON turmas.idCurso = curso.abreviacao
+            JOIN uc ON turno.idUC = uc.codigo
             WHERE curso.abreviacao = ? AND turmas.ano = ?
-            GROUP BY turno.numero, turmas.codigo
+            GROUP BY uc.sigla, turno.numero, turmas.codigo 
         ) t
         WHERE rn = 1
-        GROUP BY turno
+        GROUP BY uc, turno
     '''
 
     # Execute the SQL statement and fetch all the rows
@@ -289,10 +290,36 @@ def getTurmasPorTurnoCursoAno(ProjectNumber, curso, ano):
     result = cursor.fetchall()
 
     # Create a dictionary to store the classes by shift
-    turmas_por_turno = {row['turno']: row['turmas'].split(',') for row in result}
+    turmas_por_turno = {}
+    turno_sets_counts = {}
+    for row in result:
+        turmas = row['turmas'].split(',')
+        if row['uc'] not in turmas_por_turno:
+            turmas_por_turno[row['uc']] = {}
+        turno = row['turno']
+        if turno not in turmas_por_turno[row['uc']]:
+            turmas_por_turno[row['uc']][turno] = turmas
+        else:
+            turmas_por_turno[row['uc']][turno].extend(turmas)
+
+    for uc in turmas_por_turno:
+        turnos_set = frozenset(turmas_por_turno[uc].keys())
+        turno_sets_counts[turnos_set] = turno_sets_counts.get(turnos_set, 0) + 1
+    
+    common_turnos = max(turno_sets_counts, key=turno_sets_counts.get)
+
+    final_dict = {turno: [] for turno in common_turnos}
+    for uc in turmas_por_turno:
+        uc_turnos_set = set(turmas_por_turno[uc].keys())
+        if uc_turnos_set == common_turnos:
+            for turno in uc_turnos_set:
+                final_dict[turno] = turmas_por_turno[uc][turno]
+        else:
+            for turno in uc_turnos_set:
+                final_dict[f"{uc} {turno}"] = turmas_por_turno[uc][turno]
 
     # Return the dictionary
-    return turmas_por_turno
+    return final_dict
 
 # This function retrieves the number of classes for a given course, year, and shift
 def getNumeroTurmasPorTurnoAnoCurso(ProjectNumber, curso, ano):
