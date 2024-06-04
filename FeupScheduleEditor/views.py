@@ -115,6 +115,12 @@ def getProjetosListAux(request, userId):
     related.reverse()
     return related
 
+def getTurmasPorTurnoCursoAno(request):
+    project_number = request.GET.get('ProjectNumber')
+    turno = request.GET.get('turno')
+    turmas = auxfunc.getTurmasPorTurnoCursoAno(project_number, turno)
+    return JsonResponse(turmas, safe=False)
+
 # ---------------------------------------------------------------------------------------------------------
 
 def starter(request: HttpRequest) -> HttpResponse:
