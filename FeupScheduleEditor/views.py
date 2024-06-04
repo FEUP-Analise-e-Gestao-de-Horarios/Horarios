@@ -11,20 +11,10 @@ import bleach
 from users.models import CustomUser
 from core.models import Group, Person, Project
 from django.contrib import messages
-from getHorariosFromDB.movementFunctions import addDocente
-from getHorariosFromDB.movementFunctions import removeDocente
-from getHorariosFromDB.movementFunctions import addSala
-from getHorariosFromDB.movementFunctions import removeSala
-from getHorariosFromDB.movementFunctions import moveAula
-from getHorariosFromDB.movementFunctions import changeUC
-from getHorariosFromDB.movementFunctions import updateAulaDuration
-from getHorariosFromDB.movementFunctions import addTurma
-from getHorariosFromDB.movementFunctions import removeTurma
-from getHorariosFromDB.conflictFunctions import organizeInformation
+from getHorariosFromDB.movementFunctions import addDocente, removeDocente, addSala, removeSala, moveAula, changeUC, updateAulaDuration, addTurma, removeTurma
+from getHorariosFromDB.conflictFunctions import organizeInformation, findAnyConflicts
 from getHorariosFromDB.comparingDatabases import getDifferencesFromDatabases
-from getHorariosFromDB.conflictFunctions import findAnyConflicts
 import getHorariosFromDB.graph as graph_controller
-from getHorariosFromDB.conflictFunctions import findAnyConflicts
 
 PLACEHOLDER_ID = 0
 
@@ -540,144 +530,6 @@ def fillPageForCursoAno(request):
         'turmasAno': turmasAno,
         'semanasAno': semanasAno,
         'numAnos': numAnos
-    }   
-    return JsonResponse(response_data)
-
-def fillPageForCurso(request):
-    cursoNome = bleach.clean(request.GET.get('curso'))
-    
-    projId = int(request.GET.get('projId'))
-    
-    #Criar o objeto do tipo curso que contém docentes, anos, ucs e salas
-    curso = Curso(cursoNome)
-    
-    
-    #Fazer fetch de todas as salas de um dado curso
-    salasRows = auxfunc.getSalasFromCurso(projId, cursoNome)
-    
-    salas = [ Sala(row['numero'], row['tipo'], row['capacidade']) for row in salasRows ]
-    for sala in salas:
-        #Fetch de todas as aulas de uma dada sala
-        aulasSalaRows = auxfunc.getSalaHorario(projId, sala.numero)
-        aulasSala = [Aula(row['id'], row['horaInicial'], row['duracao'], row['diaSemana'], row['teorico'], row['semanaInicial'], row['semanaFinal']) for row in aulasSalaRows]
-        
-        for aula in aulasSala:
-            turmasAula = auxfunc.getTurmasFromAula(projId, aula.id, cursoNome)
-            aula.set_turmas(turmasAula) #FORMATO -> [codigoTurma]
-        
-        sala.set_aulas(aulasSala) #FORMATO -> [Aula]
-        
-        #Fetch de todos os blocos vermelhos de uma dada sala
-        salaBlocoRows = auxfunc.getSalaBlocos(projId, sala.numero)
-        salaBloco = [ Bloco(row['id'], row['hora'], row['diaSemana']) for row in salaBlocoRows]
-        sala.set_blocos(salaBloco) #FORMATO -> [Bloco]
-    
-    curso.set_salas(salas)
-    
-    
-    #Fazer fetch de todos os docentes de um curso
-    docentesRows = auxfunc.getDocentesFromCurso(projId, cursoNome)
-    docentes = [ Docente(row['numeroMecanografico'], row['nome'], row['abreviacao']) for row in docentesRows]
-    for docente in docentes:
-        #Fetch de todas as aulas de um dado docente
-        horarioDocenteRows = auxfunc.getDocenteHorario(projId, docente.numMecanografico)
-        horarioDocente = [ Aula(row['id'], row['horaInicial'], row['duracao'], row['diaSemana'], row['teorico'], row['semanaInicial'], row['semanaFinal']) for row in horarioDocenteRows]
-        
-        for aula in horarioDocente:
-            turmasAula = auxfunc.getTurmasFromAula(projId, aula.id, cursoNome)
-            aula.set_turmas(turmasAula) #FORMATO -> [codigoTurma]
-        
-        docente.set_aulas(horarioDocente) #FORMATO -> [Aula]
-        
-        #Fetch de todod os blocos vermelhos de um dado docente
-        docenteBlocoRows = auxfunc.getDocenteBlocos(projId, docente.numMecanografico)
-        docenteBloco = [ Bloco(row['id'], row['hora'], row['diaSemana']) for row in docenteBlocoRows]
-        docente.set_blocos(docenteBloco) #FORMATO -> [Bloco]
-    
-    curso.set_docentes(docentes)
-    
-    
-    #Fazer fetch de todas as ucs de um curso
-    ucsRows = auxfunc.getUCsFromCurso(projId, cursoNome)
-    
-    ucs = [ UC(row['codigo'], row['nome'], row['sigla']) for row in ucsRows ]
-    for uc in ucs:
-        #Fetch de todas as aulas de uma dada UC
-        aulasUCRows = auxfunc.getUcHorario(projId, uc.codigo)
-        aulasUC = [Aula(row['id'], row['horaInicial'], row['duracao'], row['diaSemana'], row['teorico'], row['semanaInicial'], row['semanaFinal']) for row in aulasUCRows]
-        for aula in aulasUC:
-            turmasAula = auxfunc.getTurmasFromAula(projId, aula.id, cursoNome)
-            aula.set_turmas(turmasAula) #FORMATO -> [codigoTurma]
-        
-        uc.set_aulas(aulasUC) #FORMATO -> [Aulas]
-        
-        anos = auxfunc.getAnoFromUcCurso(projId, cursoNome, uc.codigo)
-        uc.set_anos(anos)
-        
-    curso.set_ucs(ucs)
-    
-    
-    #Fazer fetch da informação sobre turmas e turnos de um curso para cada ano
-    numAnos = auxfunc.getNumYearsFromCurso(projId, cursoNome)
-    anos = []
-    
-    for i in range(1, numAnos+1):
-        #Fetch de todas as turmas de um dado ano
-        turmasAno1 = auxfunc.getTurmasFromAnoCurso(projId, cursoNome, i)
-        turmasPorTurno = auxfunc.getTurmasPorTurnoCursoAno(projId, cursoNome, i)
-        # Sort the list of turmas for each turno
-        for turno, turmas in turmasPorTurno.items():
-            turmas.sort()  # Sort in-place
-            #turmas = sorted(turmas, key=lambda x: int(re.findall(r'\d+', x)[0]))
-            numTurnos = len(turmasPorTurno)
-        
-        #Fetch de todos os docentes de um dado ano
-        docentesAnoRows = auxfunc.getDocentesFromAnoFromCurso(projId, cursoNome, i)
-        docentesAno = [ Docente(row['numeroMecanografico'], row['nome'], row['abreviacao']) for row in docentesAnoRows]
-        for docente in docentesAno:
-            aulasDocenteRows = auxfunc.getDocenteHorario(projId, docente.numMecanografico)
-            aulasDocente = [ Aula(row['id'], row['horaInicial'], row['duracao'], row['diaSemana'], row['teorico'], row['semanaInicial'], row['semanaFinal']) for row in aulasDocenteRows]
-            
-            for aula in aulasDocente:
-                turmasAula = auxfunc.getTurmasFromAula(projId, aula.id, cursoNome)
-                aula.set_turmas(turmasAula) #FORMATO -> [codigoTurma]
-            
-            docente.set_aulas(aulasDocente)
-            
-            docenteBlocoRows = auxfunc.getDocenteBlocos(projId, docente.numMecanografico)
-            docenteBloco = [ Bloco(row['id'], row['hora'], row['diaSemana']) for row in docenteBlocoRows]
-            docente.set_blocos(docenteBloco)
-            
-        #Fetch de todas as semanas de um dado ano
-        semanasAno = auxfunc.getSemanasFromCursoAno(projId, cursoNome, i)
-        ano = Ano(i)
-        ano.set_turmas(turmasAno1)
-        ano.set_numTurnos(numTurnos)
-        ano.set_turmasPorTurno(turmasPorTurno)
-        ano.set_docentes(docentesAno)
-        ano.set_semanas(semanasAno)
-        anos.append(ano)
-    
-    curso.set_anos(anos)
-
-    #Por default, a página é carregada com informação correspondente ao primeiro ano existente do curso selecionado
-    numeroTurnos = curso.anos[0].numTurnos
-    numeroTurmas = curso.anos[0].numTurmas
-    turmasPorTurno = curso.anos[0].turmasPorTurno
-    turmasAno = curso.anos[0].turmas
-    semanasAno = curso.anos[0].semanas
-    
-    curso_encoder = CursoEncoder()
-    curso_json = curso_encoder.encode(curso)
-
-    response_data = {
-        'schedulehtml': render(request, 'editTurnos/schedule.html', {'numeroTurnos':numeroTurnos, 'numeroTurmas':numeroTurmas, 'turmasPorTurno':turmasPorTurno, 
-                                                    'turmasAno': turmasAno, 'ano':1}).content.decode(),
-        'curso_json': curso_json,
-        'numeroTurnos':numeroTurnos,
-        'numeroTurmas':numeroTurmas,
-        'turmasAno': turmasAno,
-        'semanasAno': semanasAno
     }   
     return JsonResponse(response_data)
 
