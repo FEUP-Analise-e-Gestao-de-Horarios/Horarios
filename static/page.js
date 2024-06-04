@@ -11,6 +11,15 @@ const distributionBtn = document.getElementById("showDistributionBtn");
 let curso, ano, semana, ucsDistribuicao;
 let dataLoadBool = false;
 
+/**
+ * Lida com o evento de clique no botão de seleção de curso
+ * 
+ * @param {number} anoNum - O ano escolhido
+ * @param {boolean} [updateDom=false] - Flag que indica se o DOM deve ser atualizado
+ * @param {string} [selectedAno=null] - O ano atualmente selecionado.
+ * @param {boolean} [handleDist=false] - Flag que indica se deve ser atualizada a tabela de distribuição.
+ * @returns {null} Não retorna qualquer valor
+ */
 function handleCursoBtn(anoNum, updateDom = false, selectedAno = null, handleDist = false) {
     let cursoNome = cursoBtn.value;
 
@@ -22,9 +31,9 @@ function handleCursoBtn(anoNum, updateDom = false, selectedAno = null, handleDis
         anoNum = ano;
     }
 
-    // Make the asynchronous request
+    // Realiza o pedido assíncrono
     $.ajax({
-        url: '/table/',  // Update with your actual URL
+        url: '/table/',
         type: 'GET',
         data: { 'curso': cursoNome, 'projId': projId, 'anoNum': anoNum },
         success: function (data) {
@@ -36,13 +45,15 @@ function handleCursoBtn(anoNum, updateDom = false, selectedAno = null, handleDis
             ano = curso.anos[0].ano;
             semana = 'Semanas';
 
-            updateAnoButton(data, selectedAno);
-            updateTurnosButton();
-            updateTurmasButton(data);
-            updateSemanasButton(data);
+            // Atualiza o conteúdo de todos os botões de seleção
+            updateAnoButton(data.numAnos, selectedAno);
+            updateTurnosButton(curso.anos[0].turmasPorTurno);
+            updateTurmasButton(data.turmasAno);
+            updateSemanasButton(data.semanasAno);
 
             dataLoadBool = true;
 
+            // Caso seja necessário, atualiza o conteúdo da página
             if (updateDom) {
                 updateColspan();
                 fillUcs(ano);
@@ -57,6 +68,11 @@ function handleCursoBtn(anoNum, updateDom = false, selectedAno = null, handleDis
     });
 }
 
+/**
+ * Lida com o evento de clique no botão de distribuição.
+ * @param {boolean} show - Flag que indica se a tabela de distribuição deve ser mostrada.
+ * @returns {null} Não retorna qualquer valor.
+ */
 function handleDistributionBtn(show) {
     const table = document.querySelector(".secondary_vista_container");
 
@@ -67,8 +83,8 @@ function handleDistributionBtn(show) {
         return;
     }
     else {
-        var ucs = curso.ucs;
-        var ucsCodigosList = [];
+        let ucs = curso.ucs;
+        let ucsCodigosList = [];
         for (let i = 0; i < ucs.length; i++) {
             if (ucs[i].anos.includes(ano)) {
                 ucsCodigosList.push(ucs[i].codigo);
@@ -89,48 +105,66 @@ function handleDistributionBtn(show) {
     }
 }
 
-function updateAnoButton(data, anoSelected) {
-    anoBtn.innerHTML = "<option selected>Ano</option>";
-    for (let i = 1; i <= data.numAnos; i++) {
-        const new_option = document.createElement("option");
-        new_option.value = i;
-        new_option.innerHTML = i;
-        if (i == anoSelected) new_option.selected = 'selected'
-        anoBtn.appendChild(new_option);
-    }
+/**
+ * Atualiza o botão de seleção de ano com os dados fornecidos.
+ *
+ * @param {number} numAnos - Número de anos.
+ * @param {number} anoSelected - Ano atualmente selecionado.
+ * @returns {null} Não retorna qualquer valor.
+ */
+function updateAnoButton(numAnos, anoSelected) {
+    const anos = Array.from({ length: numAnos }, (_, i) => i + 1);
+    createAndAppendOptions(anoBtn, anos, "Ano", anoSelected);
 }
 
-function updateTurnosButton() {
-    turnosBtn.innerHTML = "<option selected>Turnos</option>";
-    const turmasPorTurno = curso.anos[0].turmasPorTurno;
-    for (let turno in turmasPorTurno) {
-        const new_option = document.createElement("option");
-        const turno_text = turno.replace(/\(.*?\)/g, '');
-        new_option.value = turno_text;
-        new_option.innerHTML = turno_text;
-        turnosBtn.appendChild(new_option);
-    }
+/**
+ * Atualiza o botão dos turnos com base nas opções possíveis.
+ *
+ * @param {Object} turmasPorTurno - Objeto que contém as turmas agrupadas por turno.
+ * @returns {null} Não retorna qualquer valor.
+ */
+function updateTurnosButton(turmasPorTurno) {
+    const turnos = Object.keys(turmasPorTurno).map(turno => turno.replace(/\(.*?\)/g, ''));
+    createAndAppendOptions(turnosBtn, turnos, "Turno");
 }
 
-function updateTurmasButton(data) {
-    turmasBtn.innerHTML = "<option selected>Turma</option>";
-    for (let i = 0; i < data.numeroTurmas; i++) {
-        const new_option = document.createElement("option");
-        new_option.value = data.turmasAno[i];
-        new_option.innerHTML = data.turmasAno[i];
-        turmasBtn.appendChild(new_option);
-    }
+/**
+ * Atualiza o botão das turmas com base nas opções possíveis
+ * 
+ * @param {string[]} turmas - Turmas existentes.
+ * @return {null} Não retorna qualquer valor.
+ */
+function updateTurmasButton(turmas) {
+    createAndAppendOptions(turmasBtn, turmas, "Turma");
 }
 
-function updateSemanasButton(data) {
-    semanasBtn.innerHTML = "<option selected>Semanas</option>";
-    for (let i = 0; i < data.semanasAno.length; i++) {
-        const semanaPair = data.semanasAno[i];
-        const semanaPairString = semanaPair[0] + ' - ' + semanaPair[1];
+/**
+ * Atualiza o botão das semanas com base nas opções possíveis
+ * 
+ * @param {string[][]} semanas - Semanas organizadas em períodos, definidos por semana inicial e final.
+ * @return {null} Não retorna qualquer valor.
+ */
+function updateSemanasButton(semanas) {
+    const semanasStrings = semanas.map(semanaPair => semanaPair[0] + ' - ' + semanaPair[1]);
+    createAndAppendOptions(semanasBtn, semanasStrings, "Semanas");
+}
+
+/**
+ * Função auxiliar para criar e adicionar 'options' a um dado elemento HTML.
+ * 
+ * @param {HTMLElement} selectElement - O elemento que vai receber as novas opções.
+ * @param {Array} options - Array de opções a adicionar. 
+ * @param {any} selectedOption - A opção a ser selecionada.
+ * @returns {null} Não retorna qualquer valor.
+ */
+function createAndAppendOptions(selectElement, options, genericOptionText, selectedOption = null) {
+    selectElement.innerHTML = "<option selected>" + genericOptionText + "</option>";
+    for (let i = 0; i < options.length; i++) {
         const new_option = document.createElement("option");
-        new_option.value = semanaPairString;
-        new_option.innerHTML = semanaPairString;
-        semanasBtn.appendChild(new_option);
+        new_option.value = options[i];
+        new_option.innerHTML = options[i];
+        if (i - 1 === selectedOption) new_option.selected = 'selected';
+        selectElement.appendChild(new_option);
     }
 }
 
@@ -180,7 +214,6 @@ turnosBtn.addEventListener("change", function () {
             });
         }
     }
-
     updateColspan();
 });
 
@@ -219,7 +252,6 @@ turmasBtn.addEventListener("change", function () {
             elements.forEach(cell => cell.style.display = 'none');
         }
     }
-
     updateColspan();
 });
 
