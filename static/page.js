@@ -2,28 +2,26 @@ const cursosLista = JSON.parse(document.currentScript.getAttribute('data-cursos'
 const projId = document.currentScript.getAttribute('data-proj-id');
 
 const cursoBtn = document.getElementById("cursoBtn");
+const anoBtn = document.getElementById("anoBtn");
+const turnosBtn = document.getElementById("turnosBtn");
+const turmasBtn = document.getElementById("turmasBtn");
+const semanasBtn = document.getElementById("semanasBtn");
+const distributionBtn = document.getElementById("showDistributionBtn");
+
 let curso, ano, semana, ucsDistribuicao;
 let dataLoadBool = false;
-
-for (let i = 0; i < cursosLista.length; i++) {
-    const new_option = document.createElement("option");
-    new_option.value = cursosLista[i];
-    new_option.innerHTML = cursosLista[i];
-    cursoBtn.appendChild(new_option);
-}
 
 function handleCursoBtn(anoNum, updateDom = false, selectedAno = null, handleDist = false) {
     let cursoNome = cursoBtn.value;
 
     if (cursoNome == "Curso") {
-        //cursoNome = cursoBtn.options[1].value;
         cursoNome = "L.EIC";
     }
 
     if (anoNum === 0) {
         anoNum = ano;
     }
-    //console.log("ANO NUM: ", anoNum);
+
     // Make the asynchronous request
     $.ajax({
         url: '/table/',  // Update with your actual URL
@@ -38,77 +36,109 @@ function handleCursoBtn(anoNum, updateDom = false, selectedAno = null, handleDis
             ano = curso.anos[0].ano;
             semana = 'Semanas';
 
-            const anoBtn = document.getElementById("anoBtn");
-            anoBtn.innerHTML = "<option selected>Ano</option>";
-            for (let i = 1; i <= data.numAnos; i++) {
-                const new_option = document.createElement("option");
-                new_option.value = i;
-                new_option.innerHTML = i;
-                if (i == selectedAno) new_option.selected = 'selected'
-                anoBtn.appendChild(new_option);
-            }
+            updateAnoButton(data, selectedAno);
+            updateTurnosButton();
+            updateTurmasButton(data);
+            updateSemanasButton(data);
 
-            const turnosBtn = document.getElementById("turnosBtn");
-            turnosBtn.innerHTML = "<option selected>Turnos</option>";
-            const turmasPorTurno = curso.anos[0].turmasPorTurno;
-            for (let turno in turmasPorTurno) {
-                const new_option = document.createElement("option");
-                const turno_text = turno.replace(/\(.*?\)/g, '');
-                new_option.value = turno_text;
-                new_option.innerHTML = turno_text;
-                turnosBtn.appendChild(new_option);
-            }
-
-            const turmasBtn = document.getElementById("turmasBtn");
-            turmasBtn.innerHTML = "<option selected>Turma</option>";
-            for (let i = 0; i < data.numeroTurmas; i++) {
-                const new_option = document.createElement("option");
-                new_option.value = data.turmasAno[i];
-                new_option.innerHTML = data.turmasAno[i];
-                turmasBtn.appendChild(new_option);
-            }
-
-            const semanasBtn = document.getElementById("semanasBtn");
-            semanasBtn.innerHTML = "<option selected>Semanas</option>";
-            for (let i = 0; i < data.semanasAno.length; i++) {
-                const semanaPair = data.semanasAno[i];
-                const semanaPairString = semanaPair[0] + ' - ' + semanaPair[1];
-                const new_option = document.createElement("option");
-                new_option.value = semanaPairString;
-                new_option.innerHTML = semanaPairString;
-                semanasBtn.appendChild(new_option);
-            }
             dataLoadBool = true;
 
             if (updateDom) {
                 updateColspan();
-                //console.log('colspan updated')
                 fillUcs(ano);
-                //console.log('fillUcs')
                 fillDocentes(ano);
-                //console.log('fillDocentes')
                 fillSalas(ano);
-                //console.log('fillSalas')
                 handleDistributionBtn(handleDist);
-                //console.log('handleDistributionBtn')
             }
         },
         error: function (xhr, textStatus, error) {
-            //console.log(textStatus)
             dataLoadBool = false;
         }
     });
 }
 
-/*document.addEventListener("DOMContentLoaded", function() {
-    handleCursoBtn(1);
-});*/
+function handleDistributionBtn(show) {
+    const table = document.querySelector(".secondary_vista_container");
+
+    if (!show && table.style.display === "") {
+        table.setAttribute("style", "display: none;");
+    }
+    else if (show && table.style.display === "none") {
+        return;
+    }
+    else {
+        var ucs = curso.ucs;
+        var ucsCodigosList = [];
+        for (let i = 0; i < ucs.length; i++) {
+            if (ucs[i].anos.includes(ano)) {
+                ucsCodigosList.push(ucs[i].codigo);
+            }
+        }
+
+        $.ajax({
+            url: '/distribuicao/',
+            type: 'GET',
+            data: { 'projId': projId, 'ucsLista': ucsCodigosList.join(',') },
+            success: function (data) {
+                table.innerHTML = data.distribuicaohtml;
+                ucsDistribuicao = data.ucsDistribuicao;
+                fillTable();
+                table.setAttribute("style", "display: ;");
+            }
+        })
+    }
+}
+
+function updateAnoButton(data, anoSelected) {
+    anoBtn.innerHTML = "<option selected>Ano</option>";
+    for (let i = 1; i <= data.numAnos; i++) {
+        const new_option = document.createElement("option");
+        new_option.value = i;
+        new_option.innerHTML = i;
+        if (i == anoSelected) new_option.selected = 'selected'
+        anoBtn.appendChild(new_option);
+    }
+}
+
+function updateTurnosButton() {
+    turnosBtn.innerHTML = "<option selected>Turnos</option>";
+    const turmasPorTurno = curso.anos[0].turmasPorTurno;
+    for (let turno in turmasPorTurno) {
+        const new_option = document.createElement("option");
+        const turno_text = turno.replace(/\(.*?\)/g, '');
+        new_option.value = turno_text;
+        new_option.innerHTML = turno_text;
+        turnosBtn.appendChild(new_option);
+    }
+}
+
+function updateTurmasButton(data) {
+    turmasBtn.innerHTML = "<option selected>Turma</option>";
+    for (let i = 0; i < data.numeroTurmas; i++) {
+        const new_option = document.createElement("option");
+        new_option.value = data.turmasAno[i];
+        new_option.innerHTML = data.turmasAno[i];
+        turmasBtn.appendChild(new_option);
+    }
+}
+
+function updateSemanasButton(data) {
+    semanasBtn.innerHTML = "<option selected>Semanas</option>";
+    for (let i = 0; i < data.semanasAno.length; i++) {
+        const semanaPair = data.semanasAno[i];
+        const semanaPairString = semanaPair[0] + ' - ' + semanaPair[1];
+        const new_option = document.createElement("option");
+        new_option.value = semanaPairString;
+        new_option.innerHTML = semanaPairString;
+        semanasBtn.appendChild(new_option);
+    }
+}
 
 cursoBtn.addEventListener("change", function () {
     handleCursoBtn(1);
 });
 
-document.getElementById("anoBtn").addEventListener("change", function () {
+anoBtn.addEventListener("change", function () {
     if (this.value === 'Ano')
         ano = this.options[1].value;
     else
@@ -116,7 +146,7 @@ document.getElementById("anoBtn").addEventListener("change", function () {
     handleCursoBtn(ano, dataLoadBool, ano);
 });
 
-document.getElementById("turnosBtn").addEventListener("change", function () {
+turnosBtn.addEventListener("change", function () {
     const allTurnos = this.options;
 
     if (this.value === 'Turnos') {
@@ -154,8 +184,7 @@ document.getElementById("turnosBtn").addEventListener("change", function () {
     updateColspan();
 });
 
-document.getElementById("turmasBtn").addEventListener("change", function () {
-    //console.log("turmas change")
+turmasBtn.addEventListener("change", function () {
     const allTurmas = this.options;
     const turmasLista = curso.anos[0].turmas;
 
@@ -194,12 +223,12 @@ document.getElementById("turmasBtn").addEventListener("change", function () {
     updateColspan();
 });
 
-document.getElementById("semanasBtn").addEventListener("change", function () {
+semanasBtn.addEventListener("change", function () {
     semana = this.value;
 
     // Make the asynchronous request
     $.ajax({
-        url: '/table/',  // Update with your actual URL
+        url: '/table/',
         type: 'GET',
         data: { 'curso': curso.nome, 'projId': projId },
         success: function (data) {
@@ -211,47 +240,21 @@ document.getElementById("semanasBtn").addEventListener("change", function () {
             fillSalas(ano);
         },
         error: function (xhr, textStatus, error) {
-            // Handle any errors
+            console.log(textStatus);
         }
     });
 });
 
-function handleDistributionBtn(show) {
-    const table = document.querySelector(".secondary_vista_container");
-
-    if (!show && table.style.display === "") {
-        table.setAttribute("style", "display: none;");
-    }
-    else if (show && table.style.display === "none") {
-        return;
-    }
-    else {
-        //console.log("Display none");
-        var ucs = curso.ucs;
-        var ucsCodigosList = [];
-        for (let i = 0; i < ucs.length; i++) {
-            if (ucs[i].anos.includes(ano)) {
-                ucsCodigosList.push(ucs[i].codigo);
-            }
-        }
-
-        $.ajax({
-            url: '/distribuicao/',
-            type: 'GET',
-            data: { 'projId': projId, 'ucsLista': ucsCodigosList.join(',') },
-            success: function (data) {
-                table.innerHTML = data.distribuicaohtml;
-                ucsDistribuicao = data.ucsDistribuicao;
-                fillTable();
-                table.setAttribute("style", "display: ;");
-            }
-        })
-    }
-}
-
-document.getElementById("showDistributionBtn").addEventListener("click", function () {
+distributionBtn.addEventListener("click", function () {
     handleDistributionBtn(false);
 });
+
+for (let i = 0; i < cursosLista.length; i++) {
+    const new_option = document.createElement("option");
+    new_option.value = cursosLista[i];
+    new_option.innerHTML = cursosLista[i];
+    cursoBtn.appendChild(new_option);
+}
 
 $(document).ready(function () {
     document.addEventListener('keydown', function (event) {
