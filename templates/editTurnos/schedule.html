@@ -18,13 +18,15 @@
     <tbody>
         <tr>
             <th>Turma</th>
-            {% for i in 1|times:6 %} <!-- Itera sobre os dias da semana -->
-            {% for numTurno in 1|times:numeroTurnos %} <!-- Itera sobre o nº de turnos -->
+            {% for i in 1|times:6 %}
+            {% for numTurno in turmasPorTurno.keys %}
+            {% if numTurno|is_number %}
             {% with turmasPorTurno|getTurmasTurno:numTurno as turmasTurno %}
-            {% for turma in turmasTurno %} <!-- Itera sobre as turmas do turno -->
+            {% for turma in turmasTurno %}
             <th class={{ "turno" |concat:numTurno }} id={{ "turma_" |concat:turma }}> {{ turma }} </th>
             {% endfor %}
             {% endwith %}
+            {% endif %}
             {% endfor %}
             {% endfor %}
         </tr>

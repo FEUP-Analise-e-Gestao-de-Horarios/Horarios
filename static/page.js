@@ -50,10 +50,12 @@ function handleCursoBtn(anoNum, updateDom = false, selectedAno = null, handleDis
 
             const turnosBtn = document.getElementById("turnosBtn");
             turnosBtn.innerHTML = "<option selected>Turnos</option>";
-            for (let i = 1; i <= data.numeroTurnos; i++) {
+            const turmasPorTurno = curso.anos[0].turmasPorTurno;
+            for (let turno in turmasPorTurno) {
                 const new_option = document.createElement("option");
-                new_option.value = i;
-                new_option.innerHTML = i;
+                const turno_text = turno.replace(/\(.*?\)/g, '');
+                new_option.value = turno_text;
+                new_option.innerHTML = turno_text;
                 turnosBtn.appendChild(new_option);
             }
 

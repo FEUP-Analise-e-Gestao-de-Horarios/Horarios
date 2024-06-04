@@ -82,3 +82,11 @@ def getTurmasTurno(dictionary, numTurno):
     if(0 in dictionary):
         return dictionary[numTurno - 1]
     return dictionary[numTurno]
+
+@register.filter
+def is_number(value):
+    try:
+        int(value)
+        return True
+    except ValueError:
+        return False
