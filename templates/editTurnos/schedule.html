@@ -19,15 +19,13 @@
         <tr>
             <th>Turma</th>
             {% for i in 1|times:6 %}
-            {% for numTurno in turmasPorTurno.keys %}
-            {% if numTurno|is_number %}
-            {% with turmasPorTurno|getTurmasTurno:numTurno as turmasTurno %}
-            {% for turma in turmasTurno %}
-            <th class="turno{{ numTurno }}" id="turma_{{ turma }}"> {{ turma }} </th>
+            {% with turmasPorTurno|getAllTurmas as allTurmas %}
+            {% for turma in allTurmas|sort %}
+            {% with turmasPorTurno|getTurnosForTurma:turma as turnosForTurma %}
+            <th class="turma" id="turma_{{ turma }}" data-turnos="{{ turnosForTurma|join:',' }}">{{ turma }}</th>
+            {% endwith %}
             {% endfor %}
             {% endwith %}
-            {% endif %}
-            {% endfor %}
             {% endfor %}
         </tr>
 

@@ -1,4 +1,5 @@
 import sqlite3
+import re
 
 def organizeBlocos(blocos, dia_semana):
     final_blocos = []
@@ -316,7 +317,8 @@ def getTurmasPorTurnoCursoAno(ProjectNumber, curso, ano):
                 final_dict[turno] = turmas_por_turno[uc][turno]
         else:
             for turno in uc_turnos_set:
-                final_dict[f"{uc} {turno}"] = turmas_por_turno[uc][turno]
+                uc_string = re.sub(r'\(.*?\)', '', uc)
+                final_dict[f"{uc_string} {turno}"] = turmas_por_turno[uc][turno]
 
     # Return the dictionary
     return final_dict

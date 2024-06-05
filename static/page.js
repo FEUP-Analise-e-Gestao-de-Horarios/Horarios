@@ -48,6 +48,7 @@ function handleCursoBtn(anoNum, updateDom = false, selectedAno = null, handleDis
             // Atualiza o conteúdo de todos os botões de seleção
             updateAnoButton(data.numAnos, selectedAno);
             updateTurnosButton(curso.anos[0].turmasPorTurno);
+            console.log(curso.anos[0].turmasPorTurno);
             updateTurmasButton(data.turmasAno);
             updateSemanasButton(data.semanasAno);
 
@@ -138,7 +139,7 @@ function updateAnoButton(numAnos, anoSelected) {
  * @returns {null} Não retorna qualquer valor.
  */
 function updateTurnosButton(turmasPorTurno) {
-    const turnos = Object.keys(turmasPorTurno).map(turno => turno.replace(/\(.*?\)/g, ''));
+    const turnos = Object.keys(turmasPorTurno);
     createAndAppendOptions(turnosBtn, turnos, "Turno");
 }
 

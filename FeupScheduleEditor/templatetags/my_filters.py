@@ -2,6 +2,12 @@ from django import template
 
 register = template.Library()
 
+@register.filter(name='sort')
+def sort(value):
+    if isinstance(value, list):
+        return sorted(value)
+    return value
+
 @register.filter(name='times') 
 def times(start, end):
     return range(start, end+1)
@@ -72,6 +78,22 @@ def getTurno(dic, turma_nome):
     for turno, turmas in dic.items():
         if turma_nome in turmas:
             return turno
+        
+@register.filter(name='getTurnosForTurma')
+def getTurnosForTurma(dic, turma_nome):
+    turnos = []
+    for turno, turmas in dic.items():
+        if turma_nome in turmas:
+            turnos.append(turno)
+    return turnos
+
+@register.filter(name='getAllTurmas')
+def getAllTurmas(dic):
+    turmasSet = set()
+    for _, turmas in dic.items():
+        for turma in turmas:
+            turmasSet.add(turma)
+    return list(turmasSet)
         
 @register.filter(name='getTurmaName')
 def getTurmaName(lista, numTurma):
