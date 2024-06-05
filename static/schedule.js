@@ -161,10 +161,6 @@ function fillUcs(ano) {
 }
 
 function createCells(cell, cellsRight, cellsBottom, startingVal) {
-    /*
-    console.log("Create cells for: ", cell);
-    console.log("    Cells right: ", cellsRight);
-    console.log("    Cells bottom: ", cellsBottom);*/
     var table = document.getElementById("table_vistas");
     const turmasLista = curso.anos[0].turmas;
 
@@ -371,6 +367,16 @@ function fillDocentes(ano) {
             }
         }
     }
+}
+
+function displayAllTurmas() {
+    const allTurmas = document.querySelectorAll("[id*=turma_]");
+    allTurmas.forEach(cell => cell.style.display = '');
+}
+
+function displayTurmasForTurno(turno) {
+    const turnoTurmas = document.querySelectorAll("[id*=turma_" + turno + "]");
+    turnoTurmas.forEach(cell => cell.style.display = '');
 }
 
 function mergeTurnos() {

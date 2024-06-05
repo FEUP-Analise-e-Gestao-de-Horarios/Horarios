@@ -106,6 +106,20 @@ function handleDistributionBtn(show) {
 }
 
 /**
+ * Obtém as turmas de um dado turno, usando um endpoint do backend.
+ * 
+ * @param {string} turno - O turno para o qual obter as turmas.
+ * @returns {Promise<Array>} - Um array de turmas.
+ */
+function fetchTurmasForTurno(turno) {
+    return $.ajax({
+        url: '/getTurmasPorTurnoCursoAno',
+        type: 'GET',
+        data: { 'turno': turno },
+    });
+}
+
+/**
  * Atualiza o botão de seleção de ano com os dados fornecidos.
  *
  * @param {number} numAnos - Número de anos.
@@ -182,6 +196,17 @@ anoBtn.addEventListener("change", function () {
 
 turnosBtn.addEventListener("change", function () {
     const allTurnos = this.options;
+    const selectedTurno = this.value;
+
+    // if (selectedTurno === 'Turnos') {
+    //     displayAllTurmas();
+    // } else {
+    //     fetchTurmasForTurno(selectedTurno)
+    //         .then(displayTurmasForTurno)
+    //         .catch(error => {
+    //             console.error('Error fetching turmas:', error);
+    //         });
+    // }
 
     if (this.value === 'Turnos') {
         mergeTurnos();
