@@ -178,7 +178,7 @@ function createAndAppendOptions(selectElement, options, genericOptionText, selec
         const new_option = document.createElement("option");
         new_option.value = options[i];
         new_option.innerHTML = options[i];
-        if (i - 1 === selectedOption) new_option.selected = 'selected';
+        if (options[i] == selectedOption) new_option.selected = 'selected';
         selectElement.appendChild(new_option);
     }
 }
