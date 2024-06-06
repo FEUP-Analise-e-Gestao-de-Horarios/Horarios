@@ -8,7 +8,7 @@ const turmasBtn = document.getElementById("turmasBtn");
 const semanasBtn = document.getElementById("semanasBtn");
 const distributionBtn = document.getElementById("showDistributionBtn");
 
-let curso, ano, semana, ucsDistribuicao;
+let curso, ano, semana, ucsDistribuicao, turmasPorTurno;
 let dataLoadBool = false;
 
 /**
@@ -42,6 +42,8 @@ function handleCursoBtn(anoNum, updateDom = false, selectedAno = null, handleDis
 
             const cursoJson = data.curso_json;
             curso = JSON.parse(cursoJson);
+            turmasPorTurno = data.turmasPorTurno;
+            console.log(turmasPorTurno);
             ano = curso.anos[0].ano;
             semana = 'Semanas';
 
@@ -198,22 +200,22 @@ turnosBtn.addEventListener("change", function () {
     const allTurnos = this.options;
     const selectedTurno = this.value;
 
-    // if (selectedTurno === 'Turnos') {
-    //     displayAllTurmas();
-    // } else {
-    //     fetchTurmasForTurno(selectedTurno)
-    //         .then(displayTurmasForTurno)
-    //         .catch(error => {
-    //             console.error('Error fetching turmas:', error);
-    //         });
-    // }
+    if (selectedTurno === 'Turnos') {
+        displayAllTurmas();
+    } else {
+        fetchTurmasForTurno(selectedTurno)
+            .then(displayTurmasForTurno)
+            .catch(error => {
+                console.error('Error fetching turmas:', error);
+            });
+    }
 
-    if (this.value === 'Turnos') {
-        mergeTurnos();
-    }
-    else {
-        unmergeTurnos();
-    }
+    // if (this.value === 'Turnos') {
+    //     mergeTurnos();
+    // }
+    // else {
+    //     unmergeTurnos();
+    // }
 
     for (let i = 0; i < allTurnos.length; i++) {
         const turno_num = allTurnos[i].value;

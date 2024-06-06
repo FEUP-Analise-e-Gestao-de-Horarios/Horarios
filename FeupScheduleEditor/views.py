@@ -534,6 +534,7 @@ def fillPageForCursoAno(request):
         'numeroTurnos':numeroTurnos,
         'numeroTurmas':numeroTurmas,
         'turmasAno': turmasAno,
+        'turmasPorTurno': turmasPorTurno,
         'semanasAno': semanasAno,
         'numAnos': numAnos
     }   
