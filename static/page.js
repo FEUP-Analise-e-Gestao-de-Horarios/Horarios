@@ -214,38 +214,6 @@ turnosBtn.addEventListener("change", function () {
                 console.error('Error fetching turmas:', error);
             });
     }
-
-    // if (this.value === 'Turnos') {
-    //     mergeTurnos();
-    // }
-    // else {
-    //     unmergeTurnos();
-    // }
-
-    // for (let i = 0; i < allTurnos.length; i++) {
-    //     const turno_num = allTurnos[i].value;
-    //     if (this.value === 'Turnos') {
-    //         turno = ".turno" + turno_num;
-    //         const turnoCol = document.querySelectorAll(turno);
-    //         turnoCol.forEach(function (cell) {
-    //             cell.style.display = '';
-    //         });
-    //     }
-    //     else if (turno_num === this.value) {
-    //         turno = ".turno" + turno_num;
-    //         const turnoCol = document.querySelectorAll(turno);
-    //         turnoCol.forEach(function (cell) {
-    //             cell.style.display = '';
-    //         });
-    //     }
-    //     else if (turno_num !== this.value) {
-    //         turno = ".turno" + turno_num;
-    //         const turnoCol = document.querySelectorAll(turno);
-    //         turnoCol.forEach(function (cell) {
-    //             cell.style.display = 'none';
-    //         });
-    //     }
-    // }
 });
 
 turmasBtn.addEventListener("change", function () {
@@ -288,12 +256,18 @@ turmasBtn.addEventListener("change", function () {
 
 semanasBtn.addEventListener("change", function () {
     semana = this.value;
+    let anoNum;
+    if (anoBtn.value === 'Ano') {
+        anoNum = 1;
+    } else {
+        anoNum = anoBtn.value;
+    }
 
     // Make the asynchronous request
     $.ajax({
         url: '/table/',
         type: 'GET',
-        data: { 'curso': curso.nome, 'projId': projId },
+        data: { 'curso': curso.nome, 'projId': projId, 'anoNum': anoNum },
         success: function (data) {
             document.querySelector(".main_vista_container").innerHTML = data.schedulehtml;
 
