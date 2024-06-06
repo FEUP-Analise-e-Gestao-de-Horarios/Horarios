@@ -132,35 +132,6 @@ def get_primary_key(conn, table_name):
             return column[1]
     return None
 
-def switchAulas(ProjectNumber, idAula1, idAula2):
-    path = "Project"+str(ProjectNumber)
-    conn = sqlite3.connect('./database/' + path + '/duplicate_initial_database.db', check_same_thread=False)
-    conn.row_factory=sqlite3.Row
-    cursor = conn.cursor()
-    stmt = "SELECT * FROM aula WHERE id=?"
-    cursor.execute(stmt, (idAula1,))
-    aula1Row = cursor.fetchone()
-    cursor.execute(stmt, (idAula2,))
-    aula2Row = cursor.fetchone()
-    
-    dia1 = aula1Row["diaSemana"]
-    hora1 = aula1Row["horaInicial"]
-    dia2 = aula2Row["diaSemana"]
-    hora2 = aula2Row["horaInicial"]
-
-    moveAula(ProjectNumber, idAula1, dia2, hora2)
-    moveAula(ProjectNumber, idAula2, dia1, hora1)
-
-def moveAula(ProjectNumber, idAula, day, hour):
-    # print("moveAula: aulaId:", idAula, " day:", day, " hour:", hour)
-    path = "Project"+str(ProjectNumber)
-    conn = sqlite3.connect('./database/' + path + '/duplicate_initial_database.db', check_same_thread=False)
-    conn.row_factory=sqlite3.Row
-    cursor = conn.cursor()
-    stmt = '''UPDATE aula SET diaSemana=?, horaInicial=? WHERE id=?'''
-    cursor.execute(stmt, (day, hour, idAula,))
-    conn.commit()
-
 def changeAulaTurma(ProjectNumber, idAula, idTurma):
     path = "Project"+str(ProjectNumber)
     conn = sqlite3.connect('./database/' + path + '/duplicate_initial_database.db', check_same_thread=False)
@@ -256,9 +227,7 @@ def applyChangeToDB(table, new):
 
 def generateConflicts(table, prev, new):
     print(f'{table} {prev} {new}')
-    
     conflicts = applyChangeToDB(table, new)
-    time.sleep(1)
     applyChangeToDB(table, prev)
     print("Conflicts next: ", conflicts)
     
