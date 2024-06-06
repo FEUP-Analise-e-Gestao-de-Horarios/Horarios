@@ -303,7 +303,7 @@ function createCells(cell, cellsRight, cellsBottom, startingVal) {
 
     const rowIndex = cell.parentNode.rowIndex;
     const cellClass = cell.classList[0];
-    const cellId = cell.id;
+    let cellId = cell.id;
     const cellTurma = cellId.split("_")[1];
     const turmaIndex = turmasLista.indexOf(cellTurma);
 
@@ -320,9 +320,8 @@ function createCells(cell, cellsRight, cellsBottom, startingVal) {
             let newCell = row.insertCell(newCellRowIndex);
             newCell.classList.add(cellClass);
             newCell.setAttribute('id', newCellId);
-            //console.log("Cell created: ", newCell);
         }
-        const hora = parseInt(cellId.split('_')[3]);
+        let hora = parseInt(cellId.split('_')[3]);
 
         secondDigit = (hora / 10) % 10;
         if (secondDigit == 3) {
@@ -513,7 +512,7 @@ function unmergeCells(turmasLista) {
         for (let i = 1; i < colspan; i++) {
             const newCell = cell.cloneNode(true);
             const newCellTurma = turmasLista[turmaIndex + i];
-            const newCellTurno = "turno";
+            let newCellTurno = "turno";
 
             //Encontrar o turno a que pertence a célula
             for (const [key, arr] of Object.entries(turmasporturno)) {
@@ -625,7 +624,7 @@ function submitToDatabase(cell) {
     const salas = cell.querySelectorAll('p.sala');
 
     const docentesIds = [];
-    for (const i = 0; i < docentes.length; i++) {
+    for (let i = 0; i < docentes.length; i++) {
         docentesIds.push(docentes[i].id);
     }
 
@@ -875,7 +874,7 @@ function canSwap(cell1, cell2) {
 function checkIfSwapPossible(cell, cell2, cellsRight, cellsBottom) {
     const turmasLista = curso.anos[0].turmas;
 
-    const cellId = cell.id;
+    let cellId = cell.id;
     const cellTurma = cellId.split("_")[1];
     const turmaIndex = turmasLista.indexOf(cellTurma);
 
@@ -907,7 +906,7 @@ function checkIfSwapPossible(cell, cell2, cellsRight, cellsBottom) {
             }
             count--;
         }
-        const hora = parseInt(cellId.split('_')[3]);
+        let hora = parseInt(cellId.split('_')[3]);
         secondDigit = (hora / 10) % 10;
         if (secondDigit == 3) {
             hora += 70;
@@ -999,9 +998,9 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
 $(document).on('mouseenter', '#table_vistas td:not(:first-child):has(p) p.uc', function (event) {
     // MUDAR UCS
     const uc = this;
-    const siglaUC = uc.textContent;
+    let siglaUC = uc.textContent;
     for (let i = 0; i < curso.ucs.length; i++) {
-        const uc_sigla = curso.ucs[i].sigla;
+        let uc_sigla = curso.ucs[i].sigla;
         const indexOfParenthesis = uc_sigla.indexOf("(");
         if (indexOfParenthesis !== -1) {
             uc_sigla = uc_sigla.substring(0, indexOfParenthesis);
@@ -1192,7 +1191,6 @@ function displayBlocosVermelhosTurma(turma, display) {
         return;
     }
 
-    console.log("Turma: ", turma);
     // Make the asynchronous request
     $.ajax({
         url: '/blocosturma/',  // Update with your actual URL
