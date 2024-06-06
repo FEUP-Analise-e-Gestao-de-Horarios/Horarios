@@ -22,7 +22,8 @@
             {% with turmasPorTurno|getAllTurmas as allTurmas %}
             {% for turma in allTurmas|sort %}
             {% with turmasPorTurno|getTurnosForTurma:turma as turnosForTurma %}
-            <th class="turma" id="turma_{{ turma }}" data-turnos="{{ turnosForTurma|join:',' }}">{{ turma }}</th>
+            <th class="turma" id="turma_{{ turma }}" data-turnos="{{ turnosForTurma|join:',' }}" data-dia="{{ i }}">
+                {{ turma }}</th>
             {% endwith %}
             {% endfor %}
             {% endwith %}

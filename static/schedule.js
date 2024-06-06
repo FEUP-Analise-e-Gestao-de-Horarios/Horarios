@@ -92,11 +92,31 @@ function fillUcs(ano) {
             const dia = aula.diaSemana.toLowerCase();
             const hora = aula.horaInicial;
 
-            for (let k = 0; k < turmas.length; k++) {
-                let turma = turmas[k];
-                turmasSet.add(turma);
+            let turmaGroups = [];
+            let currentGroup = [];
 
-                let idString = "turma_" + turma + "_" + dia + "_" + hora;   //id da célula a que pertence a aula
+            if (turmas.length > 0) {
+                currentGroup.push(turmas[0]); // Start with the first turma
+
+                for (let i = 1; i < turmas.length; i++) {
+                    let turmaNumber1 = Number(turmas[i].match(/\d+$/)[0]);
+                    let turmaNumber2 = Number(turmas[i - 1].match(/\d+$/)[0]);
+
+                    if (turmaNumber1 === turmaNumber2 + 1) {
+                        currentGroup.push(turmas[i]);
+                    } else {
+                        turmaGroups.push(currentGroup);
+                        currentGroup = [turmas[i]];
+                    }
+                }
+
+                // Add the last group
+                turmaGroups.push(currentGroup);
+            }
+
+            for (let k = 0; k < turmaGroups.length; k++) {
+                let group = turmaGroups[k];
+                let idString = "turma_" + group[0] + "_" + dia + "_" + hora;   //id da célula a que pertence a aula
 
                 let cell = document.querySelector("tbody td:not(:first-child)[id='" + idString + "']"); //célula a que pertence a aula
                 if (cell == null) {
@@ -108,12 +128,12 @@ function fillUcs(ano) {
                 let deleteHorizontal = 0;
                 let deleteVertical = aula.duracao - 1;
                 if (aula.isTeorica) {
-                    deleteHorizontal = turmas.length - 1;
+                    deleteHorizontal = group.length - 1;
                 } else {
                     let turmasLista = curso.anos[0].turmas;
-                    let turmaIndex = turmasLista.indexOf(turma);
+                    let turmaIndex = turmasLista.indexOf(group[0]);
                     for (let t = 0; t + turmaIndex < turmasLista.length; t++) {
-                        if (turmas[k + t] == turmasLista[turmaIndex + t]) {
+                        if (group[k + t] == turmasLista[turmaIndex + t]) {
                             deleteHorizontal += 1;
                         }
                         else {
@@ -121,7 +141,7 @@ function fillUcs(ano) {
                         }
                     }
                     deleteHorizontal -= 1;
-                    k = k + deleteHorizontal;
+                    //k = k + deleteHorizontal;
                 }
 
                 deleteCells(cell, deleteHorizontal, deleteVertical);
@@ -137,16 +157,15 @@ function fillUcs(ano) {
                 cell.setAttribute("data-semanas", aula.semanaInicial + ' - ' + aula.semanaFinal);
 
                 if (aula.isTeorica) {
-                    cell.setAttribute("colspan", turmas.length);
-                    cell.setAttribute("data-originalcolspan", turmas.length);
+                    cell.setAttribute("colspan", group.length);
+                    cell.setAttribute("data-originalcolspan", group.length);
                     cell.setAttribute("style", "border: 2px solid black;");
                     cell.setAttribute("style", "background-color: " + window.colorDictionary[ucAnoSet.size][1]);
                     cell.setAttribute("data-teorica", 1)
-                    break;
                 }
                 else {
-                    cell.setAttribute("colspan", deleteHorizontal + 1);
-                    cell.setAttribute("data-originalcolspan", deleteHorizontal + 1);
+                    cell.setAttribute("colspan", group.length);
+                    cell.setAttribute("data-originalcolspan", group.length);
                     cell.setAttribute("style", "border: 2px solid black;");
                     cell.setAttribute("style", "background-color: " + window.colorDictionary[ucAnoSet.size][0]);
                     cell.setAttribute("data-teorica", 0);
@@ -154,10 +173,43 @@ function fillUcs(ano) {
             }
         }
         if (ucAnoBool) ucAnoSet.add(uc);
-        //if(uc.codigo == 'M.EIC007') break;
     }
     setSidebarUCs(ucAnoSet);
     setSidebarTurmas(turmasSet);
+}
+
+function findHorizontalPosition(row, cellToInsertID) {
+    var day = cellToInsertID.split('_')[2];
+    var turma = cellToInsertID.split('_')[1];
+    var rowIndex = 0;
+
+    const turmasLista = curso.anos[0].turmas;
+    const dias = ["segunda", "terça", "quarta", "quinta", "sexta"];
+
+    for (var i = 0; i < dias.length; i++) {
+        var turmasDia = 0;
+        for (var j = 0; j < row.length; j++) {
+            var cellId = row[j].id;
+            var cellDay = cellId.split('_')[2];
+            var cellTurma = cellId.split('_')[1];
+            var cellTurmaIndex = turmasLista.indexOf(cellTurma);
+            var turmaIndex = turmasLista.indexOf(turma);
+
+            if (dias[i] === day && cellDay === day && cellTurmaIndex >= turmaIndex) {
+                break;
+            }
+
+            if (cellDay === dias[i]) {
+                turmasDia++;
+            }
+        }
+
+        rowIndex += turmasDia;
+
+        if (dias[i] === day)
+            break;
+    }
+    return rowIndex + 1;
 }
 
 function createCells(cell, cellsRight, cellsBottom, startingVal) {
@@ -199,41 +251,6 @@ function createCells(cell, cellsRight, cellsBottom, startingVal) {
 
         cellId = cellId.split('_')[0] + "_" + cellId.split('_')[1] + "_" + cellId.split('_')[2] + "_" + hora; //id da célula seguinte pertencente à mesma aula
     }
-
-}
-
-function findHorizontalPosition(row, cellToInsertID) {
-    var day = cellToInsertID.split('_')[2];
-    var turma = cellToInsertID.split('_')[1];
-    var rowIndex = 0;
-
-    const turmasLista = curso.anos[0].turmas;
-    const dias = ["segunda", "terça", "quarta", "quinta", "sexta"];
-
-    for (var i = 0; i < dias.length; i++) {
-        var turmasDia = 0;
-        for (var j = 0; j < row.length; j++) {
-            var cellId = row[j].id;
-            var cellDay = cellId.split('_')[2];
-            var cellTurma = cellId.split('_')[1];
-            var cellTurmaIndex = turmasLista.indexOf(cellTurma);
-            var turmaIndex = turmasLista.indexOf(turma);
-
-            if (dias[i] === day && cellDay === day && cellTurmaIndex >= turmaIndex) {
-                break;
-            }
-
-            if (cellDay === dias[i]) {
-                turmasDia++;
-            }
-        }
-
-        rowIndex += turmasDia;
-
-        if (dias[i] === day)
-            break;
-    }
-    return rowIndex + 1;
 }
 
 function deleteCells(cell, cellsRight, cellsBottom) {
@@ -241,34 +258,35 @@ function deleteCells(cell, cellsRight, cellsBottom) {
     console.log("Delete cells for: ", cell);
     console.log("    Cells right: ", cellsRight);
     console.log("    Cells bottom: ", cellsBottom);*/
-    var table = document.getElementById("table_vistas");
-    var originalCell = cell;
+    const table = document.getElementById("table_vistas");
+    let originalCell = cell;
 
-    var rowIndex = cell.parentNode.rowIndex;
-    var cellIndex = cell.cellIndex;
-    var idCell = cell.id;
+    const rowIndex = cell.parentNode.rowIndex;
+    let cellIndex = cell.cellIndex;
+    let idCell = cell.id;
 
-    var firstRow = table.rows[1];
-    var top = 0;
+    let firstRow = table.rows[1];
+    let top = 0;
 
-    for (var i = 0; i <= cellsBottom; i++) {
-        var row = table.rows[rowIndex + i];
-        count = cellsRight;
+    for (let i = 0; i <= cellsBottom; i++) {
+        let row = table.rows[rowIndex + i];
+        let height;
+        let count = cellsRight;
         while (count >= 0) {
-            var cellToDelete = row.cells[cellIndex + count];
-            var cellToGetHeight = row.cells[0];
-            var cellToGetWidth = firstRow.cells[cellIndex + count];
-            var idToDelete = cellToDelete.id;
-            var div = document.createElement("div");
+            let cellToDelete = row.cells[cellIndex + count];
+            let cellToGetHeight = row.cells[0];
+            let cellToGetWidth = firstRow.cells[cellIndex + count];
+            let idToDelete = cellToDelete.id;
+            let div = document.createElement("div");
             div.classList.add("inside_tds");
             div.id = idToDelete;
 
-            var rectHeight = cellToGetHeight.getBoundingClientRect();
-            var rectWidth = cellToGetWidth.getBoundingClientRect();
+            const rectHeight = cellToGetHeight.getBoundingClientRect();
+            const rectWidth = cellToGetWidth.getBoundingClientRect();
 
-            var rect = cellToDelete.getBoundingClientRect();
-            var width = rectWidth.width;
-            var height = rectHeight.height
+            let rect = cellToDelete.getBoundingClientRect();
+            let width = rectWidth.width;
+            height = rectHeight.height;
 
             if (count == cellsRight) {
                 left = cellsRight * width;
@@ -278,7 +296,7 @@ function deleteCells(cell, cellsRight, cellsBottom) {
             }
 
             div.setAttribute("style", "left: " + left + "px; top: " + top + "px; height: " + height + "px; width: " + width + "px;");
-            originalCell.style.position = "relative"; // Add this line
+            originalCell.style.position = "relative";
             originalCell.appendChild(div);
 
             if (i == 0 && count == 0) {
@@ -291,7 +309,7 @@ function deleteCells(cell, cellsRight, cellsBottom) {
 
         top += height;
 
-        var hora = parseInt(idCell.split('_')[3]);
+        let hora = parseInt(idCell.split('_')[3]);
 
         secondDigit = (hora / 10) % 10;
         if (secondDigit == 3) {

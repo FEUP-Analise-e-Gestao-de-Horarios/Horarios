@@ -48,7 +48,6 @@ function handleCursoBtn(anoNum, updateDom = false, selectedAno = null, handleDis
             // Atualiza o conteúdo de todos os botões de seleção
             updateAnoButton(data.numAnos, selectedAno);
             updateTurnosButton(curso.anos[0].turmasPorTurno);
-            console.log(curso.anos[0].turmasPorTurno);
             updateTurmasButton(data.turmasAno);
             updateSemanasButton(data.semanasAno);
 
