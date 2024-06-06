@@ -123,7 +123,14 @@ function fillUcs(ano) {
                     continue;
                 }
 
+                let turmasString = turmas.join(",");
+                cell.setAttribute("data-turmas", turmasString);
                 cell.setAttribute("data-aulaID", aula.id);
+
+                if (turmaGroups.length > 1) {
+                    let groupString = group.join(',');
+                    cell.setAttribute("data-group", groupString);
+                }
 
                 let deleteHorizontal = 0;
                 let deleteVertical = aula.duracao - 1;
@@ -393,13 +400,33 @@ function displayAllTurmas() {
 }
 
 function displayTurmasForTurno(turmas) {
-    const allTurmaCells = document.querySelectorAll("[id*=turma_]");
-    allTurmaCells.forEach(cell => cell.style.display = 'none');
+    const allTurmaCells = document.querySelectorAll("tbody [id*=turma_]");
+    allTurmaCells.forEach(cell => {
+        cell.style.display = 'none';
 
-    turmas.forEach(turma => {
-        const turnoTurmas = document.querySelectorAll("[id*=turma_" + turma + "]");
-        turnoTurmas.forEach(cell => cell.style.display = '');
-    })
+        if (cell.hasAttribute('data-group')) {
+            const cellTurmas = cell.getAttribute('data-group').split(',').map(turma => turma.trim());
+            const commonTurmas = cellTurmas.filter(turma => turmas.includes(turma));
+
+            if (commonTurmas.length > 0) {
+                cell.style.display = '';
+                cell.setAttribute('colspan', commonTurmas.length.toString());
+            }
+        } else if (cell.hasAttribute('data-turmas')) {
+            const cellTurmas = cell.getAttribute('data-turmas').split(',').map(turma => turma.trim());
+            const commonTurmas = cellTurmas.filter(turma => turmas.includes(turma));
+
+            if (commonTurmas.length > 0) {
+                cell.style.display = '';
+                cell.setAttribute('colspan', commonTurmas.length.toString());
+            }
+        } else {
+            const cellIdMatches = cell.id.match(/turma_([^\_]+)/);
+            if (cellIdMatches && turmas.some(turma => cell.id.includes(turma))) {
+                cell.style.display = '';
+            }
+        }
+    });
 }
 
 function mergeTurnos() {

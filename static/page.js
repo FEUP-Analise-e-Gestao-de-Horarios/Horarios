@@ -198,15 +198,18 @@ anoBtn.addEventListener("change", function () {
 });
 
 turnosBtn.addEventListener("change", function () {
-    const allTurnos = this.options;
     const selectedTurno = this.value;
     const cursoNome = cursoBtn.value;
 
     if (selectedTurno === 'Turnos') {
         displayAllTurmas();
+        updateColspan();
     } else {
         fetchTurmasForTurno(cursoNome, ano, selectedTurno)
             .then(displayTurmasForTurno)
+            .then(() => {
+                updateColspan();
+            })
             .catch(error => {
                 console.error('Error fetching turmas:', error);
             });
@@ -243,7 +246,6 @@ turnosBtn.addEventListener("change", function () {
     //         });
     //     }
     // }
-    updateColspan();
 });
 
 turmasBtn.addEventListener("change", function () {
