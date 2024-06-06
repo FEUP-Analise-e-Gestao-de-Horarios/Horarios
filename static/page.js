@@ -43,7 +43,6 @@ function handleCursoBtn(anoNum, updateDom = false, selectedAno = null, handleDis
             const cursoJson = data.curso_json;
             curso = JSON.parse(cursoJson);
             turmasPorTurno = data.turmasPorTurno;
-            console.log(turmasPorTurno);
             ano = curso.anos[0].ano;
             semana = 'Semanas';
 
@@ -113,12 +112,14 @@ function handleDistributionBtn(show) {
  * @param {string} turno - O turno para o qual obter as turmas.
  * @returns {Promise<Array>} - Um array de turmas.
  */
-function fetchTurmasForTurno(turno) {
+function fetchTurmasForTurno(curso, ano, turno) {
     return $.ajax({
         url: '/getTurmasPorTurnoCursoAno',
         type: 'GET',
-        data: { 'turno': turno },
-    });
+        data: { 'curso': curso, 'ProjectNumber': projId, 'anoNum': ano },
+    }).then(response => {
+        return response[turno] || [];
+    })
 }
 
 /**
@@ -141,7 +142,7 @@ function updateAnoButton(numAnos, anoSelected) {
  */
 function updateTurnosButton(turmasPorTurno) {
     const turnos = Object.keys(turmasPorTurno);
-    createAndAppendOptions(turnosBtn, turnos, "Turno");
+    createAndAppendOptions(turnosBtn, turnos, "Turnos");
 }
 
 /**
@@ -199,11 +200,12 @@ anoBtn.addEventListener("change", function () {
 turnosBtn.addEventListener("change", function () {
     const allTurnos = this.options;
     const selectedTurno = this.value;
+    const cursoNome = cursoBtn.value;
 
     if (selectedTurno === 'Turnos') {
         displayAllTurmas();
     } else {
-        fetchTurmasForTurno(selectedTurno)
+        fetchTurmasForTurno(cursoNome, ano, selectedTurno)
             .then(displayTurmasForTurno)
             .catch(error => {
                 console.error('Error fetching turmas:', error);
@@ -217,30 +219,30 @@ turnosBtn.addEventListener("change", function () {
     //     unmergeTurnos();
     // }
 
-    for (let i = 0; i < allTurnos.length; i++) {
-        const turno_num = allTurnos[i].value;
-        if (this.value === 'Turnos') {
-            turno = ".turno" + turno_num;
-            const turnoCol = document.querySelectorAll(turno);
-            turnoCol.forEach(function (cell) {
-                cell.style.display = '';
-            });
-        }
-        else if (turno_num === this.value) {
-            turno = ".turno" + turno_num;
-            const turnoCol = document.querySelectorAll(turno);
-            turnoCol.forEach(function (cell) {
-                cell.style.display = '';
-            });
-        }
-        else if (turno_num !== this.value) {
-            turno = ".turno" + turno_num;
-            const turnoCol = document.querySelectorAll(turno);
-            turnoCol.forEach(function (cell) {
-                cell.style.display = 'none';
-            });
-        }
-    }
+    // for (let i = 0; i < allTurnos.length; i++) {
+    //     const turno_num = allTurnos[i].value;
+    //     if (this.value === 'Turnos') {
+    //         turno = ".turno" + turno_num;
+    //         const turnoCol = document.querySelectorAll(turno);
+    //         turnoCol.forEach(function (cell) {
+    //             cell.style.display = '';
+    //         });
+    //     }
+    //     else if (turno_num === this.value) {
+    //         turno = ".turno" + turno_num;
+    //         const turnoCol = document.querySelectorAll(turno);
+    //         turnoCol.forEach(function (cell) {
+    //             cell.style.display = '';
+    //         });
+    //     }
+    //     else if (turno_num !== this.value) {
+    //         turno = ".turno" + turno_num;
+    //         const turnoCol = document.querySelectorAll(turno);
+    //         turnoCol.forEach(function (cell) {
+    //             cell.style.display = 'none';
+    //         });
+    //     }
+    // }
     updateColspan();
 });
 

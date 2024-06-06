@@ -117,8 +117,9 @@ def getProjetosListAux(request, userId):
 
 def getTurmasPorTurnoCursoAno(request):
     project_number = request.GET.get('ProjectNumber')
-    turno = request.GET.get('turno')
-    turmas = auxfunc.getTurmasPorTurnoCursoAno(project_number, turno)
+    curso = request.GET.get('curso')
+    ano = request.GET.get('anoNum')
+    turmas = auxfunc.getTurmasPorTurnoCursoAno(project_number, curso, ano)
     return JsonResponse(turmas, safe=False)
 
 # ---------------------------------------------------------------------------------------------------------
@@ -534,7 +535,6 @@ def fillPageForCursoAno(request):
         'numeroTurnos':numeroTurnos,
         'numeroTurmas':numeroTurmas,
         'turmasAno': turmasAno,
-        'turmasPorTurno': turmasPorTurno,
         'semanasAno': semanasAno,
         'numAnos': numAnos
     }   

@@ -123,15 +123,6 @@ function fillUcs(ano) {
                     continue;
                 }
 
-                let turnos = [];
-                group.forEach(turma => {
-                    let turmaTurnos = getTurnosForTurma(turma);
-                    turnos = turnos.concat(turmaTurnos);
-                });
-
-                turnos = [...new Set(turnos)];
-
-                cell.setAttribute("data-turnos", turnos.join(','));
                 cell.setAttribute("data-aulaID", aula.id);
 
                 let deleteHorizontal = 0;
@@ -185,17 +176,6 @@ function fillUcs(ano) {
     }
     setSidebarUCs(ucAnoSet);
     setSidebarTurmas(turmasSet);
-}
-
-function getTurnosForTurma(turma) {
-    const turnos = [];
-    for (const turno in turmasPorTurno) {
-        const turmas = turmasPorTurno[turno];
-        if (turmas.includes(turma)) {
-            turnos.push(turno);
-        }
-    }
-    return turnos;
 }
 
 function findHorizontalPosition(row, cellToInsertID) {
@@ -412,9 +392,14 @@ function displayAllTurmas() {
     allTurmas.forEach(cell => cell.style.display = '');
 }
 
-function displayTurmasForTurno(turno) {
-    const turnoTurmas = document.querySelectorAll("[id*=turma_" + turno + "]");
-    turnoTurmas.forEach(cell => cell.style.display = '');
+function displayTurmasForTurno(turmas) {
+    const allTurmaCells = document.querySelectorAll("[id*=turma_]");
+    allTurmaCells.forEach(cell => cell.style.display = 'none');
+
+    turmas.forEach(turma => {
+        const turnoTurmas = document.querySelectorAll("[id*=turma_" + turma + "]");
+        turnoTurmas.forEach(cell => cell.style.display = '');
+    })
 }
 
 function mergeTurnos() {
