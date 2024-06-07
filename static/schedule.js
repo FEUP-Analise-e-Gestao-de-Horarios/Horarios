@@ -45,6 +45,8 @@ function fillUcs(ano) {
                 currentGroup.push(turmas[0]);
 
                 for (let i = 1; i < turmas.length; i++) {
+                    turmasSet.add(turmas[i - 1]);
+                    turmasSet.add(turmas[i]);
                     let turmaNumber1 = Number(turmas[i].match(/\d+$/)[0]);
                     let turmaNumber2 = Number(turmas[i - 1].match(/\d+$/)[0]);
 
