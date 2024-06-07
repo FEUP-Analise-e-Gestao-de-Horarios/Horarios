@@ -29,7 +29,7 @@ def getInformationFromAula(ProjectNumber, idAula):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     query = """
-    SELECT a.horaInicial, a.diaSemana, SUBSTR(u.sigla, 1, INSTR(u.sigla, '(')-1) AS uc_sigla, at.idTurma
+    SELECT a.horaInicial as hora, a.diaSemana as dia, SUBSTR(u.sigla, 1, INSTR(u.sigla, '(')-1) AS uc_sigla, at.idTurma as turma, u.codigo as uc_code
     FROM aula AS a
     JOIN aulaTurmas AS at ON a.id = at.idAula
     JOIN aulaUC AS au ON a.id = au.idAula
@@ -166,7 +166,7 @@ def getAulaFromDocenteAndTime(ProjectNumber, hora_inicial, dia_semana, docente, 
                 duracao -= 1
     finalResult = []
     for i in result:
-        print(f"This is the id: {i} as opposed to the idToCheck: {idAulaToCheck}" )
+        # print(f"This is the id: {i} as opposed to the idToCheck: {idAulaToCheck}" )
         if (int(i)!=int(idAulaToCheck)):
             finalResult.append(i) 
     if (finalResult == []):
@@ -225,13 +225,13 @@ def getAulaFromTurmaAndTime(ProjectNumber, hora_inicial, dia_semana, turma, idAu
                     result.append(a[0])
                 duracao -= 1
     finalResult = []
-    print(f"Turma: {turma} -> Result {result}")
+    # print(f"Turma: {turma} -> Result {result}")
 
     for i in result:
-        print(f"Result i: {i}")
+        # print(f"Result i: {i}")
         if (int(i)!=int(idAulaToCheck)):
             finalResult.append(i) 
-    print(f"finalResult: {finalResult}")
+    # print(f"finalResult: {finalResult}")
     if (finalResult == []):
         query = """SELECT duracao FROM aula WHERE id=?"""
         cursor.execute(query, (idAulaToCheck,))
