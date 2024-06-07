@@ -39,6 +39,8 @@ class Docente:
         self.numMecanografico = numMecanografico
         self.nome = nome
         self.abreviacao = abrev
+        self.aulas = []
+        self.blocos = []
         
     def set_aulas(self, aulas):
         self.aulas = aulas

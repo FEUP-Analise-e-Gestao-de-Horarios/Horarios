@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'daphne',
     'django.contrib.staticfiles',
+    'livereload',
     'parser',
     'login',
     'bs4',
@@ -77,6 +78,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'livereload.middleware.LiveReloadScript'
 ]
 
 ROOT_URLCONF = 'FeupScheduleEditor.urls'

@@ -136,9 +136,13 @@ GitHub.sublime-settings
 .history
 
 # Database #
-db.sqlite3
 database/*
-test.db
+db.sqlite3
 
-# Migration Directories
+# Migration Directories #
 **/migrations/
+
+# Debugging and tests #
+test.db
+test.py
+test.json
