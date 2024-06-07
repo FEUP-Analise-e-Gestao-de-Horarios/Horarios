@@ -48,7 +48,11 @@ in a natural language format
         <div class="d-flex flex-row justify-content-center">
             <div class="mt-5">
                 {% for string in message %}
-                    <h3>{{string}}</h3>
+                    {% if string %}
+                        <h3>{{ string }}</h3>
+                    {% else %}
+                        <br>
+                    {% endif %}
                 {% endfor %}
             </div>
         </div>

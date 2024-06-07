@@ -1,8 +1,10 @@
-from getHorariosFromDB.conflictFunctions import findAnyConflicts
+from getHorariosFromDB.conflictFunctionsDup import findAnyConflicts
+from getHorariosFromDB.auxiliaryScheduleFunctions import getInformationFromAula
+from getHorariosFromDB.auxiliaryScheduleFunctions import getAbreviacaoFromMecanografico
 import sqlite3
 import shutil
 import networkx as nx
-
+from networkx import dfs_tree
 
 changeOrder = 1
 
@@ -631,7 +633,7 @@ def checkChangeToDB(ProjectNumber, generated_conflict, table, prev, new):
         print("New Conlficts", new_conflicts)
         return True, new_conflicts
 
-def findBestChange(ProjectNumber, conflict, visited):
+def findBestChange(ProjectNumber, changesDict, conflict, visited):
     print("Finding change for conflict: ", conflict)
     for change in changesDict:
         if change in visited:
@@ -659,7 +661,7 @@ def dfs_visit(ProjectNumber, changesDict, graph, change, visited):
         while len(conflicts) > 0:
             conflict = conflicts.pop(0)
             # find the next change that solves the conflict
-            next_change, new_conflicts = findBestChange(ProjectNumber, conflict, visited)
+            next_change, new_conflicts = findBestChange(ProjectNumber, changesDict, conflict, visited)
             table, prev, new = changesDict[next_change]
             graph.add_node(next_change, table=table, prev=prev, new=new, order=changeOrder)
             graph.add_edge(change, next_change)
@@ -703,7 +705,7 @@ def buildExportGraph(ProjectNumber, changesDict):
     # create a directed graph
     G = nx.DiGraph()
     visited = set()
-    changeOrder = 0
+    changeOrder = 1
 
     # findIndependentChanges(ProjectNumber, changesDict, visited, G)
 
@@ -714,6 +716,87 @@ def buildExportGraph(ProjectNumber, changesDict):
             dfs_visit(ProjectNumber, changesDict, G, change, visited)
 
     return G
+
+def readGraph(ProjectNumber, graph, changesDict):
+    nodes = graph.nodes(data=True)
+    nodes = sorted(nodes, key=lambda x: x[1]['order'])
+    
+    visited = set()
+    all_traversal_orders = []
+
+    for node in [chg[0] for chg in nodes]:
+        if node not in visited:
+            stack = [node]
+            traversal_order = []
+            while stack:
+                vertex = stack.pop()
+                if vertex not in visited:
+                    traversal_order.append(vertex)
+                    visited.add(vertex)
+                    stack.extend(reversed(list(graph.neighbors(vertex))))
+            all_traversal_orders.append(traversal_order)
+    
+    functions = {
+        "aulaSala": handleAulaSala,
+        "docentes": handleDocentes,
+        "salas": handleSalas,
+        "aulaDocente": handleAulaDocente,
+        "aula" : handleAulas, # Verificar se é necessário adicionar/remover aulas
+        "aulaTurmas" : handleAulaTurmas,
+        "aulaUC" : handleAulaUC
+    }
+
+    text = []
+    for sequence in all_traversal_orders:
+        current_uc = ""
+        current_turma = ""
+        for change in sequence:
+            table = changesDict[change][0]
+            prev = changesDict[change][1]
+            new = changesDict[change][2]
+
+            change_text = ""
+            if table == "aula":
+                idAula = new['id']
+                info = getInformationFromAula(ProjectNumber, idAula)
+                if current_uc=="":
+                    text.append(f"em {info['uc_sigla']} ({info['uc_code']}):")
+                    current_uc = info['uc_sigla']
+                if current_turma=="":
+                    text.append(f"Turma {info['turma']} ({prev['diaSemana']}, {str(prev['horaInicial'])[:-2] + ':' + str(prev['horaInicial'])[-2:]})")
+                    current_turma = info['turma']
+
+                text[-1] += f" -> ({new['diaSemana']}, {str(new['horaInicial'])[:-2] + ':' + str(new['horaInicial'])[-2:]})"
+            
+            elif table == "aulaSala":   
+                idAula = new['idAula']
+                info = getInformationFromAula(ProjectNumber, idAula)
+                if current_uc=="":
+                    text.append(f"em {info['uc_sigla']} ({info['uc_code']}):")
+                    current_uc = info['uc_sigla']
+                if current_turma=="":
+                    text.append(f"Turma {info['turma']} ({info['dia']}, {str(info['hora'])[:-2] + ':' + str(info['hora'])[-2:]})")
+                    current_turma = info['turma']
+                    
+                text[-1] += f" -> {new['idSala']}"
+            
+            elif table == "aulaDocente":
+                idAula = new['idAula']
+                info = getInformationFromAula(ProjectNumber, idAula)
+                if current_uc=="":
+                    text.append(f"em {info['uc_sigla']} ({info['uc_code']}):")
+                    current_uc = info['uc_sigla']
+                if current_turma=="":
+                    text.append(f"Turma {info['turma']} ({info['dia']}, {str(info['hora'])[:-2] + ':' + str(info['hora'])[-2:]})")
+                    current_turma = info['turma']
+
+                docente = getAbreviacaoFromMecanografico(ProjectNumber, new['idDocente'])
+                text[-1] += f" -> {docente}"
+        text.append("")
+
+    print(text)
+
+    return text
 
 def getDifferencesFromDatabases(ProjectNumber):
     changesDict = dict()
@@ -804,9 +887,7 @@ def getDifferencesFromDatabases(ProjectNumber):
     finalChanges = [string for precedence, string, id in sortedChanges]
 
     # printing the graph in a string
-    graph_str = []
-    for node in exportGraph.nodes(data=True):
-        graph_str.append(f'{node[0]}: {node[1]}')
+    graph_str = readGraph(ProjectNumber, exportGraph, changesDict)
 
     return graph_str
 

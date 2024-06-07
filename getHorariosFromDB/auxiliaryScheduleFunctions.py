@@ -28,7 +28,7 @@ def getInformationFromAula(ProjectNumber, idAula):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     query = """
-    SELECT a.horaInicial, a.diaSemana, SUBSTR(u.sigla, 1, INSTR(u.sigla, '(')-1) AS uc_sigla, at.idTurma
+    SELECT a.horaInicial as hora, a.diaSemana as dia, SUBSTR(u.sigla, 1, INSTR(u.sigla, '(')-1) AS uc_sigla, at.idTurma as turma, u.codigo as uc_code
     FROM aula AS a
     JOIN aulaTurmas AS at ON a.id = at.idAula
     JOIN aulaUC AS au ON a.id = au.idAula

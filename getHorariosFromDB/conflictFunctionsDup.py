@@ -1,6 +1,6 @@
 import sqlite3, json, os
-import graphDup as graph_controller
-import auxiliaryScheduleFunctions as aux
+import getHorariosFromDB.graphDup as graph_controller
+import getHorariosFromDB.auxiliaryScheduleFunctions as aux
 import sqlite3
 
 def converter_horario(num):
@@ -17,7 +17,7 @@ def checkIfDocenteConflict(ProjectNumber, day, hour, idAula):
     cursor.execute(stmt, (idAula,))
     allDocentes = cursor.fetchall()
     tupleAulas = (idAula, 0)
-    for docente in allDocentes: 
+    for docente in allDocentes:
         ocupacaoDocente = []
         horarioDocente = aux.getDocenteHorario(ProjectNumber, docente[0])
         for entry in horarioDocente:
