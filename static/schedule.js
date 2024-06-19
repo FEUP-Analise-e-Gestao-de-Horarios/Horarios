@@ -106,19 +106,18 @@ function fillUcs(ano) {
                 p_element.style.display = "inline-block";
                 cell.appendChild(p_element);
                 cell.setAttribute("rowspan", aula.duracao);
-                cell.setAttribute("data-semanas", aula.semanaInicial + ' - ' + aula.semanaFinal);
+                cell.setAttribute("data-si", aula.semanaInicial);
+                cell.setAttribute("data-sf", aula.semanaFinal);
+
+                cell.setAttribute("colspan", group.length);
+                cell.setAttribute("data-originalcolspan", group.length);
+                cell.setAttribute("style", "border: 2px solid black;");
 
                 if (aula.isTeorica) {
-                    cell.setAttribute("colspan", group.length);
-                    cell.setAttribute("data-originalcolspan", group.length);
-                    cell.setAttribute("style", "border: 2px solid black;");
                     cell.setAttribute("style", "background-color: " + window.colorDictionary[ucAnoSet.size][1]);
                     cell.setAttribute("data-teorica", 1)
                 }
                 else {
-                    cell.setAttribute("colspan", group.length);
-                    cell.setAttribute("data-originalcolspan", group.length);
-                    cell.setAttribute("style", "border: 2px solid black;");
                     cell.setAttribute("style", "background-color: " + window.colorDictionary[ucAnoSet.size][0]);
                     cell.setAttribute("data-teorica", 0);
                 }
@@ -371,7 +370,6 @@ function deleteCells(cell, cellsRight, cellsBottom) {
             const rectHeight = cellToGetHeight.getBoundingClientRect();
             const rectWidth = cellToGetWidth.getBoundingClientRect();
 
-            let rect = cellToDelete.getBoundingClientRect();
             let width = rectWidth.width;
             height = rectHeight.height;
 
@@ -407,8 +405,10 @@ function deleteCells(cell, cellsRight, cellsBottom) {
         }
 
         if (i != cellsBottom) {
-            idCell = idCell.split('_')[0] + "_" + idCell.split('_')[1] + "_" + idCell.split('_')[2] + "_" + hora; //id da célula seguinte pertencente à mesma aula
+            idCellSplit = idCell.split('_');
+            idCell = idCellSplit[0] + "_" + idCellSplit[1] + "_" + idCellSplit[2] + "_" + hora; //id da célula seguinte pertencente à mesma aula
             cell = document.querySelector("td[id='" + idCell + "']");
+            if (!cell) break;
             cellIndex = cell.cellIndex;
         }
     }
@@ -419,9 +419,22 @@ function deleteCells(cell, cellsRight, cellsBottom) {
  * 
  * @returns {null} Não retorna qualquer valor.
  */
-function displayAllTurmas() {
+function displayAllAulas() {
     const allTurmas = document.querySelectorAll("[id*=turma_]");
     allTurmas.forEach(cell => cell.style.display = '');
+}
+
+function showAllCells() {
+    const allTurmaCells = document.querySelectorAll("tbody [class*=turno]");
+    allTurmaCells.forEach(cell => {
+        if (cell.hasAttribute('data-placeholder-for')) {
+            const originalCellId = cell.getAttribute('data-placeholder-for');
+            document.getElementById(originalCellId).style.visibility = 'visible';
+            cell.remove();
+        } else {
+            cell.style.visibility = 'visible';
+        }
+    })
 }
 
 /**
@@ -459,6 +472,96 @@ function displayTurmasForTurno(turmas) {
             }
         }
     });
+}
+
+function displaySemanas(interval) {
+    const semanasArray = interval.split(' - ');
+    const selectedSI = semanasArray[0];
+    const selectedSF = semanasArray[1];
+
+    const allTurmaCells = document.querySelectorAll("tbody [class*=turno]");
+    allTurmaCells.forEach(cell => {
+
+        if (cell.hasAttribute("data-si") && cell.hasAttribute("data-sf")) {
+            const cellSI = cell.getAttribute("data-si");
+            const cellSF = cell.getAttribute("data-sf");
+
+            if (interval === "Semanas" || (cellSI === selectedSI && cellSF === selectedSF) || (cellSI < selectedSI && cellSF === selectedSF) || (cellSI === selectedSI && cellSF > selectedSF)) {
+                cell.style.display = '';
+            } else {
+                cell.style.display = 'none';
+                insertPlaceholders(cell);
+            }
+        }
+    });
+}
+
+function insertPlaceholders(cell) {
+    const rows = document.getElementById("table_vistas").rows;
+    const rowspan = cell.rowSpan;
+    const colspan = cell.colSpan;
+    const idSplit = cell.id.split('_');
+    let hora = parseInt(idSplit[3], 10);
+    let cellIndex = Array.from(cell.parentNode.cells).indexOf(cell);
+    let rowIndex = cell.parentNode.rowIndex;
+
+    let firstRow = rows[rowIndex];
+    let firstRowOffset = 0;
+    for (let i = 0; i < cellIndex; i++) {
+        firstRowOffset += (firstRow.cells[i].colSpan - 1);
+    }
+
+    // // Algoritmo para os rowspans
+    // // 1. Obter o idealIndex e o array inicial
+    // let i = 0;
+    // let currentCell = rows[0].cells[i];
+    // let idealIndex = 0;
+    // let rowSpans = [];
+    // while (currentCell !== cell) {
+    //     currentCell = rows[0].cells[i];
+    //     idealIndex += rows[0].cells[i].colSpan;
+    //     if (rows[0].cells[i].colSpan > 1) {
+    //         while ((j = rows[0].cells[i].colSpan) > 0) {
+
+    //             j--;
+    //         }
+    //     }
+    //     i++;
+    // }
+
+
+    for (let i = 0; i < rowspan; i++) {
+        if (i > 0) {
+            let hours = Math.floor(hora / 100);
+            let minutes = hora % 100 + 30;
+            if (minutes >= 60) {
+                hours += 1;
+                minutes -= 60;
+            }
+            hora = hours * 100 + minutes;
+        }
+        let row = rows[rowIndex + i];
+        let rowOffset = 0;
+        if (i > 0) {
+            for (let i = 0; i < cellIndex; i++) {
+                rowOffset += (row.cells[i].colSpan - 1);
+            }
+            rowOffset = Math.abs(rowOffset - firstRowOffset);
+        }
+
+        for (let j = 0; j < colspan; j++) {
+            let td = row.insertCell(cellIndex - rowOffset + j);
+            td.className = cell.className;
+            td.id = `${idSplit.slice(0, 3).join('_')}_${hora.toString().padStart(4, '0')}`;
+            td.setAttribute("data-placeholder-for", cell.id);
+            td.style.backgroundColor = "red";
+        }
+    }
+}
+
+function removeAllPlaceholders() {
+    const placeholders = document.querySelectorAll("[data-placeholder-for]");
+    placeholders.forEach(p => p.parentNode.deleteCell(p.cellIndex));
 }
 
 /**

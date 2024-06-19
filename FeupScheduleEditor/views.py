@@ -505,6 +505,7 @@ def fillPageForCursoAno(request):
         
     #Fetch de todas as semanas de um dado ano
     semanasAno = auxfunc.getSemanasFromCursoAno(projId, cursoNome, anoNum)
+
     ano = Ano(anoNum)
     ano.set_turmas(turmasAno)
     ano.set_numTurnos(numTurnos)

@@ -202,7 +202,7 @@ turnosBtn.addEventListener("change", function () {
     const cursoNome = cursoBtn.value;
 
     if (selectedTurno === 'Turnos') {
-        displayAllTurmas();
+        displayAllAulas();
         updateColspan();
     } else {
         fetchTurmasForTurno(cursoNome, ano, selectedTurno)
@@ -263,23 +263,26 @@ semanasBtn.addEventListener("change", function () {
         anoNum = anoBtn.value;
     }
 
-    // Make the asynchronous request
-    $.ajax({
-        url: '/table/',
-        type: 'GET',
-        data: { 'curso': curso.nome, 'projId': projId, 'anoNum': anoNum },
-        success: function (data) {
-            document.querySelector(".main_vista_container").innerHTML = data.schedulehtml;
+    removeAllPlaceholders();
+    displaySemanas(semana);
 
-            updateColspan();
-            fillUcs(ano);
-            fillDocentes(ano);
-            fillSalas(ano);
-        },
-        error: function (xhr, textStatus, error) {
-            console.log(textStatus);
-        }
-    });
+    // // Make the asynchronous request
+    // $.ajax({
+    //     url: '/table/',
+    //     type: 'GET',
+    //     data: { 'curso': curso.nome, 'projId': projId, 'anoNum': anoNum },
+    //     success: function (data) {
+    //         document.querySelector(".main_vista_container").innerHTML = data.schedulehtml;
+
+    //         updateColspan();
+    //         fillUcs(ano);
+    //         fillDocentes(ano);
+    //         fillSalas(ano);
+    //     },
+    //     error: function (xhr, textStatus, error) {
+    //         console.log(textStatus);
+    //     }
+    // });
 });
 
 distributionBtn.addEventListener("click", function () {
