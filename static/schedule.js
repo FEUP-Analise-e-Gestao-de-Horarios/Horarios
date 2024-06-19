@@ -45,6 +45,8 @@ function fillUcs(ano) {
                 currentGroup.push(turmas[0]);
 
                 for (let i = 1; i < turmas.length; i++) {
+                    turmasSet.add(turmas[i - 1]);
+                    turmasSet.add(turmas[i]);
                     let turmaNumber1 = Number(turmas[i].match(/\d+$/)[0]);
                     let turmaNumber2 = Number(turmas[i - 1].match(/\d+$/)[0]);
 
@@ -771,12 +773,10 @@ function swapFullCells(firstCell, secondCell) {
     }
     else if (rowspanFirst > rowspanSecond && colspanFirst <= colspanSecond) {
         if (colspanFirst < colspanSecond) {
-            console.log("Inside 2.0");
             deleteCells(secondCell, colspanSecond - colspanFirst, rowspanSecond - 1);
             deleteCells(firstCell, colspanFirst - 1, rowspanFirst - 1);
         }
         else {
-            console.log("Inside 2.1");
             createCells(secondCell, colspanSecond - colspanFirst + 1, rowspanFirst, 1);
             deleteCells(firstCell, colspanSecond - colspanFirst, rowspanFirst - 1);
         }
@@ -1245,13 +1245,9 @@ function displayBlocosVermelhosGlobal(className, id, display) {
 }
 
 function displayBlocosVermelhos(blocosVermelhos, display, turma) {
-    console.log("Display: ", display);
-    //console.log("Blocos: ", blocosVermelhos);
     for (var i = 0; i < blocosVermelhos.length; i++) {
         var bloco = blocosVermelhos[i];
-        console.log("Bloco: ", bloco);
         var dia = bloco.diaSemana;
-        console.log("Dia: ", dia);
         var substring = dia.toLowerCase() + "_" + bloco.hora;
         var targetElements, targetElements2;
 
