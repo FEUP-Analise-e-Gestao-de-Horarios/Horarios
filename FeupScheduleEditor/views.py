@@ -864,9 +864,16 @@ def export(request, projId):
 
     projetos = getProjetosListAux(request, request.user.pk)
     projeto = Project.objects.values_list().get(id = projId)
-    
-
+    conflicts = []
+    try:
+        graph_controller.init_graph(projId)
+        conflicts_unorg = graph_controller.get_organized_conflicts(projId)
+        conflicts = organizeInformation(projId, conflicts_unorg)
+        # print(f"Conflicts: {conflicts}")
+    except:
+        print("Could not load conflicts")
+        conflicts = []
     message = getDifferencesFromDatabases(projId)
     if len(message) <=0:
         message.append('Não Foram Efetuadas Mudanças')
-    return render(request, 'export/page.html', {'projetos': projetos, 'projeto': projeto[2], 'message':message, 'projId':projId})
+    return render(request, 'export/page.html', {'projetos': projetos, 'projeto': projeto[2], 'message':message, 'conflicts':conflicts, 'projId':projId})

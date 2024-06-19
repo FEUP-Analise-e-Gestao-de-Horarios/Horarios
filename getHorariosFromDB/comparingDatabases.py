@@ -1,10 +1,11 @@
-from getHorariosFromDB.conflictFunctionsDup import findAnyConflicts
 from getHorariosFromDB.auxiliaryScheduleFunctions import getInformationFromAula
 from getHorariosFromDB.auxiliaryScheduleFunctions import getAbreviacaoFromMecanografico
 import sqlite3
 import shutil
 import networkx as nx
 from networkx import dfs_tree
+from getHorariosFromDB.conflictFunctionsDup import organizeInformation, findAnyConflicts
+import getHorariosFromDB.graphDup as graph_controller
 
 changeOrder = 1
 
@@ -491,6 +492,18 @@ def sortChanges(item):
     (precedence, string, id) = item
     return (id, precedence)
 
+def findConflicts(ProjectNumber):
+    conflicts = []
+    try:
+        graph_controller.init_graph(ProjectNumber)
+        conflicts_unorg = graph_controller.get_organized_conflicts(ProjectNumber)
+        conflicts = organizeInformation(ProjectNumber, conflicts_unorg)
+        # print(f"Conflicts: {conflicts}")
+    except:
+        print("Could not load conflicts")
+        conflicts = []
+    return conflicts
+
 def addChangeToDict(changesDict, table_name, primaryKey, diff_data1, diff_data2):
     # print("Table: ", table_name)
     # print("Primary Key: ", primaryKey)
@@ -544,6 +557,14 @@ def changeAulaDocente(ProjectNumber, idAula, idDocente):
     cursor = conn.cursor()
     stmt = '''UPDATE aulaDocente SET idDocente=? WHERE idAula=?'''
     cursor.execute(stmt, (idDocente, idAula))
+    conn.commit()
+
+def changeAulaUC(ProjectNumber, idAula, idUC):
+    path = "Project"+str(ProjectNumber)
+    conn = sqlite3.connect('./database/' + path + '/duplicate_initial_database.db', check_same_thread=False)
+    cursor = conn.cursor()
+    stmt = '''UPDATE aulaUC SET idUC=? WHERE idAula=?'''
+    cursor.execute(stmt, (idUC, idAula))
     conn.commit()
 
 def switch_day_to_number(day_string):
@@ -604,7 +625,14 @@ def applyChangeToDB(ProjectNumber, table, new):
         # print("diaAula: ", diaAula, " horaAula: ", horaAula, " aulaId: ", aulaId)
         conflicts = findAnyConflicts(ProjectNumber, diaAula, horaAula, aulaId)
         #print("conflicts: ", conflicts, "\n")
+    
+    elif table == "aulaUC":
+        changeAulaUC(ProjectNumber, new["idAula"], new["idUC"])
+        diaAula, horaAula = getAulaDiaHora(ProjectNumber, new["idAula"])
+        aulaId = new["idAula"]
+        conflicts = findAnyConflicts(ProjectNumber, diaAula, horaAula, aulaId)
 
+    # return findConflicts(ProjectNumber)
     return conflicts
 
 def generateConflicts(ProjectNumber, table, prev, new):
@@ -662,6 +690,8 @@ def dfs_visit(ProjectNumber, changesDict, graph, change, visited):
             conflict = conflicts.pop(0)
             # find the next change that solves the conflict
             next_change, new_conflicts = findBestChange(ProjectNumber, changesDict, conflict, visited)
+            if next_change is None:
+                return []
             table, prev, new = changesDict[next_change]
             graph.add_node(next_change, table=table, prev=prev, new=new, order=changeOrder)
             graph.add_edge(change, next_change)
@@ -718,6 +748,13 @@ def buildExportGraph(ProjectNumber, changesDict):
     return G
 
 def readGraph(ProjectNumber, graph, changesDict):
+    # refresh the duplicate initial database
+    src = './database/Project' + str(ProjectNumber) + '/initial_database.db'
+    dst = './database/Project' + str(ProjectNumber) + '/duplicate_initial_database.db'
+    shutil.copy2(src, dst)
+    duplicateInitialDB = sqlite3.connect(dst, check_same_thread=False)
+    duplicateInitialDB.row_factory = sqlite3.Row
+
     nodes = graph.nodes(data=True)
     nodes = sorted(nodes, key=lambda x: x[1]['order'])
     
@@ -736,29 +773,44 @@ def readGraph(ProjectNumber, graph, changesDict):
                     stack.extend(reversed(list(graph.neighbors(vertex))))
             all_traversal_orders.append(traversal_order)
     
-    functions = {
-        "aulaSala": handleAulaSala,
-        "docentes": handleDocentes,
-        "salas": handleSalas,
-        "aulaDocente": handleAulaDocente,
-        "aula" : handleAulas, # Verificar se é necessário adicionar/remover aulas
-        "aulaTurmas" : handleAulaTurmas,
-        "aulaUC" : handleAulaUC
-    }
+    # functions = {
+    #     "aulaSala": handleAulaSala,
+    #     "docentes": handleDocentes,
+    #     "salas": handleSalas,
+    #     "aulaDocente": handleAulaDocente,
+    #     "aula" : handleAulas, # Verificar se é necessário adicionar/remover aulas
+    #     "aulaTurmas" : handleAulaTurmas,
+    #     "aulaUC" : handleAulaUC
+    # }
 
     text = []
+    current_uc = ""
+    current_turma = ""
     for sequence in all_traversal_orders:
-        current_uc = ""
-        current_turma = ""
+
+        # check if the first change of the sequence has a different UC or Turma then the previous one
+        if changesDict[sequence[0]][0] == "aula":
+            idAula = changesDict[sequence[0]][2]['id']
+        else:
+            idAula = changesDict[sequence[0]][2]['idAula']
+        info = getInformationFromAula(ProjectNumber, idAula, 'duplicate_initial_database.db')
+        if info['uc_sigla'] != current_uc or info['turma'] != current_turma:
+            if info['uc_sigla'] != current_uc:
+                current_uc = ""
+                current_turma = ""
+                text.append("")
+            if info['turma'] != current_turma:
+                current_turma = ""
+
         for change in sequence:
             table = changesDict[change][0]
             prev = changesDict[change][1]
             new = changesDict[change][2]
-
+            
             change_text = ""
             if table == "aula":
                 idAula = new['id']
-                info = getInformationFromAula(ProjectNumber, idAula)
+                info = getInformationFromAula(ProjectNumber, idAula, 'duplicate_initial_database.db')
                 if current_uc=="":
                     text.append(f"em {info['uc_sigla']} ({info['uc_code']}):")
                     current_uc = info['uc_sigla']
@@ -770,7 +822,7 @@ def readGraph(ProjectNumber, graph, changesDict):
             
             elif table == "aulaSala":   
                 idAula = new['idAula']
-                info = getInformationFromAula(ProjectNumber, idAula)
+                info = getInformationFromAula(ProjectNumber, idAula, 'duplicate_initial_database.db')
                 if current_uc=="":
                     text.append(f"em {info['uc_sigla']} ({info['uc_code']}):")
                     current_uc = info['uc_sigla']
@@ -782,7 +834,7 @@ def readGraph(ProjectNumber, graph, changesDict):
             
             elif table == "aulaDocente":
                 idAula = new['idAula']
-                info = getInformationFromAula(ProjectNumber, idAula)
+                info = getInformationFromAula(ProjectNumber, idAula, 'duplicate_initial_database.db')
                 if current_uc=="":
                     text.append(f"em {info['uc_sigla']} ({info['uc_code']}):")
                     current_uc = info['uc_sigla']
@@ -792,7 +844,22 @@ def readGraph(ProjectNumber, graph, changesDict):
 
                 docente = getAbreviacaoFromMecanografico(ProjectNumber, new['idDocente'])
                 text[-1] += f" -> {docente}"
-        text.append("")
+
+            elif table == "aulaTurmas":
+                idAula = new['idAula']
+                info = getInformationFromAula(ProjectNumber, idAula, 'duplicate_initial_database.db')
+                if current_uc=="":
+                    text.append(f"em {info['uc_sigla']} ({info['uc_code']}):")
+                    current_uc = info['uc_sigla']
+                if current_turma=="":
+                    text.append(f"Turma {info['turma']} ({info['dia']}, {str(info['hora'])[:-2] + ':' + str(info['hora'])[-2:]})")
+                    current_turma = info['turma']
+                text[-1] += f" -> Turma {new['idTurma']}"
+
+            elif table == "aulaUC":
+                pass
+
+            applyChangeToDB(ProjectNumber, table, new)
 
     print(text)
 
@@ -889,10 +956,21 @@ def getDifferencesFromDatabases(ProjectNumber):
     # printing the graph in a string
     graph_str = readGraph(ProjectNumber, exportGraph, changesDict)
 
+    print("\n\n")
+    print("changesDict")
+    changesDescription = str()
+    for change in changesDict:
+        if change == 0:
+            continue
+        table, prev, new = changesDict[change]
+        changesDescription += f"{change} {table} \n    Prev: {prev} \n    New: {new}\n"
+        print(change, table, prev, new)
+    print("\n\n")
+
     return graph_str
 
 def globalChanges(ProjectNumber):
-    changes = getDifferencesFromDatabases(ProjectNumber)
+    changes, conflicts = getDifferencesFromDatabases(ProjectNumber)
     with open("changes.txt", 'w') as file:
         for string in changes:
             file.write(f'=> {string}\n')

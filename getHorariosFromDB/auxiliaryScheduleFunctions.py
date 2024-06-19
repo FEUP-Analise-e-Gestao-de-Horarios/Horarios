@@ -22,10 +22,10 @@ def getAbreviacaoFromMecanografico(ProjectNumber, numMecanografico):
     result = cursor.fetchone()[0]
     return result
 
-def getInformationFromAula(ProjectNumber, idAula):
+def getInformationFromAula(ProjectNumber, idAula, db="general_database.db"):
     # Establish a connection to the database
     path = "Project" + str(ProjectNumber)
-    conn = sqlite3.connect('./database/' + path + '/general_database.db', check_same_thread=False)
+    conn = sqlite3.connect('./database/' + path + '/'+db, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     query = """
