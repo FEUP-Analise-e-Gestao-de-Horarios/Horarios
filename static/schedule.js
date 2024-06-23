@@ -18,15 +18,6 @@ function fillUcs(ano) {
         for (let j = 0; j < aulas.length; j++) {
             let aula = aulas[j];
 
-            if (semana !== "Semanas") {
-                let semanaInicial = semana.split(" - ")[0];
-                let semanaFinal = semana.split(" - ")[1];
-
-                if (aula.semanaInicial !== semanaInicial || aula.semanaFinal !== semanaFinal) {
-                    continue;
-                }
-            }
-
             let turmas = aula.turmas; //FORMATO -> {ano: [codigoTurma]}
             if (!(ano in turmas)) { //Caso não tenha turmas do ano em que a tabela está
                 continue;
@@ -144,15 +135,6 @@ function fillDocentes(ano) {
         for (let j = 0; j < aulas.length; j++) {
             let aula = aulas[j];
 
-            if (semana !== "Semanas") {
-                const semanaInicial = semana.split(" - ")[0];
-                const semanaFinal = semana.split(" - ")[1];
-
-                if (aula.semanaInicial !== semanaInicial || aula.semanaFinal !== semanaFinal) {
-                    continue;
-                }
-            }
-
             let turmas = aula.turmas; //FORMATO -> {ano: [codigoTurma]}
 
             if (!(ano in turmas)) { //Caso não tenha turmas do ano em que a tabela está
@@ -203,15 +185,6 @@ function fillSalas(ano) {
 
         for (let j = 0; j < aulas.length; j++) {
             let aula = aulas[j];
-
-            if (semana !== "Semanas") {
-                let semanaInicial = semana.split(" - ")[0];
-                let semanaFinal = semana.split(" - ")[1];
-
-                if (aula.semanaInicial !== semanaInicial || aula.semanaFinal !== semanaFinal) {
-                    continue;
-                }
-            }
 
             let turmas = aula.turmas; //FORMATO -> {ano: [codigoTurma]}
             if (!(ano in turmas)) { //Caso não tenha turmas do ano em que a tabela está
@@ -505,32 +478,52 @@ function insertPlaceholders(cell) {
     let cellIndex = Array.from(cell.parentNode.cells).indexOf(cell);
     let rowIndex = cell.parentNode.rowIndex;
 
-    let firstRow = rows[rowIndex];
-    let firstRowOffset = 0;
-    for (let i = 0; i < cellIndex; i++) {
-        firstRowOffset += (firstRow.cells[i].colSpan - 1);
-    }
-
-    // // Algoritmo para os rowspans
-    // // 1. Obter o idealIndex e o array inicial
-    // let i = 0;
-    // let currentCell = rows[0].cells[i];
+    // let cellSpans = [];
     // let idealIndex = 0;
-    // let rowSpans = [];
-    // while (currentCell !== cell) {
-    //     currentCell = rows[0].cells[i];
-    //     idealIndex += rows[0].cells[i].colSpan;
-    //     if (rows[0].cells[i].colSpan > 1) {
-    //         while ((j = rows[0].cells[i].colSpan) > 0) {
+    // let cellIndices = [cellIndex];
+    // for (let i = 0; i < rowspan; i++) {
+    //     // Algoritmo para os rowspans
+    //     // 1. Obter o idealIndex e o array de objetos inicial
+    //     if (i === 0) {
+    //         let j = 0;
+    //         let currentCell = rows[rowIndex].cells[j];
+    //         while (currentCell !== cell) {
+    //             idealIndex += currentCell.colSpan;
+    //             cellSpans.push({ r: currentCell.rowSpan, c: currentCell.colSpan });
+    //             currentCell = rows[rowIndex].cells[++j];
+    //         }
+    //         continue;
+    //     }
+    //     // 2. Calcular o indice com base no idealIndex e no array de objetos da linha anterior
+    //     let index = idealIndex;
+    //     cellSpans.forEach(cell => {
+    //         if (cell.r > 1) index -= cell.c;
+    //     });
+    //     cellIndices.push(index);
 
-    //             j--;
+    //     // 3. Atualizar o array de objetos a cada linha nova
+    //     // 3.1 Atualizar inplace o array de objetos
+    //     if (i !== rowspan - 1) {
+    //         let j = 0;
+    //         while (j !== cellSpans.length) {
+    //             if (cellSpans[j].r > 1) {
+    //                 cellSpans[j++].r--;
+    //             } else if (cellSpans[j].r === 1) {
+    //                 cellSpans.splice(j, 1);
+    //             }
+    //         }
+
+    //         // 3.2. Adicionar as células novas desta linha
+    //         for (let k = 0; k < index; k++) {
+    //             let currentCell = rows[rowIndex + i].cells[k];
+    //             cellSpans.push({ r: currentCell.rowSpan, c: currentCell.colSpan });
     //         }
     //     }
-    //     i++;
+
     // }
 
-
     for (let i = 0; i < rowspan; i++) {
+        let row = rows[rowIndex + i];
         if (i > 0) {
             let hours = Math.floor(hora / 100);
             let minutes = hora % 100 + 30;
@@ -540,19 +533,13 @@ function insertPlaceholders(cell) {
             }
             hora = hours * 100 + minutes;
         }
-        let row = rows[rowIndex + i];
-        let rowOffset = 0;
-        if (i > 0) {
-            for (let i = 0; i < cellIndex; i++) {
-                rowOffset += (row.cells[i].colSpan - 1);
-            }
-            rowOffset = Math.abs(rowOffset - firstRowOffset);
-        }
 
         for (let j = 0; j < colspan; j++) {
-            let td = row.insertCell(cellIndex - rowOffset + j);
+            let id = `${idSplit.slice(0, 3).join('_')}_${hora.toString().padStart(4, '0')}`;
+            let position = findHorizontalPosition(row.cells, id);
+            let td = row.insertCell(position);
             td.className = cell.className;
-            td.id = `${idSplit.slice(0, 3).join('_')}_${hora.toString().padStart(4, '0')}`;
+            id.id = id;
             td.setAttribute("data-placeholder-for", cell.id);
             td.style.backgroundColor = "red";
         }

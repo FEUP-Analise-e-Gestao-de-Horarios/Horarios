@@ -15,58 +15,88 @@ let dataLoadBool = false;
  * Lida com o evento de clique no botão de seleção de curso
  * 
  * @param {number} anoNum - O ano escolhido
- * @param {boolean} [updateDom=false] - Flag que indica se o DOM deve ser atualizado
  * @param {string} [selectedAno=null] - O ano atualmente selecionado.
+ * @param {boolean} [updateDom=false] - Flag que indica se o DOM deve ser atualizado
  * @param {boolean} [handleDist=false] - Flag que indica se deve ser atualizada a tabela de distribuição.
  * @returns {null} Não retorna qualquer valor
  */
-function handleCursoBtn(anoNum, updateDom = false, selectedAno = null, handleDist = false) {
-    let cursoNome = cursoBtn.value;
+// function handleCursoBtn(anoNum, selectedAno = null, updateDom = false, handleDist = false) {
+//     return new Promise((resolve, reject) => {
+//         let cursoNome = cursoBtn.value;
 
-    if (cursoNome == "Curso") {
-        cursoNome = "L.EIC";
-    }
+//         if (cursoNome == "Curso") {
+//             cursoNome = "L.EIC";
+//         }
 
-    if (anoNum === 0) {
-        anoNum = ano;
-    }
+//         if (anoNum === 0) {
+//             anoNum = ano;
+//         }
 
-    // Realiza o pedido assíncrono
+//         // Realiza o pedido assíncrono
+//         $.ajax({
+//             url: '/table/',
+//             type: 'GET',
+//             data: { 'curso': cursoNome, 'projId': projId, 'anoNum': anoNum },
+//             success: function (data) {
+//                 document.querySelector(".main_vista_container").innerHTML = data.schedulehtml;
+//                 updateColspan();
+
+//                 const cursoJson = data.curso_json;
+//                 curso = JSON.parse(cursoJson);
+//                 turmasPorTurno = data.turmasPorTurno;
+//                 ano = curso.anos[0].ano;
+//                 semana = 'Semanas';
+
+//                 // Atualiza o conteúdo de todos os botões de seleção
+//                 updateAnoButton(data.numAnos, selectedAno);
+//                 updateTurnosButton(curso.anos[0].turmasPorTurno);
+//                 updateTurmasButton(data.turmasAno);
+//                 updateSemanasButton(data.semanasAno);
+
+//                 dataLoadBool = true;
+
+//                 // Caso seja necessário, atualiza o conteúdo da página
+//                 if (updateDom) {
+//                     updateColspan();
+//                     fillUcs(ano);
+//                     fillDocentes(ano);
+//                     fillSalas(ano);
+//                     handleDistributionBtn(handleDist);
+//                 }
+
+//                 resolve(data);
+//             },
+//             error: function (xhr, textStatus, error) {
+//                 dataLoadBool = false;
+//                 reject(error);
+//             }
+//         });
+//     });
+// }
+
+function handleCursoBtn(cursoNome) {
+    let selectedAno = anoBtn.value;
+    let anoNum = selectedAno;
+    if (anoNum === "Ano") anoNum = 1;
     $.ajax({
-        url: '/table/',
+        url: '/emptytable/',
         type: 'GET',
         data: { 'curso': cursoNome, 'projId': projId, 'anoNum': anoNum },
         success: function (data) {
             document.querySelector(".main_vista_container").innerHTML = data.schedulehtml;
             updateColspan();
 
-            const cursoJson = data.curso_json;
-            curso = JSON.parse(cursoJson);
-            turmasPorTurno = data.turmasPorTurno;
-            ano = curso.anos[0].ano;
-            semana = 'Semanas';
+            console.log(data.turmasPorTurno);
 
-            // Atualiza o conteúdo de todos os botões de seleção
             updateAnoButton(data.numAnos, selectedAno);
-            updateTurnosButton(curso.anos[0].turmasPorTurno);
+            updateTurnosButton(data.turmasPorTurno);
             updateTurmasButton(data.turmasAno);
             updateSemanasButton(data.semanasAno);
-
-            dataLoadBool = true;
-
-            // Caso seja necessário, atualiza o conteúdo da página
-            if (updateDom) {
-                updateColspan();
-                fillUcs(ano);
-                fillDocentes(ano);
-                fillSalas(ano);
-                handleDistributionBtn(handleDist);
-            }
         },
         error: function (xhr, textStatus, error) {
-            dataLoadBool = false;
+            console.error("Error creating empty table:", error);
         }
-    });
+    })
 }
 
 /**
@@ -186,7 +216,12 @@ function createAndAppendOptions(selectElement, options, genericOptionText, selec
 }
 
 cursoBtn.addEventListener("change", function () {
-    handleCursoBtn(1);
+    let cursoNome = cursoBtn.value;
+
+    let anoNum = anoBtn.value;
+    if (anoNum === "Ano") anoNum = 1;
+
+    handleCursoBtn(cursoNome, anoNum);
 });
 
 anoBtn.addEventListener("change", function () {
@@ -194,7 +229,7 @@ anoBtn.addEventListener("change", function () {
         ano = this.options[1].value;
     else
         ano = this.value;
-    handleCursoBtn(ano, dataLoadBool, ano);
+    handleCursoBtn(ano, ano, dataLoadBool);
 });
 
 turnosBtn.addEventListener("change", function () {
@@ -263,26 +298,32 @@ semanasBtn.addEventListener("change", function () {
         anoNum = anoBtn.value;
     }
 
-    removeAllPlaceholders();
-    displaySemanas(semana);
+    handleCursoBtn(anoNum, anoNum)
+        .then(function () {
+            return $.ajax({
+                url: '/table/',
+                type: 'GET',
+                data: { 'curso': curso.nome, 'projId': projId, 'anoNum': anoNum, 'semanas': semana },
+                success: function (data) {
+                    document.querySelector(".main_vista_container").innerHTML = data.schedulehtml;
 
-    // // Make the asynchronous request
-    // $.ajax({
-    //     url: '/table/',
-    //     type: 'GET',
-    //     data: { 'curso': curso.nome, 'projId': projId, 'anoNum': anoNum },
-    //     success: function (data) {
-    //         document.querySelector(".main_vista_container").innerHTML = data.schedulehtml;
+                    updateColspan();
+                    fillUcs(ano);
+                    fillDocentes(ano);
+                    fillSalas(ano);
+                },
+                error: function (xhr, textStatus, error) {
+                    console.log(textStatus);
+                }
+            });
+        })
+        .catch(function (error) {
+            console.error("Error during handleCursoBtn or AJAX semanas request:", error);
+        });
 
-    //         updateColspan();
-    //         fillUcs(ano);
-    //         fillDocentes(ano);
-    //         fillSalas(ano);
-    //     },
-    //     error: function (xhr, textStatus, error) {
-    //         console.log(textStatus);
-    //     }
-    // });
+    // removeAllPlaceholders();
+    // displaySemanas(semana);
+
 });
 
 distributionBtn.addEventListener("click", function () {
