@@ -417,6 +417,21 @@ function deleteCells(cell, cellsRight, cellsBottom) {
 }
 
 /**
+ * Faz o display de todas as aulas do horário.
+ * 
+ * @returns {null} Não retorna qualquer valor.
+ */
+function displayAllAulas() {
+    const allTurmas = document.querySelectorAll("tbody [id*=turma_]");
+    allTurmas.forEach(cell => {
+        cell.style.display = '';
+        if (cell.hasAttribute("data-originalcolspan")) {
+            cell.colSpan = parseInt(cell.getAttribute("data-originalcolspan"), 10);
+        }
+    });
+}
+
+/**
  * Faz o display de todas as aulas de um dado turno.
  * 
  * @param {string[]} turmas - Array de turmas para as quais deve ser feito o display.
