@@ -59,7 +59,6 @@ class CursoEncoder(json.JSONEncoder):
         elif isinstance(obj, Ano):
             return {
                 'ano': obj.ano,
-                'numTurnos': obj.numTurnos,
                 'numTurmas': obj.numTurmas,
                 'turmasPorTurno': obj.turmasPorTurno,
                 'turmas': obj.turmas,
@@ -115,13 +114,6 @@ def getProjetosListAux(request, userId):
             related.append({'id':project[3], 'nome': project[4], 'isParsed':project[5]})
     related.reverse()
     return related
-
-def getTurmasPorTurnoCursoAno(request):
-    project_number = request.GET.get('ProjectNumber')
-    curso = request.GET.get('curso')
-    ano = request.GET.get('anoNum')
-    turmas = auxfunc.getTurmasPorTurnoCursoAno(project_number, curso, ano)
-    return JsonResponse(turmas, safe=False)
 
 def areSemanasCompatible(siAula, sfAula, siSelected, sfSelected):
     return (siAula == siSelected and sfAula == sfSelected) or (siAula < siSelected and sfAula == sfSelected) or (siAula == siSelected and sfAula > sfSelected)
@@ -495,7 +487,6 @@ def fillPageForCursoAno(request):
     #Fetch de todas as turmas de um dado ano
     turmasAno = auxfunc.getTurmasFromAnoCurso(projId, cursoNome, anoNum)
     turmasPorTurno = auxfunc.getTurmasPorTurnoCursoAno(projId, cursoNome, anoNum)
-    numTurnos = len(turmasPorTurno)
 
     # Sort the list of turmas for each turno
     for turno, turmas in turmasPorTurno.items():
@@ -529,7 +520,6 @@ def fillPageForCursoAno(request):
 
     ano = Ano(anoNum)
     ano.set_turmas(turmasAno)
-    ano.set_numTurnos(numTurnos)
     ano.set_turmasPorTurno(turmasPorTurno)
     ano.set_docentes(docentesAno)
     ano.set_semanas(semanasAno)
@@ -541,9 +531,7 @@ def fillPageForCursoAno(request):
     numAnos = auxfunc.getNumYearsFromCurso(projId, cursoNome)
     
     #Por default, a página é carregada com informação correspondente ao primeiro ano existente do curso selecionado
-    numeroTurnos = curso.anos[0].numTurnos
     numeroTurmas = curso.anos[0].numTurmas
-    print(numeroTurmas)
     turmasPorTurno = curso.anos[0].turmasPorTurno
     turmasAno = curso.anos[0].turmas
     semanasAno = curso.anos[0].semanas
@@ -552,12 +540,12 @@ def fillPageForCursoAno(request):
     curso_json = curso_encoder.encode(curso)
 
     response_data = {
-        'schedulehtml': render(request, 'editTurnos/schedule.html', {'numeroTurnos':numeroTurnos, 'numeroTurmas':numeroTurmas, 'turmasPorTurno':turmasPorTurno, 
+        'schedulehtml': render(request, 'editTurnos/schedule.html', {'numeroTurmas':numeroTurmas, 'turmasPorTurno':turmasPorTurno, 
                                                     'turmasAno': turmasAno, 'ano':anoNum}).content.decode(),
         'curso_json': curso_json,
-        'numeroTurnos':numeroTurnos,
         'numeroTurmas':numeroTurmas,
         'turmasAno': turmasAno,
+        'turmasPorTurno': turmasPorTurno,
         'semanasAno': semanasAno,
         'numAnos': numAnos
     }
@@ -567,28 +555,10 @@ def fillPageForCursoAno(request):
 def createEmptyTable(request):
     cursoNome = request.GET.get('curso')
     projId = int(request.GET.get('projId'))
-    anoNum = int(request.GET.get('anoNum'))
 
-    turmasPorTurno = auxfunc.getTurmasPorTurnoCursoAno(projId, cursoNome, anoNum)
-    for _, turmas in turmasPorTurno.items():
-        turmas.sort()
-
-    print(turmasPorTurno)
-
-    turmasAno = auxfunc.getTurmasFromAnoCurso(projId, cursoNome, anoNum)
-    semanasAno = auxfunc.getSemanasFromCursoAno(projId, cursoNome, anoNum)
     numAnos = auxfunc.getNumYearsFromCurso(projId, cursoNome)
 
-    # só precisa de retornar o schedulehtml, numAnos, turmasPorTurno, turmasAno e semanasAno
     response_data = {
-        'schedulehtml': render(request, 'editTurnos/schedule.html', {
-            'numeroTurmas': len(turmasAno),
-            'turmasAno': turmasAno,
-            'turmasPorTurno': turmasPorTurno
-            }).content.decode(),
-        'turmasPorTurno': turmasPorTurno,
-        'turmasAno': turmasAno,
-        'semanasAno': semanasAno,
         'numAnos': numAnos
     }
 

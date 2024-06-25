@@ -24,9 +24,6 @@ class Ano:
         
     def set_turmasPorTurno(self, turmasTurno):
         self.turmasPorTurno = turmasTurno
-    
-    def set_numTurnos(self, numTurnos):
-        self.numTurnos = numTurnos
         
     def set_docentes(self, docentes):
         self.docentes = docentes
