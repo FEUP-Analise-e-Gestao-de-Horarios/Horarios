@@ -41,8 +41,8 @@
             {% with numeroTurmas|multiply:6 as totalCells %}
             {% for i in 1|times:totalCells %}
             {% with numeroTurmas|getDay:i as day %}
-            {% with numeroTurmas|getTurma:i as turma %} <!-- turma = nº da turma, não o nome -->
-            {% with turmasAno|getTurmaName:turma as turmaNome %} <!-- turmaNome = nome completo da turma -->
+            {% with numeroTurmas|getTurma:i as turma %}
+            {% with turmasAno|getTurmaName:turma as turmaNome %}
             {% with turmasPorTurno|getTurno:turmaNome as turno%}
             <td id={{ "turma_" |concat:turmaNome|concat:'_'|concat:day|concat:'_'|concat:firstHora }}
                 class="turno{{ turno }}"> </td>
@@ -59,8 +59,8 @@
             {% with numeroTurmas|multiply:6 as totalCells %}
             {% for i in 1|times:totalCells %}
             {% with numeroTurmas|getDay:i as day %}
-            {% with numeroTurmas|getTurma:i as turma %} <!-- turma = nº da turma, não o nome -->
-            {% with turmasAno|getTurmaName:turma as turmaNome %} <!-- turmaNome = nome completo da turma -->
+            {% with numeroTurmas|getTurma:i as turma %}
+            {% with turmasAno|getTurmaName:turma as turmaNome %}
             {% with turmasPorTurno|getTurno:turmaNome as turno%}
             <td id={{ "turma_" |concat:turmaNome|concat:'_'|concat:day|concat:'_'|concat:secondHora }}
                 class="turno{{ turno }}"> </td>

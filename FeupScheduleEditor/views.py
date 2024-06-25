@@ -8,6 +8,7 @@ import getHorariosFromDB.filteredScheduleFunctions as func
 import getHorariosFromDB.auxiliaryScheduleFunctions as auxfunc
 import json
 import bleach
+from datetime import datetime
 from users.models import CustomUser
 from core.models import Group, Person, Project
 from django.contrib import messages
@@ -58,7 +59,6 @@ class CursoEncoder(json.JSONEncoder):
         elif isinstance(obj, Ano):
             return {
                 'ano': obj.ano,
-                'numTurnos': obj.numTurnos,
                 'numTurmas': obj.numTurmas,
                 'turmasPorTurno': obj.turmasPorTurno,
                 'turmas': obj.turmas,
@@ -115,13 +115,8 @@ def getProjetosListAux(request, userId):
     related.reverse()
     return related
 
-def getTurmasPorTurnoCursoAno(request):
-    project_number = request.GET.get('ProjectNumber')
-    curso = request.GET.get('curso')
-    ano = request.GET.get('anoNum')
-    turmas = auxfunc.getTurmasPorTurnoCursoAno(project_number, curso, ano)
-    return JsonResponse(turmas, safe=False)
-
+def areSemanasCompatible(siAula, sfAula, siSelected, sfSelected):
+    return (siAula == siSelected and sfAula == sfSelected) or (siAula < siSelected and sfAula == sfSelected) or (siAula == siSelected and sfAula > sfSelected)
 # ---------------------------------------------------------------------------------------------------------
 
 def starter(request: HttpRequest) -> HttpResponse:
@@ -240,18 +235,12 @@ def manageProjects(request: HttpRequest, projId: int) -> HttpResponse:
 def groups(request):    
     if (not request.user.is_authenticated):
         return redirect('login/')
-    
 
     group = Group.objects.values_list("name", "pk", "abreviation")
-
     groups = []
-
     people = Person.objects.values_list("username", "groups")
-
     user_groups = []
-
     user_in_group = []
-
     user_not_in_group = []
 
     if request.method == 'POST':
@@ -425,6 +414,15 @@ def fillPageForCursoAno(request):
     cursoNome = request.GET.get('curso')
     projId = int(request.GET.get('projId'))
     anoNum = int(request.GET.get('anoNum'))
+    semanaInterval = request.GET.get('semanas', None)
+
+    start_date = None
+    end_date = None
+
+    if semanaInterval and semanaInterval != 'Semanas':
+        start_date_str, end_date_str = semanaInterval.split(' - ')
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
     
     #Criar o objeto do tipo curso que contém docentes, anos, ucs e salas
     curso = Curso(cursoNome)
@@ -436,7 +434,12 @@ def fillPageForCursoAno(request):
     for sala in salas:
         #Fetch de todas as aulas de uma dada sala
         aulasSalaRows = auxfunc.getSalaHorario(projId, sala.numero)
-        aulasSala = [Aula(row['id'], row['horaInicial'], row['duracao'], row['diaSemana'], row['teorico'], row['semanaInicial'], row['semanaFinal']) for row in aulasSalaRows]
+        aulasSala = []
+        for row in aulasSalaRows:
+            semanaInicial = datetime.strptime(row['semanaInicial'], '%Y-%m-%d').date()
+            semanaFinal = datetime.strptime(row['semanaFinal'], '%Y-%m-%d').date()
+            if semanaInterval == None or semanaInterval == "Semanas" or areSemanasCompatible(semanaInicial, semanaFinal, start_date, end_date):
+                aulasSala.append(Aula(row['id'], row['horaInicial'], row['duracao'], row['diaSemana'], row['teorico'], row['semanaInicial'], row['semanaFinal']))
         
         for aula in aulasSala:
             turmasAula = auxfunc.getTurmasFromAula(projId, aula.id, cursoNome)
@@ -464,7 +467,12 @@ def fillPageForCursoAno(request):
     for uc in ucs:
         #Fetch de todas as aulas de uma dada UC
         aulasUCRows = auxfunc.getUcHorario(projId, uc.codigo)
-        aulasUC = [Aula(row['id'], row['horaInicial'], row['duracao'], row['diaSemana'], row['teorico'], row['semanaInicial'], row['semanaFinal']) for row in aulasUCRows]
+        aulasUC = []
+        for row in aulasUCRows:
+            semanaInicial = datetime.strptime(row['semanaInicial'], '%Y-%m-%d').date()
+            semanaFinal = datetime.strptime(row['semanaFinal'], '%Y-%m-%d').date()
+            if semanaInterval == None or semanaInterval == "Semanas" or (start_date and end_date and areSemanasCompatible(semanaInicial, semanaFinal, start_date, end_date)):
+                aulasUC.append(Aula(row['id'], row['horaInicial'], row['duracao'], row['diaSemana'], row['teorico'], row['semanaInicial'], row['semanaFinal']))
         for aula in aulasUC:
             turmasAula = auxfunc.getTurmasFromAula(projId, aula.id, cursoNome)
             aula.set_turmas(turmasAula) #FORMATO -> [codigoTurma]
@@ -479,7 +487,6 @@ def fillPageForCursoAno(request):
     #Fetch de todas as turmas de um dado ano
     turmasAno = auxfunc.getTurmasFromAnoCurso(projId, cursoNome, anoNum)
     turmasPorTurno = auxfunc.getTurmasPorTurnoCursoAno(projId, cursoNome, anoNum)
-    numTurnos = len(turmasPorTurno)
 
     # Sort the list of turmas for each turno
     for turno, turmas in turmasPorTurno.items():
@@ -491,7 +498,12 @@ def fillPageForCursoAno(request):
     docentesAno = [ Docente(row['numeroMecanografico'], row['nome'], row['abreviacao']) for row in docentesAnoRows]
     for docente in docentesAno:
         aulasDocenteRows = auxfunc.getDocenteHorario(projId, docente.numMecanografico)
-        aulasDocente = [ Aula(row['id'], row['horaInicial'], row['duracao'], row['diaSemana'], row['teorico'], row['semanaInicial'], row['semanaFinal']) for row in aulasDocenteRows]
+        aulasDocente = []
+        for row in aulasDocenteRows:
+            semanaInicial = datetime.strptime(row['semanaInicial'], '%Y-%m-%d').date()
+            semanaFinal = datetime.strptime(row['semanaFinal'], '%Y-%m-%d').date()
+            if semanaInterval == None or semanaInterval == "Semanas" or (start_date and end_date and areSemanasCompatible(semanaInicial, semanaFinal, start_date, end_date)):
+                aulasDocente.append(Aula(row['id'], row['horaInicial'], row['duracao'], row['diaSemana'], row['teorico'], row['semanaInicial'], row['semanaFinal']))
         
         for aula in aulasDocente:
             turmasAula = auxfunc.getTurmasFromAula(projId, aula.id, cursoNome)
@@ -505,9 +517,9 @@ def fillPageForCursoAno(request):
         
     #Fetch de todas as semanas de um dado ano
     semanasAno = auxfunc.getSemanasFromCursoAno(projId, cursoNome, anoNum)
+
     ano = Ano(anoNum)
     ano.set_turmas(turmasAno)
-    ano.set_numTurnos(numTurnos)
     ano.set_turmasPorTurno(turmasPorTurno)
     ano.set_docentes(docentesAno)
     ano.set_semanas(semanasAno)
@@ -519,7 +531,6 @@ def fillPageForCursoAno(request):
     numAnos = auxfunc.getNumYearsFromCurso(projId, cursoNome)
     
     #Por default, a página é carregada com informação correspondente ao primeiro ano existente do curso selecionado
-    numeroTurnos = curso.anos[0].numTurnos
     numeroTurmas = curso.anos[0].numTurmas
     turmasPorTurno = curso.anos[0].turmasPorTurno
     turmasAno = curso.anos[0].turmas
@@ -529,15 +540,28 @@ def fillPageForCursoAno(request):
     curso_json = curso_encoder.encode(curso)
 
     response_data = {
-        'schedulehtml': render(request, 'editTurnos/schedule.html', {'numeroTurnos':numeroTurnos, 'numeroTurmas':numeroTurmas, 'turmasPorTurno':turmasPorTurno, 
+        'schedulehtml': render(request, 'editTurnos/schedule.html', {'numeroTurmas':numeroTurmas, 'turmasPorTurno':turmasPorTurno, 
                                                     'turmasAno': turmasAno, 'ano':anoNum}).content.decode(),
         'curso_json': curso_json,
-        'numeroTurnos':numeroTurnos,
         'numeroTurmas':numeroTurmas,
         'turmasAno': turmasAno,
+        'turmasPorTurno': turmasPorTurno,
         'semanasAno': semanasAno,
         'numAnos': numAnos
-    }   
+    }
+
+    return JsonResponse(response_data)
+
+def createEmptyTable(request):
+    cursoNome = request.GET.get('curso')
+    projId = int(request.GET.get('projId'))
+
+    numAnos = auxfunc.getNumYearsFromCurso(projId, cursoNome)
+
+    response_data = {
+        'numAnos': numAnos
+    }
+
     return JsonResponse(response_data)
 
 def distribuicao_view(request):
