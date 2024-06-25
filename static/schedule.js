@@ -10,8 +10,19 @@ function fillUcs(ano) {
     const turmasSet = new Set();
     let ucAnoBool = false;
 
-    for (let i = 0; i < allUCs.length; i++) {
-        let uc = allUCs[i];
+    const relevantUcs = allUCs.filter(uc =>
+        uc.anos.includes(ano)
+    );
+
+    relevantUcs.forEach(sortAulasByTurmasAndDuracao);
+    relevantUcs.sort((ucA, ucB) => {
+        const weightA = calculateUcWeight(ucA);
+        const weightB = calculateUcWeight(ucB);
+        return weightA - weightB;
+    })
+
+    for (let i = 0; i < relevantUcs.length; i++) {
+        let uc = relevantUcs[i];
         let aulas = uc.aulas; //FORMATO -> [Aula(id, horaInicial, duracao, diaSemana, isTeorica)]
         ucAnoBool = false;
 
@@ -77,7 +88,7 @@ function fillUcs(ano) {
                     let turmasLista = curso.anos[0].turmas;
                     let turmaIndex = turmasLista.indexOf(group[0]);
                     for (let t = 0; t + turmaIndex < turmasLista.length; t++) {
-                        if (group[k + t] == turmasLista[turmaIndex + t]) {
+                        if (group[t] == turmasLista[turmaIndex + t]) {
                             deleteHorizontal += 1;
                         }
                         else {
@@ -118,6 +129,24 @@ function fillUcs(ano) {
     }
     setSidebarUCs(ucAnoSet);
     setSidebarTurmas(turmasSet);
+}
+
+function sortAulasByTurmasAndDuracao(uc) {
+    uc.aulas.sort((a, b) => {
+        const turmasA = a.turmas[ano] ? a.turmas[ano].length : 0;
+        const turmasB = b.turmas[ano] ? b.turmas[ano].length : 0;
+        if (turmasA === turmasB) {
+            return a.duracao - b.duracao;
+        }
+        return turmasA - turmasB;
+    });
+}
+
+function calculateUcWeight(uc) {
+    return uc.aulas.reduce((acc, aula) => {
+        const turmasLength = aula.turmas[ano] ? aula.turmas[ano].length : 0;
+        return acc + aula.duracao * turmasLength;
+    }, 0);
 }
 
 /**
