@@ -575,6 +575,38 @@ function updateColspan() {
     });
 }
 
+function updateDayDivisions() {
+    const allTurmaCells = document.querySelectorAll("tbody [id*=turma_]");
+    allTurmaCells.forEach(cell => {
+        cell.classList.remove("last-turma");
+        cell.classList.remove("first-turma");
+    });
+
+    const table = document.getElementById("table_vistas");
+    const turmasRow = table.rows[1];
+    const dayLength = Math.floor((turmasRow.cells.length - 1) / 6);
+    let lastTurmaInDay;
+    for (let i = dayLength; i >= 1; i--) {
+        if (turmasRow.cells[i].style.display === '') {
+            lastTurmaInDay = turmasRow.cells[i];
+            break;
+        }
+    }
+
+    const lastTurmaId = lastTurmaInDay.getAttribute("id").split('_')[1];
+    const allPotentialCells = document.querySelectorAll(`tbody [id*="${lastTurmaId}"], tbody [data-turmas*="${lastTurmaId}"]`);
+
+    const allLastTurmaCells = Array.from(allPotentialCells).filter(cell => {
+        if (cell.hasAttribute('data-group')) {
+            return cell.getAttribute('data-turmas').includes(lastTurmaId) && cell.getAttribute('data-group').includes(lastTurmaId);
+        }
+        return true;
+    });
+    allLastTurmaCells.forEach(cell => {
+        cell.classList.add("last-turma");
+    });
+}
+
 /**
  * Envia uma alteração de uma célula para a base de dados.
  * 
@@ -970,7 +1002,6 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
                     if (td.querySelector("p") !== null) {
                         submitToDatabase(td);
                     }
-                    handleDistributionBtn(true);
                 }
             } catch (error) {
                 console.error("An error occurred in canSwap or swapFullCells:", error);
