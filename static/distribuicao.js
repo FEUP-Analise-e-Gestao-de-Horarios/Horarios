@@ -5,8 +5,8 @@
  */
 function fillTable() {
     const days = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"];
-    const tableBody = document.querySelector("#table_Distribution tbody");
-    const tableHeader = document.querySelector("#table_Distribution thead tr");
+    const tableBody = document.querySelector("#table_distribution tbody");
+    const tableHeader = document.querySelector("#table_distribution thead tr");
 
     tableBody.innerHTML = "";
     tableHeader.innerHTML = '<th>Tipo</th><th>UC</th>';
