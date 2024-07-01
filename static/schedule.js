@@ -479,20 +479,22 @@ function displayTurma(targetTurma) {
     allTurmaCells.forEach(cell => {
         cell.style.display = 'none';
 
+        const displayCell = (cell) => {
+            cell.style.display = '';
+            cell.setAttribute('colspan', '1');
+        }
+
         if (cell.hasAttribute('data-group')) {
             if (cell.getAttribute('data-group').includes(targetTurma)) {
-                cell.style.display = '';
-                cell.setAttribute('colspan', '1');
+                displayCell(cell);
             }
         } else if (cell.hasAttribute('data-turmas')) {
             if (cell.getAttribute('data-turmas').includes(targetTurma)) {
-                cell.style.display = '';
-                cell.setAttribute('colspan', '1');
+                displayCell(cell);
             }
         } else {
             if (cell.id.includes(targetTurma)) {
-                cell.style.display = '';
-                cell.setAttribute('colspan', '1');
+                displayCell(cell);
             }
         }
     });
