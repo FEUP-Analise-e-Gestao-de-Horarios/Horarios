@@ -207,41 +207,13 @@ turnosBtn.addEventListener("change", function () {
 });
 
 turmasBtn.addEventListener("change", function () {
-    const allTurmas = this.options;
-    const turmasLista = curso.anos[0].turmas;
-
     if (this.value === 'Turma') {
-        mergeCells();
+        displayAllAulas();
+        updateColspan();
+    } else {
+        displayTurma(this.value);
+        updateColspan();
     }
-    else {
-        unmergeCells(turmasLista);
-    }
-
-    for (let i = 0; i < allTurmas.length; i++) {
-        const turma_nome = allTurmas[i].value;
-
-        if (turma_nome === this.value || this.value === 'Turma') {
-            turma = "#turma_" + turma_nome;
-            const turmaCol = document.querySelectorAll(turma);
-            turmaCol.forEach(cell => cell.style.display = '');
-
-            substring = "turma_" + turma_nome;
-            const elements = document.querySelectorAll("[id*=" + substring + "]");
-            elements.forEach(cell => cell.style.display = '');
-            continue;
-        }
-
-        if (turma_nome !== this.value) {
-            turma = "#turma_" + turma_nome;
-            const turmaCol = document.querySelectorAll(turma);
-            turmaCol.forEach(cell => cell.style.display = 'none');
-
-            substring = "turma_" + turma_nome;
-            const elements = document.querySelectorAll("[id*=" + substring + "]");
-            elements.forEach(cell => cell.style.display = 'none');
-        }
-    }
-    updateColspan();
     updateDayDivisions();
 });
 

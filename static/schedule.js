@@ -469,77 +469,32 @@ function displayTurmasForTurno(turmas) {
 }
 
 /**
- * Une células da tabela.
+ * Faz o display de todas as aulas de uma dada turma.
  * 
- * @returns {null} Não retorna qualquer valor.
+ * @param {string} targetTurma A turma selecionada para visualização.
+ * @return {null} Não retorna qualquer valor.
  */
-function mergeCells() {
-    const cells = $("#table_vistas").find("td:not(:first-child):has(p)").toArray();
+function displayTurma(targetTurma) {
+    const allTurmaCells = document.querySelectorAll("tbody td[id*=turma_], tbody th[id*=turma_]");
+    allTurmaCells.forEach(cell => {
+        cell.style.display = 'none';
 
-    cells.forEach(function (cell) {
-        const colspan = parseInt(cell.getAttribute('colspan'));
-        const originalColspan = parseInt(cell.getAttribute('data-originalcolspan'));
-
-        if (originalColspan === colspan || !originalColspan) {
-            return;
-        }
-
-        const aulaId = cell.getAttribute('data-aulaid');
-        const nextSiblings = document.querySelectorAll("tbody td:not(:first-child)[data-aulaid='" + aulaId + "']");
-
-        for (let i = 1; i < nextSiblings.length; i++) {
-            nextSiblings[i].remove();
-        }
-
-        cell.setAttribute('colspan', originalColspan);
-    })
-}
-
-/**
- * Separa células de uma tabela com base na lista de turmas.
- *
- * @param {Array} turmasLista - Lista de turmas cujas células devem ser separadas.
- * @returns {null} Não retorna qualquer valor.
- */
-function unmergeCells(turmasLista) {
-    const cells = $("#table_vistas").find("td:not(:first-child):has(p)").toArray();
-
-    const turmasporturno = curso.anos[0].turmasPorTurno;
-
-    cells.forEach(function (cell) {
-        const colspan = parseInt(cell.getAttribute('colspan'));
-
-        // If the cell is already unmerged or has no colspan, skip it
-        if (colspan === 1 || !colspan) {
-            return;
-        }
-
-        const cellId = cell.id;
-        const cellTurma = cellId.split("_")[1];
-        const turmaIndex = turmasLista.indexOf(cellTurma);
-
-        for (let i = 1; i < colspan; i++) {
-            const newCell = cell.cloneNode(true);
-            const newCellTurma = turmasLista[turmaIndex + i];
-            let newCellTurno = "turno";
-
-            //Encontrar o turno a que pertence a célula
-            for (const [key, arr] of Object.entries(turmasporturno)) {
-                if (arr.includes(newCellTurma)) {
-                    newCellTurno += key.toString();
-                    break;
-                }
+        if (cell.hasAttribute('data-group')) {
+            if (cell.getAttribute('data-group').includes(targetTurma)) {
+                cell.style.display = '';
+                cell.setAttribute('colspan', '1');
             }
-
-            const newCellId = cellId.split("_")[0] + '_' + newCellTurma + '_' + cellId.split("_")[2] + '_' + cellId.split("_")[3];
-            newCell.setAttribute('id', newCellId);
-            newCell.setAttribute('class', newCellTurno);
-            newCell.setAttribute('colspan', 1);
-
-            cell.parentNode.insertBefore(newCell, cell.nextSibling);
+        } else if (cell.hasAttribute('data-turmas')) {
+            if (cell.getAttribute('data-turmas').includes(targetTurma)) {
+                cell.style.display = '';
+                cell.setAttribute('colspan', '1');
+            }
+        } else {
+            if (cell.id.includes(targetTurma)) {
+                cell.style.display = '';
+                cell.setAttribute('colspan', '1');
+            }
         }
-
-        cell.setAttribute('colspan', '1');
     });
 }
 
@@ -579,7 +534,6 @@ function updateDayDivisions() {
     const allTurmaCells = document.querySelectorAll("tbody [id*=turma_]");
     allTurmaCells.forEach(cell => {
         cell.classList.remove("last-turma");
-        cell.classList.remove("first-turma");
     });
 
     const table = document.getElementById("table_vistas");
@@ -594,7 +548,7 @@ function updateDayDivisions() {
     }
 
     const lastTurmaId = lastTurmaInDay.getAttribute("id").split('_')[1];
-    const allPotentialCells = document.querySelectorAll(`tbody [id*="${lastTurmaId}"], tbody [data-turmas*="${lastTurmaId}"]`);
+    const allPotentialCells = document.querySelectorAll(`tbody td[id*="${lastTurmaId}"], tbody [data-turmas*="${lastTurmaId}"]`);
 
     const allLastTurmaCells = Array.from(allPotentialCells).filter(cell => {
         if (cell.hasAttribute('data-group')) {

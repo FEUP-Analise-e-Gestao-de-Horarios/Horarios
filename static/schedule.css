@@ -46,15 +46,15 @@ table {
     overflow-x: auto;
 }
 
+#table_vistas tbody .last-turma {
+    border-right: 1px solid #525252 !important;
+}
+
 th,
 td {
     text-align: center;
-    padding: 4px;
-    border: 1px solid #ddd;
+    padding: 5px;
+    border: 6px solid #ddd;
     height: 25px;
     width: 100px;
-}
-
-.last-turma {
-    border-right: 1px solid #333;
 }
