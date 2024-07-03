@@ -29,6 +29,8 @@ urlpatterns = [
     path('distribuicao/', views.distribuicao_view, name='distribuicao'),
     path('schedule/', views.schedule_view, name='schedule'),
     path('blocosturma/', views.blocosVermelhosTurma, name='blocosturma'),
+    path('getdocentehorario/', views.get_docente_horario, name = "getdocentehorario"),
+    path('getsalahorario/', views.get_sala_horario, name = "getsalahorario"),
     path('editturnos/<int:projId>/createDocente/', views.createDocente),
     path('editturnos/<int:projId>/editDocentes/', views.editDocentes),
     path('editturnos/<int:projId>/editDocentes/makeChange/', views.editDocentesMakeChange),

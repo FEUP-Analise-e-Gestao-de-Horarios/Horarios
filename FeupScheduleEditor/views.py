@@ -604,6 +604,55 @@ def blocosVermelhosTurma(request):
     ]
     return JsonResponse({'blocos': blocos}, status=200)
 
+def get_docente_horario(request):
+    try:
+        project_number = request.GET.get('projectNumber')
+        docente_id = request.GET.get('docenteId')
+
+        aulasDocenteRows = auxfunc.getDocenteHorario(project_number, docente_id)
+
+        aulasDocente = [
+            {
+                'id': row['id'],
+                'horaInicial': row['horaInicial'],
+                'duracao': row['duracao'],
+                'diaSemana': row['diaSemana'],
+                'teorico': row['teorico'],
+                'semanaInicial': row['semanaInicial'],
+                'semanaFinal': row['semanaFinal']
+            } for row in aulasDocenteRows
+        ]
+
+        return JsonResponse(aulasDocente, safe = False)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+    
+def get_sala_horario(request):
+    try:
+        project_number = request.GET.get('projectNumber')
+        numero_sala = request.GET.get('salaId')
+        
+        # Chama a função getSalaHorario e obtém os dados
+        aulasSalaRows = auxfunc.getSalaHorario(project_number, numero_sala)
+        
+        # Converte os resultados para dicionário
+        aulasSala = [
+            {
+                'id': row['id'],
+                'horaInicial': row['horaInicial'],
+                'duracao': row['duracao'],
+                'diaSemana': row['diaSemana'],
+                'teorico': row['teorico'],
+                'semanaInicial': row['semanaInicial'],
+                'semanaFinal': row['semanaFinal']
+            } for row in aulasSalaRows
+        ]
+        
+        return JsonResponse(aulasSala, safe=False)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
 
 # makeChanges
 #
