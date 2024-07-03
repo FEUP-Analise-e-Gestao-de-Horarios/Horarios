@@ -76,6 +76,10 @@ td.busy {
     border-collapse: collapse;
 }
 
+.popover th {
+    border: 1px solid #ddd;
+}
+
 .popover-header {
     color: black;
     background-color: #f2f2f2;

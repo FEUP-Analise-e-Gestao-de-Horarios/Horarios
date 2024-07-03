@@ -115,10 +115,20 @@ def is_number(value):
     
 @register.simple_tag(name="is_busy")
 def is_busy(aulasDocente, dia, hora):
+    # Convert the input hour to an integer for easier comparison
+    horaInicioInput = int(hora.replace(":", ""))
+    
     for aula in aulasDocente:
-        horaAula = int(hora.replace(":", ""))
-        if aula.diaSemana == dia and aula.horaInicial == horaAula:
-            return True
+        if aula.diaSemana == dia:
+            duracaoEmMinutos = aula.duracao * 30
+            horaFimAula = aula.horaInicial + duracaoEmMinutos
+            fatorAjuste = 0
+            if aula.duracao > 1:
+                fatorAjuste = aula.duracao // 2
+            horaFimAula += fatorAjuste * 40
+
+            if horaInicioInput >= aula.horaInicial and horaInicioInput < horaFimAula:
+                return True
     return False
     
 @register.simple_tag(takes_context=True)
