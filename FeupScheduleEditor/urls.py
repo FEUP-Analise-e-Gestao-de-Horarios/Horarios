@@ -25,15 +25,17 @@ urlpatterns = [
     path('deleteProject', views.deleteProject),
     path('login/', include('login.urls')), #redirects to urls.py from login module
     path('editturnos/<int:projId>', views.editTurnos), #projId extracted from uri
+    path('emptytable/', views.createEmptyTable, name='emptytable'),
     path('table/', views.fillPageForCursoAno, name='table'),
     path('distribuicao/', views.distribuicao_view, name='distribuicao'),
     path('schedule/', views.schedule_view, name='schedule'),
     path('blocosturma/', views.blocosVermelhosTurma, name='blocosturma'),
+    path('getdocentehorario/', views.get_docente_horario, name = "getdocentehorario"),
+    path('getsalahorario/', views.get_sala_horario, name = "getsalahorario"),
     path('editturnos/<int:projId>/createDocente/', views.createDocente),
     path('editturnos/<int:projId>/editDocentes/', views.editDocentes),
     path('editturnos/<int:projId>/editDocentes/makeChange/', views.editDocentesMakeChange),
     path('editturnos/<int:projId>/makechanges', views.makeChanges),
     path('manageProjects/<int:projId>', views.manageProjects),
-    path('export/<int:projId>', views.export),
-    path('getTurmasPorTurnoCursoAno', views.getTurmasPorTurnoCursoAno)
+    path('export/<int:projId>', views.export)
 ]

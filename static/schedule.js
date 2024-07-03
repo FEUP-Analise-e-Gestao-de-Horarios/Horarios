@@ -10,22 +10,24 @@ function fillUcs(ano) {
     const turmasSet = new Set();
     let ucAnoBool = false;
 
-    for (let i = 0; i < allUCs.length; i++) {
-        let uc = allUCs[i];
+    const relevantUcs = allUCs.filter(uc =>
+        uc.anos.includes(ano)
+    );
+
+    relevantUcs.forEach(sortAulasByTurmasAndDuracao);
+    relevantUcs.sort((ucA, ucB) => {
+        const weightA = calculateUcWeight(ucA);
+        const weightB = calculateUcWeight(ucB);
+        return weightA - weightB;
+    })
+
+    for (let i = 0; i < relevantUcs.length; i++) {
+        let uc = relevantUcs[i];
         let aulas = uc.aulas; //FORMATO -> [Aula(id, horaInicial, duracao, diaSemana, isTeorica)]
         ucAnoBool = false;
 
         for (let j = 0; j < aulas.length; j++) {
             let aula = aulas[j];
-
-            if (semana !== "Semanas") {
-                let semanaInicial = semana.split(" - ")[0];
-                let semanaFinal = semana.split(" - ")[1];
-
-                if (aula.semanaInicial !== semanaInicial || aula.semanaFinal !== semanaFinal) {
-                    continue;
-                }
-            }
 
             let turmas = aula.turmas; //FORMATO -> {ano: [codigoTurma]}
             if (!(ano in turmas)) { //Caso não tenha turmas do ano em que a tabela está
@@ -86,7 +88,7 @@ function fillUcs(ano) {
                     let turmasLista = curso.anos[0].turmas;
                     let turmaIndex = turmasLista.indexOf(group[0]);
                     for (let t = 0; t + turmaIndex < turmasLista.length; t++) {
-                        if (group[k + t] == turmasLista[turmaIndex + t]) {
+                        if (group[t] == turmasLista[turmaIndex + t]) {
                             deleteHorizontal += 1;
                         }
                         else {
@@ -106,19 +108,18 @@ function fillUcs(ano) {
                 p_element.style.display = "inline-block";
                 cell.appendChild(p_element);
                 cell.setAttribute("rowspan", aula.duracao);
-                cell.setAttribute("data-semanas", aula.semanaInicial + ' - ' + aula.semanaFinal);
+                cell.setAttribute("data-si", aula.semanaInicial);
+                cell.setAttribute("data-sf", aula.semanaFinal);
+
+                cell.setAttribute("colspan", group.length);
+                cell.setAttribute("data-originalcolspan", group.length);
+                cell.setAttribute("style", "border: 2px solid black;");
 
                 if (aula.isTeorica) {
-                    cell.setAttribute("colspan", group.length);
-                    cell.setAttribute("data-originalcolspan", group.length);
-                    cell.setAttribute("style", "border: 2px solid black;");
                     cell.setAttribute("style", "background-color: " + window.colorDictionary[ucAnoSet.size][1]);
                     cell.setAttribute("data-teorica", 1)
                 }
                 else {
-                    cell.setAttribute("colspan", group.length);
-                    cell.setAttribute("data-originalcolspan", group.length);
-                    cell.setAttribute("style", "border: 2px solid black;");
                     cell.setAttribute("style", "background-color: " + window.colorDictionary[ucAnoSet.size][0]);
                     cell.setAttribute("data-teorica", 0);
                 }
@@ -128,6 +129,24 @@ function fillUcs(ano) {
     }
     setSidebarUCs(ucAnoSet);
     setSidebarTurmas(turmasSet);
+}
+
+function sortAulasByTurmasAndDuracao(uc) {
+    uc.aulas.sort((a, b) => {
+        const turmasA = a.turmas[ano] ? a.turmas[ano].length : 0;
+        const turmasB = b.turmas[ano] ? b.turmas[ano].length : 0;
+        if (turmasA === turmasB) {
+            return a.duracao - b.duracao;
+        }
+        return turmasA - turmasB;
+    });
+}
+
+function calculateUcWeight(uc) {
+    return uc.aulas.reduce((acc, aula) => {
+        const turmasLength = aula.turmas[ano] ? aula.turmas[ano].length : 0;
+        return acc + aula.duracao * turmasLength;
+    }, 0);
 }
 
 /**
@@ -144,15 +163,6 @@ function fillDocentes(ano) {
 
         for (let j = 0; j < aulas.length; j++) {
             let aula = aulas[j];
-
-            if (semana !== "Semanas") {
-                const semanaInicial = semana.split(" - ")[0];
-                const semanaFinal = semana.split(" - ")[1];
-
-                if (aula.semanaInicial !== semanaInicial || aula.semanaFinal !== semanaFinal) {
-                    continue;
-                }
-            }
 
             let turmas = aula.turmas; //FORMATO -> {ano: [codigoTurma]}
 
@@ -204,15 +214,6 @@ function fillSalas(ano) {
 
         for (let j = 0; j < aulas.length; j++) {
             let aula = aulas[j];
-
-            if (semana !== "Semanas") {
-                let semanaInicial = semana.split(" - ")[0];
-                let semanaFinal = semana.split(" - ")[1];
-
-                if (aula.semanaInicial !== semanaInicial || aula.semanaFinal !== semanaFinal) {
-                    continue;
-                }
-            }
 
             let turmas = aula.turmas; //FORMATO -> {ano: [codigoTurma]}
             if (!(ano in turmas)) { //Caso não tenha turmas do ano em que a tabela está
@@ -371,7 +372,6 @@ function deleteCells(cell, cellsRight, cellsBottom) {
             const rectHeight = cellToGetHeight.getBoundingClientRect();
             const rectWidth = cellToGetWidth.getBoundingClientRect();
 
-            let rect = cellToDelete.getBoundingClientRect();
             let width = rectWidth.width;
             height = rectHeight.height;
 
@@ -407,8 +407,10 @@ function deleteCells(cell, cellsRight, cellsBottom) {
         }
 
         if (i != cellsBottom) {
-            idCell = idCell.split('_')[0] + "_" + idCell.split('_')[1] + "_" + idCell.split('_')[2] + "_" + hora; //id da célula seguinte pertencente à mesma aula
+            idCellSplit = idCell.split('_');
+            idCell = idCellSplit[0] + "_" + idCellSplit[1] + "_" + idCellSplit[2] + "_" + hora; //id da célula seguinte pertencente à mesma aula
             cell = document.querySelector("td[id='" + idCell + "']");
+            if (!cell) break;
             cellIndex = cell.cellIndex;
         }
     }
@@ -419,9 +421,14 @@ function deleteCells(cell, cellsRight, cellsBottom) {
  * 
  * @returns {null} Não retorna qualquer valor.
  */
-function displayAllTurmas() {
-    const allTurmas = document.querySelectorAll("[id*=turma_]");
-    allTurmas.forEach(cell => cell.style.display = '');
+function displayAllAulas() {
+    const allTurmas = document.querySelectorAll("tbody [id*=turma_]");
+    allTurmas.forEach(cell => {
+        cell.style.display = '';
+        if (cell.hasAttribute("data-originalcolspan")) {
+            cell.colSpan = parseInt(cell.getAttribute("data-originalcolspan"), 10);
+        }
+    });
 }
 
 /**
@@ -926,6 +933,7 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
     const td = this;
     const targetElement = event.target;
     const turma = td.id.split('_')[1];
+    const projectNumber =  $('script[data-proj-id]').data('projId');
 
     // Check if the target element is the td itself or a descendant of the td
     if (targetElement === td || $.contains(td, targetElement)) {
@@ -942,6 +950,7 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
             showEditBarOptions(false)
             $(td).removeClass('selected');
             displayBlocosVermelhosTurma(turma, false);
+            clearHighlight();
             return;
         }
 
@@ -978,12 +987,36 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
 
         //Unselect da primeira célula selecionada
         $('td:not(:first-child)').removeClass('selected');
-
+        
         if (prevSelectedCell.length == 0) {
             //Select da primeira célula selecionada
             $(td).addClass('selected');
             if ($(td).has('p').length > 0) {
                 displayBlocosVermelhosTurma(turma, true);
+
+                const docenteElement = $(td).find('p.docente');
+                const salaElement = $(td).find('p.sala');
+                if (docenteElement.length > 0 && salaElement.length > 0) {
+                    const docenteId = docenteElement.attr('id');
+                    const numeroSala = salaElement.attr('id');
+                    console.log('Docente selecionado com id:', docenteId);
+                    console.log('Sala selecionada com id:', numeroSala);
+                    clearHighlight();  // Limpa os destaques antes de adicionar novos
+                    displayTodosConflitos(docenteId, numeroSala, true); // Chama a função para destacar os conflitos duplos
+                } else {
+                    if (docenteElement.length > 0) {
+                        const docenteId = docenteElement.attr('id');
+                        console.log('Docente selecionado com id:', docenteId);
+                        clearHighlight();  // Limpa os destaques antes de adicionar novos
+                        displayBlocosAmarelos(docenteId, true);  // Chama a função para destacar os blocos amarelos
+                    }
+                    if (salaElement.length > 0) {
+                        const numeroSala = salaElement.attr('id');
+                        console.log('Sala selecionada com id:', numeroSala);
+                        clearHighlight();  // Limpa os destaques antes de adicionar novos
+                        displayBlocosLaranja(numeroSala, true);  // Chama a função para destacar os blocos laranja
+                    }
+                }
             }
         }
 
@@ -1124,6 +1157,21 @@ $(document).on('click', 'td:not(:first-child) p', function (event) {
     // Previne que o evento se propague para o elemento td
     event.stopPropagation();
     const p = this;
+    const projectNumber = $('script[data-proj-id]').data('projId');
+    const elementoId = $(p).attr('id');
+    const className = $(p).attr('class');
+    
+    if (className.includes('docente')) {
+        console.log('Docente selecionado com id:', elementoId, 'projectNumber:', projectNumber);
+        clearHighlight();  // Limpa os destaques amarelos antes de adicionar novos
+        displayBlocosAmarelos(elementoId, true);  // Chama a função para destacar os blocos amarelos
+    } else if (className.includes('sala')) {
+        const numeroSala = elementoId;
+        console.log('Sala selecionada com id:', numeroSala, 'projectNumber:', projectNumber);
+        clearHighlight();  // Limpa os destaques laranja antes de adicionar novos
+        displayBlocosLaranjas(numeroSala, true);  // Chama a função para destacar os blocos laranja
+    }
+
 
     // 'Desseleciona' algum elemento td selecionado
     const selectedTD = $('td:not(:first-child).selected');
@@ -1176,6 +1224,13 @@ $(document).on('click', 'td:not(:first-child) p', function (event) {
     }
 });
 
+function clearHighlight() {
+    const highlightedCells = document.querySelectorAll('td[style*="background-color: yellow"], td[style*="opacity: 0.6"]');
+    highlightedCells.forEach(cell => {
+        cell.style.backgroundColor = "";
+        cell.style.opacity = "";
+    });
+}
 function displayBlocosVermelhosTurma(turma, display) {
     if (!display) {
         const redCellsTd = document.querySelectorAll('td[style="background-color: red; opacity: 0.6;"]');
@@ -1208,7 +1263,7 @@ function displayBlocosVermelhosTurma(turma, display) {
 
 function displayBlocosVermelhosGlobal(className, id, display) {
     var blocosVermelhos;
-    if (className == 'docente selected' || className == 'docente') {
+    if (className === 'docente selected' || className === 'docente') {
         const allDocentes = curso.anos[0].docentes;
 
         var docente;
@@ -1224,8 +1279,10 @@ function displayBlocosVermelhosGlobal(className, id, display) {
 
         blocosVermelhos = docente.blocos;
         displayBlocosVermelhos(blocosVermelhos, display, 'any');
-    }
-    else if (className == 'sala selected' || className == 'sala') {
+        
+        // Chama a função para destacar os blocos amarelos
+        displayBlocosAmarelos(id, display);
+    } else if (className === 'sala selected' || className === 'sala') {
         const allSalas = curso.salas;
 
         var sala;
@@ -1241,8 +1298,12 @@ function displayBlocosVermelhosGlobal(className, id, display) {
 
         blocosVermelhos = sala.blocos;
         displayBlocosVermelhos(blocosVermelhos, display, 'any');
+        
+        // Chama a função para destacar os blocos laranja
+        displayBlocosLaranjas(id, display);
     }
 }
+
 
 function displayBlocosVermelhos(blocosVermelhos, display, turma) {
     for (var i = 0; i < blocosVermelhos.length; i++) {
@@ -1301,3 +1362,194 @@ function displayBlocosVermelhos(blocosVermelhos, display, turma) {
         }
     }
 }
+
+function displayBlocosAmarelos(docenteId, display) {
+    const projectNumber = $('script[data-proj-id]').data('projId');
+    
+    fetchDocenteHorario(docenteId, projectNumber).then(aulas => {
+        aulas.forEach(aula => {
+            const dia = aula.diaSemana.toLowerCase();
+            let hora = aula.horaInicial;
+            const numBlocos = aula.duracao; // Duração em número de blocos de 30 minutos
+
+            // Cria um array de horários baseados na duração
+            const horarios = [];
+            for (let i = 0; i < numBlocos; i++) {
+                horarios.push(hora);
+                hora += 30;
+                if (hora % 100 >= 60) {
+                    hora = hora + 40; // Corrige para o próximo horário válido (pula de 1430 para 1500, por exemplo)
+                }
+            }
+
+            // Destaca todos os horários no array
+            horarios.forEach(hora => {
+                const horas = Math.floor(hora / 100).toString().padStart(2, '0');
+                const minutos = (hora % 100).toString().padStart(2, '0');
+                const idString = `${dia}_${horas}${minutos}`;
+
+                const cells = document.querySelectorAll(`td[id*="${idString}"]:not(:has(p))`);
+                
+                cells.forEach(cell => {
+                    if (display) {
+                        cell.style.backgroundColor = "yellow";
+                        cell.style.opacity = 0.6;
+                    } else {
+                        cell.style.backgroundColor = "";
+                        cell.style.opacity = "";
+                    }
+                });
+            });
+        });
+    }).catch(error => {
+        console.error('Erro ao buscar horários do docente:', error);
+    });
+}
+
+function displayBlocosLaranjas(salaId, display) {
+    const projectNumber = $('script[data-proj-id]').data('projId');
+    
+    fetchSalaHorario(salaId, projectNumber).then(aulas => {
+        aulas.forEach(aula => {
+            const dia = aula.diaSemana.toLowerCase();
+            let hora = aula.horaInicial;
+            const numBlocos = aula.duracao; // Duração em número de blocos de 30 minutos
+
+            // Cria um array de horários baseados na duração
+            const horarios = [];
+            for (let i = 0; i < numBlocos; i++) {
+                horarios.push(hora);
+                hora += 30;
+                if (hora % 100 >= 60) {
+                    hora = hora + 40; // Corrige para o próximo horário válido (pula de 1430 para 1500, por exemplo)
+                }
+            }
+
+            // Destaca todos os horários no array
+            horarios.forEach(hora => {
+                const horas = Math.floor(hora / 100).toString().padStart(2, '0');
+                const minutos = (hora % 100).toString().padStart(2, '0');
+                const idString = `${dia}_${horas}${minutos}`;
+
+                const cells = document.querySelectorAll(`td[id*="${idString}"]:not(:has(p))`);
+                
+                cells.forEach(cell => {
+                    if (display) {
+                        cell.style.backgroundColor = "orange";
+                        cell.style.opacity = 0.6;
+                    } else {
+                        cell.style.backgroundColor = "";
+                        cell.style.opacity = "";
+                    }
+                });
+            });
+        });
+    }).catch(error => {
+        console.error('Erro ao buscar horários da sala:', error);
+    });
+}
+
+function displayBlocosConflitosDuplos(docenteId, numeroSala, display) {
+    const projectNumber = $('script[data-proj-id]').data('projId');
+
+    Promise.all([fetchDocenteHorario(docenteId, projectNumber), fetchSalaHorario(numeroSala, projectNumber)])
+        .then(([aulasDocente, aulasSala]) => {
+            const horariosDocente = [];
+            const horariosSala = [];
+
+            aulasDocente.forEach(aula => {
+                let hora = aula.horaInicial;
+                const numBlocos = aula.duracao;
+                for (let i = 0; i < numBlocos; i++) {
+                    horariosDocente.push(`${aula.diaSemana.toLowerCase()}_${hora}`);
+                    hora += 30;
+                    if (hora % 100 >= 60) {
+                        hora = hora + 40;
+                    }
+                }
+            });
+
+            aulasSala.forEach(aula => {
+                let hora = aula.horaInicial;
+                const numBlocos = aula.duracao;
+                for (let i = 0; i < numBlocos; i++) {
+                    horariosSala.push(`${aula.diaSemana.toLowerCase()}_${hora}`);
+                    hora += 30;
+                    if (hora % 100 >= 60) {
+                        hora = hora + 40;
+                    }
+                }
+            });
+
+            const conflitosDuplos = horariosDocente.filter(horario => horariosSala.includes(horario));
+
+            conflitosDuplos.forEach(horario => {
+                const cells = document.querySelectorAll(`td[id*="${horario}"]:not(:has(p))`);
+                cells.forEach(cell => {
+                    if (display) {
+                        cell.style.backgroundColor = "grey";
+                        cell.style.opacity = 0.6;
+                    } else {
+                        cell.style.backgroundColor = "";
+                        cell.style.opacity = "";
+                    }
+                });
+            });
+        })
+        .catch(error => {
+            console.error('Erro ao buscar horários:', error);
+        });
+}
+function displayTodosConflitos(docenteId, numeroSala, display) {
+    const projectNumber = $('script[data-proj-id]').data('projId');
+
+    // Destaque de conflitos de docente
+    displayBlocosAmarelos(docenteId, display);
+
+    // Destaque de conflitos de sala
+    displayBlocosLaranjas(numeroSala, display);
+
+    // Destaque de conflitos duplos (docente e sala)
+    displayBlocosConflitosDuplos(docenteId, numeroSala, display);
+}
+
+
+
+function fetchDocenteHorario(docenteId, projectNumber) {
+    console.log(`Fetching schedule for docenteId: ${docenteId}, projectNumber: ${projectNumber}`);
+    return new Promise((resolve, reject) => {
+        $.ajax({
+            url: '/getdocentehorario/',
+            method: 'GET',
+            data: { docenteId: docenteId, projectNumber: projectNumber },
+            success: function(data) {
+                console.log('Horário recebido:', data);
+                resolve(data);
+            },
+            error: function(error) {
+                console.error('Erro ao buscar horário do docente:', error);
+                reject(error);
+            }
+        });
+    });
+}
+
+function fetchSalaHorario(salaId, projectNumber) {
+    console.log(`Fetching schedule for sala: ${salaId}, projectNumber: ${projectNumber}`);
+    return new Promise((resolve, reject) => {
+        $.ajax({
+            url: '/getsalahorario/',
+            method: 'GET',
+            data: { salaId: salaId, projectNumber: projectNumber },
+            success: function(data) {
+                console.log('Horário da sala recebido:', data);
+                resolve(data);
+            },
+            error: function(error) {
+                console.error('Erro ao buscar horário da sala:', error);
+                reject(error);
+            }
+        });
+    });
+}
+
