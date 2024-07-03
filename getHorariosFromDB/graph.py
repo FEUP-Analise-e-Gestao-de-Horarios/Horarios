@@ -9,50 +9,37 @@ readerLock = lock.gen_rlock()
 writerLock = lock.gen_wlock()
 # Create an empty undirected graph
 
-def init_graph(ProjectNumber):
-    if(writerLock.acquire(blocking=True, timeout=2)):
-        try:
-            path = "Project" + str(ProjectNumber)
-            file_path = './database/' + path + '/conflicts_graph.json'
-            if not os.path.exists(file_path):
-                graph = nx.Graph()  # Create an empty graph
-
-                graph_data = nx.node_link_data(graph)
-                with open(file_path, 'w') as json_file:
-                    json.dump(graph_data, json_file, indent=4)
-        finally:
-            writerLock.release()
-
-
-def load_graph_from_json(ProjectNumber):
+def init_graph(ProjectNumber, file='conflicts_graph.json'):
     path = "Project" + str(ProjectNumber)
-    file_path = './database/' + path + '/conflicts_graph.json'
+    file_path = './database/' + path + '/' + file
+    if not os.path.exists(file_path):
+        graph = nx.Graph()  # Create an empty graph
+
+        graph_data = nx.node_link_data(graph)
+        with open(file_path, 'w') as json_file:
+            json.dump(graph_data, json_file, indent=4)
+
+
+def load_graph_from_json(ProjectNumber, file='conflicts_graph.json'):
+    path = "Project" + str(ProjectNumber)
+    file_path = './database/' + path + '/' + file
     if os.path.exists(file_path):
-        if(readerLock.acquire(blocking=True, timeout=2)):
-            try:
-                with open(file_path, 'r') as json_file:
-                    graph_data = json.load(json_file)
-                    if isinstance(graph_data, str):
-                        graph_data = json.loads(graph_data)
-                    graph = nx.node_link_graph(graph_data)
-            finally:
-                readerLock.release()
-        return graph
+        with open(file_path, 'r') as json_file:
+            graph_data = json.load(json_file)
+            if isinstance(graph_data, str):
+                graph_data = json.loads(graph_data)
+            graph = nx.node_link_graph(graph_data)
+            return graph
     else:
-        return None
+        return nx.node_link_graph({})
 
-def save_graph_to_json(graph, ProjectNumber):
-    if(writerLock.acquire(blocking=True, timeout=2)):
-        try:
-            path = "Project" + str(ProjectNumber)
-            file_path = './database/' + path + '/conflicts_graph.json'
+def save_graph_to_json(graph, ProjectNumber, file='conflicts_graph.json'):
+    path = "Project" + str(ProjectNumber)
+    file_path = './database/' + path + '/' + file
 
-            if os.path.exists(file_path):
-                graph_data = nx.node_link_data(graph)
-                with open(file_path, 'w') as json_file:
-                    json.dump(graph_data, json_file, indent=4)
-        finally:
-            writerLock.release()
+    graph_data = nx.node_link_data(graph)
+    with open(file_path, 'w') as json_file:
+        json.dump(graph_data, json_file, indent=4)
 
 def print_graph(ProjectNumber):
     graph = load_graph_from_json(ProjectNumber)
@@ -143,8 +130,8 @@ def handle_conflict_of_same_aulas(ProjectNumber, node, typeOfConflict):
     save_graph_to_json(graph, ProjectNumber)
 
 
-def get_organized_conflicts(ProjectNumber):
-    graph = load_graph_from_json(ProjectNumber)
+def get_organized_conflicts(ProjectNumber, file='conflicts_graph.json'):
+    graph = load_graph_from_json(ProjectNumber, file='conflicts_graph.json')
     conflicts_dict = {}
     
     for node1, node2 in graph.edges:

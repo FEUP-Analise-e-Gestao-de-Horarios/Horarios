@@ -280,6 +280,8 @@ def dfs_visit(graph, change, visited):
             conflict = conflicts.pop(0)
             # find the next change that solves the conflict
             next_change, new_conflicts = findBestChange(conflict, visited)
+            if next_change is None:
+                continue # No solution found for this conflict
             table, prev, new = changesDict[next_change]
             graph.add_node(next_change, table=table, prev=prev, new=new, order=changeOrder)
             graph.add_edge(change, next_change)
@@ -346,16 +348,16 @@ for change in changesDict:
     print(change, table, prev, new)
 print("\n\n")
 
-plt.text(-2.5, -1, changesDescription, fontsize=10, bbox=None)
+# plt.text(-2.5, -1, changesDescription, fontsize=10, bbox=None)
 
-pos = nx.spring_layout(G, k=1.1)
+pos = nx.spring_layout(G, k=1.5)
 
 for key, value in pos.items():
     pos[key] = (value[0] + 1, value[1])
 
 labels = {node: f'{node}\nOrd:{G.nodes[node]["order"]}' for node in G.nodes()}
 
-nx.draw(G, pos, labels=labels, with_labels=True, arrows=True, node_size=1200, font_size=10, node_shape="s")
+nx.draw(G, pos, labels=labels, with_labels=True, arrows=True, node_size=3000, font_size=20, node_shape="s")
 
 plt.xlim(-2, 2)
 plt.ylim(-2, 2)

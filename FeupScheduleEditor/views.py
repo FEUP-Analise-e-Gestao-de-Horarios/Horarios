@@ -412,6 +412,7 @@ def editTurnos(request: HttpRequest, projId: int) -> HttpResponse:
     try:
         graph_controller.init_graph(projId)
         conflicts_unorg = graph_controller.get_organized_conflicts(projId)
+        print(f"-------conflicts_unorg: {conflicts_unorg}")
         conflicts = organizeInformation(projId, conflicts_unorg)
         # print(f"Conflicts: {conflicts}")
     except:

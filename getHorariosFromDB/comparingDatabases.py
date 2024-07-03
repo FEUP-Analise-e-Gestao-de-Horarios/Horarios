@@ -492,18 +492,6 @@ def sortChanges(item):
     (precedence, string, id) = item
     return (id, precedence)
 
-def findConflicts(ProjectNumber):
-    conflicts = []
-    try:
-        graph_controller.init_graph(ProjectNumber)
-        conflicts_unorg = graph_controller.get_organized_conflicts(ProjectNumber)
-        conflicts = organizeInformation(ProjectNumber, conflicts_unorg)
-        # print(f"Conflicts: {conflicts}")
-    except:
-        print("Could not load conflicts")
-        conflicts = []
-    return conflicts
-
 def addChangeToDict(changesDict, table_name, primaryKey, diff_data1, diff_data2):
     # print("Table: ", table_name)
     # print("Primary Key: ", primaryKey)
@@ -691,7 +679,7 @@ def dfs_visit(ProjectNumber, changesDict, graph, change, visited):
             # find the next change that solves the conflict
             next_change, new_conflicts = findBestChange(ProjectNumber, changesDict, conflict, visited)
             if next_change is None:
-                return []
+                continue
             table, prev, new = changesDict[next_change]
             graph.add_node(next_change, table=table, prev=prev, new=new, order=changeOrder)
             graph.add_edge(change, next_change)
@@ -786,27 +774,39 @@ def readGraph(ProjectNumber, graph, changesDict):
     text = []
     current_uc = ""
     current_turma = ""
-    for sequence in all_traversal_orders:
+    num_transactions = 1
+    next_transaction = False
 
-        # check if the first change of the sequence has a different UC or Turma then the previous one
-        if changesDict[sequence[0]][0] == "aula":
-            idAula = changesDict[sequence[0]][2]['id']
+    print("ALL TRAVERSAL ORDERS: ", all_traversal_orders)
+
+    for sequence in all_traversal_orders:
+        if len(sequence) == 1 and (current_turma != "" or current_uc != ""):
+            next_transaction = True
         else:
-            idAula = changesDict[sequence[0]][2]['idAula']
-        info = getInformationFromAula(ProjectNumber, idAula, 'duplicate_initial_database.db')
-        if info['uc_sigla'] != current_uc or info['turma'] != current_turma:
-            if info['uc_sigla'] != current_uc:
-                current_uc = ""
-                current_turma = ""
-                text.append("")
-            if info['turma'] != current_turma:
-                current_turma = ""
+            text.append("")
+            text.append(f"Transaction #{num_transactions}")
+            num_transactions += 1
+            next_transaction = False
 
         for change in sequence:
             table = changesDict[change][0]
             prev = changesDict[change][1]
             new = changesDict[change][2]
             
+            # check if the change has a different UC or Turma then the previous one
+            if table == "aula":
+                idAula = changesDict[change][2]['id']
+            else:
+                idAula = changesDict[change][2]['idAula']
+            info = getInformationFromAula(ProjectNumber, idAula, 'duplicate_initial_database.db')
+            if info['uc_sigla'] != current_uc or info['turma'] != current_turma:
+                if info['uc_sigla'] != current_uc:
+                    current_uc = ""
+                    current_turma = ""
+                    text.append("")
+                if info['turma'] != current_turma:
+                    current_turma = ""
+
             change_text = ""
             if table == "aula":
                 idAula = new['id']
@@ -860,6 +860,11 @@ def readGraph(ProjectNumber, graph, changesDict):
                 pass
 
             applyChangeToDB(ProjectNumber, table, new)
+        
+        if next_transaction and all_traversal_orders[-1] != sequence:
+            text.append("")
+            text.append(f"Transaction #{num_transactions}")
+            num_transactions += 1
 
     print(text)
 
@@ -929,7 +934,7 @@ def getDifferencesFromDatabases(ProjectNumber):
                     primaryKey = get_primary_key(connDB, table1_name)
                     addChangeToDict(changesDict, table1_name, primaryKey, diff_data1, diff_data2)
 
-                    everyChange.append(functions[table1_name](set1, set2, ProjectNumber))
+                    # everyChange.append(functions[table1_name](set1, set2, ProjectNumber))
                     
                     
                     for row in diff_data1:
