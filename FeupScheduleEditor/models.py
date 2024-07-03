@@ -38,12 +38,16 @@ class Docente:
         self.abreviacao = abrev
         self.aulas = []
         self.blocos = []
+        self.miniHorario = ""
         
     def set_aulas(self, aulas):
         self.aulas = aulas
 
     def set_blocos(self, blocos):
         self.blocos = blocos
+
+    def set_miniHorario(self, miniHorario):
+        self.miniHorario = miniHorario
         
 class UC:
     def __init__(self, codigo, nome, sigla):
@@ -75,12 +79,16 @@ class Sala:
         self.numero = numero
         self.tipo = tipo
         self.capacidade = capacidade
+        self.miniHorario = ""
         
     def set_aulas(self, aulas):
         self.aulas = aulas
         
     def set_blocos(self, blocos):
         self.blocos = blocos
+
+    def set_miniHorario(self, miniHorario):
+        self.miniHorario = miniHorario
 
 class Bloco:
     def __init__(self, id, hora, diaSemana):

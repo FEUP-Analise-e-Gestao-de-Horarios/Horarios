@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect
 from django.http import HttpResponse, HttpRequest, JsonResponse
+from django.template.loader import render_to_string
 from .models import Curso, Ano, Docente, UC, Aula, Sala, Bloco
 import sqlite3
 import os
@@ -8,6 +9,7 @@ import getHorariosFromDB.filteredScheduleFunctions as func
 import getHorariosFromDB.auxiliaryScheduleFunctions as auxfunc
 import json
 import bleach
+import re
 from datetime import datetime
 from users.models import CustomUser
 from core.models import Group, Person, Project
@@ -36,6 +38,7 @@ class CursoEncoder(json.JSONEncoder):
                 'abreviacao': obj.abreviacao,
                 'aulas': obj.aulas,
                 'blocos': obj.blocos,
+                'miniHorario': obj.miniHorario
             }
         elif isinstance(obj, Aula):
             return {
@@ -72,6 +75,7 @@ class CursoEncoder(json.JSONEncoder):
                 'capacidade': obj.capacidade,
                 'aulas': obj.aulas,
                 'blocos': obj.blocos,
+                'miniHorario': obj.miniHorario
             }
         elif isinstance(obj, Bloco):
             return {
@@ -417,6 +421,9 @@ def fillPageForCursoAno(request):
     anoNum = int(request.GET.get('anoNum'))
     semanaInterval = request.GET.get('semanas', None)
 
+    dias = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"]
+    horas = ["8:00", "8:30", "9:00", "9:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30"]
+
     start_date = None
     end_date = None
 
@@ -447,6 +454,9 @@ def fillPageForCursoAno(request):
             aula.set_turmas(turmasAula) #FORMATO -> [codigoTurma]
         
         sala.set_aulas(aulasSala) #FORMATO -> [Aula]
+        rendered_html = render_to_string('editTurnos/miniSchedule.html', {'dias': dias, 'horas': horas, 'aulas': aulasSala})
+        minified_html = re.sub(r'>\s+<', '><', rendered_html)
+        sala.set_miniHorario(minified_html)
         
         #Fetch de todos os blocos vermelhos de uma dada sala
         salaBlocoRows = auxfunc.getSalaBlocos(projId, sala.numero)
@@ -511,6 +521,9 @@ def fillPageForCursoAno(request):
             aula.set_turmas(turmasAula) #FORMATO -> [codigoTurma]
         
         docente.set_aulas(aulasDocente)
+        rendered_html = render_to_string('editTurnos/miniSchedule.html', {'dias': dias, 'horas': horas, 'aulas': aulasDocente} )
+        minified_html = re.sub(r'>\s+<', '><', rendered_html)
+        docente.set_miniHorario(minified_html)
         
         docenteBlocoRows = auxfunc.getDocenteBlocos(projId, docente.numMecanografico)
         docenteBloco = [ Bloco(row['id'], row['hora'], row['diaSemana']) for row in docenteBlocoRows]

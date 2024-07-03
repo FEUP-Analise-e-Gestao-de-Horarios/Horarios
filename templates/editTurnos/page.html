@@ -52,13 +52,6 @@
         max-height: 100%;
     }
 
-    #table_vistas table {
-        border-collapse: collapse;
-        width: 100%;
-        margin-top: 20px;
-
-    }
-
     #table_vistas th,
     td {
         text-align: center;
@@ -124,7 +117,8 @@
         }
     }
 
-    #table_Distribution {
+    #table_distribution {
+        border-collapse: collapse;
         border: 4px solid #51575f;
     }
 </style>
@@ -141,12 +135,12 @@
 <script src="{% static './schedule.js' %}"></script>
 <script src="{% static './distribuicao.js' %}" defer></script>
 
-<section class="contentMargin mb-3 pb-3 box bg-dark" id="editPageContent">
+<section class="contentMargin mb-3 pb-3 box" id="editPageContent">
     <div class="main_vista_container">
 
     </div>
 
-    <div class="secondary_vista_container">
+    <div class="secondary_vista_container" style="display: none;">
 
     </div>
 

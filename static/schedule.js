@@ -188,6 +188,14 @@ function fillDocentes(ano) {
                 p_element.classList.add("docente");
                 p_element.id = docente.numMecanografico;
                 p_element.innerHTML = docente.abreviacao;
+                p_element.setAttribute("data-bs-toggle", "popover");
+                p_element.setAttribute("data-bs-title", docente.nome);
+
+                const div_popover = document.createElement("div");
+                div_popover.id = docente.numMecanografico;
+                div_popover.style.display = "none";
+                div_popover.innerHTML = docente.miniHorario;
+                p_element.appendChild(div_popover);
 
                 const br = document.createElement("br");
                 p_element.style.display = "inline-block";
@@ -238,8 +246,17 @@ function fillSalas(ano) {
                 p_element.classList.add("sala");
                 p_element.id = sala.numero;
                 p_element.innerHTML = sala.numero;
-                p_element.style.display = "inline-block";
+                p_element.setAttribute("data-bs-toggle", "popover");
+                p_element.setAttribute("data-bs-title", sala.numero);
+
+                const div_popover = document.createElement("div");
+                div_popover.id = sala.numero;
+                div_popover.style.display = "none";
+                div_popover.innerHTML = sala.miniHorario;
+                p_element.appendChild(div_popover);
+
                 const br = document.createElement("br");
+                p_element.style.display = "inline-block";
                 cell.appendChild(br);
                 cell.appendChild(p_element);
                 cell.setAttribute("rowspan", aula.duracao);
@@ -469,77 +486,34 @@ function displayTurmasForTurno(turmas) {
 }
 
 /**
- * Une células da tabela.
+ * Faz o display de todas as aulas de uma dada turma.
  * 
- * @returns {null} Não retorna qualquer valor.
+ * @param {string} targetTurma A turma selecionada para visualização.
+ * @return {null} Não retorna qualquer valor.
  */
-function mergeCells() {
-    const cells = $("#table_vistas").find("td:not(:first-child):has(p)").toArray();
+function displayTurma(targetTurma) {
+    const allTurmaCells = document.querySelectorAll("tbody td[id*=turma_], tbody th[id*=turma_]");
+    allTurmaCells.forEach(cell => {
+        cell.style.display = 'none';
 
-    cells.forEach(function (cell) {
-        const colspan = parseInt(cell.getAttribute('colspan'));
-        const originalColspan = parseInt(cell.getAttribute('data-originalcolspan'));
-
-        if (originalColspan === colspan || !originalColspan) {
-            return;
+        const displayCell = (cell) => {
+            cell.style.display = '';
+            cell.setAttribute('colspan', '1');
         }
 
-        const aulaId = cell.getAttribute('data-aulaid');
-        const nextSiblings = document.querySelectorAll("tbody td:not(:first-child)[data-aulaid='" + aulaId + "']");
-
-        for (let i = 1; i < nextSiblings.length; i++) {
-            nextSiblings[i].remove();
-        }
-
-        cell.setAttribute('colspan', originalColspan);
-    })
-}
-
-/**
- * Separa células de uma tabela com base na lista de turmas.
- *
- * @param {Array} turmasLista - Lista de turmas cujas células devem ser separadas.
- * @returns {null} Não retorna qualquer valor.
- */
-function unmergeCells(turmasLista) {
-    const cells = $("#table_vistas").find("td:not(:first-child):has(p)").toArray();
-
-    const turmasporturno = curso.anos[0].turmasPorTurno;
-
-    cells.forEach(function (cell) {
-        const colspan = parseInt(cell.getAttribute('colspan'));
-
-        // If the cell is already unmerged or has no colspan, skip it
-        if (colspan === 1 || !colspan) {
-            return;
-        }
-
-        const cellId = cell.id;
-        const cellTurma = cellId.split("_")[1];
-        const turmaIndex = turmasLista.indexOf(cellTurma);
-
-        for (let i = 1; i < colspan; i++) {
-            const newCell = cell.cloneNode(true);
-            const newCellTurma = turmasLista[turmaIndex + i];
-            let newCellTurno = "turno";
-
-            //Encontrar o turno a que pertence a célula
-            for (const [key, arr] of Object.entries(turmasporturno)) {
-                if (arr.includes(newCellTurma)) {
-                    newCellTurno += key.toString();
-                    break;
-                }
+        if (cell.hasAttribute('data-group')) {
+            if (cell.getAttribute('data-group').includes(targetTurma)) {
+                displayCell(cell);
             }
-
-            const newCellId = cellId.split("_")[0] + '_' + newCellTurma + '_' + cellId.split("_")[2] + '_' + cellId.split("_")[3];
-            newCell.setAttribute('id', newCellId);
-            newCell.setAttribute('class', newCellTurno);
-            newCell.setAttribute('colspan', 1);
-
-            cell.parentNode.insertBefore(newCell, cell.nextSibling);
+        } else if (cell.hasAttribute('data-turmas')) {
+            if (cell.getAttribute('data-turmas').includes(targetTurma)) {
+                displayCell(cell);
+            }
+        } else {
+            if (cell.id.includes(targetTurma)) {
+                displayCell(cell);
+            }
         }
-
-        cell.setAttribute('colspan', '1');
     });
 }
 
@@ -573,6 +547,60 @@ function updateColspan() {
             th.setAttribute("colspan", colspanValue);
         }
     });
+}
+
+/**
+ * Atualiza a posição da linha de divisão entre dias no horário,
+ * de acordo com o layout.
+ * 
+ * @returns {null} Não retorna qualquer valor.
+ */
+function updateDayDivisions() {
+    const allTurmaCells = document.querySelectorAll("tbody [id*=turma_]");
+    allTurmaCells.forEach(cell => {
+        cell.classList.remove("last-turma");
+    });
+
+    const table = document.getElementById("table_vistas");
+    const turmasRow = table.rows[1];
+    const dayLength = Math.floor((turmasRow.cells.length - 1) / 6);
+    let lastTurmaInDay;
+    for (let i = dayLength; i >= 1; i--) {
+        if (turmasRow.cells[i].style.display === '') {
+            lastTurmaInDay = turmasRow.cells[i];
+            break;
+        }
+    }
+
+    const lastTurmaId = lastTurmaInDay.getAttribute("id").split('_')[1];
+    const allPotentialCells = document.querySelectorAll(`tbody td[id*="${lastTurmaId}"], tbody [data-turmas*="${lastTurmaId}"]`);
+
+    const allLastTurmaCells = Array.from(allPotentialCells).filter(cell => {
+        if (cell.hasAttribute('data-group')) {
+            return cell.getAttribute('data-turmas').includes(lastTurmaId) && cell.getAttribute('data-group').includes(lastTurmaId);
+        }
+        return true;
+    });
+    allLastTurmaCells.forEach(cell => {
+        cell.classList.add("last-turma");
+    });
+}
+
+/**
+ * Inicializa os popovers dos docentes e salas que contêm um
+ * mini-horário com as disponibilidades dessas entidades.
+ * 
+ * @returns {null} Não retorna qualquer valor.
+ */
+function enablePopovers() {
+    const docentesP = document.querySelectorAll('[data-bs-toggle="popover"]');
+    const popovers = [...docentesP].map(p => new bootstrap.Popover(p,
+        {
+            trigger: 'hover focus',
+            html: true,
+            content: p.firstElementChild.innerHTML
+        }
+    ));
 }
 
 /**
@@ -753,7 +781,7 @@ function swapFullCells(firstCell, secondCell) {
     }
 
     // Remove all div child elements from firstCell
-    const firstDivChildren = firstCell.querySelectorAll('div');
+    const firstDivChildren = firstCell.querySelectorAll(':scope > div');
     for (let i = 0; i < firstDivChildren.length; i++) {
         const divChild = firstDivChildren[i];
         firstCell.removeChild(divChild);
@@ -929,6 +957,17 @@ function checkIfSwapPossible(cell, cell2, cellsRight, cellsBottom) {
 // Event listeners
 // ------------------------------------------------------------------------------------------------
 
+document.addEventListener('DOMContentLoaded', function () {
+    const myDefaultAllowList = bootstrap.Tooltip.Default.allowList;
+    myDefaultAllowList.table = [];
+    myDefaultAllowList.thead = [];
+    myDefaultAllowList.tbody = [];
+    myDefaultAllowList.tr = [];
+    myDefaultAllowList.th = [];
+    myDefaultAllowList.td = [];
+});
+
+
 $(document).on('click', 'td:not(:first-child)', function (event) {
     const td = this;
     const targetElement = event.target;
@@ -972,7 +1011,6 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
                     if (td.querySelector("p") !== null) {
                         submitToDatabase(td);
                     }
-                    handleDistributionBtn(true);
                 }
             } catch (error) {
                 console.error("An error occurred in canSwap or swapFullCells:", error);
@@ -1088,70 +1126,6 @@ $(document).on('mouseleave', '#table_vistas td:not(:first-child):has(p) p.uc', f
         document.getElementById("tooltipcontainer").parentNode.removeChild(document.getElementById("tooltipcontainer"));
     }
 });
-
-$(document).on('mouseenter', '#table_vistas td:not(:first-child):has(p) p.docente', function (event) {
-    // MUDAR DOCENTES
-    const siglaDocente = this.textContent;
-
-    for (let i = 0; i < curso.docentes.length; i++) {
-        const doc_sigla = curso.docentes[i].abreviacao;
-        if (siglaDocente == doc_sigla) {
-            if (!document.getElementById("tooltipcontainer")) {
-                const name = curso.docentes[i].nome;
-                tooltipcontainer = document.createElement("div");
-                tooltipcontainer.setAttribute("id", "tooltipcontainer");
-                tooltipcontainer.style.position = "fixed";
-                tooltipcontainer.style.left = Math.max(event.clientX + 10, 0) + "px";
-                tooltipcontainer.style.top = Math.max(event.clientY - 25, 0) + "px";
-                tooltipcontainer.style.zIndex = 999;
-                tooltipcontainer.style.opacity = 0;
-                tooltipcontainer.style.transition = "opacity 1s ease-in";
-                tooltipcontainer.style.opacity = 1;
-
-                tooltip = document.createElement("div");
-                tooltip.style.position = "fixed";
-
-                tooltip.style.width = "auto";
-                tooltip.style.backgroundColor = "black";
-                tooltip.style.color = "#fff";
-                tooltip.style.padding = "5px";
-                tooltip.style.zIndex = "999";
-                tooltip.style.fontSize = "13px";
-                tooltip.textContent = name;
-
-                tooltipcontainer.appendChild(tooltip);
-
-                tableVistas = document.getElementById("table_vistas").parentNode;
-                tableVistas.insertBefore(tooltipcontainer, tableVistas.firstChild);
-            }
-        }
-    }
-});
-
-$(document).on('mouseleave', '#table_vistas td:not(:first-child)', function (event) {
-    if (document.getElementById("tooltipcontainer")) {
-        document.getElementById("tooltipcontainer").parentNode.removeChild(document.getElementById("tooltipcontainer"));
-    }
-});
-
-$(document).on('mouseleave', '#table_vistas td:not(:first-child):has(p) p.docente', function (event) {
-    // MUDAR UCS
-    const docente = this;
-    const nomeDocente = this.textContent;
-
-    for (let i = 0; i < curso.docentes.length; i++) {
-        const nome_doc = curso.docentes[i].nome;
-        if (nomeDocente == nome_doc) {
-            const sigla = curso.docentes[i].abreviacao;
-            docente.textContent = sigla;
-            docente.style.whiteSpace = "nowrap";
-        }
-    }
-    if (document.getElementById("tooltipcontainer")) {
-        document.getElementById("tooltipcontainer").parentNode.removeChild(document.getElementById("tooltipcontainer"));
-    }
-});
-
 
 $(document).on('click', 'td:not(:first-child) p', function (event) {
     // Previne que o evento se propague para o elemento td

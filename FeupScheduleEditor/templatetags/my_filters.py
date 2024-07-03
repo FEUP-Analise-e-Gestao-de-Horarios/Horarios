@@ -112,3 +112,36 @@ def is_number(value):
         return True
     except ValueError:
         return False
+    
+@register.simple_tag(name="is_busy")
+def is_busy(aulas, dia, hora):
+    # Convert the input hour to an integer for easier comparison
+    horaInicioInput = int(hora.replace(":", ""))
+    
+    for aula in aulas:
+        if aula.diaSemana == dia:
+            duracaoEmMinutos = aula.duracao * 30
+            horaFimAula = aula.horaInicial + duracaoEmMinutos
+            fatorAjuste = 0
+            if aula.duracao > 1:
+                fatorAjuste = aula.duracao // 2
+            horaFimAula += fatorAjuste * 40
+
+            if horaInicioInput >= aula.horaInicial and horaInicioInput < horaFimAula:
+                return True
+    return False
+    
+@register.simple_tag(takes_context=True)
+def init_busy_counter(context):
+    context['busy_counter'] = 0
+    return ''
+
+@register.simple_tag(takes_context=True)
+def increment_if_busy(context, is_busy):
+    if is_busy:
+        context['busy_counter'] += 1
+    return 'busy' if is_busy else ''
+
+@register.simple_tag(takes_context=True, name="can_mark_busy")
+def can_mark_busy(context, aulas):
+    return context.get('busy_counter', 0) < len(aulas)

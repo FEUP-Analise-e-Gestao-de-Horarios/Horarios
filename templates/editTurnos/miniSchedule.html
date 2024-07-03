@@ -1,0 +1,33 @@
+{% load static %}
+{% load my_filters %}
+
+<table id="mini-schedule-table">
+    <thead>
+        <tr>
+            <th>Hora</th>
+            <th>2ª</th>
+            <th>3ª</th>
+            <th>4ª</th>
+            <th>5ª</th>
+            <th>6ª</th>
+            <th>Sáb</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% init_busy_counter %}
+        {% for hora in horas %}
+        <tr>
+            <td>{{ hora }}</td>
+            {% for dia in dias %}
+            {% is_busy aulas dia hora as is_busy %}
+            {% can_mark_busy aulas as can_mark_busy %}
+            {% if can_mark_busy %}
+            <td class="{% increment_if_busy is_busy %}"></td>
+            {% else %}
+            <td></td>
+            {% endif %}
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>

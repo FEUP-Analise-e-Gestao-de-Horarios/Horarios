@@ -10,7 +10,7 @@ const distributionBtn = document.getElementById("showDistributionBtn");
 
 let curso, ano, semana, ucsDistribuicao, turmasPorTurno;
 let dataLoadBool = false;
-let distributionActive = false;
+let distributionActive = true;
 
 function handleCursoBtn(cursoNome) {
     if (cursoNome === "Curso") {
@@ -70,7 +70,7 @@ function handleAnoBtn(anoNum, selectedAno, handleDist = false) {
                 fillUcs(ano);
                 fillDocentes(ano);
                 fillSalas(ano);
-                handleDistributionBtn(handleDist);
+                enablePopovers();
 
                 resolve(data);
             },
@@ -88,7 +88,6 @@ function handleAnoBtn(anoNum, selectedAno, handleDist = false) {
  */
 function handleDistributionBtn() {
     const table = document.querySelector(".secondary_vista_container");
-    distributionActive = !distributionActive;
 
     if (distributionActive) {
         if (table.style.display !== "none") return;
@@ -115,6 +114,7 @@ function handleDistributionBtn() {
     } else {
         table.style.display = "none";
     }
+    distributionActive = !distributionActive;
 }
 
 /**
@@ -180,6 +180,10 @@ function createAndAppendOptions(selectElement, options, genericOptionText, selec
     }
 }
 
+// ------------------------------------------------------------------------------------------------
+// Event listeners
+// ------------------------------------------------------------------------------------------------
+
 cursoBtn.addEventListener("change", function () {
     let cursoNome = cursoBtn.value;
 
@@ -191,7 +195,7 @@ cursoBtn.addEventListener("change", function () {
 
 anoBtn.addEventListener("change", function () {
     ano = this.value;
-    handleAnoBtn(ano, ano);
+    handleAnoBtn(ano, ano).then(updateDayDivisions);
 });
 
 turnosBtn.addEventListener("change", function () {
@@ -204,44 +208,18 @@ turnosBtn.addEventListener("change", function () {
         displayTurmasForTurno(turmasPorTurno[selectedTurno]);
         updateColspan();
     }
+    updateDayDivisions();
 });
 
 turmasBtn.addEventListener("change", function () {
-    const allTurmas = this.options;
-    const turmasLista = curso.anos[0].turmas;
-
     if (this.value === 'Turma') {
-        mergeCells();
+        displayAllAulas();
+        updateColspan();
+    } else {
+        displayTurma(this.value);
+        updateColspan();
     }
-    else {
-        unmergeCells(turmasLista);
-    }
-
-    for (let i = 0; i < allTurmas.length; i++) {
-        const turma_nome = allTurmas[i].value;
-
-        if (turma_nome === this.value || this.value === 'Turma') {
-            turma = "#turma_" + turma_nome;
-            const turmaCol = document.querySelectorAll(turma);
-            turmaCol.forEach(cell => cell.style.display = '');
-
-            substring = "turma_" + turma_nome;
-            const elements = document.querySelectorAll("[id*=" + substring + "]");
-            elements.forEach(cell => cell.style.display = '');
-            continue;
-        }
-
-        if (turma_nome !== this.value) {
-            turma = "#turma_" + turma_nome;
-            const turmaCol = document.querySelectorAll(turma);
-            turmaCol.forEach(cell => cell.style.display = 'none');
-
-            substring = "turma_" + turma_nome;
-            const elements = document.querySelectorAll("[id*=" + substring + "]");
-            elements.forEach(cell => cell.style.display = 'none');
-        }
-    }
-    updateColspan();
+    updateDayDivisions();
 });
 
 semanasBtn.addEventListener("change", function () {
@@ -266,6 +244,7 @@ semanasBtn.addEventListener("change", function () {
             fillUcs(ano);
             fillDocentes(ano);
             fillSalas(ano);
+            enablePopovers();
         },
         error: function (xhr, textStatus, error) {
             console.log(textStatus);
