@@ -20,6 +20,9 @@ from getHorariosFromDB.comparingDatabases import getDifferencesFromDatabases
 import getHorariosFromDB.graph as graph_controller
 
 PLACEHOLDER_ID = 0
+dias = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"]
+horas = ["8:00", "8:30", "9:00", "9:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30"]
+
 
 class CursoEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -421,9 +424,6 @@ def fillPageForCursoAno(request):
     anoNum = int(request.GET.get('anoNum'))
     semanaInterval = request.GET.get('semanas', None)
 
-    dias = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"]
-    horas = ["8:00", "8:30", "9:00", "9:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30"]
-
     start_date = None
     end_date = None
 
@@ -660,7 +660,7 @@ def get_docente_horario(request):
                 'semanaFinal': row['semanaFinal']
             } for row in aulasDocenteRows
         ]
-
+        
         return JsonResponse(aulasDocente, safe = False)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
@@ -690,7 +690,39 @@ def get_sala_horario(request):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
+def getDocenteMiniHorario(request):
+    projNum = request.GET.get('projectNumber')
+    docenteId = request.GET.get('docenteId')
 
+    try:
+        aulasDocenteRows = auxfunc.getDocenteHorario(projNum, docenteId)
+        aulasDocente = [Aula(row['id'], row['horaInicial'], row['duracao'], row['diaSemana'], row['teorico'], row['semanaInicial'], row['semanaFinal']) for row in aulasDocenteRows]
+
+        miniHorario = render_to_string('editTurnos/miniSchedule.html', {'dias': dias, 'horas': horas, 'aulas': aulasDocente})
+        minified_html = re.sub(r'>\s+<', '><', miniHorario)
+        response_data = {
+            'docenteHorario': minified_html
+        }
+        return JsonResponse(response_data)
+    except Exception as e:
+        return JsonResponse({ 'error': str(e)}, status=500)
+    
+def getSalaMiniHorario(request):
+    projNum = request.GET.get('projectNumber')
+    salaId = request.GET.get('salaId')
+
+    try:
+        aulasSalaRows = auxfunc.getSalaHorario(projNum, salaId)
+        aulasSala = [Aula(row['id'], row['horaInicial'], row['duracao'], row['diaSemana'], row['teorico'], row['semanaInicial'], row['semanaFinal']) for row in aulasSalaRows]
+
+        miniHorario = render_to_string('editTurnos/miniSchedule.html', {'dias': dias, 'horas': horas, 'aulas': aulasSala})
+        minified_html = re.sub(r'>\s+<', '><', miniHorario)
+        response_data = {
+            'salaHorario': minified_html
+        }
+        return JsonResponse(response_data)
+    except Exception as e:
+        return JsonResponse({ 'error': str(e)}, status=500)
 
 # makeChanges
 #

@@ -604,6 +604,46 @@ function enablePopovers() {
 }
 
 /**
+ * Atualiza o popover de um elemento <p> de um docente, em todas as células aplicáveis.
+ * 
+ * @param {string} idDocente Número mecanográfico do docente.
+ * @returns {null} Não retorna qualquer valor.
+ */
+function updatePopoverDocente(idDocente) {
+    const docenteP = document.querySelectorAll(`p[id="${idDocente}"]`);
+    fetchDocenteMiniHorario(idDocente, projId).then(response => {
+        docenteP.forEach(p => {
+            p.firstElementChild.innerHTML = response.docenteHorario;
+            const popover = bootstrap.Popover.getInstance(p);
+            popover.setContent({
+                '.popover-header': p.getAttribute("data-bs-title"),
+                '.popover-body': response.docenteHorario
+            });
+        });
+    });
+}
+
+/**
+ * Atualiza o popover de um elemento <p> de uma sala, em todas as células aplicáveis.
+ * 
+ * @param {string} idSala 
+ * @returns {null} Não retorna qualquer valor.
+ */
+function updatePopoverSala(idSala) {
+    const salaP = document.querySelectorAll(`p[id="${idSala}"]`);
+    fetchSalaMiniHorario(idSala, projId).then(response => {
+        salaP.forEach(p => {
+            p.firstElementChild.innerHTML = response.salaHorario;
+            const popover = bootstrap.Popover.getInstance(p);
+            popover.setContent({
+                '.popover-header': p.getAttribute("data-bs-title"),
+                '.popover-body': response.salaHorario
+            });
+        });
+    });
+}
+
+/**
  * Envia uma alteração de uma célula para a base de dados.
  * 
  * @param {HTMLElement} cell - A célula que contém a informação a ser submetida.
@@ -702,6 +742,14 @@ function submitToDatabase(cell) {
         error: function (response, status, error) {
             console.log(response.responseText)
         }
+    }).then(_ => {
+        docentes.forEach(docente => {
+            updatePopoverDocente(docente.id);
+        });
+
+        salas.forEach(sala => {
+            updatePopoverSala(sala.id);
+        });
     });
 }
 
@@ -972,7 +1020,7 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
     const td = this;
     const targetElement = event.target;
     const turma = td.id.split('_')[1];
-    const projectNumber =  $('script[data-proj-id]').data('projId');
+    const projectNumber = $('script[data-proj-id]').data('projId');
 
     // Check if the target element is the td itself or a descendant of the td
     if (targetElement === td || $.contains(td, targetElement)) {
@@ -1025,7 +1073,7 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
 
         //Unselect da primeira célula selecionada
         $('td:not(:first-child)').removeClass('selected');
-        
+
         if (prevSelectedCell.length == 0) {
             //Select da primeira célula selecionada
             $(td).addClass('selected');
@@ -1134,7 +1182,7 @@ $(document).on('click', 'td:not(:first-child) p', function (event) {
     const projectNumber = $('script[data-proj-id]').data('projId');
     const elementoId = $(p).attr('id');
     const className = $(p).attr('class');
-    
+
     if (className.includes('docente')) {
         console.log('Docente selecionado com id:', elementoId, 'projectNumber:', projectNumber);
         clearHighlight();  // Limpa os destaques amarelos antes de adicionar novos
@@ -1253,7 +1301,7 @@ function displayBlocosVermelhosGlobal(className, id, display) {
 
         blocosVermelhos = docente.blocos;
         displayBlocosVermelhos(blocosVermelhos, display, 'any');
-        
+
         // Chama a função para destacar os blocos amarelos
         displayBlocosAmarelos(id, display);
     } else if (className === 'sala selected' || className === 'sala') {
@@ -1272,7 +1320,7 @@ function displayBlocosVermelhosGlobal(className, id, display) {
 
         blocosVermelhos = sala.blocos;
         displayBlocosVermelhos(blocosVermelhos, display, 'any');
-        
+
         // Chama a função para destacar os blocos laranja
         displayBlocosLaranjas(id, display);
     }
@@ -1339,7 +1387,7 @@ function displayBlocosVermelhos(blocosVermelhos, display, turma) {
 
 function displayBlocosAmarelos(docenteId, display) {
     const projectNumber = $('script[data-proj-id]').data('projId');
-    
+
     fetchDocenteHorario(docenteId, projectNumber).then(aulas => {
         aulas.forEach(aula => {
             const dia = aula.diaSemana.toLowerCase();
@@ -1363,7 +1411,7 @@ function displayBlocosAmarelos(docenteId, display) {
                 const idString = `${dia}_${horas}${minutos}`;
 
                 const cells = document.querySelectorAll(`td[id*="${idString}"]:not(:has(p))`);
-                
+
                 cells.forEach(cell => {
                     if (display) {
                         cell.style.backgroundColor = "yellow";
@@ -1382,7 +1430,7 @@ function displayBlocosAmarelos(docenteId, display) {
 
 function displayBlocosLaranjas(salaId, display) {
     const projectNumber = $('script[data-proj-id]').data('projId');
-    
+
     fetchSalaHorario(salaId, projectNumber).then(aulas => {
         aulas.forEach(aula => {
             const dia = aula.diaSemana.toLowerCase();
@@ -1406,7 +1454,7 @@ function displayBlocosLaranjas(salaId, display) {
                 const idString = `${dia}_${horas}${minutos}`;
 
                 const cells = document.querySelectorAll(`td[id*="${idString}"]:not(:has(p))`);
-                
+
                 cells.forEach(cell => {
                     if (display) {
                         cell.style.backgroundColor = "orange";
@@ -1487,8 +1535,6 @@ function displayTodosConflitos(docenteId, numeroSala, display) {
     displayBlocosConflitosDuplos(docenteId, numeroSala, display);
 }
 
-
-
 function fetchDocenteHorario(docenteId, projectNumber) {
     console.log(`Fetching schedule for docenteId: ${docenteId}, projectNumber: ${projectNumber}`);
     return new Promise((resolve, reject) => {
@@ -1496,11 +1542,11 @@ function fetchDocenteHorario(docenteId, projectNumber) {
             url: '/getdocentehorario/',
             method: 'GET',
             data: { docenteId: docenteId, projectNumber: projectNumber },
-            success: function(data) {
+            success: function (data) {
                 console.log('Horário recebido:', data);
                 resolve(data);
             },
-            error: function(error) {
+            error: function (error) {
                 console.error('Erro ao buscar horário do docente:', error);
                 reject(error);
             }
@@ -1515,11 +1561,11 @@ function fetchSalaHorario(salaId, projectNumber) {
             url: '/getsalahorario/',
             method: 'GET',
             data: { salaId: salaId, projectNumber: projectNumber },
-            success: function(data) {
+            success: function (data) {
                 console.log('Horário da sala recebido:', data);
                 resolve(data);
             },
-            error: function(error) {
+            error: function (error) {
                 console.error('Erro ao buscar horário da sala:', error);
                 reject(error);
             }
@@ -1527,3 +1573,56 @@ function fetchSalaHorario(salaId, projectNumber) {
     });
 }
 
+/**
+ * Obtém o mini-horário HTML de um docente do servidor.
+ * 
+ * @param {string} docenteId Número mecanográfico do docente.
+ * @param {int} projectNumber Número do projeto.
+ * @returns {Promise} O horário HTML do docente, ou um erro.
+ */
+function fetchDocenteMiniHorario(docenteId, projectNumber) {
+    return new Promise((resolve, reject) => {
+        $.ajax({
+            url: '/getdocenteminihorario',
+            method: "GET",
+            data: {
+                docenteId: docenteId,
+                projectNumber: projectNumber
+            },
+            success: function (data) {
+                resolve(data);
+            },
+            error: function (error) {
+                console.error("Erro ao buscar mini-horário do docente:", error);
+                reject(error);
+            }
+        });
+    });
+}
+
+/**
+ * Obtém o mini-horário HTML de uma sala do servidor.
+ * 
+ * @param {string} salaId Identificador da sala.
+ * @param {int} projectNumber Número do projeto
+ * @returns {Promise} O horário HTML da sala, ou um erro.
+ */
+function fetchSalaMiniHorario(salaId, projectNumber) {
+    return new Promise((resolve, reject) => {
+        $.ajax({
+            url: '/getsalaminihorario',
+            method: 'GET',
+            data: {
+                salaId: salaId,
+                projectNumber: projectNumber
+            },
+            success: function (data) {
+                resolve(data);
+            },
+            error: function (error) {
+                console.error("Erro ao buscar mini-horário da sala:", error);
+                reject(error);
+            }
+        });
+    });
+}
