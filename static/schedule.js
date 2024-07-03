@@ -10,22 +10,24 @@ function fillUcs(ano) {
     const turmasSet = new Set();
     let ucAnoBool = false;
 
-    for (let i = 0; i < allUCs.length; i++) {
-        let uc = allUCs[i];
+    const relevantUcs = allUCs.filter(uc =>
+        uc.anos.includes(ano)
+    );
+
+    relevantUcs.forEach(sortAulasByTurmasAndDuracao);
+    relevantUcs.sort((ucA, ucB) => {
+        const weightA = calculateUcWeight(ucA);
+        const weightB = calculateUcWeight(ucB);
+        return weightA - weightB;
+    })
+
+    for (let i = 0; i < relevantUcs.length; i++) {
+        let uc = relevantUcs[i];
         let aulas = uc.aulas; //FORMATO -> [Aula(id, horaInicial, duracao, diaSemana, isTeorica)]
         ucAnoBool = false;
 
         for (let j = 0; j < aulas.length; j++) {
             let aula = aulas[j];
-
-            if (semana !== "Semanas") {
-                let semanaInicial = semana.split(" - ")[0];
-                let semanaFinal = semana.split(" - ")[1];
-
-                if (aula.semanaInicial !== semanaInicial || aula.semanaFinal !== semanaFinal) {
-                    continue;
-                }
-            }
 
             let turmas = aula.turmas; //FORMATO -> {ano: [codigoTurma]}
             if (!(ano in turmas)) { //Caso não tenha turmas do ano em que a tabela está
@@ -86,7 +88,7 @@ function fillUcs(ano) {
                     let turmasLista = curso.anos[0].turmas;
                     let turmaIndex = turmasLista.indexOf(group[0]);
                     for (let t = 0; t + turmaIndex < turmasLista.length; t++) {
-                        if (group[k + t] == turmasLista[turmaIndex + t]) {
+                        if (group[t] == turmasLista[turmaIndex + t]) {
                             deleteHorizontal += 1;
                         }
                         else {
@@ -106,19 +108,18 @@ function fillUcs(ano) {
                 p_element.style.display = "inline-block";
                 cell.appendChild(p_element);
                 cell.setAttribute("rowspan", aula.duracao);
-                cell.setAttribute("data-semanas", aula.semanaInicial + ' - ' + aula.semanaFinal);
+                cell.setAttribute("data-si", aula.semanaInicial);
+                cell.setAttribute("data-sf", aula.semanaFinal);
+
+                cell.setAttribute("colspan", group.length);
+                cell.setAttribute("data-originalcolspan", group.length);
+                cell.setAttribute("style", "border: 2px solid black;");
 
                 if (aula.isTeorica) {
-                    cell.setAttribute("colspan", group.length);
-                    cell.setAttribute("data-originalcolspan", group.length);
-                    cell.setAttribute("style", "border: 2px solid black;");
                     cell.setAttribute("style", "background-color: " + window.colorDictionary[ucAnoSet.size][1]);
                     cell.setAttribute("data-teorica", 1)
                 }
                 else {
-                    cell.setAttribute("colspan", group.length);
-                    cell.setAttribute("data-originalcolspan", group.length);
-                    cell.setAttribute("style", "border: 2px solid black;");
                     cell.setAttribute("style", "background-color: " + window.colorDictionary[ucAnoSet.size][0]);
                     cell.setAttribute("data-teorica", 0);
                 }
@@ -128,6 +129,24 @@ function fillUcs(ano) {
     }
     setSidebarUCs(ucAnoSet);
     setSidebarTurmas(turmasSet);
+}
+
+function sortAulasByTurmasAndDuracao(uc) {
+    uc.aulas.sort((a, b) => {
+        const turmasA = a.turmas[ano] ? a.turmas[ano].length : 0;
+        const turmasB = b.turmas[ano] ? b.turmas[ano].length : 0;
+        if (turmasA === turmasB) {
+            return a.duracao - b.duracao;
+        }
+        return turmasA - turmasB;
+    });
+}
+
+function calculateUcWeight(uc) {
+    return uc.aulas.reduce((acc, aula) => {
+        const turmasLength = aula.turmas[ano] ? aula.turmas[ano].length : 0;
+        return acc + aula.duracao * turmasLength;
+    }, 0);
 }
 
 /**
@@ -144,15 +163,6 @@ function fillDocentes(ano) {
 
         for (let j = 0; j < aulas.length; j++) {
             let aula = aulas[j];
-
-            if (semana !== "Semanas") {
-                const semanaInicial = semana.split(" - ")[0];
-                const semanaFinal = semana.split(" - ")[1];
-
-                if (aula.semanaInicial !== semanaInicial || aula.semanaFinal !== semanaFinal) {
-                    continue;
-                }
-            }
 
             let turmas = aula.turmas; //FORMATO -> {ano: [codigoTurma]}
 
@@ -204,15 +214,6 @@ function fillSalas(ano) {
 
         for (let j = 0; j < aulas.length; j++) {
             let aula = aulas[j];
-
-            if (semana !== "Semanas") {
-                let semanaInicial = semana.split(" - ")[0];
-                let semanaFinal = semana.split(" - ")[1];
-
-                if (aula.semanaInicial !== semanaInicial || aula.semanaFinal !== semanaFinal) {
-                    continue;
-                }
-            }
 
             let turmas = aula.turmas; //FORMATO -> {ano: [codigoTurma]}
             if (!(ano in turmas)) { //Caso não tenha turmas do ano em que a tabela está
@@ -371,7 +372,6 @@ function deleteCells(cell, cellsRight, cellsBottom) {
             const rectHeight = cellToGetHeight.getBoundingClientRect();
             const rectWidth = cellToGetWidth.getBoundingClientRect();
 
-            let rect = cellToDelete.getBoundingClientRect();
             let width = rectWidth.width;
             height = rectHeight.height;
 
@@ -407,8 +407,10 @@ function deleteCells(cell, cellsRight, cellsBottom) {
         }
 
         if (i != cellsBottom) {
-            idCell = idCell.split('_')[0] + "_" + idCell.split('_')[1] + "_" + idCell.split('_')[2] + "_" + hora; //id da célula seguinte pertencente à mesma aula
+            idCellSplit = idCell.split('_');
+            idCell = idCellSplit[0] + "_" + idCellSplit[1] + "_" + idCellSplit[2] + "_" + hora; //id da célula seguinte pertencente à mesma aula
             cell = document.querySelector("td[id='" + idCell + "']");
+            if (!cell) break;
             cellIndex = cell.cellIndex;
         }
     }
@@ -419,9 +421,14 @@ function deleteCells(cell, cellsRight, cellsBottom) {
  * 
  * @returns {null} Não retorna qualquer valor.
  */
-function displayAllTurmas() {
-    const allTurmas = document.querySelectorAll("[id*=turma_]");
-    allTurmas.forEach(cell => cell.style.display = '');
+function displayAllAulas() {
+    const allTurmas = document.querySelectorAll("tbody [id*=turma_]");
+    allTurmas.forEach(cell => {
+        cell.style.display = '';
+        if (cell.hasAttribute("data-originalcolspan")) {
+            cell.colSpan = parseInt(cell.getAttribute("data-originalcolspan"), 10);
+        }
+    });
 }
 
 /**
