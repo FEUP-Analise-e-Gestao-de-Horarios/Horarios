@@ -19,8 +19,8 @@
         <tr>
             <td>{{ hora }}</td>
             {% for dia in dias %}
-            {% is_busy aulasDocente dia hora as is_busy %}
-            {% can_mark_busy aulasDocente as can_mark_busy %}
+            {% is_busy aulas dia hora as is_busy %}
+            {% can_mark_busy aulas as can_mark_busy %}
             {% if can_mark_busy %}
             <td class="{% increment_if_busy is_busy %}"></td>
             {% else %}

@@ -245,8 +245,16 @@ function fillSalas(ano) {
                 p_element.classList.add("sala");
                 p_element.id = sala.numero;
                 p_element.innerHTML = sala.numero;
-                p_element.style.display = "inline-block";
+                p_element.setAttribute("data-bs-toggle", "popover");
+                p_element.setAttribute("data-bs-title", sala.numero);
+
+                const div_popover = document.createElement("div");
+                div_popover.style.display = "none";
+                div_popover.innerHTML = sala.miniHorario;
+                p_element.appendChild(div_popover);
+
                 const br = document.createElement("br");
+                p_element.style.display = "inline-block";
                 cell.appendChild(br);
                 cell.appendChild(p_element);
                 cell.setAttribute("rowspan", aula.duracao);
@@ -765,7 +773,7 @@ function swapFullCells(firstCell, secondCell) {
     }
 
     // Remove all div child elements from firstCell
-    const firstDivChildren = firstCell.querySelectorAll('div');
+    const firstDivChildren = firstCell.querySelectorAll(':scope > div');
     for (let i = 0; i < firstDivChildren.length; i++) {
         const divChild = firstDivChildren[i];
         firstCell.removeChild(divChild);

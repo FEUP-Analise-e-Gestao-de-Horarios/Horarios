@@ -114,11 +114,11 @@ def is_number(value):
         return False
     
 @register.simple_tag(name="is_busy")
-def is_busy(aulasDocente, dia, hora):
+def is_busy(aulas, dia, hora):
     # Convert the input hour to an integer for easier comparison
     horaInicioInput = int(hora.replace(":", ""))
     
-    for aula in aulasDocente:
+    for aula in aulas:
         if aula.diaSemana == dia:
             duracaoEmMinutos = aula.duracao * 30
             horaFimAula = aula.horaInicial + duracaoEmMinutos
@@ -143,5 +143,5 @@ def increment_if_busy(context, is_busy):
     return 'busy' if is_busy else ''
 
 @register.simple_tag(takes_context=True, name="can_mark_busy")
-def can_mark_busy(context, aulasDocente):
-    return context.get('busy_counter', 0) < len(aulasDocente)
+def can_mark_busy(context, aulas):
+    return context.get('busy_counter', 0) < len(aulas)

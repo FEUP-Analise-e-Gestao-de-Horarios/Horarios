@@ -69,8 +69,8 @@ function handleAnoBtn(anoNum, selectedAno, handleDist = false) {
                 // Caso seja necessário, atualiza o conteúdo da página                
                 fillUcs(ano);
                 fillDocentes(ano);
-                enablePopovers();
                 fillSalas(ano);
+                enablePopovers();
 
                 resolve(data);
             },
@@ -243,8 +243,8 @@ semanasBtn.addEventListener("change", function () {
             updateColspan();
             fillUcs(ano);
             fillDocentes(ano);
-            enablePopovers();
             fillSalas(ano);
+            enablePopovers();
         },
         error: function (xhr, textStatus, error) {
             console.log(textStatus);
