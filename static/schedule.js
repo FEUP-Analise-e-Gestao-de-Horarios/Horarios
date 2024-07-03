@@ -188,6 +188,13 @@ function fillDocentes(ano) {
                 p_element.classList.add("docente");
                 p_element.id = docente.numMecanografico;
                 p_element.innerHTML = docente.abreviacao;
+                p_element.setAttribute("data-bs-toggle", "popover");
+                p_element.setAttribute("data-bs-title", docente.nome);
+
+                const div_popover = document.createElement("div");
+                div_popover.style.display = "none";
+                div_popover.innerHTML = docente.miniHorario;
+                p_element.appendChild(div_popover);
 
                 const br = document.createElement("br");
                 p_element.style.display = "inline-block";
@@ -532,6 +539,12 @@ function updateColspan() {
     });
 }
 
+/**
+ * Atualiza a posição da linha de divisão entre dias no horário,
+ * de acordo com o layout.
+ * 
+ * @returns {null} Não retorna qualquer valor.
+ */
 function updateDayDivisions() {
     const allTurmaCells = document.querySelectorAll("tbody [id*=turma_]");
     allTurmaCells.forEach(cell => {
@@ -561,6 +574,17 @@ function updateDayDivisions() {
     allLastTurmaCells.forEach(cell => {
         cell.classList.add("last-turma");
     });
+}
+
+function enablePopovers() {
+    const docentesP = document.querySelectorAll('[data-bs-toggle="popover"]');
+    const popovers = [...docentesP].map(p => new bootstrap.Popover(p,
+        {
+            trigger: 'hover focus',
+            html: true,
+            content: p.firstElementChild.innerHTML
+        }
+    ));
 }
 
 /**
@@ -917,6 +941,39 @@ function checkIfSwapPossible(cell, cell2, cellsRight, cellsBottom) {
 // Event listeners
 // ------------------------------------------------------------------------------------------------
 
+// $(document).ready(function () {
+//     // Initialize popovers for all elements with the data-bs-toggle="popover" attribute
+//     $(document).on('mouseenter', '[data-bs-toggle="popover"]', function () {
+//         var $this = $(this);
+
+//         // Check if the popover has not been initialized yet
+//         if (!bootstrap.Popover.getInstance($this[0])) {
+//             $this.popover({
+//                 content: function () {
+//                     return $this.find(':first-child').html();
+//                 },
+//                 html: true,
+//                 trigger: 'hover'
+//             });
+//         }
+//         // Manually show the popover
+//         $this.popover('show');
+//     }).on('mouseleave', '[data-bs-toggle="popover"]', function () {
+//         $(this).popover('hide');
+//     });
+// });
+
+document.addEventListener('DOMContentLoaded', function () {
+    const myDefaultAllowList = bootstrap.Tooltip.Default.allowList;
+    myDefaultAllowList.table = [];
+    myDefaultAllowList.thead = [];
+    myDefaultAllowList.tbody = [];
+    myDefaultAllowList.tr = [];
+    myDefaultAllowList.th = [];
+    myDefaultAllowList.td = [];
+});
+
+
 $(document).on('click', 'td:not(:first-child)', function (event) {
     const td = this;
     const targetElement = event.target;
@@ -1050,69 +1107,68 @@ $(document).on('mouseleave', '#table_vistas td:not(:first-child):has(p) p.uc', f
     }
 });
 
-$(document).on('mouseenter', '#table_vistas td:not(:first-child):has(p) p.docente', function (event) {
-    // MUDAR DOCENTES
-    const siglaDocente = this.textContent;
+// $(document).on('mouseenter', '#table_vistas td:not(:first-child):has(p) p.docente', function (event) {
+//     // MUDAR DOCENTES
+//     const siglaDocente = this.textContent;
 
-    for (let i = 0; i < curso.docentes.length; i++) {
-        const doc_sigla = curso.docentes[i].abreviacao;
-        if (siglaDocente == doc_sigla) {
-            if (!document.getElementById("tooltipcontainer")) {
-                const name = curso.docentes[i].nome;
-                tooltipcontainer = document.createElement("div");
-                tooltipcontainer.setAttribute("id", "tooltipcontainer");
-                tooltipcontainer.style.position = "fixed";
-                tooltipcontainer.style.left = Math.max(event.clientX + 10, 0) + "px";
-                tooltipcontainer.style.top = Math.max(event.clientY - 25, 0) + "px";
-                tooltipcontainer.style.zIndex = 999;
-                tooltipcontainer.style.opacity = 0;
-                tooltipcontainer.style.transition = "opacity 1s ease-in";
-                tooltipcontainer.style.opacity = 1;
+//     for (let i = 0; i < curso.docentes.length; i++) {
+//         const doc_sigla = curso.docentes[i].abreviacao;
+//         if (siglaDocente == doc_sigla) {
+//             if (!document.getElementById("tooltipcontainer")) {
+//                 const name = curso.docentes[i].nome;
+//                 tooltipcontainer = document.createElement("div");
+//                 tooltipcontainer.setAttribute("id", "tooltipcontainer");
+//                 tooltipcontainer.style.position = "fixed";
+//                 tooltipcontainer.style.left = Math.max(event.clientX + 10, 0) + "px";
+//                 tooltipcontainer.style.top = Math.max(event.clientY - 25, 0) + "px";
+//                 tooltipcontainer.style.zIndex = 999;
+//                 tooltipcontainer.style.opacity = 0;
+//                 tooltipcontainer.style.transition = "opacity 1s ease-in";
+//                 tooltipcontainer.style.opacity = 1;
 
-                tooltip = document.createElement("div");
-                tooltip.style.position = "fixed";
+//                 tooltip = document.createElement("div");
+//                 tooltip.style.position = "fixed";
 
-                tooltip.style.width = "auto";
-                tooltip.style.backgroundColor = "black";
-                tooltip.style.color = "#fff";
-                tooltip.style.padding = "5px";
-                tooltip.style.zIndex = "999";
-                tooltip.style.fontSize = "13px";
-                tooltip.textContent = name;
+//                 tooltip.style.width = "auto";
+//                 tooltip.style.backgroundColor = "black";
+//                 tooltip.style.color = "#fff";
+//                 tooltip.style.padding = "5px";
+//                 tooltip.style.zIndex = "999";
+//                 tooltip.style.fontSize = "13px";
+//                 tooltip.textContent = name;
 
-                tooltipcontainer.appendChild(tooltip);
+//                 tooltipcontainer.appendChild(tooltip);
 
-                tableVistas = document.getElementById("table_vistas").parentNode;
-                tableVistas.insertBefore(tooltipcontainer, tableVistas.firstChild);
-            }
-        }
-    }
-});
+//                 tableVistas = document.getElementById("table_vistas").parentNode;
+//                 tableVistas.insertBefore(tooltipcontainer, tableVistas.firstChild);
+//             }
+//         }
+//     }
+// });
 
-$(document).on('mouseleave', '#table_vistas td:not(:first-child)', function (event) {
-    if (document.getElementById("tooltipcontainer")) {
-        document.getElementById("tooltipcontainer").parentNode.removeChild(document.getElementById("tooltipcontainer"));
-    }
-});
+// $(document).on('mouseleave', '#table_vistas td:not(:first-child)', function (event) {
+//     if (document.getElementById("tooltipcontainer")) {
+//         document.getElementById("tooltipcontainer").parentNode.removeChild(document.getElementById("tooltipcontainer"));
+//     }
+// });
 
-$(document).on('mouseleave', '#table_vistas td:not(:first-child):has(p) p.docente', function (event) {
-    // MUDAR UCS
-    const docente = this;
-    const nomeDocente = this.textContent;
+// $(document).on('mouseleave', '#table_vistas td:not(:first-child):has(p) p.docente', function (event) {
+//     // MUDAR UCS
+//     const docente = this;
+//     const nomeDocente = this.textContent;
 
-    for (let i = 0; i < curso.docentes.length; i++) {
-        const nome_doc = curso.docentes[i].nome;
-        if (nomeDocente == nome_doc) {
-            const sigla = curso.docentes[i].abreviacao;
-            docente.textContent = sigla;
-            docente.style.whiteSpace = "nowrap";
-        }
-    }
-    if (document.getElementById("tooltipcontainer")) {
-        document.getElementById("tooltipcontainer").parentNode.removeChild(document.getElementById("tooltipcontainer"));
-    }
-});
-
+//     for (let i = 0; i < curso.docentes.length; i++) {
+//         const nome_doc = curso.docentes[i].nome;
+//         if (nomeDocente == nome_doc) {
+//             const sigla = curso.docentes[i].abreviacao;
+//             docente.textContent = sigla;
+//             docente.style.whiteSpace = "nowrap";
+//         }
+//     }
+//     if (document.getElementById("tooltipcontainer")) {
+//         document.getElementById("tooltipcontainer").parentNode.removeChild(document.getElementById("tooltipcontainer"));
+//     }
+// });
 
 $(document).on('click', 'td:not(:first-child) p', function (event) {
     // Previne que o evento se propague para o elemento td

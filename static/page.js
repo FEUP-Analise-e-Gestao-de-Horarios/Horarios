@@ -69,6 +69,7 @@ function handleAnoBtn(anoNum, selectedAno, handleDist = false) {
                 // Caso seja necessário, atualiza o conteúdo da página                
                 fillUcs(ano);
                 fillDocentes(ano);
+                enablePopovers();
                 fillSalas(ano);
 
                 resolve(data);
@@ -179,6 +180,10 @@ function createAndAppendOptions(selectElement, options, genericOptionText, selec
     }
 }
 
+// ------------------------------------------------------------------------------------------------
+// Event listeners
+// ------------------------------------------------------------------------------------------------
+
 cursoBtn.addEventListener("change", function () {
     let cursoNome = cursoBtn.value;
 
@@ -238,6 +243,7 @@ semanasBtn.addEventListener("change", function () {
             updateColspan();
             fillUcs(ano);
             fillDocentes(ano);
+            enablePopovers();
             fillSalas(ano);
         },
         error: function (xhr, textStatus, error) {

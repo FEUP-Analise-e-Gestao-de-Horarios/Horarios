@@ -112,3 +112,26 @@ def is_number(value):
         return True
     except ValueError:
         return False
+    
+@register.simple_tag(name="is_busy")
+def is_busy(aulasDocente, dia, hora):
+    for aula in aulasDocente:
+        horaAula = int(hora.replace(":", ""))
+        if aula.diaSemana == dia and aula.horaInicial == horaAula:
+            return True
+    return False
+    
+@register.simple_tag(takes_context=True)
+def init_busy_counter(context):
+    context['busy_counter'] = 0
+    return ''
+
+@register.simple_tag(takes_context=True)
+def increment_if_busy(context, is_busy):
+    if is_busy:
+        context['busy_counter'] += 1
+    return 'busy' if is_busy else ''
+
+@register.simple_tag(takes_context=True, name="can_mark_busy")
+def can_mark_busy(context, aulasDocente):
+    return context.get('busy_counter', 0) < len(aulasDocente)
