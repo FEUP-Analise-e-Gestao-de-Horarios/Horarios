@@ -23,14 +23,14 @@ function fillUcs(ano) {
 
     for (let i = 0; i < relevantUcs.length; i++) {
         let uc = relevantUcs[i];
-        let aulas = uc.aulas; //FORMATO -> [Aula(id, horaInicial, duracao, diaSemana, isTeorica)]
+        let aulas = uc.aulas; // FORMATO -> [Aula(id, horaInicial, duracao, diaSemana, isTeorica)]
         ucAnoBool = false;
 
         for (let j = 0; j < aulas.length; j++) {
             let aula = aulas[j];
 
-            let turmas = aula.turmas; //FORMATO -> {ano: [codigoTurma]}
-            if (!(ano in turmas)) { //Caso não tenha turmas do ano em que a tabela está
+            let turmas = aula.turmas; // FORMATO -> {ano: [codigoTurma]}
+            if (!(ano in turmas)) { // Caso não tenha turmas do ano em que a tabela está
                 continue;
             }
             ucAnoBool = true;
@@ -64,9 +64,9 @@ function fillUcs(ano) {
 
             for (let k = 0; k < turmaGroups.length; k++) {
                 let group = turmaGroups[k];
-                let idString = "turma_" + group[0] + "_" + dia + "_" + hora;   //id da célula a que pertence a aula
+                let idString = "turma_" + group[0] + "_" + dia + "_" + hora;   // id da célula a que pertence a aula
 
-                let cell = document.querySelector("tbody td:not(:first-child)[id='" + idString + "']"); //célula a que pertence a aula
+                let cell = document.querySelector("tbody td:not(:first-child)[id='" + idString + "']"); // célula a que pertence a aula
                 if (cell == null) {
                     continue;
                 }
@@ -131,6 +131,11 @@ function fillUcs(ano) {
     setSidebarTurmas(turmasSet);
 }
 
+/**
+ * Ordena as aulas com base no número de turmas e na duração.
+ *
+ * @param {object} uc - Unidade curricular a ser ordenada.
+ */
 function sortAulasByTurmasAndDuracao(uc) {
     uc.aulas.sort((a, b) => {
         const turmasA = a.turmas[ano] ? a.turmas[ano].length : 0;
@@ -142,6 +147,12 @@ function sortAulasByTurmasAndDuracao(uc) {
     });
 }
 
+/**
+ * Calcula o peso de uma unidade curricular com base na duração das aulas e no número de turmas.
+ *
+ * @param {object} uc - Unidade curricular.
+ * @returns {number} - Peso da unidade curricular.
+ */
 function calculateUcWeight(uc) {
     return uc.aulas.reduce((acc, aula) => {
         const turmasLength = aula.turmas[ano] ? aula.turmas[ano].length : 0;
@@ -164,9 +175,9 @@ function fillDocentes(ano) {
         for (let j = 0; j < aulas.length; j++) {
             let aula = aulas[j];
 
-            let turmas = aula.turmas; //FORMATO -> {ano: [codigoTurma]}
+            let turmas = aula.turmas; // FORMATO -> {ano: [codigoTurma]}
 
-            if (!(ano in turmas)) { //Caso não tenha turmas do ano em que a tabela está
+            if (!(ano in turmas)) { // Caso não tenha turmas do ano em que a tabela está
                 continue;
             }
 
@@ -179,7 +190,7 @@ function fillDocentes(ano) {
 
                 let idString = "turma_" + turma + "_" + dia + "_" + hora;
 
-                let cell = document.querySelector("tbody td:not(:first-child)[id='" + idString + "']"); //célula a que pertence a aula
+                let cell = document.querySelector("tbody td:not(:first-child)[id='" + idString + "']"); // célula a que pertence a aula
                 if (cell == null) {
                     continue;
                 }
@@ -223,8 +234,8 @@ function fillSalas(ano) {
         for (let j = 0; j < aulas.length; j++) {
             let aula = aulas[j];
 
-            let turmas = aula.turmas; //FORMATO -> {ano: [codigoTurma]}
-            if (!(ano in turmas)) { //Caso não tenha turmas do ano em que a tabela está
+            let turmas = aula.turmas; // FORMATO -> {ano: [codigoTurma]}
+            if (!(ano in turmas)) { // Caso não tenha turmas do ano em que a tabela está
                 continue;
             }
 
@@ -237,7 +248,7 @@ function fillSalas(ano) {
 
                 const idString = "turma_" + turma + "_" + dia + "_" + hora;
 
-                let cell = document.querySelector("tbody td:not(:first-child)[id='" + idString + "']"); //célula a que pertence a aula
+                let cell = document.querySelector("tbody td:not(:first-child)[id='" + idString + "']"); // célula a que pertence a aula
                 if (cell == null) {
                     continue;
                 }
@@ -351,7 +362,7 @@ function createCells(cell, cellsRight, cellsBottom, startingVal) {
             hora += 30;
         }
 
-        cellId = cellId.split('_')[0] + "_" + cellId.split('_')[1] + "_" + cellId.split('_')[2] + "_" + hora; //id da célula seguinte pertencente à mesma aula
+        cellId = cellId.split('_')[0] + "_" + cellId.split('_')[1] + "_" + cellId.split('_')[2] + "_" + hora; // id da célula seguinte pertencente à mesma aula
     }
 }
 
@@ -425,7 +436,7 @@ function deleteCells(cell, cellsRight, cellsBottom) {
 
         if (i != cellsBottom) {
             idCellSplit = idCell.split('_');
-            idCell = idCellSplit[0] + "_" + idCellSplit[1] + "_" + idCellSplit[2] + "_" + hora; //id da célula seguinte pertencente à mesma aula
+            idCell = idCellSplit[0] + "_" + idCellSplit[1] + "_" + idCellSplit[2] + "_" + hora; // id da célula seguinte pertencente à mesma aula
             cell = document.querySelector("td[id='" + idCell + "']");
             if (!cell) break;
             cellIndex = cell.cellIndex;
@@ -529,7 +540,7 @@ function updateColspan() {
     const children = [];
     const columns = table.querySelector("tbody tr:first-child");
 
-    //Coloca em children apenas os elementos que estão visíveis
+    // Coloca em children apenas os elementos que estão visíveis
     for (let i = 0; i < columns.children.length; i++) {
         const child = columns.children[i];
         if (child.style.display === '') {
@@ -537,7 +548,7 @@ function updateColspan() {
         }
     }
 
-    const numColumns = children.length - 1; //nº de colunas visíveis
+    const numColumns = children.length - 1; // nº de colunas visíveis
     const colspanValue = Math.floor(numColumns / 6);
 
     headerRow.querySelectorAll("th").forEach((th, index) => {
@@ -625,7 +636,7 @@ function submitToDatabase(cell) {
     const horaInicio = parseInt(cellId.split('_')[3]);
     const aulaId = cell.getAttribute('data-aulaid');
 
-    //Obter hora final
+    // Obter hora final
     let hora = horaInicio;
     let secondDigit;
     for (let i = 1; i <= rowspan; i++) {
@@ -948,7 +959,7 @@ function checkIfSwapPossible(cell, cell2, cellsRight, cellsBottom) {
         } else {
             hora += 30;
         }
-        cellId = cellId.split('_')[0] + "_" + cellId.split('_')[1] + "_" + cellId.split('_')[2] + "_" + hora; //id da célula seguinte pertencente à mesma aula
+        cellId = cellId.split('_')[0] + "_" + cellId.split('_')[1] + "_" + cellId.split('_')[2] + "_" + hora; // id da célula seguinte pertencente à mesma aula
     }
     return true;
 }
@@ -967,12 +978,11 @@ document.addEventListener('DOMContentLoaded', function () {
     myDefaultAllowList.td = [];
 });
 
-
 $(document).on('click', 'td:not(:first-child)', function (event) {
     const td = this;
     const targetElement = event.target;
     const turma = td.id.split('_')[1];
-    const projectNumber =  $('script[data-proj-id]').data('projId');
+    const projectNumber = $('script[data-proj-id]').data('projId');
 
     // Check if the target element is the td itself or a descendant of the td
     if (targetElement === td || $.contains(td, targetElement)) {
@@ -984,19 +994,21 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
             displayBlocosVermelhosGlobal(selectedP.attr('class'), selectedP.attr('id'), false);
         }
 
-        //Caso se tente selecionar uma célula que já estava selecionada
+        // Caso se tente selecionar uma célula que já estava selecionada
         if ($(td).hasClass('selected')) {
-            showEditBarOptions(false)
+            showEditBarOptions(false);
             $(td).removeClass('selected');
             displayBlocosVermelhosTurma(turma, false);
             clearHighlight();
+
+            // Remove borders from p elements
+            $(td).find('p').css('border', '');
             return;
         }
 
         const prevSelectedCell = $('td:not(:first-child).selected');
         // Caso já exista uma célula selecionada, então é preciso trocá-las
         if (prevSelectedCell.length === 1) {
-            // td / prevSelectedCell
             const prevCell = document.querySelector("td:not(:first-child).selected");
             const idCellBefore = $(prevCell).attr('id');
             displayBlocosVermelhosTurma(idCellBefore.split('_')[1], false);
@@ -1018,16 +1030,16 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
             showEditBarOptions(false);
         }
 
-        // remove class from all other td
+        // Remove class from all other td
         document.querySelectorAll("td:not(:first-child)").forEach(td => {
             showEditBarOptions(false);
         });
 
-        //Unselect da primeira célula selecionada
+        // Unselect da primeira célula selecionada
         $('td:not(:first-child)').removeClass('selected');
-        
+
         if (prevSelectedCell.length == 0) {
-            //Select da primeira célula selecionada
+            // Select da primeira célula selecionada
             $(td).addClass('selected');
             if ($(td).has('p').length > 0) {
                 displayBlocosVermelhosTurma(turma, true);
@@ -1037,22 +1049,26 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
                 if (docenteElement.length > 0 && salaElement.length > 0) {
                     const docenteId = docenteElement.attr('id');
                     const numeroSala = salaElement.attr('id');
-                    console.log('Docente selecionado com id:', docenteId);
-                    console.log('Sala selecionada com id:', numeroSala);
                     clearHighlight();  // Limpa os destaques antes de adicionar novos
                     displayTodosConflitos(docenteId, numeroSala, true); // Chama a função para destacar os conflitos duplos
+                    
+                    // Add borders only to the specific cell
+                    docenteElement.css('border', '2px solid yellow');
+                    salaElement.css('border', '2px solid orange');
                 } else {
                     if (docenteElement.length > 0) {
                         const docenteId = docenteElement.attr('id');
                         console.log('Docente selecionado com id:', docenteId);
                         clearHighlight();  // Limpa os destaques antes de adicionar novos
                         displayBlocosAmarelos(docenteId, true);  // Chama a função para destacar os blocos amarelos
+                        docenteElement.css('border', '2px solid yellow');  // Add border
                     }
                     if (salaElement.length > 0) {
                         const numeroSala = salaElement.attr('id');
                         console.log('Sala selecionada com id:', numeroSala);
                         clearHighlight();  // Limpa os destaques antes de adicionar novos
-                        displayBlocosLaranja(numeroSala, true);  // Chama a função para destacar os blocos laranja
+                        displayBlocosLaranjas(numeroSala, true);  // Chama a função para destacar os blocos laranja
+                        salaElement.css('border', '2px solid orange');  // Add border
                     }
                 }
             }
@@ -1061,8 +1077,9 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
         if (td.children.length > 0) {
             showEditBarOptions(true);
             selectedCellSelectSideBar(targetElement, false);
+        } else {
+            showEditBarOptions(false);
         }
-        else showEditBarOptions(false);
     }
 });
 
@@ -1146,7 +1163,6 @@ $(document).on('click', 'td:not(:first-child) p', function (event) {
         displayBlocosLaranjas(numeroSala, true);  // Chama a função para destacar os blocos laranja
     }
 
-
     // 'Desseleciona' algum elemento td selecionado
     const selectedTD = $('td:not(:first-child).selected');
     if (selectedTD.length) {
@@ -1198,6 +1214,9 @@ $(document).on('click', 'td:not(:first-child) p', function (event) {
     }
 });
 
+/**
+ * Limpa os destaques (background color e opacity) das células.
+ */
 function clearHighlight() {
     const highlightedCells = document.querySelectorAll('td[style*="background-color: yellow"], td[style*="opacity: 0.6"]');
     highlightedCells.forEach(cell => {
@@ -1205,6 +1224,13 @@ function clearHighlight() {
         cell.style.opacity = "";
     });
 }
+
+/**
+ * Mostra ou oculta blocos vermelhos para uma turma específica.
+ * 
+ * @param {string} turma - A turma alvo.
+ * @param {boolean} display - Determina se os blocos vermelhos devem ser exibidos ou ocultados.
+ */
 function displayBlocosVermelhosTurma(turma, display) {
     if (!display) {
         const redCellsTd = document.querySelectorAll('td[style="background-color: red; opacity: 0.6;"]');
@@ -1235,6 +1261,13 @@ function displayBlocosVermelhosTurma(turma, display) {
     });
 }
 
+/**
+ * Mostra ou oculta blocos vermelhos para um elemento global (docente ou sala).
+ * 
+ * @param {string} className - A classe do elemento (docente ou sala).
+ * @param {string} id - O ID do elemento.
+ * @param {boolean} display - Determina se os blocos vermelhos devem ser exibidos ou ocultados.
+ */
 function displayBlocosVermelhosGlobal(className, id, display) {
     var blocosVermelhos;
     if (className === 'docente selected' || className === 'docente') {
@@ -1278,7 +1311,13 @@ function displayBlocosVermelhosGlobal(className, id, display) {
     }
 }
 
-
+/**
+ * Mostra ou oculta blocos vermelhos para um conjunto de blocos.
+ * 
+ * @param {Array} blocosVermelhos - Array de blocos a serem destacados.
+ * @param {boolean} display - Determina se os blocos vermelhos devem ser exibidos ou ocultados.
+ * @param {string} turma - A turma alvo.
+ */
 function displayBlocosVermelhos(blocosVermelhos, display, turma) {
     for (var i = 0; i < blocosVermelhos.length; i++) {
         var bloco = blocosVermelhos[i];
@@ -1287,25 +1326,25 @@ function displayBlocosVermelhos(blocosVermelhos, display, turma) {
         var targetElements, targetElements2;
 
         if (turma == 'any') {
-            //Blocos vermelhos que estarão em células já preenchidas
+            // Blocos vermelhos que estarão em células já preenchidas
             var selector = "div[id*=" + substring + "]";
             targetElements = document.querySelectorAll(selector);
 
-            //Blocos vermelhos que estarão em células vazias
+            // Blocos vermelhos que estarão em células vazias
             var selector2 = "td:not(:has(div))[id*=" + substring + "]";
             targetElements2 = $(selector2);
         }
         else {
-            //Blocos vermelhos que estarão em células já preenchidas
+            // Blocos vermelhos que estarão em células já preenchidas
             var selector = 'div[id*="' + substring + '"]:has([id*="' + turma + '"])';
             targetElements = $(selector);
 
-            //Blocos vermelhos que estarão em células vazias
+            // Blocos vermelhos que estarão em células vazias
             var selector2 = 'td:not(:has(div))[id*="' + substring + '"][id*="' + turma + '"]';
             targetElements2 = $(selector2);
         }
 
-        //Blocos vermelhos que estão em células já preenchidas
+        // Blocos vermelhos que estão em células já preenchidas
         for (var j = 0; j < targetElements.length; j++) {
             var element = targetElements[j];
 
@@ -1322,7 +1361,7 @@ function displayBlocosVermelhos(blocosVermelhos, display, turma) {
             }
         }
 
-        //Blocos vermelhos que estão em células vazias
+        // Blocos vermelhos que estão em células vazias
         for (var j = 0; j < targetElements2.length; j++) {
             var element = targetElements2[j];
             if (display) {
@@ -1337,6 +1376,12 @@ function displayBlocosVermelhos(blocosVermelhos, display, turma) {
     }
 }
 
+/**
+ * Mostra ou oculta blocos amarelos para um docente específico.
+ * 
+ * @param {string} docenteId - O ID do docente.
+ * @param {boolean} display - Determina se os blocos amarelos devem ser exibidos ou ocultados.
+ */
 function displayBlocosAmarelos(docenteId, display) {
     const projectNumber = $('script[data-proj-id]').data('projId');
     
@@ -1380,6 +1425,12 @@ function displayBlocosAmarelos(docenteId, display) {
     });
 }
 
+/**
+ * Mostra ou oculta blocos laranja para uma sala específica.
+ * 
+ * @param {string} salaId - O ID da sala.
+ * @param {boolean} display - Determina se os blocos laranja devem ser exibidos ou ocultados.
+ */
 function displayBlocosLaranjas(salaId, display) {
     const projectNumber = $('script[data-proj-id]').data('projId');
     
@@ -1423,6 +1474,13 @@ function displayBlocosLaranjas(salaId, display) {
     });
 }
 
+/**
+ * Mostra ou oculta blocos cinza que representam conflitos duplos (docente e sala).
+ * 
+ * @param {string} docenteId - O ID do docente.
+ * @param {string} numeroSala - O número da sala.
+ * @param {boolean} display - Determina se os blocos de conflitos duplos devem ser exibidos ou ocultados.
+ */
 function displayBlocosConflitosDuplos(docenteId, numeroSala, display) {
     const projectNumber = $('script[data-proj-id]').data('projId');
 
@@ -1474,6 +1532,14 @@ function displayBlocosConflitosDuplos(docenteId, numeroSala, display) {
             console.error('Erro ao buscar horários:', error);
         });
 }
+
+/**
+ * Mostra ou oculta todos os conflitos (docente e sala).
+ * 
+ * @param {string} docenteId - O ID do docente.
+ * @param {string} numeroSala - O número da sala.
+ * @param {boolean} display - Determina se os conflitos devem ser exibidos ou ocultados.
+ */
 function displayTodosConflitos(docenteId, numeroSala, display) {
     const projectNumber = $('script[data-proj-id]').data('projId');
 
@@ -1487,8 +1553,13 @@ function displayTodosConflitos(docenteId, numeroSala, display) {
     displayBlocosConflitosDuplos(docenteId, numeroSala, display);
 }
 
-
-
+/**
+ * Faz uma requisição para buscar o horário de um docente.
+ * 
+ * @param {string} docenteId - O ID do docente.
+ * @param {number} projectNumber - O número do projeto.
+ * @returns {Promise} - Promessa que retorna o horário do docente.
+ */
 function fetchDocenteHorario(docenteId, projectNumber) {
     console.log(`Fetching schedule for docenteId: ${docenteId}, projectNumber: ${projectNumber}`);
     return new Promise((resolve, reject) => {
@@ -1508,6 +1579,13 @@ function fetchDocenteHorario(docenteId, projectNumber) {
     });
 }
 
+/**
+ * Faz uma requisição para buscar o horário de uma sala.
+ * 
+ * @param {string} salaId - O ID da sala.
+ * @param {number} projectNumber - O número do projeto.
+ * @returns {Promise} - Promessa que retorna o horário da sala.
+ */
 function fetchSalaHorario(salaId, projectNumber) {
     console.log(`Fetching schedule for sala: ${salaId}, projectNumber: ${projectNumber}`);
     return new Promise((resolve, reject) => {
@@ -1526,4 +1604,3 @@ function fetchSalaHorario(salaId, projectNumber) {
         });
     });
 }
-
