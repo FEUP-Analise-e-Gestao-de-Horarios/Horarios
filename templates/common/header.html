@@ -24,7 +24,7 @@
         {% include './exportButton.html' %}
       </ul>
 
-
+      {% if display_edit_buttons %}
       <div class="d-flex gap-2 justify-content-center flex-fill">
         <select class="form-select selectWidth bg-dark text-light" aria-label="Default select example" id="cursoBtn">
           <option selected>Curso</option>
@@ -44,6 +44,7 @@
         </select>
         <button type="button" class="btn btn-outline-light me-2" id="showDistributionBtn"> Distribuição </button>
       </div>
+      {% endif %}
       <!-- <h3> {{ projeto.nome }} </h3> -->
 
       <div class="text-end">

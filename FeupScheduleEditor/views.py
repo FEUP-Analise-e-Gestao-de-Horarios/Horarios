@@ -143,7 +143,7 @@ def starter(request: HttpRequest) -> HttpResponse:
     
     projetos = getProjetosListAux(request, request.user.pk)
 
-    return render(request, 'starter/starter.html', {'projetos' : projetos})
+    return render(request, 'starter/starter.html', {'projetos' : projetos, 'is_edit_turnos': False})
 
 def manageProjects(request: HttpRequest, projId: int) -> HttpResponse:
     '''
@@ -415,7 +415,7 @@ def editTurnos(request: HttpRequest, projId: int) -> HttpResponse:
         print("Could not load conflicts")
         conflicts = []
     return render(request, 'editTurnos/page.html', {'projetos':projetos, 'projId':projId, 'projeto':projeto, 'cursos': cursos_json,
-                                                    'docentesList': docentesList, 'salasList': salasList, 'conflitos':conflicts})
+                                                    'docentesList': docentesList, 'salasList': salasList, 'conflitos':conflicts, 'is_edit_turnos': True})
 
 def fillPageForCursoAno(request):
     #Retira do request o nome do curso e do ano com os quais as tabelas serão preenchidas
@@ -867,7 +867,7 @@ def editDocentes(request, projId):
     cursor.execute(stmt)
     docentesList = cursor.fetchall()
 
-    return render(request, 'editTurnos/editDocentes.html', {'docentes' : docentesList, 'projetos': projetos, 'projId':projId})
+    return render(request, 'editTurnos/editDocentes.html', {'docentes' : docentesList, 'projetos': projetos, 'projId':projId, 'is_edit_turnos': True})
 
 
 # editDocentesMakeChange
@@ -995,4 +995,4 @@ def export(request, projId):
     message = getDifferencesFromDatabases(projId)
     if len(message) <=0:
         message.append('Não Foram Efetuadas Mudanças')
-    return render(request, 'export/page.html', {'projetos': projetos, 'projeto': projeto[2], 'message':message, 'conflicts':conflicts, 'projId':projId})
+    return render(request, 'export/page.html', {'projetos': projetos, 'projeto': projeto[2], 'message':message, 'conflicts':conflicts, 'projId':projId, 'is_edit_turnos': False})

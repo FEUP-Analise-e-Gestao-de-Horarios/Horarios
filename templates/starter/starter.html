@@ -18,10 +18,10 @@
 </style>
 
 
-{% include '../common/header.html' %}
+{% include '../common/header.html' with display_edit_buttons=is_edit_turnos %}
 
 <section class="contentMargin pb-3 py-0 box bg-dark">
-    <div class="d-flex flex-wrap justify-content-between">
+    <div class="d-flex flex-wrap">
         {% include './newProject.html' %}
         {% include './parsingCard.html' %}
         {% for projeto in projetos %}
