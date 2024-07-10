@@ -112,6 +112,8 @@ ou
 pip install <módulo>
 ```
 
+Para realizar o login na aplicação, basta usar o username `admin`, com a palavra-passe `passhorarios`.
+
 # Deployment:
 
 ## 6. Configurar settings.py

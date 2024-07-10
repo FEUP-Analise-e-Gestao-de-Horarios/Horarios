@@ -131,6 +131,13 @@ function fillUcs(ano) {
     setSidebarTurmas(turmasSet);
 }
 
+/**
+ * Ordena as aulas de uma UC por número de turmas e depois por duração.
+ * Este processo faz com que os blocos de UC sejam desenhados dos mais pequenos para os maiores.
+ * 
+ * @param {Object} uc - A UC com aulas a ordenar.
+ * @return {null} Não retorna qualquer valor.
+ */
 function sortAulasByTurmasAndDuracao(uc) {
     uc.aulas.sort((a, b) => {
         const turmasA = a.turmas[ano] ? a.turmas[ano].length : 0;
@@ -142,6 +149,12 @@ function sortAulasByTurmasAndDuracao(uc) {
     });
 }
 
+/**
+ * Determina o "peso" de uma UC, tendo em conta o número de turmas e a duração das suas aulas.
+ * 
+ * @param {Object} uc - A UC cujo peso deve ser determinado.  
+ * @returns {number} Peso da UC.
+ */
 function calculateUcWeight(uc) {
     return uc.aulas.reduce((acc, aula) => {
         const turmasLength = aula.turmas[ano] ? aula.turmas[ano].length : 0;

@@ -247,7 +247,7 @@ def insert_aula(aula: Aula, cursor: sqlite3.Cursor) -> None:
     codigo_uc = aula.cod_uc
         
     # Caso a aula não exista, são realizadas as inserções necessárias na DB
-    stmtC = '''INSERT OR IGNORE INTO aula (horaInicial, duracao, diaSemana, teorico, semanaInicial, semanaFinal) VALUES (?, ?, ?, ?, ?, ?)'''
+    stmtC = '''INSERT INTO aula (horaInicial, duracao, diaSemana, teorico, semanaInicial, semanaFinal) VALUES (?, ?, ?, ?, ?, ?)'''
     cursor.execute(stmtC, (hora, duracao, dia, isTeorica, semanaIni, semanaFin,))
     id_aula = cursor.lastrowid
 
@@ -581,6 +581,8 @@ def parse_turmas(menu_turmas: any) -> None:
 
             for aula in lista_de_aulas:
                 insert_aula(aula, cursor)
+            
+            lista_de_aulas = set()
 
     conn.commit()
 
@@ -895,57 +897,25 @@ def parse(request: requests.Request) -> JsonResponse:
             menu = soup_links.find('ul', {'id': 'menu'})
             
             print("Project Started")
-            total_time_start = time.perf_counter()
-
-            start_time = time.perf_counter()
             pre_inserir_blocos_vermelhos()
-            end_time = time.perf_counter()
-            print(f"pre_inserir_blocos_vermelhos took {end_time - start_time} seconds")
-
-            start_time = time.perf_counter()
-            parse_docentes(menu.findChildren(recursive=False)[0])
-            end_time = time.perf_counter()
-            print(f"parse_docentes took {end_time - start_time} seconds")
-
-            start_time = time.perf_counter()
-            parse_turmas(menu.findChildren(recursive=False)[1])
-            end_time = time.perf_counter()
-            print(f"parse_turmas took {end_time - start_time} seconds")
             
-            start_time = time.perf_counter()
+            parse_docentes(menu.findChildren(recursive=False)[0])
+
+            parse_turmas(menu.findChildren(recursive=False)[1])
+            
             parse_salas(menu.findChildren(recursive=False)[2])
-            end_time = time.perf_counter()
-            print(f"parse_salas took {end_time - start_time} seconds")
 
-            start_time = time.perf_counter()
             parse_turnos()
-            end_time = time.perf_counter()
-            print(f"parse_turnos took {end_time - start_time} seconds")
 
-            start_time = time.perf_counter()
             fix_turmas_without_turnos()
-            end_time = time.perf_counter()
-            print(f"fix_turmas_without_turnos took {end_time - start_time} seconds")
 
-            start_time = time.perf_counter()
             cleanup_aulas()
-            end_time = time.perf_counter()
-            print(f"cleanup_aulas took {end_time - start_time} seconds")
 
-            start_time = time.perf_counter()
             aulas_simultaneas()
-            end_time = time.perf_counter()
-            print(f"aulas_simultaneas took {end_time - start_time} seconds")
 
-            start_time = time.perf_counter()
             turmas_simultaneas()
-            end_time = time.perf_counter()
-            print(f"turmas_simultaneas took {end_time - start_time} seconds")
 
             shutil.copy2(path + '/general_database.db', path + '/initial_database.db')
-
-            total_time_end = time.perf_counter()
-            print(f"total parse time was {total_time_end - total_time_start} seconds")
 
             proj.isParsed = True
             proj.save()
@@ -972,20 +942,23 @@ def parse(request: requests.Request) -> JsonResponse:
     
 def cleanup_aulas() -> None:
     # Get all unique aulas
-    stmtAulas = '''SELECT DISTINCT diaSemana, horaInicial, duracao, teorico, idDocente 
-                     FROM aula JOIN aulaDocente 
-                    ON aula.id = aulaDocente.idAula'''
+    stmtAulas = '''SELECT DISTINCT diaSemana, horaInicial, duracao, teorico, idDocente, idUC, idTurma
+                    FROM aula 
+                    JOIN aulaDocente ON aula.id = aulaDocente.idAula
+                    JOIN aulaUC ON aula.id = aulaUC.idAula
+                    JOIN aulaTurmas ON aula.id = aulaTurmas.idAula'''
     cursor.execute(stmtAulas)
     aulas = cursor.fetchall()
 
     for aula in aulas:
-        dia, hora, duracao, isTeorica, docente = aula
+        dia, hora, duracao, isTeorica, docente, uc, turma = aula
         # Get all entries for this aula
         stmtTest = '''SELECT * FROM aula 
-                      JOIN aulaDocente 
-                      ON aula.id = aulaDocente.idAula 
-                      WHERE diaSemana=? AND horaInicial=? AND duracao=? AND teorico=? AND idDocente=?'''
-        cursor.execute(stmtTest, (dia, hora, duracao, isTeorica, docente))
+                      JOIN aulaDocente ON aula.id = aulaDocente.idAula
+                      JOIN aulaUC ON aula.id = aulaUC.idAula
+                      JOIN aulaTurmas ON aula.id = aulaTurmas.idAula
+                      WHERE diaSemana=? AND horaInicial=? AND duracao=? AND teorico=? AND idDocente=? AND idUC=? AND idTurma=?'''
+        cursor.execute(stmtTest, (dia, hora, duracao, isTeorica, docente, uc, turma))
         results = cursor.fetchall()
 
         # Merge all overlapping entries
