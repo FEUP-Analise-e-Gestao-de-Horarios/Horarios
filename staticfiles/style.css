@@ -1,38 +1,44 @@
-.hidden{
+.hidden {
     display: none;
 }
-.img-res{
-    width:150px;
-    object-fit:contain;
+
+.img-res {
+    width: 150px;
+    object-fit: contain;
 }
-.img-res2{
-    width:200px;
-    object-fit:contain;
+
+.img-res2 {
+    width: 200px;
+    object-fit: contain;
 }
-.changeCursor{
+
+.changeCursor {
     cursor: pointer
 }
+
 .hide {
     display: none;
 }
-.myDIV:hover + .hide {
+
+.myDIV:hover+.hide {
     display: block;
 }
-.cursorHover{
+
+.cursorHover {
     cursor: pointer;
 }
 
-#edit-form-hidden-div{
+#edit-form-hidden-div {
     width: 70%;
     margin: 12.5em auto;
     color: gray;
 }
 
-option{
+option {
     font-family: "sans-serif", monospace;
 }
 
-.dropdown-option{
+.dropdown-option {
     font-family: "sans-serif", monospace;
     font-size: 14px;
 }

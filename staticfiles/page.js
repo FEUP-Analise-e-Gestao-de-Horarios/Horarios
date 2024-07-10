@@ -10,80 +10,88 @@ const distributionBtn = document.getElementById("showDistributionBtn");
 
 let curso, ano, semana, ucsDistribuicao, turmasPorTurno;
 let dataLoadBool = false;
+let distributionActive = true;
+
+function handleCursoBtn(cursoNome) {
+    if (cursoNome === "Curso") {
+        updateAnoButton(0, "Ano");
+        return;
+    }
+
+    $.ajax({
+        url: '/emptytable/',
+        type: 'GET',
+        data: { 'curso': cursoNome, 'projId': projId },
+        success: function (data) {
+            updateAnoButton(data.numAnos, "Ano");
+        },
+        error: function (xhr, textStatus, error) {
+            console.error("Error fetching anos:", error);
+        }
+    })
+}
 
 /**
  * Lida com o evento de clique no botão de seleção de curso
  * 
  * @param {number} anoNum - O ano escolhido
- * @param {boolean} [updateDom=false] - Flag que indica se o DOM deve ser atualizado
- * @param {string} [selectedAno=null] - O ano atualmente selecionado.
+ * @param {string} [selectedAno] - O ano atualmente selecionado.
  * @param {boolean} [handleDist=false] - Flag que indica se deve ser atualizada a tabela de distribuição.
  * @returns {null} Não retorna qualquer valor
  */
-function handleCursoBtn(anoNum, updateDom = false, selectedAno = null, handleDist = false) {
-    let cursoNome = cursoBtn.value;
+function handleAnoBtn(anoNum, selectedAno, handleDist = false) {
+    return new Promise((resolve, reject) => {
+        let cursoNome = cursoBtn.value;
 
-    if (cursoNome == "Curso") {
-        cursoNome = "L.EIC";
-    }
-
-    if (anoNum === 0) {
-        anoNum = ano;
-    }
-
-    // Realiza o pedido assíncrono
-    $.ajax({
-        url: '/table/',
-        type: 'GET',
-        data: { 'curso': cursoNome, 'projId': projId, 'anoNum': anoNum },
-        success: function (data) {
-            document.querySelector(".main_vista_container").innerHTML = data.schedulehtml;
-            updateColspan();
-
-            const cursoJson = data.curso_json;
-            curso = JSON.parse(cursoJson);
-            turmasPorTurno = data.turmasPorTurno;
-            ano = curso.anos[0].ano;
-            semana = 'Semanas';
-
-            // Atualiza o conteúdo de todos os botões de seleção
-            updateAnoButton(data.numAnos, selectedAno);
-            updateTurnosButton(curso.anos[0].turmasPorTurno);
-            updateTurmasButton(data.turmasAno);
-            updateSemanasButton(data.semanasAno);
-
-            dataLoadBool = true;
-
-            // Caso seja necessário, atualiza o conteúdo da página
-            if (updateDom) {
+        // Realiza o pedido assíncrono
+        $.ajax({
+            url: '/table/',
+            type: 'GET',
+            data: { 'curso': cursoNome, 'projId': projId, 'anoNum': anoNum },
+            success: function (data) {
+                document.querySelector(".main_vista_container").innerHTML = data.schedulehtml;
                 updateColspan();
+
+                const cursoJson = data.curso_json;
+                curso = JSON.parse(cursoJson);
+                turmasPorTurno = data.turmasPorTurno;
+                ano = curso.anos[0].ano;
+                semana = 'Semanas';
+
+                // Atualiza o conteúdo de todos os botões de seleção
+                updateAnoButton(data.numAnos, selectedAno);
+                updateTurnosButton(turmasPorTurno);
+                updateTurmasButton(data.turmasAno);
+                updateSemanasButton(data.semanasAno);
+
+                dataLoadBool = true;
+
+                // Caso seja necessário, atualiza o conteúdo da página                
                 fillUcs(ano);
                 fillDocentes(ano);
                 fillSalas(ano);
-                handleDistributionBtn(handleDist);
+                enablePopovers();
+
+                resolve(data);
+            },
+            error: function (xhr, textStatus, error) {
+                dataLoadBool = false;
+                reject(error);
             }
-        },
-        error: function (xhr, textStatus, error) {
-            dataLoadBool = false;
-        }
+        });
     });
 }
 
 /**
  * Lida com o evento de clique no botão de distribuição.
- * @param {boolean} show - Flag que indica se a tabela de distribuição deve ser mostrada.
  * @returns {null} Não retorna qualquer valor.
  */
-function handleDistributionBtn(show) {
+function handleDistributionBtn() {
     const table = document.querySelector(".secondary_vista_container");
 
-    if (!show && table.style.display === "") {
-        table.setAttribute("style", "display: none;");
-    }
-    else if (show && table.style.display === "none") {
-        return;
-    }
-    else {
+    if (distributionActive) {
+        if (table.style.display !== "none") return;
+
         let ucs = curso.ucs;
         let ucsCodigosList = [];
         for (let i = 0; i < ucs.length; i++) {
@@ -102,24 +110,11 @@ function handleDistributionBtn(show) {
                 fillTable();
                 table.setAttribute("style", "display: ;");
             }
-        })
+        });
+    } else {
+        table.style.display = "none";
     }
-}
-
-/**
- * Obtém as turmas de um dado turno, usando um endpoint do backend.
- * 
- * @param {string} turno - O turno para o qual obter as turmas.
- * @returns {Promise<Array>} - Um array de turmas.
- */
-function fetchTurmasForTurno(curso, ano, turno) {
-    return $.ajax({
-        url: '/getTurmasPorTurnoCursoAno',
-        type: 'GET',
-        data: { 'curso': curso, 'ProjectNumber': projId, 'anoNum': ano },
-    }).then(response => {
-        return response[turno] || [];
-    })
+    distributionActive = !distributionActive;
 }
 
 /**
@@ -185,73 +180,46 @@ function createAndAppendOptions(selectElement, options, genericOptionText, selec
     }
 }
 
+// ------------------------------------------------------------------------------------------------
+// Event listeners
+// ------------------------------------------------------------------------------------------------
+
 cursoBtn.addEventListener("change", function () {
-    handleCursoBtn(1);
+    let cursoNome = cursoBtn.value;
+
+    let anoNum = anoBtn.value;
+    if (anoNum === "Ano") anoNum = 1;
+
+    handleCursoBtn(cursoNome, anoNum);
 });
 
 anoBtn.addEventListener("change", function () {
-    if (this.value === 'Ano')
-        ano = this.options[1].value;
-    else
-        ano = this.value;
-    handleCursoBtn(ano, dataLoadBool, ano);
+    ano = this.value;
+    handleAnoBtn(ano, ano).then(updateDayDivisions);
 });
 
 turnosBtn.addEventListener("change", function () {
     const selectedTurno = this.value;
-    const cursoNome = cursoBtn.value;
 
     if (selectedTurno === 'Turnos') {
-        displayAllTurmas();
+        displayAllAulas();
         updateColspan();
     } else {
-        fetchTurmasForTurno(cursoNome, ano, selectedTurno)
-            .then(displayTurmasForTurno)
-            .then(() => {
-                updateColspan();
-            })
-            .catch(error => {
-                console.error('Error fetching turmas:', error);
-            });
+        displayTurmasForTurno(turmasPorTurno[selectedTurno]);
+        updateColspan();
     }
+    updateDayDivisions();
 });
 
 turmasBtn.addEventListener("change", function () {
-    const allTurmas = this.options;
-    const turmasLista = curso.anos[0].turmas;
-
     if (this.value === 'Turma') {
-        mergeCells();
+        displayAllAulas();
+        updateColspan();
+    } else {
+        displayTurma(this.value);
+        updateColspan();
     }
-    else {
-        unmergeCells(turmasLista);
-    }
-
-    for (let i = 0; i < allTurmas.length; i++) {
-        const turma_nome = allTurmas[i].value;
-
-        if (turma_nome === this.value || this.value === 'Turma') {
-            turma = "#turma_" + turma_nome;
-            const turmaCol = document.querySelectorAll(turma);
-            turmaCol.forEach(cell => cell.style.display = '');
-
-            substring = "turma_" + turma_nome;
-            const elements = document.querySelectorAll("[id*=" + substring + "]");
-            elements.forEach(cell => cell.style.display = '');
-            continue;
-        }
-
-        if (turma_nome !== this.value) {
-            turma = "#turma_" + turma_nome;
-            const turmaCol = document.querySelectorAll(turma);
-            turmaCol.forEach(cell => cell.style.display = 'none');
-
-            substring = "turma_" + turma_nome;
-            const elements = document.querySelectorAll("[id*=" + substring + "]");
-            elements.forEach(cell => cell.style.display = 'none');
-        }
-    }
-    updateColspan();
+    updateDayDivisions();
 });
 
 semanasBtn.addEventListener("change", function () {
@@ -263,18 +231,20 @@ semanasBtn.addEventListener("change", function () {
         anoNum = anoBtn.value;
     }
 
-    // Make the asynchronous request
     $.ajax({
         url: '/table/',
         type: 'GET',
-        data: { 'curso': curso.nome, 'projId': projId, 'anoNum': anoNum },
+        data: { 'curso': curso.nome, 'projId': projId, 'anoNum': anoNum, 'semanas': semana },
         success: function (data) {
             document.querySelector(".main_vista_container").innerHTML = data.schedulehtml;
 
+            curso = JSON.parse(data.curso_json);
+            ano = curso.anos[0].ano;
             updateColspan();
             fillUcs(ano);
             fillDocentes(ano);
             fillSalas(ano);
+            enablePopovers();
         },
         error: function (xhr, textStatus, error) {
             console.log(textStatus);
@@ -283,7 +253,7 @@ semanasBtn.addEventListener("change", function () {
 });
 
 distributionBtn.addEventListener("click", function () {
-    handleDistributionBtn(false);
+    handleDistributionBtn();
 });
 
 for (let i = 0; i < cursosLista.length; i++) {

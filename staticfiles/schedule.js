@@ -10,22 +10,24 @@ function fillUcs(ano) {
     const turmasSet = new Set();
     let ucAnoBool = false;
 
-    for (let i = 0; i < allUCs.length; i++) {
-        let uc = allUCs[i];
+    const relevantUcs = allUCs.filter(uc =>
+        uc.anos.includes(ano)
+    );
+
+    relevantUcs.forEach(sortAulasByTurmasAndDuracao);
+    relevantUcs.sort((ucA, ucB) => {
+        const weightA = calculateUcWeight(ucA);
+        const weightB = calculateUcWeight(ucB);
+        return weightA - weightB;
+    })
+
+    for (let i = 0; i < relevantUcs.length; i++) {
+        let uc = relevantUcs[i];
         let aulas = uc.aulas; //FORMATO -> [Aula(id, horaInicial, duracao, diaSemana, isTeorica)]
         ucAnoBool = false;
 
         for (let j = 0; j < aulas.length; j++) {
             let aula = aulas[j];
-
-            if (semana !== "Semanas") {
-                let semanaInicial = semana.split(" - ")[0];
-                let semanaFinal = semana.split(" - ")[1];
-
-                if (aula.semanaInicial !== semanaInicial || aula.semanaFinal !== semanaFinal) {
-                    continue;
-                }
-            }
 
             let turmas = aula.turmas; //FORMATO -> {ano: [codigoTurma]}
             if (!(ano in turmas)) { //Caso não tenha turmas do ano em que a tabela está
@@ -86,7 +88,7 @@ function fillUcs(ano) {
                     let turmasLista = curso.anos[0].turmas;
                     let turmaIndex = turmasLista.indexOf(group[0]);
                     for (let t = 0; t + turmaIndex < turmasLista.length; t++) {
-                        if (group[k + t] == turmasLista[turmaIndex + t]) {
+                        if (group[t] == turmasLista[turmaIndex + t]) {
                             deleteHorizontal += 1;
                         }
                         else {
@@ -106,19 +108,18 @@ function fillUcs(ano) {
                 p_element.style.display = "inline-block";
                 cell.appendChild(p_element);
                 cell.setAttribute("rowspan", aula.duracao);
-                cell.setAttribute("data-semanas", aula.semanaInicial + ' - ' + aula.semanaFinal);
+                cell.setAttribute("data-si", aula.semanaInicial);
+                cell.setAttribute("data-sf", aula.semanaFinal);
+
+                cell.setAttribute("colspan", group.length);
+                cell.setAttribute("data-originalcolspan", group.length);
+                cell.setAttribute("style", "border: 2px solid black;");
 
                 if (aula.isTeorica) {
-                    cell.setAttribute("colspan", group.length);
-                    cell.setAttribute("data-originalcolspan", group.length);
-                    cell.setAttribute("style", "border: 2px solid black;");
                     cell.setAttribute("style", "background-color: " + window.colorDictionary[ucAnoSet.size][1]);
                     cell.setAttribute("data-teorica", 1)
                 }
                 else {
-                    cell.setAttribute("colspan", group.length);
-                    cell.setAttribute("data-originalcolspan", group.length);
-                    cell.setAttribute("style", "border: 2px solid black;");
                     cell.setAttribute("style", "background-color: " + window.colorDictionary[ucAnoSet.size][0]);
                     cell.setAttribute("data-teorica", 0);
                 }
@@ -128,6 +129,24 @@ function fillUcs(ano) {
     }
     setSidebarUCs(ucAnoSet);
     setSidebarTurmas(turmasSet);
+}
+
+function sortAulasByTurmasAndDuracao(uc) {
+    uc.aulas.sort((a, b) => {
+        const turmasA = a.turmas[ano] ? a.turmas[ano].length : 0;
+        const turmasB = b.turmas[ano] ? b.turmas[ano].length : 0;
+        if (turmasA === turmasB) {
+            return a.duracao - b.duracao;
+        }
+        return turmasA - turmasB;
+    });
+}
+
+function calculateUcWeight(uc) {
+    return uc.aulas.reduce((acc, aula) => {
+        const turmasLength = aula.turmas[ano] ? aula.turmas[ano].length : 0;
+        return acc + aula.duracao * turmasLength;
+    }, 0);
 }
 
 /**
@@ -144,15 +163,6 @@ function fillDocentes(ano) {
 
         for (let j = 0; j < aulas.length; j++) {
             let aula = aulas[j];
-
-            if (semana !== "Semanas") {
-                const semanaInicial = semana.split(" - ")[0];
-                const semanaFinal = semana.split(" - ")[1];
-
-                if (aula.semanaInicial !== semanaInicial || aula.semanaFinal !== semanaFinal) {
-                    continue;
-                }
-            }
 
             let turmas = aula.turmas; //FORMATO -> {ano: [codigoTurma]}
 
@@ -178,6 +188,14 @@ function fillDocentes(ano) {
                 p_element.classList.add("docente");
                 p_element.id = docente.numMecanografico;
                 p_element.innerHTML = docente.abreviacao;
+                p_element.setAttribute("data-bs-toggle", "popover");
+                p_element.setAttribute("data-bs-title", docente.nome);
+
+                const div_popover = document.createElement("div");
+                div_popover.id = docente.numMecanografico;
+                div_popover.style.display = "none";
+                div_popover.innerHTML = docente.miniHorario;
+                p_element.appendChild(div_popover);
 
                 const br = document.createElement("br");
                 p_element.style.display = "inline-block";
@@ -205,15 +223,6 @@ function fillSalas(ano) {
         for (let j = 0; j < aulas.length; j++) {
             let aula = aulas[j];
 
-            if (semana !== "Semanas") {
-                let semanaInicial = semana.split(" - ")[0];
-                let semanaFinal = semana.split(" - ")[1];
-
-                if (aula.semanaInicial !== semanaInicial || aula.semanaFinal !== semanaFinal) {
-                    continue;
-                }
-            }
-
             let turmas = aula.turmas; //FORMATO -> {ano: [codigoTurma]}
             if (!(ano in turmas)) { //Caso não tenha turmas do ano em que a tabela está
                 continue;
@@ -237,8 +246,17 @@ function fillSalas(ano) {
                 p_element.classList.add("sala");
                 p_element.id = sala.numero;
                 p_element.innerHTML = sala.numero;
-                p_element.style.display = "inline-block";
+                p_element.setAttribute("data-bs-toggle", "popover");
+                p_element.setAttribute("data-bs-title", sala.numero);
+
+                const div_popover = document.createElement("div");
+                div_popover.id = sala.numero;
+                div_popover.style.display = "none";
+                div_popover.innerHTML = sala.miniHorario;
+                p_element.appendChild(div_popover);
+
                 const br = document.createElement("br");
+                p_element.style.display = "inline-block";
                 cell.appendChild(br);
                 cell.appendChild(p_element);
                 cell.setAttribute("rowspan", aula.duracao);
@@ -371,7 +389,6 @@ function deleteCells(cell, cellsRight, cellsBottom) {
             const rectHeight = cellToGetHeight.getBoundingClientRect();
             const rectWidth = cellToGetWidth.getBoundingClientRect();
 
-            let rect = cellToDelete.getBoundingClientRect();
             let width = rectWidth.width;
             height = rectHeight.height;
 
@@ -407,8 +424,10 @@ function deleteCells(cell, cellsRight, cellsBottom) {
         }
 
         if (i != cellsBottom) {
-            idCell = idCell.split('_')[0] + "_" + idCell.split('_')[1] + "_" + idCell.split('_')[2] + "_" + hora; //id da célula seguinte pertencente à mesma aula
+            idCellSplit = idCell.split('_');
+            idCell = idCellSplit[0] + "_" + idCellSplit[1] + "_" + idCellSplit[2] + "_" + hora; //id da célula seguinte pertencente à mesma aula
             cell = document.querySelector("td[id='" + idCell + "']");
+            if (!cell) break;
             cellIndex = cell.cellIndex;
         }
     }
@@ -419,9 +438,14 @@ function deleteCells(cell, cellsRight, cellsBottom) {
  * 
  * @returns {null} Não retorna qualquer valor.
  */
-function displayAllTurmas() {
-    const allTurmas = document.querySelectorAll("[id*=turma_]");
-    allTurmas.forEach(cell => cell.style.display = '');
+function displayAllAulas() {
+    const allTurmas = document.querySelectorAll("tbody [id*=turma_]");
+    allTurmas.forEach(cell => {
+        cell.style.display = '';
+        if (cell.hasAttribute("data-originalcolspan")) {
+            cell.colSpan = parseInt(cell.getAttribute("data-originalcolspan"), 10);
+        }
+    });
 }
 
 /**
@@ -462,77 +486,34 @@ function displayTurmasForTurno(turmas) {
 }
 
 /**
- * Une células da tabela.
+ * Faz o display de todas as aulas de uma dada turma.
  * 
- * @returns {null} Não retorna qualquer valor.
+ * @param {string} targetTurma A turma selecionada para visualização.
+ * @return {null} Não retorna qualquer valor.
  */
-function mergeCells() {
-    const cells = $("#table_vistas").find("td:not(:first-child):has(p)").toArray();
+function displayTurma(targetTurma) {
+    const allTurmaCells = document.querySelectorAll("tbody td[id*=turma_], tbody th[id*=turma_]");
+    allTurmaCells.forEach(cell => {
+        cell.style.display = 'none';
 
-    cells.forEach(function (cell) {
-        const colspan = parseInt(cell.getAttribute('colspan'));
-        const originalColspan = parseInt(cell.getAttribute('data-originalcolspan'));
-
-        if (originalColspan === colspan || !originalColspan) {
-            return;
+        const displayCell = (cell) => {
+            cell.style.display = '';
+            cell.setAttribute('colspan', '1');
         }
 
-        const aulaId = cell.getAttribute('data-aulaid');
-        const nextSiblings = document.querySelectorAll("tbody td:not(:first-child)[data-aulaid='" + aulaId + "']");
-
-        for (let i = 1; i < nextSiblings.length; i++) {
-            nextSiblings[i].remove();
-        }
-
-        cell.setAttribute('colspan', originalColspan);
-    })
-}
-
-/**
- * Separa células de uma tabela com base na lista de turmas.
- *
- * @param {Array} turmasLista - Lista de turmas cujas células devem ser separadas.
- * @returns {null} Não retorna qualquer valor.
- */
-function unmergeCells(turmasLista) {
-    const cells = $("#table_vistas").find("td:not(:first-child):has(p)").toArray();
-
-    const turmasporturno = curso.anos[0].turmasPorTurno;
-
-    cells.forEach(function (cell) {
-        const colspan = parseInt(cell.getAttribute('colspan'));
-
-        // If the cell is already unmerged or has no colspan, skip it
-        if (colspan === 1 || !colspan) {
-            return;
-        }
-
-        const cellId = cell.id;
-        const cellTurma = cellId.split("_")[1];
-        const turmaIndex = turmasLista.indexOf(cellTurma);
-
-        for (let i = 1; i < colspan; i++) {
-            const newCell = cell.cloneNode(true);
-            const newCellTurma = turmasLista[turmaIndex + i];
-            let newCellTurno = "turno";
-
-            //Encontrar o turno a que pertence a célula
-            for (const [key, arr] of Object.entries(turmasporturno)) {
-                if (arr.includes(newCellTurma)) {
-                    newCellTurno += key.toString();
-                    break;
-                }
+        if (cell.hasAttribute('data-group')) {
+            if (cell.getAttribute('data-group').includes(targetTurma)) {
+                displayCell(cell);
             }
-
-            const newCellId = cellId.split("_")[0] + '_' + newCellTurma + '_' + cellId.split("_")[2] + '_' + cellId.split("_")[3];
-            newCell.setAttribute('id', newCellId);
-            newCell.setAttribute('class', newCellTurno);
-            newCell.setAttribute('colspan', 1);
-
-            cell.parentNode.insertBefore(newCell, cell.nextSibling);
+        } else if (cell.hasAttribute('data-turmas')) {
+            if (cell.getAttribute('data-turmas').includes(targetTurma)) {
+                displayCell(cell);
+            }
+        } else {
+            if (cell.id.includes(targetTurma)) {
+                displayCell(cell);
+            }
         }
-
-        cell.setAttribute('colspan', '1');
     });
 }
 
@@ -566,6 +547,60 @@ function updateColspan() {
             th.setAttribute("colspan", colspanValue);
         }
     });
+}
+
+/**
+ * Atualiza a posição da linha de divisão entre dias no horário,
+ * de acordo com o layout.
+ * 
+ * @returns {null} Não retorna qualquer valor.
+ */
+function updateDayDivisions() {
+    const allTurmaCells = document.querySelectorAll("tbody [id*=turma_]");
+    allTurmaCells.forEach(cell => {
+        cell.classList.remove("last-turma");
+    });
+
+    const table = document.getElementById("table_vistas");
+    const turmasRow = table.rows[1];
+    const dayLength = Math.floor((turmasRow.cells.length - 1) / 6);
+    let lastTurmaInDay;
+    for (let i = dayLength; i >= 1; i--) {
+        if (turmasRow.cells[i].style.display === '') {
+            lastTurmaInDay = turmasRow.cells[i];
+            break;
+        }
+    }
+
+    const lastTurmaId = lastTurmaInDay.getAttribute("id").split('_')[1];
+    const allPotentialCells = document.querySelectorAll(`tbody td[id*="${lastTurmaId}"], tbody [data-turmas*="${lastTurmaId}"]`);
+
+    const allLastTurmaCells = Array.from(allPotentialCells).filter(cell => {
+        if (cell.hasAttribute('data-group')) {
+            return cell.getAttribute('data-turmas').includes(lastTurmaId) && cell.getAttribute('data-group').includes(lastTurmaId);
+        }
+        return true;
+    });
+    allLastTurmaCells.forEach(cell => {
+        cell.classList.add("last-turma");
+    });
+}
+
+/**
+ * Inicializa os popovers dos docentes e salas que contêm um
+ * mini-horário com as disponibilidades dessas entidades.
+ * 
+ * @returns {null} Não retorna qualquer valor.
+ */
+function enablePopovers() {
+    const docentesP = document.querySelectorAll('[data-bs-toggle="popover"]');
+    const popovers = [...docentesP].map(p => new bootstrap.Popover(p,
+        {
+            trigger: 'hover focus',
+            html: true,
+            content: p.firstElementChild.innerHTML
+        }
+    ));
 }
 
 /**
@@ -746,7 +781,7 @@ function swapFullCells(firstCell, secondCell) {
     }
 
     // Remove all div child elements from firstCell
-    const firstDivChildren = firstCell.querySelectorAll('div');
+    const firstDivChildren = firstCell.querySelectorAll(':scope > div');
     for (let i = 0; i < firstDivChildren.length; i++) {
         const divChild = firstDivChildren[i];
         firstCell.removeChild(divChild);
@@ -922,11 +957,37 @@ function checkIfSwapPossible(cell, cell2, cellsRight, cellsBottom) {
 // Event listeners
 // ------------------------------------------------------------------------------------------------
 
+document.addEventListener('DOMContentLoaded', function () {
+    const myDefaultAllowList = bootstrap.Tooltip.Default.allowList;
+    myDefaultAllowList.table = [];
+    myDefaultAllowList.thead = [];
+    myDefaultAllowList.tbody = [];
+    myDefaultAllowList.tr = [];
+    myDefaultAllowList.th = [];
+    myDefaultAllowList.td = [];
+});
+
+/*
 $(document).on('click', 'td:not(:first-child)', function (event) {
     const td = this;
     const targetElement = event.target;
-    const turma = td.id.split('_')[1];
-    const projectNumber =  $('script[data-proj-id]').data('projId');
+    const projectNumber = $('script[data-proj-id]').data('projId');
+
+    // Check if the data-turmas attribute exists
+    const hasDataTurmas = td.hasAttribute('data-turmas');
+    let turmas = [];
+
+    if (hasDataTurmas) {
+        // Use the data-turmas attribute
+        const turmasData = td.getAttribute('data-turmas');
+        turmas = turmasData.split(','); // Split the data-turmas attribute into an array
+    } else {
+        // Use the id attribute as fallback
+        const idParts = td.id.split('_'); // Assuming the id is structured as "turma_<class1>_<class2>_<day>_<hour>"
+        turmas = idParts.slice(1, -2); // Extract the class parts
+    }
+
+    console.log('Turmas:', turmas);
 
     // Check if the target element is the td itself or a descendant of the td
     if (targetElement === td || $.contains(td, targetElement)) {
@@ -938,11 +999,13 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
             displayBlocosVermelhosGlobal(selectedP.attr('class'), selectedP.attr('id'), false);
         }
 
-        //Caso se tente selecionar uma célula que já estava selecionada
+        // Caso se tente selecionar uma célula que já estava selecionada
         if ($(td).hasClass('selected')) {
-            showEditBarOptions(false)
+            showEditBarOptions(false);
             $(td).removeClass('selected');
-            displayBlocosVermelhosTurma(turma, false);
+            turmas.forEach(turma => {
+                displayBlocosVermelhosTurma(turma, false);
+            });
             clearHighlight();
             return;
         }
@@ -952,9 +1015,15 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
         if (prevSelectedCell.length === 1) {
             // td / prevSelectedCell
             const prevCell = document.querySelector("td:not(:first-child).selected");
-            const idCellBefore = $(prevCell).attr('id');
-            displayBlocosVermelhosTurma(idCellBefore.split('_')[1], false);
-            displayBlocosVermelhosTurma(turma, false);
+            const idCellBefore = $(prevCell).attr('id').split('_');
+            const prevTurmas = idCellBefore.slice(1, -2);
+
+            prevTurmas.forEach(turma => {
+                displayBlocosVermelhosTurma(turma, false);
+            });
+            turmas.forEach(turma => {
+                displayBlocosVermelhosTurma(turma, false);
+            });
 
             try {
                 if (canSwap(prevCell, td)) {
@@ -965,7 +1034,6 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
                     if (td.querySelector("p") !== null) {
                         submitToDatabase(td);
                     }
-                    handleDistributionBtn(true);
                 }
             } catch (error) {
                 console.error("An error occurred in canSwap or swapFullCells:", error);
@@ -978,14 +1046,16 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
             showEditBarOptions(false);
         });
 
-        //Unselect da primeira célula selecionada
+        // Unselect da primeira célula selecionada
         $('td:not(:first-child)').removeClass('selected');
-        
+
         if (prevSelectedCell.length == 0) {
-            //Select da primeira célula selecionada
+            // Select da primeira célula selecionada
             $(td).addClass('selected');
             if ($(td).has('p').length > 0) {
-                displayBlocosVermelhosTurma(turma, true);
+                turmas.forEach(turma => {
+                    displayBlocosVermelhosTurma(turma, true);
+                });
 
                 const docenteElement = $(td).find('p.docente');
                 const salaElement = $(td).find('p.sala');
@@ -1016,8 +1086,115 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
         if (td.children.length > 0) {
             showEditBarOptions(true);
             selectedCellSelectSideBar(targetElement, false);
+        } else {
+            showEditBarOptions(false);
         }
-        else showEditBarOptions(false);
+    }
+});
+*/
+
+$(document).on('click', 'td:not(:first-child)', function (event) {
+    const td = this;
+    const targetElement = event.target;
+    const turma = td.id.split('_')[1];
+    const projectNumber = $('script[data-proj-id]').data('projId');
+
+    // Check if the target element is the td itself or a descendant of the td
+    if (targetElement === td || $.contains(td, targetElement)) {
+        // Unselect any selected p element
+        const selectedP = $('td:not(:first-child) p.selected');
+        if (selectedP.length) {
+            showEditBarOptions(false);
+            selectedP.removeClass('selected');
+            displayBlocosVermelhosGlobal(selectedP.attr('class'), selectedP.attr('id'), false);
+        }
+
+        // Caso se tente selecionar uma célula que já estava selecionada
+        if ($(td).hasClass('selected')) {
+            showEditBarOptions(false);
+            $(td).removeClass('selected');
+            displayBlocosVermelhosTurma(turma, false);
+            clearHighlight();
+
+            // Remove borders from p elements
+            $(td).find('p').css('border', '');
+            return;
+        }
+
+        const prevSelectedCell = $('td:not(:first-child).selected');
+        // Caso já exista uma célula selecionada, então é preciso trocá-las
+        if (prevSelectedCell.length === 1) {
+            const prevCell = document.querySelector("td:not(:first-child).selected");
+            const idCellBefore = $(prevCell).attr('id');
+            displayBlocosVermelhosTurma(idCellBefore.split('_')[1], false);
+            displayBlocosVermelhosTurma(turma, false);
+
+            try {
+                if (canSwap(prevCell, td)) {
+                    swapFullCells(prevCell, td);
+                    if (prevCell.querySelector("p") !== null) {
+                        submitToDatabase(prevCell);
+                    }
+                    if (td.querySelector("p") !== null) {
+                        submitToDatabase(td);
+                    }
+                }
+            } catch (error) {
+                console.error("An error occurred in canSwap or swapFullCells:", error);
+            }
+            showEditBarOptions(false);
+        }
+
+        // Remove class from all other td
+        document.querySelectorAll("td:not(:first-child)").forEach(td => {
+            showEditBarOptions(false);
+        });
+
+        // Unselect da primeira célula selecionada
+        $('td:not(:first-child)').removeClass('selected');
+
+        if (prevSelectedCell.length == 0) {
+            // Select da primeira célula selecionada
+            $(td).addClass('selected');
+            if ($(td).has('p').length > 0) {
+                displayBlocosVermelhosTurma(turma, true);
+
+                const docenteElement = $(td).find('p.docente');
+                const salaElement = $(td).find('p.sala');
+                if (docenteElement.length > 0 && salaElement.length > 0) {
+                    const docenteId = docenteElement.attr('id');
+                    const numeroSala = salaElement.attr('id');
+                    clearHighlight();  // Limpa os destaques antes de adicionar novos
+                    displayTodosConflitos(docenteId, numeroSala, true); // Chama a função para destacar os conflitos duplos
+                    
+                    // Add borders only to the specific cell
+                    docenteElement.css('border', '2px solid yellow');
+                    salaElement.css('border', '2px solid orange');
+                } else {
+                    if (docenteElement.length > 0) {
+                        const docenteId = docenteElement.attr('id');
+                        console.log('Docente selecionado com id:', docenteId);
+                        clearHighlight();  // Limpa os destaques antes de adicionar novos
+                        displayBlocosAmarelos(docenteId, true);  // Chama a função para destacar os blocos amarelos
+                        docenteElement.css('border', '2px solid yellow');  // Add border
+                    }
+                    if (salaElement.length > 0) {
+                        const numeroSala = salaElement.attr('id');
+                        console.log('Sala selecionada com id:', numeroSala);
+                        clearHighlight();  // Limpa os destaques antes de adicionar novos
+                        displayBlocosLaranjas(numeroSala, true);  // Chama a função para destacar os blocos laranja
+                        salaElement.css('border', '2px solid orange');  // Add border
+                    }
+                }
+            }
+        }
+
+        if (td.children.length > 0) {
+            showEditBarOptions(true);
+            selectedCellSelectSideBar(targetElement, false);
+        } else {
+            showEditBarOptions(false);
+        }
     }
 });
 
@@ -1081,70 +1258,6 @@ $(document).on('mouseleave', '#table_vistas td:not(:first-child):has(p) p.uc', f
         document.getElementById("tooltipcontainer").parentNode.removeChild(document.getElementById("tooltipcontainer"));
     }
 });
-
-$(document).on('mouseenter', '#table_vistas td:not(:first-child):has(p) p.docente', function (event) {
-    // MUDAR DOCENTES
-    const siglaDocente = this.textContent;
-
-    for (let i = 0; i < curso.docentes.length; i++) {
-        const doc_sigla = curso.docentes[i].abreviacao;
-        if (siglaDocente == doc_sigla) {
-            if (!document.getElementById("tooltipcontainer")) {
-                const name = curso.docentes[i].nome;
-                tooltipcontainer = document.createElement("div");
-                tooltipcontainer.setAttribute("id", "tooltipcontainer");
-                tooltipcontainer.style.position = "fixed";
-                tooltipcontainer.style.left = Math.max(event.clientX + 10, 0) + "px";
-                tooltipcontainer.style.top = Math.max(event.clientY - 25, 0) + "px";
-                tooltipcontainer.style.zIndex = 999;
-                tooltipcontainer.style.opacity = 0;
-                tooltipcontainer.style.transition = "opacity 1s ease-in";
-                tooltipcontainer.style.opacity = 1;
-
-                tooltip = document.createElement("div");
-                tooltip.style.position = "fixed";
-
-                tooltip.style.width = "auto";
-                tooltip.style.backgroundColor = "black";
-                tooltip.style.color = "#fff";
-                tooltip.style.padding = "5px";
-                tooltip.style.zIndex = "999";
-                tooltip.style.fontSize = "13px";
-                tooltip.textContent = name;
-
-                tooltipcontainer.appendChild(tooltip);
-
-                tableVistas = document.getElementById("table_vistas").parentNode;
-                tableVistas.insertBefore(tooltipcontainer, tableVistas.firstChild);
-            }
-        }
-    }
-});
-
-$(document).on('mouseleave', '#table_vistas td:not(:first-child)', function (event) {
-    if (document.getElementById("tooltipcontainer")) {
-        document.getElementById("tooltipcontainer").parentNode.removeChild(document.getElementById("tooltipcontainer"));
-    }
-});
-
-$(document).on('mouseleave', '#table_vistas td:not(:first-child):has(p) p.docente', function (event) {
-    // MUDAR UCS
-    const docente = this;
-    const nomeDocente = this.textContent;
-
-    for (let i = 0; i < curso.docentes.length; i++) {
-        const nome_doc = curso.docentes[i].nome;
-        if (nomeDocente == nome_doc) {
-            const sigla = curso.docentes[i].abreviacao;
-            docente.textContent = sigla;
-            docente.style.whiteSpace = "nowrap";
-        }
-    }
-    if (document.getElementById("tooltipcontainer")) {
-        document.getElementById("tooltipcontainer").parentNode.removeChild(document.getElementById("tooltipcontainer"));
-    }
-});
-
 
 $(document).on('click', 'td:not(:first-child) p', function (event) {
     // Previne que o evento se propague para o elemento td
@@ -1224,6 +1337,7 @@ function clearHighlight() {
         cell.style.opacity = "";
     });
 }
+
 function displayBlocosVermelhosTurma(turma, display) {
     if (!display) {
         const redCellsTd = document.querySelectorAll('td[style="background-color: red; opacity: 0.6;"]');
