@@ -69,3 +69,10 @@
     display: flex;
     justify-content: center;
 }
+
+#offCanvasBtn {
+    font-size: 1.6em;
+    color: #f8f9fa;
+    font-weight: normal;
+    margin-left: 15px;
+}
