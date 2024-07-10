@@ -10,7 +10,7 @@ in a natural language format
 {% block page %}
 
 <style>
-    .box{
+    .box {
         min-height: 84.5vh;
     }
 
@@ -26,30 +26,35 @@ in a natural language format
         height: auto;
         z-index: 100;
     }
-    .contentMargin{
+
+    .contentMargin {
         margin-top: 5.5em;
     }
 
     .box {
         min-height: 87.5vh;
     }
+
     .bottom-border {
         border-bottom: 2px solid lightgray;
     }
-    .conflicts-text{
+
+    .conflicts-text {
         max-width: 700px;
         text-align: left;
         align-content: space-between;
     }
-    .conflicts-text h3{
+
+    .conflicts-text h3 {
         color: #aa1f1f;
     }
-    .export-content{
+
+    .export-content {
         gap: 100px;
     }
 </style>
 
-{% include '../common/header.html' %}
+{% include '../common/header.html' with display_edit_buttons=is_edit_turnos %}
 
 {% include '../common/createPopup.html' %}
 
@@ -58,24 +63,24 @@ in a natural language format
         <h1 class="bottom-border pb-3 pt-3 d-flex flex-row justify-content-center"> Projeto: {{projeto}} </h1>
         <div class="export-content d-flex flex-row justify-content-center align-items-center">
             {% if conflicts %}
-                <div class="mt-5 flex-column conflicts-text">
-                    <h3>A Exportar com conflitos:</h3>
-                    {% for string in conflicts %}
-                        {% if string %}
-                            <h4>{{ string }}</h4>
-                        {% else %}
-                            <br>
-                        {% endif %}
-                    {% endfor %}
-                </div>
+            <div class="mt-5 flex-column conflicts-text">
+                <h3>A Exportar com conflitos:</h3>
+                {% for string in conflicts %}
+                {% if string %}
+                <h4>{{ string }}</h4>
+                {% else %}
+                <br>
+                {% endif %}
+                {% endfor %}
+            </div>
             {% endif %}
             <div class="mt-5">
                 {% for string in message %}
-                    {% if string %}
-                        <h3>{{ string }}</h3>
-                    {% else %}
-                        <br>
-                    {% endif %}
+                {% if string %}
+                <h3>{{ string }}</h3>
+                {% else %}
+                <br>
+                {% endif %}
                 {% endfor %}
             </div>
         </div>

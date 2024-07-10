@@ -605,29 +605,6 @@ def getUCsFromCurso(ProjectNumber, abreviacao_curso):
     cursor.execute(stmt, (abreviacao_curso,))
     result = cursor.fetchall()
 
-    stmtA = '''
-        SELECT uc.codigo, uc.nome, uc.sigla
-        FROM turmaUC
-        JOIN turmas ON turmaUC.idTurma = turmas.codigo
-        JOIN uc ON turmaUC.idUC = uc.codigo
-        WHERE turmas.idCurso = ?
-            AND uc.codigo NOT IN (
-                SELECT codigo
-                FROM uc
-                WHERE idCurso = ?
-            )
-    '''
-    cursor.execute(stmtA, (abreviacao_curso, abreviacao_curso,))
-    resultB = cursor.fetchall()
-
-    finalResultB = []
-    
-    for i in resultB:
-        if i not in result and i not in finalResultB:
-            finalResultB.append(i)
-    # Extract the list of UC codes from the result set
-    result += finalResultB
-
     # Return list of UC codes
     return result
 
@@ -789,6 +766,12 @@ def getDocenteHorario(ProjectNumber, numeroMecanografico):
     conn = sqlite3.connect('./database/' + path + '/general_database.db', check_same_thread=False)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
+
+    # Query to get all idAula2 values from aulasSimultaneas table
+    stmt_exclude = '''SELECT aula2 FROM aulasSimultaneas'''
+    cursor.execute(stmt_exclude)
+    excluded_aulas = cursor.fetchall()
+    excluded_aulas_set = {row['aula2'] for row in excluded_aulas}
     
     # Execute query to get all aulas (lessons) for the given docente (teacher)
     stmt = '''SELECT idAula FROM aulaDocente WHERE idDocente=?'''
@@ -798,7 +781,7 @@ def getDocenteHorario(ProjectNumber, numeroMecanografico):
               
     # Iterate through each aula id in the result set and execute a query to get the aula details
     for row in result:
-        if row['idAula'] is not None :
+        if row['idAula'] is not None and row['idAula'] not in excluded_aulas_set:
             stmt2 = '''SELECT * FROM aula WHERE id=?'''
             cursor.execute(stmt2, (row['idAula'],))
             newresult = cursor.fetchall()
@@ -839,6 +822,12 @@ def getSalaHorario(ProjectNumber, numeroSala):
     conn = sqlite3.connect('./database/' + path + '/general_database.db', check_same_thread=False)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
+
+    # Query to get all idAula2 values from aulasSimultaneas table
+    stmt_exclude = '''SELECT aula2 FROM aulasSimultaneas'''
+    cursor.execute(stmt_exclude)
+    excluded_aulas = cursor.fetchall()
+    excluded_aulas_set = {row['aula2'] for row in excluded_aulas}
     
     # Select all the class IDs scheduled in the room.
     stmt = '''SELECT idAula FROM aulaSala WHERE idSala=?'''
@@ -847,7 +836,7 @@ def getSalaHorario(ProjectNumber, numeroSala):
     list_of_results = []
               
     for row in result:
-        if row['idAula'] is not None :
+        if row['idAula'] is not None and row['idAula'] not in excluded_aulas_set:
             # Select all the information for each class based on its ID.
             stmt2 = '''SELECT * FROM aula WHERE id=?'''
             cursor.execute(stmt2, (row['idAula'],))

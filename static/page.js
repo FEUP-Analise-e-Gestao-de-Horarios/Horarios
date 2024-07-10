@@ -256,6 +256,13 @@ distributionBtn.addEventListener("click", function () {
     handleDistributionBtn();
 });
 
+document.addEventListener('DOMContentLoaded', function () {
+    const exportBtn = document.getElementById('exportBtn');
+    exportBtn.addEventListener('click', function () {
+        window.location.href = "/export/" + projId;
+    });
+});
+
 for (let i = 0; i < cursosLista.length; i++) {
     const new_option = document.createElement("option");
     new_option.value = cursosLista[i];

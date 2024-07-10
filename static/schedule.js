@@ -132,9 +132,11 @@ function fillUcs(ano) {
 }
 
 /**
- * Ordena as aulas com base no número de turmas e na duração.
- *
- * @param {object} uc - Unidade curricular a ser ordenada.
+ * Ordena as aulas de uma UC por número de turmas e depois por duração.
+ * Este processo faz com que os blocos de UC sejam desenhados dos mais pequenos para os maiores.
+ * 
+ * @param {Object} uc - A UC com aulas a ordenar.
+ * @return {null} Não retorna qualquer valor.
  */
 function sortAulasByTurmasAndDuracao(uc) {
     uc.aulas.sort((a, b) => {
@@ -148,10 +150,10 @@ function sortAulasByTurmasAndDuracao(uc) {
 }
 
 /**
- * Calcula o peso de uma unidade curricular com base na duração das aulas e no número de turmas.
- *
- * @param {object} uc - Unidade curricular.
- * @returns {number} - Peso da unidade curricular.
+ * Determina o "peso" de uma UC, tendo em conta o número de turmas e a duração das suas aulas.
+ * 
+ * @param {Object} uc - A UC cujo peso deve ser determinado.  
+ * @returns {number} Peso da UC.
  */
 function calculateUcWeight(uc) {
     return uc.aulas.reduce((acc, aula) => {

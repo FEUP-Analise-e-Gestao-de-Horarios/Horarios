@@ -7,7 +7,7 @@
 {% block page %}
 
 <style>
-    .box{
+    .box {
         min-height: 84.5vh;
     }
 
@@ -23,7 +23,8 @@
         height: auto;
         z-index: 100;
     }
-    .contentMargin{
+
+    .contentMargin {
         margin-top: 5.5em;
     }
 
@@ -35,6 +36,7 @@
         border-left: 2px solid lightgray;
         margin: 0 auto;
     }
+
     .invisible-button {
         background-color: transparent;
         border: none;
@@ -45,44 +47,50 @@
         border-radius: 5px;
         transition: background-color 0.3s ease;
         font-size: 18px;
-        text-decoration:none;
+        text-decoration: none;
     }
 
     .invisible-button:hover {
         background-color: #333333;
         color: #ffffff;
-        text-decoration:none;
+        text-decoration: none;
     }
+
     .fixed-form {
         position: fixed;
         left: 40%;
     }
-    .widthform{
+
+    .widthform {
         width: 50em;
     }
-    .sizebox{
+
+    .sizebox {
         height: 5em;
     }
-    .return-button{
+
+    .return-button {
         font-size: 2em;
     }
-    #fix{
+
+    #fix {
         position: fixed;
         max-width: 93%;
     }
-    #scrl{
+
+    #scrl {
         position: absolute;
         overflow-y: scroll;
     }
 </style>
 
-{% include '../common/header.html' %}
+{% include '../common/header.html' with display_edit_buttons=is_edit_turnos %}
 
 {% include '../common/createPopup.html' %}
 
 <section class="h-100 contentMargin ms-3 me-3 mb-3 pb-3 box bg-dark" id="editDocentesContent">
     <div class="container-fluid h-100">
-        <div class="d-flex flex-row justify-content-between w-100 p-2 bg-dark" id = "fix">
+        <div class="d-flex flex-row justify-content-between w-100 p-2 bg-dark" id="fix">
             <h1 class="ms-2"> Docentes </h1>
             <a class="invisible-button return-button me-3" href="/editturnos/{{projId}}"> X </a>
         </div>
@@ -93,14 +101,15 @@
                 <br>
                 <br>
                 {% for docente in docentes %}
-                    <button class="docente-card w-100 invisible-button text-start m-1" id="{{docente.numeroMecanografico}}" onclick="setDocentesEditFormValues(this)">
-                        {{docente.abreviacao}} -- {{docente.nome}}
-                    </button><br>
+                <button class="docente-card w-100 invisible-button text-start m-1" id="{{docente.numeroMecanografico}}"
+                    onclick="setDocentesEditFormValues(this)">
+                    {{docente.abreviacao}} -- {{docente.nome}}
+                </button><br>
                 {% endfor %}
             </div>
             <div class="col-1 vertical-line"></div>
             <!-- edit docente form, occupies about 2/3 of the available space -->
-            <div class="col-6">                
+            <div class="col-6">
                 <br>
                 <br>
                 <br>
@@ -114,7 +123,9 @@
                     <div class="sizebox"></div>
                     <div class="mb-5 ms-5">
                         <label for="numeroMecanografico" class="form-label">Número Mecanográfico</label>
-                        <input required="required" onkeypress="return (event.charCode !=8 && event.charCode ==0 || (event.charCode >= 48 && event.charCode <= 57))" type="number" class="form-control" id="numeroMecanografico">
+                        <input required="required"
+                            onkeypress="return (event.charCode !=8 && event.charCode ==0 || (event.charCode >= 48 && event.charCode <= 57))"
+                            type="number" class="form-control" id="numeroMecanografico">
                         <div id="error-container-docente"></div>
                     </div>
                     <div class="mb-5 ms-5">
