@@ -114,6 +114,8 @@ pip install <módulo>
 
 Para realizar o login na aplicação, basta usar o username `admin`, com a palavra-passe `passhorarios`.
 
+O projeto 'Nome' na aplicação funciona apenas como placeholder, não tem uma base de dados associada, e pode ser apagado após o primeiro login.
+
 # Deployment:
 
 ## 6. Configurar settings.py
