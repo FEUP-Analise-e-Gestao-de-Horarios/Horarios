@@ -1048,7 +1048,6 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
         if ($(td).hasClass('selected')) {
             showEditBarOptions(false);
             $(td).removeClass('selected');
-            displayBlocosVermelhosTurma(turma, false);
             clearHighlight();
 
             // Remove borders from p elements
@@ -1061,8 +1060,6 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
         if (prevSelectedCell.length === 1) {
             const prevCell = document.querySelector("td:not(:first-child).selected");
             const idCellBefore = $(prevCell).attr('id');
-            displayBlocosVermelhosTurma(idCellBefore.split('_')[1], false);
-            displayBlocosVermelhosTurma(turma, false);
 
             try {
                 if (canSwap(prevCell, td)) {
@@ -1092,7 +1089,6 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
             // Select da primeira célula selecionada
             $(td).addClass('selected');
             if ($(td).has('p').length > 0) {
-                displayBlocosVermelhosTurma(turma, true);
 
                 const docenteElement = $(td).find('p.docente');
                 const salaElement = $(td).find('p.sala');
@@ -1101,7 +1097,7 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
                     const numeroSala = salaElement.attr('id');
                     clearHighlight();  // Limpa os destaques antes de adicionar novos
                     displayTodosConflitos(docenteId, numeroSala, true); // Chama a função para destacar os conflitos duplos
-                    
+
                     // Add borders only to the specific cell
                     docenteElement.css('border', '2px solid yellow');
                     salaElement.css('border', '2px solid orange');
@@ -1272,42 +1268,6 @@ function clearHighlight() {
     highlightedCells.forEach(cell => {
         cell.style.backgroundColor = "";
         cell.style.opacity = "";
-    });
-}
-
-/**
- * Mostra ou oculta blocos vermelhos para uma turma específica.
- * 
- * @param {string} turma - A turma alvo.
- * @param {boolean} display - Determina se os blocos vermelhos devem ser exibidos ou ocultados.
- */
-function displayBlocosVermelhosTurma(turma, display) {
-    if (!display) {
-        const redCellsTd = document.querySelectorAll('td[style="background-color: red; opacity: 0.6;"]');
-        const redCellsDiv = document.querySelectorAll('div[style="background-color: red; opacity: 0.6;"]');
-
-        for (let i = 0; i < redCellsTd.length; i++) {
-            redCellsTd[i].setAttribute("style", "");
-        }
-
-        for (let i = 0; i < redCellsDiv.length; i++) {
-            redCellsDiv[i].setAttribute("style", "");
-        }
-        return;
-    }
-
-    // Make the asynchronous request
-    $.ajax({
-        url: '/blocosturma/',  // Update with your actual URL
-        type: 'GET',
-        data: { 'turma': turma, 'projId': projId },
-        success: function (data) {
-            displayBlocosVermelhos(data.blocos, true, turma);
-
-        },
-        error: function (xhr, textStatus, error) {
-            // Handle any errors
-        }
     });
 }
 

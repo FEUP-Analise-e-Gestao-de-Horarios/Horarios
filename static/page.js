@@ -66,7 +66,7 @@ function handleAnoBtn(anoNum, selectedAno, handleDist = false) {
 
                 dataLoadBool = true;
 
-                // Caso seja necessário, atualiza o conteúdo da página                
+                // Atualiza o conteúdo da página                
                 fillUcs(ano);
                 fillDocentes(ano);
                 fillSalas(ano);
