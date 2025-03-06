@@ -993,6 +993,7 @@ def export(request, projId):
         print("Could not load conflicts")
         conflicts = []
     message = getDifferencesFromDatabases(projId)
+    print("Final message data:", message)
     if len(message) <=0:
         message.append('Não Foram Efetuadas Mudanças')
     return render(request, 'export/page.html', {'projetos': projetos, 'projeto': projeto[2], 'message':message, 'conflicts':conflicts, 'projId':projId, 'is_edit_turnos': False})
