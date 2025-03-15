@@ -123,9 +123,9 @@ class AulaInfo:
         aula_id = data['aulaId']
         cadeira_id = data['cadeiraId']
         hora_inicio = data['horaInicio']
-        hora_fim = int(data['horaFim'])  # Ensure it's an integer for calculations
+        hora_fim = int(data['horaFim'])
         turmas_ids = data['turmasIds']
-        docentes_ids = [str(num) for num in data['docentesIds']]  # Convert to strings
+        docentes_ids = [str(num) for num in data['docentesIds']]
         salas_ids = data['salasIds']
         
         # Calculate derived values
@@ -144,10 +144,15 @@ class AulaInfo:
             salas_ids=salas_ids
         )
 
-class Change:
-    def __init__(self, old, new):
-        self.old_aula = old
-        self.new_aula = new
-        self.conflict = 0;
-    def has_conflict(self):
-        self.conflict = 1;
+#This class represents a change in the aula info
+    #previous -> Information about the original aula
+    #new -> Information about the new aula info
+    #type -> 0: only one aula is considered | 1: a change between 2 different classes
+class AulaChange:
+    def __init__(self, previous: AulaInfo, new: AulaInfo):
+        self.previous = previous
+        self.new = new
+        self.type = 0
+    
+    def set_type(self, type):
+        self.type = type

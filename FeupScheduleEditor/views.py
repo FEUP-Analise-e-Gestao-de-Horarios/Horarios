@@ -820,7 +820,7 @@ def makeChanges(request, projId):
         #remover docente
         docenteBool = True
         removeDocente(projId, aula.id, docente)
-    for sala in [sala for sala in aula.salas_ids if sala not in aula_original.docentes_ids]:
+    for sala in [sala for sala in aula.salas_ids if sala not in aula_original.salas_ids]:
         #adicionar sala
         salaBool = True
         addSala(projId, aula.id, sala)
