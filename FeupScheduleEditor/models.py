@@ -99,12 +99,12 @@ class Bloco:
         self.diaSemana = diaSemana
 
 class AulaInfo:
-    def __init__(self, aula_id=None, cadeira_id=None, hora_inicio=None, duracao=None, dia=None, 
+    def __init__(self, aula_id=None, cadeira_id=None, hora_inicio=None, hora_fim=None, dia=None, 
                  turmas_ids=None, docentes_ids=None, salas_ids=None):
         self.id = aula_id
         self.cadeira_id = cadeira_id
         self.hora_inicio = hora_inicio
-        self.duracao = duracao
+        self.hora_fim = hora_fim
         self.dia = dia
         self.turmas_ids = turmas_ids
         self.docentes_ids = docentes_ids
@@ -123,26 +123,32 @@ class AulaInfo:
         aula_id = data['aulaId']
         cadeira_id = data['cadeiraId']
         hora_inicio = data['horaInicio']
-        hora_fim = int(data['horaFim'])
+        hora_fim = data['horaFim']
+
         turmas_ids = data['turmasIds']
         docentes_ids = [str(num) for num in data['docentesIds']]
         salas_ids = data['salasIds']
         
         # Calculate derived values
-        duracao = utils.reverse_time_span_conversion(hora_fim - hora_inicio)  # Get the duration based on time difference
-        dia = utils.switch_number_to_day(data['dia'])  # Convert day number to day name
+        #duracao = utils.reverse_time_span_conversion(int(hora_fim)- int(hora_inicio))  # Get the duration based on time difference
+        dia = data['dia']  # Convert day number to day name
         
         # Return a new AulaInfo object
         return AulaInfo(
             aula_id=aula_id,
             cadeira_id=cadeira_id,
             hora_inicio=hora_inicio,
-            duracao=duracao,
+            hora_fim=hora_fim,
             dia=dia,
             turmas_ids=turmas_ids,
             docentes_ids=docentes_ids,
             salas_ids=salas_ids
         )
+    def __str__(self):
+        """Human-friendly string representation."""
+        return (f"AulaInfo(id={self.id}, cadeira_id={self.cadeira_id}, hora_inicio={self.hora_inicio}, "
+                f"hora_fim={self.hora_fim}, dia={self.dia}, "
+                f"turmas_ids={self.turmas_ids}, docentes_ids={self.docentes_ids}, salas_ids={self.salas_ids})")
 
 #This class represents a change in the aula info
     #previous -> Information about the original aula
@@ -152,7 +158,12 @@ class AulaChange:
     def __init__(self, previous: AulaInfo, new: AulaInfo):
         self.previous = previous
         self.new = new
-        self.type = 0
+        self.conflict = False
     
-    def set_type(self, type):
-        self.type = type
+    def has_conflicts(self, value=True):
+        self.conflicts = value
+    def __str__(self):
+        """Human-friendly string representation."""
+        return (
+                f"  Previous: {self.previous}\n"
+                f"  New: {self.new})")

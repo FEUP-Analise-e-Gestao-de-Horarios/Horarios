@@ -17,6 +17,7 @@ class Node:
             raise ValueError("Non-global nodes must have a change.")
 
         self.change = change
+    
     def is_local_root(self, value=True):
         self.root_local = value
     
@@ -31,9 +32,9 @@ class Node:
             raise ValueError("A global root does not have any change and consequently no turmas")
         else:
             return self.change.new.turmas_ids
-    def output(self):
-        #yet to be implemented, will provide an output for the change (considering its type)
-        return
+    def __str__(self):
+        """Human-readable string representation of the node."""
+        return f"Node(id={self.id}, change={self.change})"
 
 class Edge:
     def __init__(self, node1: Node, node2: Node):
@@ -71,4 +72,38 @@ class Edge:
         else:
             self.global_ = True
         #dependency attribute yet to be implemented (needs more considerations)
+    def __str__(self):
+        """Human-readable string representation of the edge."""
+        return (f"Edge(node1={self.node1}, node2={self.node2}, "
+                f"local={self.local}, global_={self.global_}, uc={self.uc}, turma={self.turma})")    
+class Graph:
+    def __init__(self, aula_changes: list):
+        self.nodes = []
+        self.edges = []
+        self.build_graph(aula_changes)
+    
+    def build_graph(self, aula_changes: list):
+        # Create nodes for each AulaChange and store them
+        for change in aula_changes:
+            # Create a new Node for each AulaChange
+            node = Node(id=change.previous.id, change=change)
+            self.nodes.append(node)
         
+        # Now create edges between all pairs of nodes based on the relationships
+        for i in range(len(self.nodes)):
+            for j in range(i + 1, len(self.nodes)):
+                node1 = self.nodes[i]
+                node2 = self.nodes[j]
+                
+                # Create an edge between node1 and node2
+                edge = Edge(node1, node2)
+                edge.set_attributes()  # Set the attributes based on UC and Turmas
+                
+                self.edges.append(edge)
+    
+    def __str__(self):
+        """Human-readable string representation of the graph."""
+        nodes_str = "\n  ".join([str(node) for node in self.nodes])
+        edges_str = "\n  ".join([str(edge) for edge in self.edges])
+        
+        return (f"Graph:\n  Nodes:\n  {nodes_str}\n  Edges:\n  {edges_str}")
