@@ -1,12 +1,21 @@
 from FeupScheduleEditor.models import AulaChange, AulaInfo
+import sqlite3
+
+def generate_node_id():
+    """Generates a unique numeric node id on each call."""
+    if not hasattr(generate_node_id, "counter"):
+        generate_node_id.counter = 0  # Initialize the counter
+    node_id = generate_node_id.counter
+    generate_node_id.counter += 1
+    return node_id
 
 #A node represents an change of an class info
     #AulaChange -> old aula info and the new aula info
     #root_global -> boolean to tell if the node is the starting node of the global graph (only 1 node will have this type)
     #root_local -> boolean to tell if the node is the starting point of a local graph (e.g. the first change for an uc)
 class Node:
-    def __init__(self, id, change: AulaChange = None, root_local=False, root_global=False):
-        self.id = id
+    def __init__(self, change: AulaChange = None, root_local=False, root_global=False):
+        self.id = generate_node_id()
         self.root_local = root_local
         self.root_global = root_global
 
@@ -22,24 +31,34 @@ class Node:
         self.root_local = value
     
     def get_uc(self):
-        if(self.root_global):
-            raise ValueError("A global root does not have any change and consequently no uc")
+        if(self.root_global or not self.check_uc()):
+            raise ValueError("Change from one uc to another?")
         else:
-            return self.change.new.cadeira_id
+            return str(self.change.new.cadeira_id)
     
+    def check_uc(self):
+        return self.change.previous.cadeira_id == self.change.new.cadeira_id
+  
     def get_turmas(self):
         if(self.root_global):
             raise ValueError("A global root does not have any change and consequently no turmas")
         else:
-            return self.change.new.turmas_ids
+            turmas = set()
+            turmas.update(self.change.new.turmas_ids)
+            turmas.update(self.change.previous.turmas_ids)
+            return turmas
     def __str__(self):
         """Human-readable string representation of the node."""
         return f"Node(id={self.id}, change={self.change})"
 
 class Edge:
     def __init__(self, node1: Node, node2: Node):
+        
         self.node1 = node1
         self.node2 = node2
+        if self.node2.id < self.node1.id:
+            self.node1 = node2
+            self.node2 = node1
 
         self.local = False
         self.dependency = False
@@ -59,51 +78,87 @@ class Edge:
         self.directed = False
         self.direction = 0
     
-    def set_attributes(self):
-        if self.node1.root_global or self.node2.root_global:
-            return
-        
-        if (self.node1.get_uc() == self.node2.get_uc()):
-            self.local = True
-            self.uc = True
-        elif set(self.node1.get_turmas()) & set(self.node2.get_turmas()):
-            self.local = True
-            self.turma = True
-        else:
-            self.global_ = True
-        #dependency attribute yet to be implemented (needs more considerations)
     def __str__(self):
         """Human-readable string representation of the edge."""
         return (f"Edge(node1={self.node1}, node2={self.node2}, "
-                f"local={self.local}, global_={self.global_}, uc={self.uc}, turma={self.turma})")    
+                f"local={self.local}, global_={self.global_}, uc={self.uc}, turma={self.turma})")
+    
 class Graph:
-    def __init__(self, aula_changes: list):
-        self.nodes = []
-        self.edges = []
-        self.build_graph(aula_changes)
+    def __init__(self, identifier: str, type: int):
+        self.id = identifier  # UC or Turma ID
+        self.root = None
+        self.nodes = set()  # Nodes that belong to this subgraph
+        self.edges = set()
+        self.type = type #0 for uc and 1 for turma
+
+    def add_node(self, node):
+        if node not in self.nodes:
+            # Add the node
+            self.nodes.add(node)
+
+            # Create edges with existing nodes
+            for existing_node in self.nodes:
+                if existing_node != node:  # Avoid self-loops
+                    edge = Edge(node, existing_node)
+                    edge.local = True
+                    if self.type == 0:
+                        edge.uc = True
+                    else:
+                        edge.turma = True
+                    self.edges.add(edge)
+
+    def remove_node(self, node):
+        """Remove a node and related edges."""
+        if node in self.nodes:
+            self.nodes.remove(node)
+            # Remove edges involving this node
+            self.edges = [edge for edge in self.edges if node not in (edge.node1, edge.node2)]
     
-    def build_graph(self, aula_changes: list):
-        # Create nodes for each AulaChange and store them
-        for change in aula_changes:
-            # Create a new Node for each AulaChange
-            node = Node(id=change.previous.id, change=change)
-            self.nodes.append(node)
-        
-        # Now create edges between all pairs of nodes based on the relationships
-        for i in range(len(self.nodes)):
-            for j in range(i + 1, len(self.nodes)):
-                node1 = self.nodes[i]
-                node2 = self.nodes[j]
-                
-                # Create an edge between node1 and node2
-                edge = Edge(node1, node2)
-                edge.set_attributes()  # Set the attributes based on UC and Turmas
-                
-                self.edges.append(edge)
-    
+    def get_edges_node(self, node):
+        """Return a list of edges that include the given node."""
+        return [edge for edge in self.edges if edge.node1 == node or edge.node2 == node]
+
     def __str__(self):
-        """Human-readable string representation of the graph."""
-        nodes_str = "\n  ".join([str(node) for node in self.nodes])
-        edges_str = "\n  ".join([str(edge) for edge in self.edges])
+        """Human-readable string representation of the Graph."""
+        # First print the graph ID
+        graph_info = f"Graph ID: {self.id}\n"
         
-        return (f"Graph:\n  Nodes:\n  {nodes_str}\n  Edges:\n  {edges_str}")
+        # Then print all the nodes in the graph
+        graph_info += "Nodes:\n"
+        for node in self.nodes:
+            graph_info += f"  {node}\n"  # Assuming Node has a __str__ method that provides useful info
+            graph_info += "Edges (start):\n"
+            for edge in self.get_edges_node(node):
+                graph_info += f"  {edge}\n"
+            graph_info += "Edges (end):\n"
+        return graph_info
+    
+class GraphManager:
+    def __init__(self):
+        self.root = None
+        self.ucs = {}
+        self.turmas = {}
+    
+    def add_node(self, node: Node):
+        if node.get_uc() not in self.ucs:
+            new = Graph(node.get_uc(), 0)
+            self.ucs[node.get_uc()] = new
+            print(f"Created new subgraph for UC {id}")
+
+        for turma in node.get_turmas():
+            if turma not in self.turmas:
+                new = Graph(turma, 1)
+                new.add_node(node)
+                self.turmas[turma] = new
+                print(f"Created new subgraph for UC {id}")
+            else:
+                self.turmas[turma].add_node(node)
+        self.ucs[node.get_uc()].add_node(node)
+        
+    def print_ucs(self):
+        for id in self.ucs:
+            print(self.ucs[id])
+    def print_turmas(self):
+        for id in self.turmas:
+            print(self.turmas[id])
+    

@@ -526,7 +526,30 @@ def append_aula_data(row_dict):
     # Return the processed data which can be used to create an AulaInfo instance
     return data
 
+def fetch_list(cursor, query):
+    cursor.execute(query)
+    return set(row[0] for row in cursor.fetchall())
+
+def diff_checker(aula_id, cursorDB, cursorIni):
+    queries = {
+        "turmas": f"SELECT idTurma FROM aulaTurmas WHERE idAula = {aula_id};",
+        "docentes": f"SELECT idDocente FROM aulaDocente WHERE idAula = {aula_id};",
+        "salas": f"SELECT idSala FROM aulaSala WHERE idAula = {aula_id};",
+        "ucs": f"SELECT idUC FROM aulaUC WHERE idAula = {aula_id};"
+    }
+
+    old_data = {}
+    for key, query in queries.items():
+        old_data[key] = fetch_list(cursorIni, query)
+
+    new_data = {}
+    for key, query in queries.items():
+        new_data[key] = fetch_list(cursorDB, query)
+
+    return old_data != new_data
+
 def getDifferencesFromDatabases(ProjectNumber):
+    #there may be new docentes in the general database associated to existing ids but have no code
     changesList = []  # Stores all changes in AulaInfo format
     
     path = f"Project{ProjectNumber}"
@@ -564,7 +587,7 @@ def getDifferencesFromDatabases(ProjectNumber):
             
         else:
             # If row2 exists, compare the two rows for differences
-            if row1 != row2:
+            if row1 != row2 or diff_checker(aula_id, cursorDB, cursorIni):
                 row_dict1 = dict(row1)
                 row_dict2 = dict(row2)
 
@@ -647,6 +670,4 @@ def get_aula_info(aula_id, cursorDB, row_dict):
     return AulaInfo.from_data(data)
 
 def organize_changes(ProjectId):
-    changes = getDifferencesFromDatabases(ProjectId)
-    graph = models.Graph(changes)
-    print(graph)
+    

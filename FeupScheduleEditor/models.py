@@ -154,6 +154,13 @@ class AulaInfo:
     #previous -> Information about the original aula
     #new -> Information about the new aula info
     #type -> 0: only one aula is considered | 1: a change between 2 different classes
+
+#class AulaGroups:
+        #Both the cases below are detected in the initial database and should be 
+            #caso especial aulas ids diferentes mas com sala+hora_inicio+duracao iguais representa caso especial (pode ter mais do que uma aula)
+            #caso especial cadeiras com 2 ou mais uc+hora+duracao iguais
+        
+
 class AulaChange:
     def __init__(self, previous: AulaInfo, new: AulaInfo):
         self.previous = previous
@@ -162,6 +169,8 @@ class AulaChange:
     
     def has_conflicts(self, value=True):
         self.conflicts = value
+
+
     def __str__(self):
         """Human-friendly string representation."""
         return (
