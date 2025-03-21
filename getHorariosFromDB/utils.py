@@ -650,3 +650,12 @@ def organize_changes(ProjectId):
     changes = getDifferencesFromDatabases(ProjectId)
     graph = models.Graph(changes)
     print(graph)
+    # it should return a datastructure in the format of a list of tuples. Here's the format of the tuples expected
+    # (Node, string tipodetroca, [int, int, int, ...])
+    # tipodetroca can be ok, conflict, circular_dependency, upcoming_changes
+    # the list should be ordered, by the order to export (root nodes are the first for each group of turma or UC)
+    # the list of ints is a list of node IDs. it will depending on tipodetroca, they can represent a list of
+    #   node IDs that cause conflict with - tipodetroca "conflict"
+    #   node IDs from changes that solve "fake" conflicts, but will only appear later in the list - tipodetroca "upcoming_changes"
+    #   node IDs that form a circular dependency with - tipodetroca "circular_dependency"
+    #   empty list if tipodetroca is "ok" 

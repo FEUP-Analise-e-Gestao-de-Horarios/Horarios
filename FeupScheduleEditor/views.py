@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect
 from django.http import HttpResponse, HttpRequest, JsonResponse
 from django.template.loader import render_to_string
-from .models import Curso, Ano, Docente, UC, Aula, Sala, Bloco, AulaInfo, Change
+from .models import Curso, Ano, Docente, UC, Aula, Sala, Bloco, AulaInfo, AulaChange
 import sqlite3
 import os
 import shutil
@@ -17,7 +17,10 @@ from django.contrib import messages
 from getHorariosFromDB.movementFunctions import addDocente, removeDocente, addSala, removeSala, moveAula, changeUC, updateAulaDuration, addTurma, removeTurma
 from getHorariosFromDB.conflictFunctions import organizeInformation, findAnyConflicts
 from getHorariosFromDB.comparingDatabases import getDifferencesFromDatabases
+from getHorariosFromDB.utils import organize_changes
+from getHorariosFromDB.models import AulaChange, AulaInfo, Node
 import getHorariosFromDB.graph as graph_controller
+
 
 PLACEHOLDER_ID = 0
 dias = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"]
@@ -947,24 +950,55 @@ def createDocente(request, projId):
 #
 # loads the changes between the projects general and initial databases
 # and renders the export page for the project
-def export(request, projId):
-    if (not request.user.is_authenticated):
+
+def export(request, projId): 
+    # todo when done, change name to just export, here and in urls.py
+    if not request.user.is_authenticated:
         return redirect('login/')
-    
 
     projetos = getProjetosListAux(request, request.user.pk)
-    projeto = Project.objects.values_list().get(id = projId)
-    conflicts = []
+    projeto = Project.objects.values_list().get(id=projId)
+
     try:
         graph_controller.init_graph(projId)
-        conflicts_unorg = graph_controller.get_organized_conflicts(projId)
-        conflicts = organizeInformation(projId, conflicts_unorg)
-        # print(f"Conflicts: {conflicts}")
     except:
-        print("Could not load conflicts")
-        conflicts = []
-    message = getDifferencesFromDatabases(projId)
-    print("Final message data:", message)
-    if len(message) <=0:
-        message.append('Não Foram Efetuadas Mudanças')
-    return render(request, 'export/page.html', {'projetos': projetos, 'projeto': projeto[2], 'message':message, 'conflicts':conflicts, 'projId':projId, 'is_edit_turnos': False})
+        print("Could not load changes graph")
+
+    # organized_changes = organize_changes(projId)
+    # because the function above isn't defined yet, here's some mock changes (for frontend testing puposes)
+    organized_changes = [
+        (Node(id=1, change=AulaChange(
+            AulaInfo(*((2, "L.EIC003", "9:00", "11:00", 3) + (["1LEIC08"], [], []))), 
+            AulaInfo(*((2, "L.EIC003", "11:00", "13:00", 3) + (["1LEIC08"], [], [])))  
+        ), root_local=True), "upcoming_changes", [4]),
+
+        (Node(id=2, change=AulaChange(
+            AulaInfo(*((1, "L.EIC003", "16:00", "18:00", 3) + (["1LEIC08"], [], []))), 
+            AulaInfo(*((1, "L.EIC003", "18:00", "20:00", 3) + (["1LEIC08"], [], [])))
+        )), "circular_dependency", [5]),
+        (Node(id=3, change=AulaChange(
+            AulaInfo(*((3, "L.EIC003", "09:00", "11:00", 4) + (["1LEIC02"], [], []))), 
+            AulaInfo(*((3, "L.EIC003", "11:00", "13:00", 4) + (["1LEIC02"], [], [])))  
+        ), root_local=True), "conflict", [6]),
+
+        (Node(id=4, change=AulaChange(
+            AulaInfo(*((4, "L.EIC021", "16:00", "18:00", 2) + (["1LEIC02"], ["JCL"], []))), 
+            AulaInfo(*((4, "L.EIC021", "16:00", "18:00", 2) + (["1LEIC02"], ["PDPNFRCD"], [])))  
+        )), "ok", []),
+        (Node(id=5, change=AulaChange(
+            AulaInfo(*((9, "L.EIC021", "09:00", "11:00", 1) + (["1LEIC02"], [], ["B102"]))), 
+            AulaInfo(*((9, "L.EIC021", "09:00", "11:00", 1) + (["1LEIC02"], [], ["B304"])))  
+        )), "circular_dependency", [2]),
+    ]
+
+    #if len(message) == 0:  # TODO if organized_changes is empty
+        #message.append('Não Foram Efetuadas Mudanças')
+
+
+    return render(request, 'export/page.html', {
+        'projetos': projetos,
+        'projeto': projeto[2], # obter nome do projeto
+        'organized_changes' : organized_changes,
+        'projId': projId,
+        'is_edit_turnos': False,
+    })

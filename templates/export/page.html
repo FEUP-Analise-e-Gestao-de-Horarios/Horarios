@@ -1,8 +1,3 @@
-<!-- export page, 
-displays differences between initial database and general database 
-in a natural language format
--->
-
 {% extends '../common/base.html' %}
 {% load static %}
 {% load my_filters %}
@@ -14,25 +9,8 @@ in a natural language format
         min-height: 84.5vh;
     }
 
-    .main_vista_container {
-        margin-bottom: 180px;
-    }
-
-    .secondary_vista_container {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        height: auto;
-        z-index: 100;
-    }
-
     .contentMargin {
         margin-top: 5.5em;
-    }
-
-    .box {
-        min-height: 87.5vh;
     }
 
     .bottom-border {
@@ -42,49 +20,123 @@ in a natural language format
     .conflicts-text {
         max-width: 700px;
         text-align: left;
-        align-content: space-between;
     }
 
     .conflicts-text h3 {
         color: #aa1f1f;
     }
 
-    .export-content {
-        gap: 100px;
+    .change-ok {
+        color: white;
+    }
+
+    .change-conflict {
+        color: red;
+        font-weight: bold;
+    }
+
+    .change-circular {
+        color: blue;
+    }
+
+    .change-upcoming {
+        color: darkgoldenrod;
+    }
+
+    .sub-info {
+        font-size: 0.85em;
+        color: gray;
+    }
+
+    /* Make the toggle container cover everything inside it */
+    .toggle-container {
+        cursor: pointer;
+        font-weight: bold;
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+        margin-top: 10px;
+        display: block;
+        width: 100%;
+        background-color: #444444;
+    }
+
+    .toggle-content {
+        padding-left: 15px;
+        display: block;
+    }
+
+    .toggle-content.hidden {
+        display: none;
     }
 </style>
 
 {% include '../common/header.html' with display_edit_buttons=is_edit_turnos %}
 
-{% include '../common/createPopup.html' %}
-
 <section class="h-100 contentMargin ms-3 me-3 mb-3 pb-3 box bg-dark" id="exportContent">
     <div class="container-fluid">
-        <h1 class="bottom-border pb-3 pt-3 d-flex flex-row justify-content-center"> Projeto: {{projeto}} </h1>
-        <div class="export-content d-flex flex-row justify-content-center align-items-center">
-            {% if conflicts %}
-            <div class="mt-5 flex-column conflicts-text">
-                <h3>A Exportar com conflitos:</h3>
-                {% for string in conflicts %}
-                {% if string %}
-                <h4>{{ string }}</h4>
-                {% else %}
-                <br>
+        <h1 class="bottom-border pb-3 pt-3 d-flex flex-row justify-content-center">Projeto: {{ projeto }}</h1>
+        <div class="export-content d-flex flex-column align-items-start">
+            {% for node, change_type, related_nodes in organized_changes %}
+                {% if node.root_local %}
+                    {% if not forloop.first %}
+                        </div>  {# Close previous turma div #}
+                    {% endif %}
+                    <div class="toggle-container" onclick="toggleVisibility('turma-{{ node.id }}', this)">
+                        {{ node.get_turmas.0 }}
+                    </div>
+                    <div id="turma-{{ node.id }}" class="toggle-content">
                 {% endif %}
-                {% endfor %}
-            </div>
-            {% endif %}
-            <div class="mt-5">
-                {% for string in message %}
-                {% if string %}
-                <h3>{{ string }}</h3>
-                {% else %}
-                <br>
+
+                <div class="mt-3 {{ change_type }}">
+                    ID de troca: {{ node.id }} &nbsp; &nbsp; 
+                    [{{node.change.previous.cadeira_id}}] &nbsp; &nbsp;
+                    {% if node.change.previous.dia != node.change.new.dia or node.change.previous.hora_inicio != node.change.new.hora_inicio or node.change.previous.hora_fim != node.change.new.hora_fim %}
+                            Troca de hora:
+                            ({{ node.change.previous.dia|dia_semana }}, {{ node.change.previous.hora_inicio }} - {{ node.change.previous.hora_fim }}) →
+                            ({{ node.change.new.dia|dia_semana }}, {{ node.change.new.hora_inicio }} - {{ node.change.new.hora_fim }})
+                    {% else %}
+                        {% if node.change.previous.salas_ids != node.change.new.salas_ids %}
+                                Troca de sala: 
+                                {{ node.change.previous.salas_ids|join:", " }} → {{ node.change.new.salas_ids|join:", " }}   
+                                &nbsp;&nbsp; na aula de ID {{node.change.previous.id}}, à {{ node.change.previous.dia|dia_semana }} das {{ node.change.new.hora_inicio }} às {{ node.change.new.hora_fim }}       
+                        {% else %}
+                            {% if node.change.previous.docentes_ids != node.change.new.docentes_ids %}
+                                Troca de docente: 
+                                {{ node.change.previous.docentes_ids|join:", " }} → {{ node.change.new.docentes_ids|join:", " }}
+                                &nbsp;&nbsp; na aula de ID {{node.change.previous.id}}, à {{ node.change.previous.dia|dia_semana }} das {{ node.change.new.hora_inicio }} às {{ node.change.new.hora_fim }}       
+                            {% endif %}
+                        {% endif %}
+                    {% endif %}
+                    &nbsp; &nbsp;
+                    <!-- TODO delete this line below when shipping to production, it's only for testing purposes -->
+                    <br> Turma: {{node.get_turmas.0}}
+                </div>
+                
+                {% if related_nodes %}
+                    <div class="ms-4 sub-info">
+                        {% for related in related_nodes %}
+                            → {{ related }}<br>
+                        {% endfor %}
+                    </div>
                 {% endif %}
-                {% endfor %}
-            </div>
+            {% endfor %}
+
+            </div>  {# Close the last turma div if it was still open #}
         </div>
     </div>
 </section>
+
+<script>
+    function toggleVisibility(id, element) {
+        var element = document.getElementById(id);
+
+        if (element.classList.contains("hidden")) {
+            element.classList.remove("hidden");
+        } else {
+            element.classList.add("hidden");
+        }
+    }
+</script>
 
 {% endblock page %}
