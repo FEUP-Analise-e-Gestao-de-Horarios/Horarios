@@ -59,73 +59,94 @@
         display: block;
         width: 100%;
         background-color: #444444;
-    }
-
+    }   
     .toggle-content {
         padding-left: 15px;
         display: block;
-    }
-
+    }   
     .toggle-content.hidden {
         display: none;
     }
+    .custom-accordion-header {
+    background-color: #ffc107 !important; /* Light Orange Background */
+    color: black !important;  /* Text color set to black */
+    }
+
+.custom-accordion-button {
+    color: black !important;  /* Set text color of button to black */
+    background-color: #ffc107 !important; /* Light Orange Background */
+    border-color: #ffc107 !important;  /* Border color set to light orange */
+}
+
+.custom-accordion-button.collapsed {
+    color: black !important;
+    background-color: #ffc720 !important; /* Slightly lighter orange for collapsed state */
+    border-color: #ffc720 !important;  /* Light orange border */
+}
+
 </style>
 
 {% include '../common/header.html' with display_edit_buttons=is_edit_turnos %}
 
 <section class="h-100 contentMargin ms-3 me-3 mb-3 pb-3 box bg-dark" id="exportContent">
     <div class="container-fluid">
-        <h1 class="bottom-border pb-3 pt-3 d-flex flex-row justify-content-center">Projeto: {{ projeto }}</h1>
-        <div class="export-content d-flex flex-column align-items-start">
-            {% for node, change_type, related_nodes in organized_changes %}
-                {% if node.root_local %}
-                    {% if not forloop.first %}
-                        </div>  {# Close previous turma div #}
-                    {% endif %}
-                    <div class="toggle-container" onclick="toggleVisibility('turma-{{ node.id }}', this)">
-                        {{ node.get_turmas.0 }}
-                    </div>
-                    <div id="turma-{{ node.id }}" class="toggle-content">
-                {% endif %}
+        <h1 class="bottom-border pb-3 pt-3 d-flex flex-row justify-content-center">Projeto: {{ projeto }}</h1>    
+        <div class="accordion" id="accordionExample">
+            {% for uc, uc_graph in ucs.items %}
+            <div class="accordion-item">
+              <h2 class="accordion-header custom-accordion-header"> <!-- Added custom class here -->
+                <button class="accordion-button custom-accordion-button {% if not loop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ loop.index }}" aria-expanded="{% if loop.first %}true{% else %}false{% endif %}" aria-controls="collapse{{ loop.index }}">
+                  {{ uc }} : {{ uc_graph.uc_name }}
+                </button>
+              </h2>
+              <div id="collapse{{ loop.index }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" data-bs-parent="#accordionExample">
+                <div class="accordion-body">
+                  <ul>
+                    {% for node in uc_graph.nodes %}
+                        <div class="mt-3 {{ node.change.conflict|yesno:'conflict,normal' }}">
+                            <div class="change-header">
+                                <h3>Change for Aula ID: {{ node.change.previous.id }}</h3>
+                            </div>
+                        
+                            <div class="change-details">
+                                <!-- Horario (hora_inicio to hora_fim) -->
+                                {% if not node.change.check_horario %}
+                                    <p><strong>Horario :</strong> {{ node.change.previous.hora_inicio }} até às {{ node.change.previous.hora_fim }}  → {{ node.change.new.hora_inicio }} até às {{ node.change.new.hora_fim }}</p>
+                                {% endif %}
+                                <!-- Dia -->
+                                {% if not node.change.check_turmas %}
+                                    <p><strong>Turmas:</strong> {{ node.change.previous.formatted_turmas }} → {{ node.change.new.formatted_turmas }}</p>
+                                {% endif %}
+                                <!-- Dia -->
+                                {% if not node.change.check_dia %}
+                                    <p><strong>Dia:</strong> {{ node.change.previous.dia }} → {{ node.change.new.dia }}</p>
+                                {% endif %}
+                                <!-- Salas -->
+                                {% if not node.change.check_salas %}
+                                    <p><strong>Salas:</strong> {{ node.change.previous.formatted_salas }} → {{ node.change.new.formatted_salas }}</p>
+                                {% endif %}
 
-                <div class="mt-3 {{ change_type }}">
-                    ID de troca: {{ node.id }} &nbsp; &nbsp; 
-                    [{{node.change.previous.cadeira_id}}] &nbsp; &nbsp;
-                    {% if node.change.previous.dia != node.change.new.dia or node.change.previous.hora_inicio != node.change.new.hora_inicio or node.change.previous.hora_fim != node.change.new.hora_fim %}
-                            Troca de hora:
-                            ({{ node.change.previous.dia|dia_semana }}, {{ node.change.previous.hora_inicio }} - {{ node.change.previous.hora_fim }}) →
-                            ({{ node.change.new.dia|dia_semana }}, {{ node.change.new.hora_inicio }} - {{ node.change.new.hora_fim }})
-                    {% else %}
-                        {% if node.change.previous.salas_ids != node.change.new.salas_ids %}
-                                Troca de sala: 
-                                {{ node.change.previous.salas_ids|join:", " }} → {{ node.change.new.salas_ids|join:", " }}   
-                                &nbsp;&nbsp; na aula de ID {{node.change.previous.id}}, à {{ node.change.previous.dia|dia_semana }} das {{ node.change.new.hora_inicio }} às {{ node.change.new.hora_fim }}       
-                        {% else %}
-                            {% if node.change.previous.docentes_ids != node.change.new.docentes_ids %}
-                                Troca de docente: 
-                                {{ node.change.previous.docentes_ids|join:", " }} → {{ node.change.new.docentes_ids|join:", " }}
-                                &nbsp;&nbsp; na aula de ID {{node.change.previous.id}}, à {{ node.change.previous.dia|dia_semana }} das {{ node.change.new.hora_inicio }} às {{ node.change.new.hora_fim }}       
-                            {% endif %}
-                        {% endif %}
-                    {% endif %}
-                    &nbsp; &nbsp;
-                    <!-- TODO delete this line below when shipping to production, it's only for testing purposes -->
-                    <br> Turma: {{node.get_turmas.0}}
+                                <!-- Docentes -->
+                                {% if not node.change.check_docentes %}
+                                    <p><strong>Docentes:</strong> {{ node.change.previous.formatted_docentes }} → {{ node.change.new.formatted_docentes }}</p>
+                                {% endif %}
+
+                                {% if node.change.conflict %}
+                                    <p><strong>Note:</strong> This change has conflicts!</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                  </ul>
                 </div>
-                
-                {% if related_nodes %}
-                    <div class="ms-4 sub-info">
-                        {% for related in related_nodes %}
-                            → {{ related }}<br>
-                        {% endfor %}
-                    </div>
-                {% endif %}
+              </div>
+            </div>
             {% endfor %}
-
-            </div>  {# Close the last turma div if it was still open #}
-        </div>
+        </div>          
     </div>
 </section>
+
+
 
 <script>
     function toggleVisibility(id, element) {

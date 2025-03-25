@@ -90,6 +90,7 @@ class Graph:
         self.nodes = set()  # Nodes that belong to this subgraph
         self.edges = set()
         self.type = type #0 for uc and 1 for turma
+        self.uc_name = None
 
     def add_node(self, node):
         if node not in self.nodes:
@@ -118,10 +119,13 @@ class Graph:
         """Return a list of edges that include the given node."""
         return [edge for edge in self.edges if edge.node1 == node or edge.node2 == node]
 
+    def get_unsolved_nodes(self):
+        """Will return a list/set of nodes that have conflicts that cant be resolved within the graph """
+    
     def __str__(self):
         """Human-readable string representation of the Graph."""
         # First print the graph ID
-        graph_info = f"Graph ID: {self.id}\n"
+        graph_info = f"Graph ID: {self.uc_name}\n"
         
         # Then print all the nodes in the graph
         graph_info += "Nodes:\n"
@@ -138,10 +142,18 @@ class GraphManager:
         self.root = None
         self.ucs = {}
         self.turmas = {}
+
+
+        self.global_edges = []
+        self.global_nodes = []
+
+        self.local_roots = []
     
     def add_node(self, node: Node):
         if node.get_uc() not in self.ucs:
             new = Graph(node.get_uc(), 0)
+
+            new.uc_name = node.change.previous.uc_name
             self.ucs[node.get_uc()] = new
             print(f"Created new subgraph for UC {id}")
 
@@ -150,11 +162,16 @@ class GraphManager:
                 new = Graph(turma, 1)
                 new.add_node(node)
                 self.turmas[turma] = new
-                print(f"Created new subgraph for UC {id}")
             else:
                 self.turmas[turma].add_node(node)
         self.ucs[node.get_uc()].add_node(node)
+    
+    def get_unsolved_conflicts(self):
+        """Will get all the nodes from all the graphs with unsolved conflicts and stores them in the class"""
         
+    def add_edges(self):
+        """This function will add the global edges to the unsolved conflicts in the class nodes"""
+    
     def print_ucs(self):
         for id in self.ucs:
             print(self.ucs[id])

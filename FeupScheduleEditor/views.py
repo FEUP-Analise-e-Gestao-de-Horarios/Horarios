@@ -18,7 +18,7 @@ from getHorariosFromDB.movementFunctions import addDocente, removeDocente, addSa
 from getHorariosFromDB.conflictFunctions import organizeInformation, findAnyConflicts
 from getHorariosFromDB.comparingDatabases import getDifferencesFromDatabases
 from getHorariosFromDB.utils import organize_changes
-from getHorariosFromDB.models import AulaChange, AulaInfo, Node
+from getHorariosFromDB.models import AulaChange, AulaInfo, Node, GraphManager, Graph, Edge
 import getHorariosFromDB.graph as graph_controller
 
 
@@ -959,37 +959,7 @@ def export(request, projId):
     projetos = getProjetosListAux(request, request.user.pk)
     projeto = Project.objects.values_list().get(id=projId)
 
-    try:
-        graph_controller.init_graph(projId)
-    except:
-        print("Could not load changes graph")
-
-    # organized_changes = organize_changes(projId)
-    # because the function above isn't defined yet, here's some mock changes (for frontend testing puposes)
-    organized_changes = [
-        (Node(id=1, change=AulaChange(
-            AulaInfo(*((2, "L.EIC003", "9:00", "11:00", 3) + (["1LEIC08"], [], []))), 
-            AulaInfo(*((2, "L.EIC003", "11:00", "13:00", 3) + (["1LEIC08"], [], [])))  
-        ), root_local=True), "upcoming_changes", [4]),
-
-        (Node(id=2, change=AulaChange(
-            AulaInfo(*((1, "L.EIC003", "16:00", "18:00", 3) + (["1LEIC08"], [], []))), 
-            AulaInfo(*((1, "L.EIC003", "18:00", "20:00", 3) + (["1LEIC08"], [], [])))
-        )), "circular_dependency", [5]),
-        (Node(id=3, change=AulaChange(
-            AulaInfo(*((3, "L.EIC003", "09:00", "11:00", 4) + (["1LEIC02"], [], []))), 
-            AulaInfo(*((3, "L.EIC003", "11:00", "13:00", 4) + (["1LEIC02"], [], [])))  
-        ), root_local=True), "conflict", [6]),
-
-        (Node(id=4, change=AulaChange(
-            AulaInfo(*((4, "L.EIC021", "16:00", "18:00", 2) + (["1LEIC02"], ["JCL"], []))), 
-            AulaInfo(*((4, "L.EIC021", "16:00", "18:00", 2) + (["1LEIC02"], ["PDPNFRCD"], [])))  
-        )), "ok", []),
-        (Node(id=5, change=AulaChange(
-            AulaInfo(*((9, "L.EIC021", "09:00", "11:00", 1) + (["1LEIC02"], [], ["B102"]))), 
-            AulaInfo(*((9, "L.EIC021", "09:00", "11:00", 1) + (["1LEIC02"], [], ["B304"])))  
-        )), "circular_dependency", [2]),
-    ]
+    manager = organize_changes(projId)
 
     #if len(message) == 0:  # TODO if organized_changes is empty
         #message.append('Não Foram Efetuadas Mudanças')
@@ -998,7 +968,8 @@ def export(request, projId):
     return render(request, 'export/page.html', {
         'projetos': projetos,
         'projeto': projeto[2], # obter nome do projeto
-        'organized_changes' : organized_changes,
+        'manager' : manager,
+        'ucs': manager.ucs,
         'projId': projId,
         'is_edit_turnos': False,
     })

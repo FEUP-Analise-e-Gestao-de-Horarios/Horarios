@@ -103,6 +103,7 @@ class AulaInfo:
                  turmas_ids=None, docentes_ids=None, salas_ids=None):
         self.id = aula_id
         self.cadeira_id = cadeira_id
+        self.uc_name = None
         self.hora_inicio = hora_inicio
         self.hora_fim = hora_fim
         self.dia = dia
@@ -144,6 +145,28 @@ class AulaInfo:
             docentes_ids=docentes_ids,
             salas_ids=salas_ids
         )
+     
+    def formatted_time(self):
+        """Return the time range in a formatted string."""
+        return f"{self.hora_inicio} - {self.hora_fim}"
+    
+    def formatted_day(self):
+        """Return the day name from the day number."""
+        days = ["Segunda", "Terca", "Quarta", "Quinta", "Sexta"]
+        return days[self.dia] if 0 <= self.dia < len(days) else "Unknown"
+
+    def formatted_salas(self):
+        """Return a comma-separated list of rooms."""
+        return ", ".join(str(sala) for sala in self.salas_ids)
+    
+    def formatted_docentes(self):
+        """Return a comma-separated list of docentes."""
+        return ", ".join(str(docente) for docente in self.docentes_ids)
+
+    def formatted_turmas(self):
+        """Return a comma-separated list of turmas."""
+        return ", ".join(str(turma) for turma in self.turmas_ids)
+    
     def __str__(self):
         """Human-friendly string representation."""
         return (f"AulaInfo(id={self.id}, cadeira_id={self.cadeira_id}, hora_inicio={self.hora_inicio}, "
@@ -170,7 +193,22 @@ class AulaChange:
     def has_conflicts(self, value=True):
         self.conflicts = value
 
+    def check_dia(self):
+        return self.previous.dia == self.new.dia
+    
+    def check_docentes(self):
+        return self.previous.docentes_ids == self.new.docentes_ids
+    
+    def check_turmas(self):
+        return self.previous.turmas_ids == self.new.turmas_ids
 
+    def check_salas(self):
+        return self.previous.salas_ids == self.new.salas_ids
+    
+    def check_horario(self):
+        return self.previous.hora_inicio == self.new.hora_inicio
+    
+    
     def __str__(self):
         """Human-friendly string representation."""
         return (

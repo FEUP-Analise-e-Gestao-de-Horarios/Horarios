@@ -553,7 +553,9 @@ def getDifferencesFromDatabases(ProjectNumber):
     changesList = []  # Stores all changes in AulaInfo format
     
     path = f"Project{ProjectNumber}"
-    connDB = sqlite3.connect(f'./database/{path}/general_database.db', check_same_thread=False)
+    db_path = f'./database/{path}/general_database.db'
+    print(f"Trying to connect to: {db_path}")
+    connDB = sqlite3.connect(db_path, check_same_thread=False)
     connDB.row_factory = sqlite3.Row
     cursorDB = connDB.cursor()
     
@@ -654,25 +656,43 @@ def get_aula_info(aula_id, cursorDB, row_dict):
 
     # Get associated 'UC' (unit courses) for the aula
     cursorDB.execute(f"""
-        SELECT uc.codigo 
-        FROM aulaUC auc 
-        JOIN uc ON auc.idUC = uc.codigo
-        WHERE auc.idAula = {aula_id};
-    """)
-    ucs = [row[0] for row in cursorDB.fetchall()]
+    SELECT uc.codigo 
+    FROM aulaUC auc 
+    JOIN uc ON auc.idUC = uc.codigo
+    WHERE auc.idAula = ?;
+    """, (aula_id,))  # Using placeholder for aula_id
+    uc = [row[0] for row in cursorDB.fetchall()]
+
+    if uc:
+        uc_codigo = uc[0]
+        cursorDB.execute("""
+            SELECT uc.nome
+            FROM uc
+            WHERE uc.codigo = ?;
+        """, (uc_codigo,))  # Using placeholder for uc_codigo
+    uc_name = [row[0] for row in cursorDB.fetchall()]
 
     # Create AulaInfo from row_dict and the associated data
     data = append_aula_data(row_dict)
     data['turmasIds'] = turmas
     data['docentesIds'] = docentes
     data['salasIds'] = salas
-    data['cadeiraId'] = ucs
-    return AulaInfo.from_data(data)
+    data['cadeiraId'] = uc[0]
+    aula = AulaInfo.from_data(data)
+    aula.uc_name = uc_name[0]
+    return aula
 
 def organize_changes(ProjectId):
     changes = getDifferencesFromDatabases(ProjectId)
-    graph = models.Graph(changes)
-    print(graph)
+    manager = models.GraphManager()
+
+    
+    for change in changes:
+        node = models.Node(change)
+        manager.add_node(node)
+    manager.print_turmas()
+    manager.print_ucs()
+    return manager
     # it should return a datastructure in the format of a list of tuples. Here's the format of the tuples expected
     # (Node, string tipodetroca, [int, int, int, ...])
     # tipodetroca can be ok, conflict, circular_dependency, upcoming_changes
