@@ -683,6 +683,7 @@ def get_aula_info(aula_id, cursorDB, row_dict):
     return aula
 
 def organize_changes(ProjectId):
+    # TODO organize
     changes = getDifferencesFromDatabases(ProjectId)
     manager = models.GraphManager()
 

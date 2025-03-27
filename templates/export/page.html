@@ -48,40 +48,40 @@
         color: gray;
     }
 
-    /* Make the toggle container cover everything inside it */
-    .toggle-container {
-        cursor: pointer;
-        font-weight: bold;
-        color: white;
-        padding: 10px;
-        border-radius: 5px;
-        margin-top: 10px;
-        display: block;
-        width: 100%;
-        background-color: #444444;
-    }   
-    .toggle-content {
-        padding-left: 15px;
-        display: block;
-    }   
-    .toggle-content.hidden {
-        display: none;
-    }
     .custom-accordion-header {
     background-color: #ffc107 !important; /* Light Orange Background */
     color: black !important;  /* Text color set to black */
     }
 
-.custom-accordion-button {
-    color: black !important;  /* Set text color of button to black */
-    background-color: #ffc107 !important; /* Light Orange Background */
-    border-color: #ffc107 !important;  /* Border color set to light orange */
-}
+    .custom-accordion-button {
+        color: black !important;  /* Set text color of button to black */
+        background-color: #ffc107 !important; /* Light Orange Background */
+        border-color: #ffc107 !important;  /* Border color set to light orange */
+        padding: 0.5rem 1rem !important;
+        font-size: 1rem;
+    }
 
-.custom-accordion-button.collapsed {
-    color: black !important;
-    background-color: #ffc720 !important; /* Slightly lighter orange for collapsed state */
-    border-color: #ffc720 !important;  /* Light orange border */
+    .custom-accordion-button.collapsed {
+        color: black !important;
+        background-color: #ffc720 !important; /* Slightly lighter orange for collapsed state */
+        border-color: #ffc720 !important;  /* Light orange border */
+    }
+    .accordion-body {
+        padding: 0.5rem !important;
+    }
+    .mt-3 {
+        margin-top: 0.5rem !important; /* instead of Bootstrap default (1rem) */
+    }
+    .pb-3, .pt-3, .mb-3 {
+        padding-bottom: 0.5rem !important;
+        padding-top: 0.5rem !important;
+        margin-bottom: 0.5rem !important;
+    }
+
+    .change-details p {
+        margin: 0.2rem 0;
+        font-size: 0.9rem;
+        line-height: 1.2;
 }
 
 </style>
@@ -91,46 +91,35 @@
 <section class="h-100 contentMargin ms-3 me-3 mb-3 pb-3 box bg-dark" id="exportContent">
     <div class="container-fluid">
         <h1 class="bottom-border pb-3 pt-3 d-flex flex-row justify-content-center">Projeto: {{ projeto }}</h1>    
-        <div class="accordion" id="accordionExample">
+        <div class="accordion">
             {% for uc, uc_graph in ucs.items %}
             <div class="accordion-item">
-              <h2 class="accordion-header custom-accordion-header"> <!-- Added custom class here -->
-                <button class="accordion-button custom-accordion-button {% if not loop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ loop.index }}" aria-expanded="{% if loop.first %}true{% else %}false{% endif %}" aria-controls="collapse{{ loop.index }}">
-                  {{ uc }} : {{ uc_graph.uc_name }}
+              <h2 class="accordion-header custom-accordion-header">
+                <button class="accordion-button custom-accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ uc|slugify }}" aria-expanded="true" aria-controls="collapse{{ uc|slugify }}">
+                    {{ uc }} : {{ uc_graph.uc_name }}
                 </button>
               </h2>
-              <div id="collapse{{ loop.index }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" data-bs-parent="#accordionExample">
+              <div id="collapse{{ uc|slugify }}" class="accordion-collapse collapse show">
                 <div class="accordion-body">
                   <ul>
                     {% for node in uc_graph.nodes %}
                         <div class="mt-3 {{ node.change.conflict|yesno:'conflict,normal' }}">
-                            <div class="change-header">
-                                <h3>Change for Aula ID: {{ node.change.previous.id }}</h3>
-                            </div>
-                        
                             <div class="change-details">
-                                <!-- Horario (hora_inicio to hora_fim) -->
+                                {{ forloop.counter }}. <!-- TODO por lógica de ordenar no backend  até pq rn está mal-->
+                                &ensp; 
+                                <!-- TODO when UCs are changed to code add this: &emsp; [{{node.change.previous.uc}}] &emsp;-->
+                                <!-- Caso seja troca de horário-->
                                 {% if not node.change.check_horario %}
-                                    <p><strong>Horario :</strong> {{ node.change.previous.hora_inicio }} até às {{ node.change.previous.hora_fim }}  → {{ node.change.new.hora_inicio }} até às {{ node.change.new.hora_fim }}</p>
-                                {% endif %}
-                                <!-- Dia -->
-                                {% if not node.change.check_turmas %}
-                                    <p><strong>Turmas:</strong> {{ node.change.previous.formatted_turmas }} → {{ node.change.new.formatted_turmas }}</p>
-                                {% endif %}
-                                <!-- Dia -->
-                                {% if not node.change.check_dia %}
-                                    <p><strong>Dia:</strong> {{ node.change.previous.dia }} → {{ node.change.new.dia }}</p>
+                                Troca de horário na(s) turma(s) {{ node.change.previous.formatted_turmas }}: ({{ node.change.previous.dia }}, {{ node.change.previous.hora_inicio }} até às {{ node.change.previous.hora_fim }})  → ({{ node.change.new.dia }}, {{ node.change.new.hora_inicio }} até às {{ node.change.new.hora_fim }})
                                 {% endif %}
                                 <!-- Salas -->
                                 {% if not node.change.check_salas %}
-                                    <p><strong>Salas:</strong> {{ node.change.previous.formatted_salas }} → {{ node.change.new.formatted_salas }}</p>
+                                    Troca de salas na(s) turma(s) {{ node.change.previous.formatted_turmas }}: {{ node.change.previous.formatted_salas }} → {{ node.change.new.formatted_salas }}
                                 {% endif %}
-
                                 <!-- Docentes -->
                                 {% if not node.change.check_docentes %}
-                                    <p><strong>Docentes:</strong> {{ node.change.previous.formatted_docentes }} → {{ node.change.new.formatted_docentes }}</p>
+                                    Troca de docentes na(s) turma(s) {{ node.change.previous.formatted_turmas }}: {{ node.change.previous.formatted_docentes }} → {{ node.change.new.formatted_docentes }}
                                 {% endif %}
-
                                 {% if node.change.conflict %}
                                     <p><strong>Note:</strong> This change has conflicts!</p>
                                 {% endif %}

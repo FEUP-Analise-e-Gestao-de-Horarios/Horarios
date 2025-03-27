@@ -952,7 +952,6 @@ def createDocente(request, projId):
 # and renders the export page for the project
 
 def export(request, projId): 
-    # todo when done, change name to just export, here and in urls.py
     if not request.user.is_authenticated:
         return redirect('login/')
 
