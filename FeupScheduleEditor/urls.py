@@ -26,6 +26,7 @@ urlpatterns = [
     path('login/', include('login.urls')), #redirects to urls.py from login module
     path('editturnos/<int:projId>', views.editTurnos), #projId extracted from uri
     path('emptytable/', views.createEmptyTable, name='emptytable'),
+    path('getucs/', views.get_uc_list, name='get_uc_list'),
     path('table/', views.fillPageForCursoAno, name='table'),
     path('distribuicao/', views.distribuicao_view, name='distribuicao'),
     path('schedule/', views.schedule_view, name='schedule'),

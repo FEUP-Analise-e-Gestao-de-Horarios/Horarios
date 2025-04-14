@@ -19,6 +19,7 @@ from getHorariosFromDB.conflictFunctions import organizeInformation, findAnyConf
 from getHorariosFromDB.comparingDatabases import getDifferencesFromDatabases
 import getHorariosFromDB.graph as graph_controller
 
+
 PLACEHOLDER_ID = 0
 dias = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"]
 horas = ["8:00", "8:30", "9:00", "9:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30"]
@@ -418,7 +419,7 @@ def editTurnos(request: HttpRequest, projId: int) -> HttpResponse:
                                                     'docentesList': docentesList, 'salasList': salasList, 'conflitos':conflicts, 'is_edit_turnos': True})
 
 def fillPageForCursoAno(request):
-    #Retira do request o nome do curso e do ano com os quais as tabelas serão preenchidas
+    # Retira do request o nome do curso e do ano com os quais as tabelas serão preenchidas
     cursoNome = request.GET.get('curso')
     projId = int(request.GET.get('projId'))
     anoNum = int(request.GET.get('anoNum'))
@@ -432,15 +433,15 @@ def fillPageForCursoAno(request):
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
         end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
     
-    #Criar o objeto do tipo curso que contém docentes, anos, ucs e salas
+    # Criar o objeto do tipo curso que contém docentes, anos, ucs e salas
     curso = Curso(cursoNome)
     
-    #Fazer fetch de todas as salas de um dado curso
+    # Fazer fetch de todas as salas de um dado curso
     salasRows = auxfunc.getSalasFromCurso(projId, cursoNome)
     
     salas = [ Sala(row['numero'], row['tipo'], row['capacidade']) for row in salasRows ]
     for sala in salas:
-        #Fetch de todas as aulas de uma dada sala
+        # Fetch de todas as aulas de uma dada sala
         aulasSalaRows = auxfunc.getSalaHorario(projId, sala.numero)
         aulasSala = []
         for row in aulasSalaRows:
@@ -451,32 +452,32 @@ def fillPageForCursoAno(request):
         
         for aula in aulasSala:
             turmasAula = auxfunc.getTurmasFromAula(projId, aula.id, cursoNome)
-            aula.set_turmas(turmasAula) #FORMATO -> [codigoTurma]
+            aula.set_turmas(turmasAula) # FORMATO -> [codigoTurma]
         
-        sala.set_aulas(aulasSala) #FORMATO -> [Aula]
+        sala.set_aulas(aulasSala) # FORMATO -> [Aula]
         rendered_html = render_to_string('editTurnos/miniSchedule.html', {'dias': dias, 'horas': horas, 'aulas': aulasSala})
         minified_html = re.sub(r'>\s+<', '><', rendered_html)
         sala.set_miniHorario(minified_html)
         
-        #Fetch de todos os blocos vermelhos de uma dada sala
+        # Fetch de todos os blocos vermelhos de uma dada sala
         salaBlocoRows = auxfunc.getSalaBlocos(projId, sala.numero)
         salaBloco = [ Bloco(row['id'], row['hora'], row['diaSemana']) for row in salaBlocoRows]
-        sala.set_blocos(salaBloco) #FORMATO -> [Bloco]
+        sala.set_blocos(salaBloco) # FORMATO -> [Bloco]
     
     curso.set_salas(salas)
     
-    #Fazer fetch de todos os docentes de um curso
+    # Fazer fetch de todos os docentes de um curso
     docentesRows = auxfunc.getDocentesFromCurso(projId, cursoNome)
     docentes = [ Docente(row['numeroMecanografico'], row['nome'], row['abreviacao']) for row in docentesRows]
     
     curso.set_docentes(docentes)
     
-    #Fazer fetch de todas as ucs de um curso
-    ucsRows = auxfunc.getUCsFromCurso(projId, cursoNome)
+    # Fazer fetch de todas as ucs de um curso
+    ucsRows = auxfunc.getUCsFromCurso(projId, cursoNome, anoNum)
     
     ucs = [ UC(row['codigo'], row['nome'], row['sigla']) for row in ucsRows ]
     for uc in ucs:
-        #Fetch de todas as aulas de uma dada UC
+        # Fetch de todas as aulas de uma dada UC
         aulasUCRows = auxfunc.getUcHorario(projId, uc.codigo)
         aulasUC = []
         for row in aulasUCRows:
@@ -486,25 +487,24 @@ def fillPageForCursoAno(request):
                 aulasUC.append(Aula(row['id'], row['horaInicial'], row['duracao'], row['diaSemana'], row['teorico'], row['semanaInicial'], row['semanaFinal']))
         for aula in aulasUC:
             turmasAula = auxfunc.getTurmasFromAula(projId, aula.id, cursoNome)
-            aula.set_turmas(turmasAula) #FORMATO -> [codigoTurma]
+            aula.set_turmas(turmasAula) # FORMATO -> [codigoTurma]
         
-        uc.set_aulas(aulasUC) #FORMATO -> [Aulas]
+        uc.set_aulas(aulasUC) # FORMATO -> [Aulas]
         
         anos = auxfunc.getAnoFromUcCurso(projId, cursoNome, uc.codigo)
         uc.set_anos(anos)
         
     curso.set_ucs(ucs)
     
-    #Fetch de todas as turmas de um dado ano
+    # Fetch de todas as turmas de um dado ano
     turmasAno = auxfunc.getTurmasFromAnoCurso(projId, cursoNome, anoNum)
     turmasPorTurno = auxfunc.getTurmasPorTurnoCursoAno(projId, cursoNome, anoNum)
 
     # Sort the list of turmas for each turno
     for turno, turmas in turmasPorTurno.items():
         turmas.sort()  # Sort in-place
-        #turmas = sorted(turmas, key=lambda x: int(re.findall(r'\d+', x)[0]))
         
-    #Fetch de todos os docentes de um dado ano
+    # Fetch de todos os docentes de um dado ano
     docentesAnoRows = auxfunc.getDocentesFromAnoFromCurso(projId, cursoNome, anoNum)
     docentesAno = [ Docente(row['numeroMecanografico'], row['nome'], row['abreviacao']) for row in docentesAnoRows]
     for docente in docentesAno:
@@ -518,7 +518,7 @@ def fillPageForCursoAno(request):
         
         for aula in aulasDocente:
             turmasAula = auxfunc.getTurmasFromAula(projId, aula.id, cursoNome)
-            aula.set_turmas(turmasAula) #FORMATO -> [codigoTurma]
+            aula.set_turmas(turmasAula) # FORMATO -> [codigoTurma]
         
         docente.set_aulas(aulasDocente)
         rendered_html = render_to_string('editTurnos/miniSchedule.html', {'dias': dias, 'horas': horas, 'aulas': aulasDocente} )
@@ -529,7 +529,7 @@ def fillPageForCursoAno(request):
         docenteBloco = [ Bloco(row['id'], row['hora'], row['diaSemana']) for row in docenteBlocoRows]
         docente.set_blocos(docenteBloco)
         
-    #Fetch de todas as semanas de um dado ano
+    # Fetch de todas as semanas de um dado ano
     semanasAno = auxfunc.getSemanasFromCursoAno(projId, cursoNome, anoNum)
 
     ano = Ano(anoNum)
@@ -541,30 +541,46 @@ def fillPageForCursoAno(request):
     
     curso.set_anos(anos)
 
-    #Fazer fetch da informação sobre turmas e turnos de um curso para cada ano
+    # Fazer fetch da informação sobre turmas e turnos de um curso para cada ano
     numAnos = auxfunc.getNumYearsFromCurso(projId, cursoNome)
     
-    #Por default, a página é carregada com informação correspondente ao primeiro ano existente do curso selecionado
+    # Por default, a página é carregada com informação correspondente ao primeiro ano existente do curso selecionado
     numeroTurmas = curso.anos[0].numTurmas
     turmasPorTurno = curso.anos[0].turmasPorTurno
     turmasAno = curso.anos[0].turmas
     semanasAno = curso.anos[0].semanas
     
+    # Adicionar lista de UCs para o ano e curso atual
+    ucs_ano = [{'codigo': uc.codigo, 'nome': uc.nome, 'sigla': uc.sigla} for uc in ucs]
+
     curso_encoder = CursoEncoder()
     curso_json = curso_encoder.encode(curso)
 
     response_data = {
-        'schedulehtml': render(request, 'editTurnos/schedule.html', {'numeroTurmas':numeroTurmas, 'turmasPorTurno':turmasPorTurno, 
-                                                    'turmasAno': turmasAno, 'ano':anoNum}).content.decode(),
+        'schedulehtml': render(request, 'editTurnos/schedule.html', {'numeroTurmas': numeroTurmas, 'turmasPorTurno': turmasPorTurno, 
+                                                                    'turmasAno': turmasAno, 'ano': anoNum, 'ucs': ucs}).content.decode(),
         'curso_json': curso_json,
-        'numeroTurmas':numeroTurmas,
+        'numeroTurmas': numeroTurmas,
         'turmasAno': turmasAno,
         'turmasPorTurno': turmasPorTurno,
         'semanasAno': semanasAno,
-        'numAnos': numAnos
+        'numAnos': numAnos,
+        'ucsAno': ucs_ano  # Adicionando a lista de UCs para o ano e curso selecionados
     }
 
     return JsonResponse(response_data)
+
+
+
+def get_uc_list(request):
+    curso = request.GET.get('curso')
+    ano = request.GET.get('ano')
+
+    # Filtra as UC's com base no curso e ano
+    ucs = UC.objects.filter(curso=curso, ano=ano).values('codigo', 'nome')
+
+    return JsonResponse({'uc_list': list(ucs)})
+
 
 def createEmptyTable(request):
     cursoNome = request.GET.get('curso')

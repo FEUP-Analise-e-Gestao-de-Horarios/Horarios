@@ -590,23 +590,30 @@ def getSalasFromCurso(ProjectNumber, abreviacao_curso):
     # Return list of UC codes
     return result
 
-def getUCsFromCurso(ProjectNumber, abreviacao_curso):
+def getUCsFromCurso(ProjectNumber, abreviacao_curso, anoNum):
     # Connect to database
     path = "Project" + str(ProjectNumber)
     conn = sqlite3.connect('./database/' + path + '/general_database.db', check_same_thread=False)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    # Execute query to get all UCs (courses) for the given course
-    stmt = '''SELECT DISTINCT codigo, nome, sigla
+    # Execute query to get all UCs (courses) for the given course and year
+    stmt = '''SELECT DISTINCT uc.codigo, uc.nome, uc.sigla
               FROM uc 
               JOIN curso ON uc.idCurso = curso.abreviacao 
-              WHERE curso.abreviacao = ?'''
-    cursor.execute(stmt, (abreviacao_curso,))
+              JOIN turno ON turno.idUC = uc.codigo
+              JOIN turmas ON turno.idTurma = turmas.codigo
+              WHERE curso.abreviacao = ? AND turmas.ano = ?'''
+    cursor.execute(stmt, (abreviacao_curso, anoNum))
     result = cursor.fetchall()
 
     # Return list of UC codes
     return result
+
+
+
+
+
 
 def getSalaHorarioAgrupado(ProjectNumber, numero, curso):
     # Connect to database

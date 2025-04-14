@@ -63,14 +63,18 @@ function handleAnoBtn(anoNum, selectedAno, handleDist = false) {
                 updateTurnosButton(turmasPorTurno);
                 updateTurmasButton(data.turmasAno);
                 updateSemanasButton(data.semanasAno);
+                updateUCButton(data.ucsAno);
 
                 dataLoadBool = true;
 
-                // Caso seja necessário, atualiza o conteúdo da página                
+                // Atualiza o conteúdo da página                
                 fillUcs(ano);
                 fillDocentes(ano);
                 fillSalas(ano);
                 enablePopovers();
+
+                // Atualiza o dropdown de UCs com as opções correspondentes
+                 // Aqui estamos agora utilizando o campo ucsAno
 
                 resolve(data);
             },
@@ -82,6 +86,24 @@ function handleAnoBtn(anoNum, selectedAno, handleDist = false) {
     });
 }
 
+
+ucsBtn.addEventListener("change", function () {
+    const selectedUC = this.value;
+
+    if (selectedUC === 'UC') {
+        displayAllUcs();  // Supondo que você tenha uma função para mostrar todas as UCs
+    } else {
+        displayUc(selectedUC);  // Supondo que você tenha uma função para exibir uma UC específica
+    }
+    updateDayDivisions();
+});
+
+for (let i = 0; i < cursosLista.length; i++) {
+    const new_option = document.createElement("option");
+    new_option.value = cursosLista[i];
+    new_option.innerHTML = cursosLista[i];
+    cursoBtn.appendChild(new_option);
+}
 /**
  * Lida com o evento de clique no botão de distribuição.
  * @returns {null} Não retorna qualquer valor.
@@ -160,6 +182,19 @@ function updateSemanasButton(semanas) {
     const semanasStrings = semanas.map(semanaPair => semanaPair[0] + ' - ' + semanaPair[1]);
     createAndAppendOptions(semanasBtn, semanasStrings, "Semanas");
 }
+
+
+/**
+ * Atualiza o botão de UCs com base nas opções possíveis.
+ *
+ * @param {Object[]} ucsAno - Lista de UCs para o ano atual.
+ * @returns {null} Não retorna qualquer valor.
+ */
+function updateUCButton(ucsAno) {
+    const ucStrings = ucsAno.map(uc => uc.nome);  // Usando o nome da UC para ser exibido no botão
+    createAndAppendOptions(ucsBtn, ucStrings, "UC");  // Assume que existe o botão de UCs
+}
+
 
 /**
  * Função auxiliar para criar e adicionar 'options' a um dado elemento HTML.
@@ -254,6 +289,13 @@ semanasBtn.addEventListener("change", function () {
 
 distributionBtn.addEventListener("click", function () {
     handleDistributionBtn();
+});
+
+document.addEventListener('DOMContentLoaded', function () {
+    const exportBtn = document.getElementById('exportBtn');
+    exportBtn.addEventListener('click', function () {
+        window.location.href = "/export/" + projId;
+    });
 });
 
 for (let i = 0; i < cursosLista.length; i++) {
