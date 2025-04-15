@@ -23,14 +23,14 @@ function fillUcs(ano) {
 
     for (let i = 0; i < relevantUcs.length; i++) {
         let uc = relevantUcs[i];
-        let aulas = uc.aulas; //FORMATO -> [Aula(id, horaInicial, duracao, diaSemana, isTeorica)]
+        let aulas = uc.aulas; // FORMATO -> [Aula(id, horaInicial, duracao, diaSemana, isTeorica)]
         ucAnoBool = false;
 
         for (let j = 0; j < aulas.length; j++) {
             let aula = aulas[j];
 
-            let turmas = aula.turmas; //FORMATO -> {ano: [codigoTurma]}
-            if (!(ano in turmas)) { //Caso não tenha turmas do ano em que a tabela está
+            let turmas = aula.turmas; // FORMATO -> {ano: [codigoTurma]}
+            if (!(ano in turmas)) { // Caso não tenha turmas do ano em que a tabela está
                 continue;
             }
             ucAnoBool = true;
@@ -64,9 +64,9 @@ function fillUcs(ano) {
 
             for (let k = 0; k < turmaGroups.length; k++) {
                 let group = turmaGroups[k];
-                let idString = "turma_" + group[0] + "_" + dia + "_" + hora;   //id da célula a que pertence a aula
+                let idString = "turma_" + group[0] + "_" + dia + "_" + hora;   // id da célula a que pertence a aula
 
-                let cell = document.querySelector("tbody td:not(:first-child)[id='" + idString + "']"); //célula a que pertence a aula
+                let cell = document.querySelector("tbody td:not(:first-child)[id='" + idString + "']"); // célula a que pertence a aula
                 if (cell == null) {
                     continue;
                 }
@@ -131,6 +131,13 @@ function fillUcs(ano) {
     setSidebarTurmas(turmasSet);
 }
 
+/**
+ * Ordena as aulas de uma UC por número de turmas e depois por duração.
+ * Este processo faz com que os blocos de UC sejam desenhados dos mais pequenos para os maiores.
+ * 
+ * @param {Object} uc - A UC com aulas a ordenar.
+ * @return {null} Não retorna qualquer valor.
+ */
 function sortAulasByTurmasAndDuracao(uc) {
     uc.aulas.sort((a, b) => {
         const turmasA = a.turmas[ano] ? a.turmas[ano].length : 0;
@@ -142,6 +149,12 @@ function sortAulasByTurmasAndDuracao(uc) {
     });
 }
 
+/**
+ * Determina o "peso" de uma UC, tendo em conta o número de turmas e a duração das suas aulas.
+ * 
+ * @param {Object} uc - A UC cujo peso deve ser determinado.  
+ * @returns {number} Peso da UC.
+ */
 function calculateUcWeight(uc) {
     return uc.aulas.reduce((acc, aula) => {
         const turmasLength = aula.turmas[ano] ? aula.turmas[ano].length : 0;
@@ -164,9 +177,9 @@ function fillDocentes(ano) {
         for (let j = 0; j < aulas.length; j++) {
             let aula = aulas[j];
 
-            let turmas = aula.turmas; //FORMATO -> {ano: [codigoTurma]}
+            let turmas = aula.turmas; // FORMATO -> {ano: [codigoTurma]}
 
-            if (!(ano in turmas)) { //Caso não tenha turmas do ano em que a tabela está
+            if (!(ano in turmas)) { // Caso não tenha turmas do ano em que a tabela está
                 continue;
             }
 
@@ -179,7 +192,7 @@ function fillDocentes(ano) {
 
                 let idString = "turma_" + turma + "_" + dia + "_" + hora;
 
-                let cell = document.querySelector("tbody td:not(:first-child)[id='" + idString + "']"); //célula a que pertence a aula
+                let cell = document.querySelector("tbody td:not(:first-child)[id='" + idString + "']"); // célula a que pertence a aula
                 if (cell == null) {
                     continue;
                 }
@@ -223,8 +236,8 @@ function fillSalas(ano) {
         for (let j = 0; j < aulas.length; j++) {
             let aula = aulas[j];
 
-            let turmas = aula.turmas; //FORMATO -> {ano: [codigoTurma]}
-            if (!(ano in turmas)) { //Caso não tenha turmas do ano em que a tabela está
+            let turmas = aula.turmas; // FORMATO -> {ano: [codigoTurma]}
+            if (!(ano in turmas)) { // Caso não tenha turmas do ano em que a tabela está
                 continue;
             }
 
@@ -237,7 +250,7 @@ function fillSalas(ano) {
 
                 const idString = "turma_" + turma + "_" + dia + "_" + hora;
 
-                let cell = document.querySelector("tbody td:not(:first-child)[id='" + idString + "']"); //célula a que pertence a aula
+                let cell = document.querySelector("tbody td:not(:first-child)[id='" + idString + "']"); // célula a que pertence a aula
                 if (cell == null) {
                     continue;
                 }
@@ -351,7 +364,7 @@ function createCells(cell, cellsRight, cellsBottom, startingVal) {
             hora += 30;
         }
 
-        cellId = cellId.split('_')[0] + "_" + cellId.split('_')[1] + "_" + cellId.split('_')[2] + "_" + hora; //id da célula seguinte pertencente à mesma aula
+        cellId = cellId.split('_')[0] + "_" + cellId.split('_')[1] + "_" + cellId.split('_')[2] + "_" + hora; // id da célula seguinte pertencente à mesma aula
     }
 }
 
@@ -425,7 +438,7 @@ function deleteCells(cell, cellsRight, cellsBottom) {
 
         if (i != cellsBottom) {
             idCellSplit = idCell.split('_');
-            idCell = idCellSplit[0] + "_" + idCellSplit[1] + "_" + idCellSplit[2] + "_" + hora; //id da célula seguinte pertencente à mesma aula
+            idCell = idCellSplit[0] + "_" + idCellSplit[1] + "_" + idCellSplit[2] + "_" + hora; // id da célula seguinte pertencente à mesma aula
             cell = document.querySelector("td[id='" + idCell + "']");
             if (!cell) break;
             cellIndex = cell.cellIndex;
@@ -438,7 +451,7 @@ function deleteCells(cell, cellsRight, cellsBottom) {
  * 
  * @returns {null} Não retorna qualquer valor.
  */
-function displayAllAulas() {
+window.displayAllAulas = function() {
     const allTurmas = document.querySelectorAll("tbody [id*=turma_]");
     allTurmas.forEach(cell => {
         cell.style.display = '';
@@ -446,8 +459,30 @@ function displayAllAulas() {
             cell.colSpan = parseInt(cell.getAttribute("data-originalcolspan"), 10);
         }
     });
-}
+};
 
+/**
+ * Faz o display de todas as aulas de uma dada UC.
+ * 
+ * @param {string} targetUc - O código da UC selecionada para visualização.
+ * @return {null} Não retorna qualquer valor.
+ */
+window.displayUc = function(targetUc) {
+    const allCells = document.querySelectorAll("tbody td[id*=turma_]");
+    allCells.forEach(cell => {
+        cell.style.display = 'none';
+        
+        const ucElement = cell.querySelector('p.uc');
+        // Match against UC code (codigo) from database
+        if (ucElement && ucElement.id === targetUc) {
+            cell.style.display = '';
+            // Preserve original colspan if exists
+            const originalColspan = cell.getAttribute('data-originalcolspan');
+            cell.colSpan = originalColspan ? parseInt(originalColspan) : 1;
+        }
+    });
+    updateDayDivisions();
+};
 /**
  * Faz o display de todas as aulas de um dado turno.
  * 
@@ -529,7 +564,7 @@ function updateColspan() {
     const children = [];
     const columns = table.querySelector("tbody tr:first-child");
 
-    //Coloca em children apenas os elementos que estão visíveis
+    // Coloca em children apenas os elementos que estão visíveis
     for (let i = 0; i < columns.children.length; i++) {
         const child = columns.children[i];
         if (child.style.display === '') {
@@ -537,7 +572,7 @@ function updateColspan() {
         }
     }
 
-    const numColumns = children.length - 1; //nº de colunas visíveis
+    const numColumns = children.length - 1; // nº de colunas visíveis
     const colspanValue = Math.floor(numColumns / 6);
 
     headerRow.querySelectorAll("th").forEach((th, index) => {
@@ -604,6 +639,46 @@ function enablePopovers() {
 }
 
 /**
+ * Atualiza o popover de um elemento <p> de um docente, em todas as células aplicáveis.
+ * 
+ * @param {string} idDocente Número mecanográfico do docente.
+ * @returns {null} Não retorna qualquer valor.
+ */
+function updatePopoverDocente(idDocente) {
+    const docenteP = document.querySelectorAll(`p[id="${idDocente}"]`);
+    fetchDocenteMiniHorario(idDocente, projId).then(response => {
+        docenteP.forEach(p => {
+            p.firstElementChild.innerHTML = response.docenteHorario;
+            const popover = bootstrap.Popover.getInstance(p);
+            popover.setContent({
+                '.popover-header': p.getAttribute("data-bs-title"),
+                '.popover-body': response.docenteHorario
+            });
+        });
+    });
+}
+
+/**
+ * Atualiza o popover de um elemento <p> de uma sala, em todas as células aplicáveis.
+ * 
+ * @param {string} idSala 
+ * @returns {null} Não retorna qualquer valor.
+ */
+function updatePopoverSala(idSala) {
+    const salaP = document.querySelectorAll(`p[id="${idSala}"]`);
+    fetchSalaMiniHorario(idSala, projId).then(response => {
+        salaP.forEach(p => {
+            p.firstElementChild.innerHTML = response.salaHorario;
+            const popover = bootstrap.Popover.getInstance(p);
+            popover.setContent({
+                '.popover-header': p.getAttribute("data-bs-title"),
+                '.popover-body': response.salaHorario
+            });
+        });
+    });
+}
+
+/**
  * Envia uma alteração de uma célula para a base de dados.
  * 
  * @param {HTMLElement} cell - A célula que contém a informação a ser submetida.
@@ -625,7 +700,7 @@ function submitToDatabase(cell) {
     const horaInicio = parseInt(cellId.split('_')[3]);
     const aulaId = cell.getAttribute('data-aulaid');
 
-    //Obter hora final
+    // Obter hora final
     let hora = horaInicio;
     let secondDigit;
     for (let i = 1; i <= rowspan; i++) {
@@ -702,6 +777,14 @@ function submitToDatabase(cell) {
         error: function (response, status, error) {
             console.log(response.responseText)
         }
+    }).then(_ => {
+        docentes.forEach(docente => {
+            updatePopoverDocente(docente.id);
+        });
+
+        salas.forEach(sala => {
+            updatePopoverSala(sala.id);
+        });
     });
 }
 
@@ -948,7 +1031,7 @@ function checkIfSwapPossible(cell, cell2, cellsRight, cellsBottom) {
         } else {
             hora += 30;
         }
-        cellId = cellId.split('_')[0] + "_" + cellId.split('_')[1] + "_" + cellId.split('_')[2] + "_" + hora; //id da célula seguinte pertencente à mesma aula
+        cellId = cellId.split('_')[0] + "_" + cellId.split('_')[1] + "_" + cellId.split('_')[2] + "_" + hora; // id da célula seguinte pertencente à mesma aula
     }
     return true;
 }
@@ -966,132 +1049,6 @@ document.addEventListener('DOMContentLoaded', function () {
     myDefaultAllowList.th = [];
     myDefaultAllowList.td = [];
 });
-
-/*
-$(document).on('click', 'td:not(:first-child)', function (event) {
-    const td = this;
-    const targetElement = event.target;
-    const projectNumber = $('script[data-proj-id]').data('projId');
-
-    // Check if the data-turmas attribute exists
-    const hasDataTurmas = td.hasAttribute('data-turmas');
-    let turmas = [];
-
-    if (hasDataTurmas) {
-        // Use the data-turmas attribute
-        const turmasData = td.getAttribute('data-turmas');
-        turmas = turmasData.split(','); // Split the data-turmas attribute into an array
-    } else {
-        // Use the id attribute as fallback
-        const idParts = td.id.split('_'); // Assuming the id is structured as "turma_<class1>_<class2>_<day>_<hour>"
-        turmas = idParts.slice(1, -2); // Extract the class parts
-    }
-
-    console.log('Turmas:', turmas);
-
-    // Check if the target element is the td itself or a descendant of the td
-    if (targetElement === td || $.contains(td, targetElement)) {
-        // Unselect any selected p element
-        const selectedP = $('td:not(:first-child) p.selected');
-        if (selectedP.length) {
-            showEditBarOptions(false);
-            selectedP.removeClass('selected');
-            displayBlocosVermelhosGlobal(selectedP.attr('class'), selectedP.attr('id'), false);
-        }
-
-        // Caso se tente selecionar uma célula que já estava selecionada
-        if ($(td).hasClass('selected')) {
-            showEditBarOptions(false);
-            $(td).removeClass('selected');
-            turmas.forEach(turma => {
-                displayBlocosVermelhosTurma(turma, false);
-            });
-            clearHighlight();
-            return;
-        }
-
-        const prevSelectedCell = $('td:not(:first-child).selected');
-        // Caso já exista uma célula selecionada, então é preciso trocá-las
-        if (prevSelectedCell.length === 1) {
-            // td / prevSelectedCell
-            const prevCell = document.querySelector("td:not(:first-child).selected");
-            const idCellBefore = $(prevCell).attr('id').split('_');
-            const prevTurmas = idCellBefore.slice(1, -2);
-
-            prevTurmas.forEach(turma => {
-                displayBlocosVermelhosTurma(turma, false);
-            });
-            turmas.forEach(turma => {
-                displayBlocosVermelhosTurma(turma, false);
-            });
-
-            try {
-                if (canSwap(prevCell, td)) {
-                    swapFullCells(prevCell, td);
-                    if (prevCell.querySelector("p") !== null) {
-                        submitToDatabase(prevCell);
-                    }
-                    if (td.querySelector("p") !== null) {
-                        submitToDatabase(td);
-                    }
-                }
-            } catch (error) {
-                console.error("An error occurred in canSwap or swapFullCells:", error);
-            }
-            showEditBarOptions(false);
-        }
-
-        // remove class from all other td
-        document.querySelectorAll("td:not(:first-child)").forEach(td => {
-            showEditBarOptions(false);
-        });
-
-        // Unselect da primeira célula selecionada
-        $('td:not(:first-child)').removeClass('selected');
-
-        if (prevSelectedCell.length == 0) {
-            // Select da primeira célula selecionada
-            $(td).addClass('selected');
-            if ($(td).has('p').length > 0) {
-                turmas.forEach(turma => {
-                    displayBlocosVermelhosTurma(turma, true);
-                });
-
-                const docenteElement = $(td).find('p.docente');
-                const salaElement = $(td).find('p.sala');
-                if (docenteElement.length > 0 && salaElement.length > 0) {
-                    const docenteId = docenteElement.attr('id');
-                    const numeroSala = salaElement.attr('id');
-                    console.log('Docente selecionado com id:', docenteId);
-                    console.log('Sala selecionada com id:', numeroSala);
-                    clearHighlight();  // Limpa os destaques antes de adicionar novos
-                    displayTodosConflitos(docenteId, numeroSala, true); // Chama a função para destacar os conflitos duplos
-                } else {
-                    if (docenteElement.length > 0) {
-                        const docenteId = docenteElement.attr('id');
-                        console.log('Docente selecionado com id:', docenteId);
-                        clearHighlight();  // Limpa os destaques antes de adicionar novos
-                        displayBlocosAmarelos(docenteId, true);  // Chama a função para destacar os blocos amarelos
-                    }
-                    if (salaElement.length > 0) {
-                        const numeroSala = salaElement.attr('id');
-                        console.log('Sala selecionada com id:', numeroSala);
-                        clearHighlight();  // Limpa os destaques antes de adicionar novos
-                        displayBlocosLaranja(numeroSala, true);  // Chama a função para destacar os blocos laranja
-                    }
-                }
-            }
-        }
-
-        if (td.children.length > 0) {
-            showEditBarOptions(true);
-            selectedCellSelectSideBar(targetElement, false);
-        } else {
-            showEditBarOptions(false);
-        }
-    }
-});
-*/
 
 $(document).on('click', 'td:not(:first-child)', function (event) {
     const td = this;
@@ -1113,7 +1070,6 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
         if ($(td).hasClass('selected')) {
             showEditBarOptions(false);
             $(td).removeClass('selected');
-            displayBlocosVermelhosTurma(turma, false);
             clearHighlight();
 
             // Remove borders from p elements
@@ -1126,8 +1082,6 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
         if (prevSelectedCell.length === 1) {
             const prevCell = document.querySelector("td:not(:first-child).selected");
             const idCellBefore = $(prevCell).attr('id');
-            displayBlocosVermelhosTurma(idCellBefore.split('_')[1], false);
-            displayBlocosVermelhosTurma(turma, false);
 
             try {
                 if (canSwap(prevCell, td)) {
@@ -1157,7 +1111,6 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
             // Select da primeira célula selecionada
             $(td).addClass('selected');
             if ($(td).has('p').length > 0) {
-                displayBlocosVermelhosTurma(turma, true);
 
                 const docenteElement = $(td).find('p.docente');
                 const salaElement = $(td).find('p.sala');
@@ -1166,7 +1119,7 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
                     const numeroSala = salaElement.attr('id');
                     clearHighlight();  // Limpa os destaques antes de adicionar novos
                     displayTodosConflitos(docenteId, numeroSala, true); // Chama a função para destacar os conflitos duplos
-                    
+
                     // Add borders only to the specific cell
                     docenteElement.css('border', '2px solid yellow');
                     salaElement.css('border', '2px solid orange');
@@ -1266,7 +1219,7 @@ $(document).on('click', 'td:not(:first-child) p', function (event) {
     const projectNumber = $('script[data-proj-id]').data('projId');
     const elementoId = $(p).attr('id');
     const className = $(p).attr('class');
-    
+
     if (className.includes('docente')) {
         console.log('Docente selecionado com id:', elementoId, 'projectNumber:', projectNumber);
         clearHighlight();  // Limpa os destaques amarelos antes de adicionar novos
@@ -1277,7 +1230,6 @@ $(document).on('click', 'td:not(:first-child) p', function (event) {
         clearHighlight();  // Limpa os destaques laranja antes de adicionar novos
         displayBlocosLaranjas(numeroSala, true);  // Chama a função para destacar os blocos laranja
     }
-
 
     // 'Desseleciona' algum elemento td selecionado
     const selectedTD = $('td:not(:first-child).selected');
@@ -1330,6 +1282,9 @@ $(document).on('click', 'td:not(:first-child) p', function (event) {
     }
 });
 
+/**
+ * Limpa os destaques (background color e opacity) das células.
+ */
 function clearHighlight() {
     const highlightedCells = document.querySelectorAll('td[style*="background-color: yellow"], td[style*="opacity: 0.6"]');
     highlightedCells.forEach(cell => {
@@ -1338,36 +1293,13 @@ function clearHighlight() {
     });
 }
 
-function displayBlocosVermelhosTurma(turma, display) {
-    if (!display) {
-        const redCellsTd = document.querySelectorAll('td[style="background-color: red; opacity: 0.6;"]');
-        const redCellsDiv = document.querySelectorAll('div[style="background-color: red; opacity: 0.6;"]');
-
-        for (let i = 0; i < redCellsTd.length; i++) {
-            redCellsTd[i].setAttribute("style", "");
-        }
-
-        for (let i = 0; i < redCellsDiv.length; i++) {
-            redCellsDiv[i].setAttribute("style", "");
-        }
-        return;
-    }
-
-    // Make the asynchronous request
-    $.ajax({
-        url: '/blocosturma/',  // Update with your actual URL
-        type: 'GET',
-        data: { 'turma': turma, 'projId': projId },
-        success: function (data) {
-            displayBlocosVermelhos(data.blocos, true, turma);
-
-        },
-        error: function (xhr, textStatus, error) {
-            // Handle any errors
-        }
-    });
-}
-
+/**
+ * Mostra ou oculta blocos vermelhos para um elemento global (docente ou sala).
+ * 
+ * @param {string} className - A classe do elemento (docente ou sala).
+ * @param {string} id - O ID do elemento.
+ * @param {boolean} display - Determina se os blocos vermelhos devem ser exibidos ou ocultados.
+ */
 function displayBlocosVermelhosGlobal(className, id, display) {
     var blocosVermelhos;
     if (className === 'docente selected' || className === 'docente') {
@@ -1386,7 +1318,7 @@ function displayBlocosVermelhosGlobal(className, id, display) {
 
         blocosVermelhos = docente.blocos;
         displayBlocosVermelhos(blocosVermelhos, display, 'any');
-        
+
         // Chama a função para destacar os blocos amarelos
         displayBlocosAmarelos(id, display);
     } else if (className === 'sala selected' || className === 'sala') {
@@ -1405,13 +1337,19 @@ function displayBlocosVermelhosGlobal(className, id, display) {
 
         blocosVermelhos = sala.blocos;
         displayBlocosVermelhos(blocosVermelhos, display, 'any');
-        
+
         // Chama a função para destacar os blocos laranja
         displayBlocosLaranjas(id, display);
     }
 }
 
-
+/**
+ * Mostra ou oculta blocos vermelhos para um conjunto de blocos.
+ * 
+ * @param {Array} blocosVermelhos - Array de blocos a serem destacados.
+ * @param {boolean} display - Determina se os blocos vermelhos devem ser exibidos ou ocultados.
+ * @param {string} turma - A turma alvo.
+ */
 function displayBlocosVermelhos(blocosVermelhos, display, turma) {
     for (var i = 0; i < blocosVermelhos.length; i++) {
         var bloco = blocosVermelhos[i];
@@ -1420,25 +1358,25 @@ function displayBlocosVermelhos(blocosVermelhos, display, turma) {
         var targetElements, targetElements2;
 
         if (turma == 'any') {
-            //Blocos vermelhos que estarão em células já preenchidas
+            // Blocos vermelhos que estarão em células já preenchidas
             var selector = "div[id*=" + substring + "]";
             targetElements = document.querySelectorAll(selector);
 
-            //Blocos vermelhos que estarão em células vazias
+            // Blocos vermelhos que estarão em células vazias
             var selector2 = "td:not(:has(div))[id*=" + substring + "]";
             targetElements2 = $(selector2);
         }
         else {
-            //Blocos vermelhos que estarão em células já preenchidas
+            // Blocos vermelhos que estarão em células já preenchidas
             var selector = 'div[id*="' + substring + '"]:has([id*="' + turma + '"])';
             targetElements = $(selector);
 
-            //Blocos vermelhos que estarão em células vazias
+            // Blocos vermelhos que estarão em células vazias
             var selector2 = 'td:not(:has(div))[id*="' + substring + '"][id*="' + turma + '"]';
             targetElements2 = $(selector2);
         }
 
-        //Blocos vermelhos que estão em células já preenchidas
+        // Blocos vermelhos que estão em células já preenchidas
         for (var j = 0; j < targetElements.length; j++) {
             var element = targetElements[j];
 
@@ -1455,7 +1393,7 @@ function displayBlocosVermelhos(blocosVermelhos, display, turma) {
             }
         }
 
-        //Blocos vermelhos que estão em células vazias
+        // Blocos vermelhos que estão em células vazias
         for (var j = 0; j < targetElements2.length; j++) {
             var element = targetElements2[j];
             if (display) {
@@ -1470,9 +1408,15 @@ function displayBlocosVermelhos(blocosVermelhos, display, turma) {
     }
 }
 
+/**
+ * Mostra ou oculta blocos amarelos para um docente específico.
+ * 
+ * @param {string} docenteId - O ID do docente.
+ * @param {boolean} display - Determina se os blocos amarelos devem ser exibidos ou ocultados.
+ */
 function displayBlocosAmarelos(docenteId, display) {
     const projectNumber = $('script[data-proj-id]').data('projId');
-    
+
     fetchDocenteHorario(docenteId, projectNumber).then(aulas => {
         aulas.forEach(aula => {
             const dia = aula.diaSemana.toLowerCase();
@@ -1496,7 +1440,7 @@ function displayBlocosAmarelos(docenteId, display) {
                 const idString = `${dia}_${horas}${minutos}`;
 
                 const cells = document.querySelectorAll(`td[id*="${idString}"]:not(:has(p))`);
-                
+
                 cells.forEach(cell => {
                     if (display) {
                         cell.style.backgroundColor = "yellow";
@@ -1513,9 +1457,15 @@ function displayBlocosAmarelos(docenteId, display) {
     });
 }
 
+/**
+ * Mostra ou oculta blocos laranja para uma sala específica.
+ * 
+ * @param {string} salaId - O ID da sala.
+ * @param {boolean} display - Determina se os blocos laranja devem ser exibidos ou ocultados.
+ */
 function displayBlocosLaranjas(salaId, display) {
     const projectNumber = $('script[data-proj-id]').data('projId');
-    
+
     fetchSalaHorario(salaId, projectNumber).then(aulas => {
         aulas.forEach(aula => {
             const dia = aula.diaSemana.toLowerCase();
@@ -1539,7 +1489,7 @@ function displayBlocosLaranjas(salaId, display) {
                 const idString = `${dia}_${horas}${minutos}`;
 
                 const cells = document.querySelectorAll(`td[id*="${idString}"]:not(:has(p))`);
-                
+
                 cells.forEach(cell => {
                     if (display) {
                         cell.style.backgroundColor = "orange";
@@ -1556,6 +1506,13 @@ function displayBlocosLaranjas(salaId, display) {
     });
 }
 
+/**
+ * Mostra ou oculta blocos cinza que representam conflitos duplos (docente e sala).
+ * 
+ * @param {string} docenteId - O ID do docente.
+ * @param {string} numeroSala - O número da sala.
+ * @param {boolean} display - Determina se os blocos de conflitos duplos devem ser exibidos ou ocultados.
+ */
 function displayBlocosConflitosDuplos(docenteId, numeroSala, display) {
     const projectNumber = $('script[data-proj-id]').data('projId');
 
@@ -1607,6 +1564,14 @@ function displayBlocosConflitosDuplos(docenteId, numeroSala, display) {
             console.error('Erro ao buscar horários:', error);
         });
 }
+
+/**
+ * Mostra ou oculta todos os conflitos (docente e sala).
+ * 
+ * @param {string} docenteId - O ID do docente.
+ * @param {string} numeroSala - O número da sala.
+ * @param {boolean} display - Determina se os conflitos devem ser exibidos ou ocultados.
+ */
 function displayTodosConflitos(docenteId, numeroSala, display) {
     const projectNumber = $('script[data-proj-id]').data('projId');
 
@@ -1620,8 +1585,13 @@ function displayTodosConflitos(docenteId, numeroSala, display) {
     displayBlocosConflitosDuplos(docenteId, numeroSala, display);
 }
 
-
-
+/**
+ * Faz uma requisição para buscar o horário de um docente.
+ * 
+ * @param {string} docenteId - O ID do docente.
+ * @param {number} projectNumber - O número do projeto.
+ * @returns {Promise} - Promessa que retorna o horário do docente.
+ */
 function fetchDocenteHorario(docenteId, projectNumber) {
     console.log(`Fetching schedule for docenteId: ${docenteId}, projectNumber: ${projectNumber}`);
     return new Promise((resolve, reject) => {
@@ -1629,11 +1599,11 @@ function fetchDocenteHorario(docenteId, projectNumber) {
             url: '/getdocentehorario/',
             method: 'GET',
             data: { docenteId: docenteId, projectNumber: projectNumber },
-            success: function(data) {
+            success: function (data) {
                 console.log('Horário recebido:', data);
                 resolve(data);
             },
-            error: function(error) {
+            error: function (error) {
                 console.error('Erro ao buscar horário do docente:', error);
                 reject(error);
             }
@@ -1641,6 +1611,13 @@ function fetchDocenteHorario(docenteId, projectNumber) {
     });
 }
 
+/**
+ * Faz uma requisição para buscar o horário de uma sala.
+ * 
+ * @param {string} salaId - O ID da sala.
+ * @param {number} projectNumber - O número do projeto.
+ * @returns {Promise} - Promessa que retorna o horário da sala.
+ */
 function fetchSalaHorario(salaId, projectNumber) {
     console.log(`Fetching schedule for sala: ${salaId}, projectNumber: ${projectNumber}`);
     return new Promise((resolve, reject) => {
@@ -1648,11 +1625,11 @@ function fetchSalaHorario(salaId, projectNumber) {
             url: '/getsalahorario/',
             method: 'GET',
             data: { salaId: salaId, projectNumber: projectNumber },
-            success: function(data) {
+            success: function (data) {
                 console.log('Horário da sala recebido:', data);
                 resolve(data);
             },
-            error: function(error) {
+            error: function (error) {
                 console.error('Erro ao buscar horário da sala:', error);
                 reject(error);
             }
@@ -1660,3 +1637,56 @@ function fetchSalaHorario(salaId, projectNumber) {
     });
 }
 
+/**
+ * Obtém o mini-horário HTML de um docente do servidor.
+ * 
+ * @param {string} docenteId Número mecanográfico do docente.
+ * @param {int} projectNumber Número do projeto.
+ * @returns {Promise} O horário HTML do docente, ou um erro.
+ */
+function fetchDocenteMiniHorario(docenteId, projectNumber) {
+    return new Promise((resolve, reject) => {
+        $.ajax({
+            url: '/getdocenteminihorario',
+            method: "GET",
+            data: {
+                docenteId: docenteId,
+                projectNumber: projectNumber
+            },
+            success: function (data) {
+                resolve(data);
+            },
+            error: function (error) {
+                console.error("Erro ao buscar mini-horário do docente:", error);
+                reject(error);
+            }
+        });
+    });
+}
+
+/**
+ * Obtém o mini-horário HTML de uma sala do servidor.
+ * 
+ * @param {string} salaId Identificador da sala.
+ * @param {int} projectNumber Número do projeto
+ * @returns {Promise} O horário HTML da sala, ou um erro.
+ */
+function fetchSalaMiniHorario(salaId, projectNumber) {
+    return new Promise((resolve, reject) => {
+        $.ajax({
+            url: '/getsalaminihorario',
+            method: 'GET',
+            data: {
+                salaId: salaId,
+                projectNumber: projectNumber
+            },
+            success: function (data) {
+                resolve(data);
+            },
+            error: function (error) {
+                console.error("Erro ao buscar mini-horário da sala:", error);
+                reject(error);
+            }
+        });
+    });
+}

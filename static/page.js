@@ -7,6 +7,7 @@ const turnosBtn = document.getElementById("turnosBtn");
 const turmasBtn = document.getElementById("turmasBtn");
 const semanasBtn = document.getElementById("semanasBtn");
 const distributionBtn = document.getElementById("showDistributionBtn");
+const ucsBtn = document.getElementById("ucsBtn");
 
 let curso, ano, semana, ucsDistribuicao, turmasPorTurno;
 let dataLoadBool = false;
@@ -86,17 +87,6 @@ function handleAnoBtn(anoNum, selectedAno, handleDist = false) {
     });
 }
 
-
-ucsBtn.addEventListener("change", function () {
-    const selectedUC = this.value;
-
-    if (selectedUC === 'UC') {
-        displayAllUcs();  // Supondo que você tenha uma função para mostrar todas as UCs
-    } else {
-        displayUc(selectedUC);  // Supondo que você tenha uma função para exibir uma UC específica
-    }
-    updateDayDivisions();
-});
 
 for (let i = 0; i < cursosLista.length; i++) {
     const new_option = document.createElement("option");
@@ -191,8 +181,13 @@ function updateSemanasButton(semanas) {
  * @returns {null} Não retorna qualquer valor.
  */
 function updateUCButton(ucsAno) {
-    const ucStrings = ucsAno.map(uc => uc.nome);  // Usando o nome da UC para ser exibido no botão
-    createAndAppendOptions(ucsBtn, ucStrings, "UC");  // Assume que existe o botão de UCs
+    ucsBtn.innerHTML = '<option selected>UC</option>';
+    ucsAno.forEach(uc => {
+        const option = document.createElement('option');
+        option.value = uc.codigo;  // Must match database codigo
+        option.textContent = uc.nome;
+        ucsBtn.appendChild(option);
+    });
 }
 
 
@@ -233,6 +228,57 @@ anoBtn.addEventListener("change", function () {
     handleAnoBtn(ano, ano).then(updateDayDivisions);
 });
 
+function displayUc(targetUc) {
+    const allCells = document.querySelectorAll("tbody td[id*=turma_]");
+    
+    // First make all cells visible and reset their structure
+    allCells.forEach(cell => {
+        cell.style.visibility = 'visible';
+        cell.style.opacity = '1';
+        if (cell.hasAttribute("data-originalcolspan")) {
+            cell.colSpan = parseInt(cell.getAttribute("data-originalcolspan"), 10);
+        }
+    });
+
+    // Then handle UC filtering
+    allCells.forEach(cell => {
+        const ucElement = cell.querySelector('p.uc');
+        
+        if (ucElement) {
+            if (ucElement.id !== targetUc) {
+                // Hide content but maintain cell structure
+                cell.style.visibility = 'hidden';
+                cell.style.opacity = '0';
+                cell.style.height = '0';
+                cell.style.padding = '0';
+                cell.style.border = 'none';
+            } else {
+                // Show matching UC with original formatting
+                cell.style.visibility = 'visible';
+                cell.style.opacity = '1';
+                cell.style.height = '';
+                cell.style.padding = '';
+                cell.style.border = '';
+                const originalColspan = cell.getAttribute('data-originalcolspan');
+                cell.colSpan = originalColspan ? parseInt(originalColspan) : 1;
+            }
+        }
+    });
+}
+
+ucsBtn.addEventListener("change", function() {
+    console.log(`[Event] UC selection changed to: ${this.value}`);
+    if (this.value === 'UC') {
+        console.log('[Event] Calling displayAllAulas()');
+        displayAllAulas();
+    } else {
+        console.log(`[Event] Calling displayUc(${this.value})`);
+        displayUc(this.value);
+    }
+    console.log('[Event] Calling update functions');
+    updateColspan();
+    updateDayDivisions();
+});
 turnosBtn.addEventListener("change", function () {
     const selectedTurno = this.value;
 

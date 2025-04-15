@@ -1,3 +1,4 @@
+import logging
 from django.shortcuts import render, redirect
 from django.http import HttpResponse, HttpRequest, JsonResponse
 from django.template.loader import render_to_string
@@ -18,6 +19,18 @@ from getHorariosFromDB.movementFunctions import addDocente, removeDocente, addSa
 from getHorariosFromDB.conflictFunctions import organizeInformation, findAnyConflicts
 from getHorariosFromDB.comparingDatabases import getDifferencesFromDatabases
 import getHorariosFromDB.graph as graph_controller
+
+# Configure basic logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),  # Logs to console
+    ]
+)
+
+# Get a logger for this module
+logger = logging.getLogger(__name__)
 
 
 PLACEHOLDER_ID = 0
@@ -419,168 +432,201 @@ def editTurnos(request: HttpRequest, projId: int) -> HttpResponse:
                                                     'docentesList': docentesList, 'salasList': salasList, 'conflitos':conflicts, 'is_edit_turnos': True})
 
 def fillPageForCursoAno(request):
-    # Retira do request o nome do curso e do ano com os quais as tabelas serão preenchidas
-    cursoNome = request.GET.get('curso')
-    projId = int(request.GET.get('projId'))
-    anoNum = int(request.GET.get('anoNum'))
-    semanaInterval = request.GET.get('semanas', None)
+    logger.info("fillPageForCursoAno view called")
+    
+    try:
+        # Retira do request o nome do curso e do ano com os quais as tabelas serão preenchidas
+        cursoNome = request.GET.get('curso')
+        projId = int(request.GET.get('projId'))
+        anoNum = int(request.GET.get('anoNum'))
+        semanaInterval = request.GET.get('semanas', None)
+        
+        logger.debug(f"Request parameters - curso: {cursoNome}, projId: {projId}, anoNum: {anoNum}, semanaInterval: {semanaInterval}")
 
-    start_date = None
-    end_date = None
+        start_date = None
+        end_date = None
 
-    if semanaInterval and semanaInterval != 'Semanas':
-        start_date_str, end_date_str = semanaInterval.split(' - ')
-        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-    
-    # Criar o objeto do tipo curso que contém docentes, anos, ucs e salas
-    curso = Curso(cursoNome)
-    
-    # Fazer fetch de todas as salas de um dado curso
-    salasRows = auxfunc.getSalasFromCurso(projId, cursoNome)
-    
-    salas = [ Sala(row['numero'], row['tipo'], row['capacidade']) for row in salasRows ]
-    for sala in salas:
-        # Fetch de todas as aulas de uma dada sala
-        aulasSalaRows = auxfunc.getSalaHorario(projId, sala.numero)
-        aulasSala = []
-        for row in aulasSalaRows:
-            semanaInicial = datetime.strptime(row['semanaInicial'], '%Y-%m-%d').date()
-            semanaFinal = datetime.strptime(row['semanaFinal'], '%Y-%m-%d').date()
-            if semanaInterval == None or semanaInterval == "Semanas" or areSemanasCompatible(semanaInicial, semanaFinal, start_date, end_date):
-                aulasSala.append(Aula(row['id'], row['horaInicial'], row['duracao'], row['diaSemana'], row['teorico'], row['semanaInicial'], row['semanaFinal']))
+        if semanaInterval and semanaInterval != 'Semanas':
+            start_date_str, end_date_str = semanaInterval.split(' - ')
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            logger.debug(f"Parsed dates - start_date: {start_date}, end_date: {end_date}")
         
-        for aula in aulasSala:
-            turmasAula = auxfunc.getTurmasFromAula(projId, aula.id, cursoNome)
-            aula.set_turmas(turmasAula) # FORMATO -> [codigoTurma]
+        # Criar o objeto do tipo curso que contém docentes, anos, ucs e salas
+        curso = Curso(cursoNome)
+        logger.debug(f"Created Curso object for {cursoNome}")
         
-        sala.set_aulas(aulasSala) # FORMATO -> [Aula]
-        rendered_html = render_to_string('editTurnos/miniSchedule.html', {'dias': dias, 'horas': horas, 'aulas': aulasSala})
-        minified_html = re.sub(r'>\s+<', '><', rendered_html)
-        sala.set_miniHorario(minified_html)
+        # Fazer fetch de todas as salas de um dado curso
+        salasRows = auxfunc.getSalasFromCurso(projId, cursoNome)
+        logger.debug(f"Retrieved {len(salasRows)} salas for curso {cursoNome}")
         
-        # Fetch de todos os blocos vermelhos de uma dada sala
-        salaBlocoRows = auxfunc.getSalaBlocos(projId, sala.numero)
-        salaBloco = [ Bloco(row['id'], row['hora'], row['diaSemana']) for row in salaBlocoRows]
-        sala.set_blocos(salaBloco) # FORMATO -> [Bloco]
-    
-    curso.set_salas(salas)
-    
-    # Fazer fetch de todos os docentes de um curso
-    docentesRows = auxfunc.getDocentesFromCurso(projId, cursoNome)
-    docentes = [ Docente(row['numeroMecanografico'], row['nome'], row['abreviacao']) for row in docentesRows]
-    
-    curso.set_docentes(docentes)
-    
-    # Fazer fetch de todas as ucs de um curso
-    ucsRows = auxfunc.getUCsFromCurso(projId, cursoNome, anoNum)
-    
-    ucs = [ UC(row['codigo'], row['nome'], row['sigla']) for row in ucsRows ]
-    for uc in ucs:
-        # Fetch de todas as aulas de uma dada UC
-        aulasUCRows = auxfunc.getUcHorario(projId, uc.codigo)
-        aulasUC = []
-        for row in aulasUCRows:
-            semanaInicial = datetime.strptime(row['semanaInicial'], '%Y-%m-%d').date()
-            semanaFinal = datetime.strptime(row['semanaFinal'], '%Y-%m-%d').date()
-            if semanaInterval == None or semanaInterval == "Semanas" or (start_date and end_date and areSemanasCompatible(semanaInicial, semanaFinal, start_date, end_date)):
-                aulasUC.append(Aula(row['id'], row['horaInicial'], row['duracao'], row['diaSemana'], row['teorico'], row['semanaInicial'], row['semanaFinal']))
-        for aula in aulasUC:
-            turmasAula = auxfunc.getTurmasFromAula(projId, aula.id, cursoNome)
-            aula.set_turmas(turmasAula) # FORMATO -> [codigoTurma]
+        salas = [ Sala(row['numero'], row['tipo'], row['capacidade']) for row in salasRows ]
+        for sala in salas:
+            # Fetch de todas as aulas de uma dada sala
+            aulasSalaRows = auxfunc.getSalaHorario(projId, sala.numero)
+            aulasSala = []
+            for row in aulasSalaRows:
+                semanaInicial = datetime.strptime(row['semanaInicial'], '%Y-%m-%d').date()
+                semanaFinal = datetime.strptime(row['semanaFinal'], '%Y-%m-%d').date()
+                if semanaInterval == None or semanaInterval == "Semanas" or areSemanasCompatible(semanaInicial, semanaFinal, start_date, end_date):
+                    aulasSala.append(Aula(row['id'], row['horaInicial'], row['duracao'], row['diaSemana'], row['teorico'], row['semanaInicial'], row['semanaFinal']))
+            
+            for aula in aulasSala:
+                turmasAula = auxfunc.getTurmasFromAula(projId, aula.id, cursoNome)
+                aula.set_turmas(turmasAula) # FORMATO -> [codigoTurma]
+            
+            sala.set_aulas(aulasSala) # FORMATO -> [Aula]
+            rendered_html = render_to_string('editTurnos/miniSchedule.html', {'dias': dias, 'horas': horas, 'aulas': aulasSala})
+            minified_html = re.sub(r'>\s+<', '><', rendered_html)
+            sala.set_miniHorario(minified_html)
+            
+            # Fetch de todos os blocos vermelhos de uma dada sala
+            salaBlocoRows = auxfunc.getSalaBlocos(projId, sala.numero)
+            salaBloco = [ Bloco(row['id'], row['hora'], row['diaSemana']) for row in salaBlocoRows]
+            sala.set_blocos(salaBloco) # FORMATO -> [Bloco]
         
-        uc.set_aulas(aulasUC) # FORMATO -> [Aulas]
+        curso.set_salas(salas)
+        logger.debug(f"Processed {len(salas)} salas with their aulas and blocos")
         
-        anos = auxfunc.getAnoFromUcCurso(projId, cursoNome, uc.codigo)
-        uc.set_anos(anos)
+        # Fazer fetch de todos os docentes de um curso
+        docentesRows = auxfunc.getDocentesFromCurso(projId, cursoNome)
+        logger.debug(f"Retrieved {len(docentesRows)} docentes for curso {cursoNome}")
         
-    curso.set_ucs(ucs)
-    
-    # Fetch de todas as turmas de um dado ano
-    turmasAno = auxfunc.getTurmasFromAnoCurso(projId, cursoNome, anoNum)
-    turmasPorTurno = auxfunc.getTurmasPorTurnoCursoAno(projId, cursoNome, anoNum)
+        docentes = [ Docente(row['numeroMecanografico'], row['nome'], row['abreviacao']) for row in docentesRows]
+        
+        curso.set_docentes(docentes)
+        
+        # Fazer fetch de todas as ucs de um curso
+        ucsRows = auxfunc.getUCsFromCurso(projId, cursoNome, anoNum)
+        logger.debug(f"Retrieved {len(ucsRows)} UCs for curso {cursoNome} and ano {anoNum}")
+        
+        ucs = [ UC(row['codigo'], row['nome'], row['sigla']) for row in ucsRows ]
+        for uc in ucs:
+            # Fetch de todas as aulas de uma dada UC
+            aulasUCRows = auxfunc.getUcHorario(projId, uc.codigo)
+            aulasUC = []
+            for row in aulasUCRows:
+                semanaInicial = datetime.strptime(row['semanaInicial'], '%Y-%m-%d').date()
+                semanaFinal = datetime.strptime(row['semanaFinal'], '%Y-%m-%d').date()
+                if semanaInterval == None or semanaInterval == "Semanas" or (start_date and end_date and areSemanasCompatible(semanaInicial, semanaFinal, start_date, end_date)):
+                    aulasUC.append(Aula(row['id'], row['horaInicial'], row['duracao'], row['diaSemana'], row['teorico'], row['semanaInicial'], row['semanaFinal']))
+            for aula in aulasUC:
+                turmasAula = auxfunc.getTurmasFromAula(projId, aula.id, cursoNome)
+                aula.set_turmas(turmasAula) # FORMATO -> [codigoTurma]
+            
+            uc.set_aulas(aulasUC) # FORMATO -> [Aulas]
+            
+            anos = auxfunc.getAnoFromUcCurso(projId, cursoNome, uc.codigo)
+            uc.set_anos(anos)
+            
+        curso.set_ucs(ucs)
+        logger.debug(f"Processed {len(ucs)} UCs with their aulas and anos")
+        
+        # Fetch de todas as turmas de um dado ano
+        turmasAno = auxfunc.getTurmasFromAnoCurso(projId, cursoNome, anoNum)
+        turmasPorTurno = auxfunc.getTurmasPorTurnoCursoAno(projId, cursoNome, anoNum)
+        logger.debug(f"Retrieved turmas - total: {len(turmasAno)}, por turno: {turmasPorTurno}")
 
-    # Sort the list of turmas for each turno
-    for turno, turmas in turmasPorTurno.items():
-        turmas.sort()  # Sort in-place
+        # Sort the list of turmas for each turno
+        for turno, turmas in turmasPorTurno.items():
+            turmas.sort()  # Sort in-place
+            
+        # Fetch de todos os docentes de um dado ano
+        docentesAnoRows = auxfunc.getDocentesFromAnoFromCurso(projId, cursoNome, anoNum)
+        docentesAno = [ Docente(row['numeroMecanografico'], row['nome'], row['abreviacao']) for row in docentesAnoRows]
+        logger.debug(f"Retrieved {len(docentesAno)} docentes for ano {anoNum}")
         
-    # Fetch de todos os docentes de um dado ano
-    docentesAnoRows = auxfunc.getDocentesFromAnoFromCurso(projId, cursoNome, anoNum)
-    docentesAno = [ Docente(row['numeroMecanografico'], row['nome'], row['abreviacao']) for row in docentesAnoRows]
-    for docente in docentesAno:
-        aulasDocenteRows = auxfunc.getDocenteHorario(projId, docente.numMecanografico)
-        aulasDocente = []
-        for row in aulasDocenteRows:
-            semanaInicial = datetime.strptime(row['semanaInicial'], '%Y-%m-%d').date()
-            semanaFinal = datetime.strptime(row['semanaFinal'], '%Y-%m-%d').date()
-            if semanaInterval == None or semanaInterval == "Semanas" or (start_date and end_date and areSemanasCompatible(semanaInicial, semanaFinal, start_date, end_date)):
-                aulasDocente.append(Aula(row['id'], row['horaInicial'], row['duracao'], row['diaSemana'], row['teorico'], row['semanaInicial'], row['semanaFinal']))
+        for docente in docentesAno:
+            aulasDocenteRows = auxfunc.getDocenteHorario(projId, docente.numMecanografico)
+            aulasDocente = []
+            for row in aulasDocenteRows:
+                semanaInicial = datetime.strptime(row['semanaInicial'], '%Y-%m-%d').date()
+                semanaFinal = datetime.strptime(row['semanaFinal'], '%Y-%m-%d').date()
+                if semanaInterval == None or semanaInterval == "Semanas" or (start_date and end_date and areSemanasCompatible(semanaInicial, semanaFinal, start_date, end_date)):
+                    aulasDocente.append(Aula(row['id'], row['horaInicial'], row['duracao'], row['diaSemana'], row['teorico'], row['semanaInicial'], row['semanaFinal']))
+            
+            for aula in aulasDocente:
+                turmasAula = auxfunc.getTurmasFromAula(projId, aula.id, cursoNome)
+                aula.set_turmas(turmasAula) # FORMATO -> [codigoTurma]
+            
+            docente.set_aulas(aulasDocente)
+            rendered_html = render_to_string('editTurnos/miniSchedule.html', {'dias': dias, 'horas': horas, 'aulas': aulasDocente} )
+            minified_html = re.sub(r'>\s+<', '><', rendered_html)
+            docente.set_miniHorario(minified_html)
+            
+            docenteBlocoRows = auxfunc.getDocenteBlocos(projId, docente.numMecanografico)
+            docenteBloco = [ Bloco(row['id'], row['hora'], row['diaSemana']) for row in docenteBlocoRows]
+            docente.set_blocos(docenteBloco)
+            
+        # Fetch de todas as semanas de um dado ano
+        semanasAno = auxfunc.getSemanasFromCursoAno(projId, cursoNome, anoNum)
+        logger.debug(f"Retrieved semanas for ano {anoNum}: {semanasAno}")
+
+        ano = Ano(anoNum)
+        ano.set_turmas(turmasAno)
+        ano.set_turmasPorTurno(turmasPorTurno)
+        ano.set_docentes(docentesAno)
+        ano.set_semanas(semanasAno)
+        anos = [ano]
         
-        for aula in aulasDocente:
-            turmasAula = auxfunc.getTurmasFromAula(projId, aula.id, cursoNome)
-            aula.set_turmas(turmasAula) # FORMATO -> [codigoTurma]
+        curso.set_anos(anos)
+
+        # Fazer fetch da informação sobre turmas e turnos de um curso para cada ano
+        numAnos = auxfunc.getNumYearsFromCurso(projId, cursoNome)
+        logger.debug(f"Total number of anos for curso {cursoNome}: {numAnos}")
         
-        docente.set_aulas(aulasDocente)
-        rendered_html = render_to_string('editTurnos/miniSchedule.html', {'dias': dias, 'horas': horas, 'aulas': aulasDocente} )
-        minified_html = re.sub(r'>\s+<', '><', rendered_html)
-        docente.set_miniHorario(minified_html)
+        # Por default, a página é carregada com informação correspondente ao primeiro ano existente do curso selecionado
+        numeroTurmas = curso.anos[0].numTurmas
+        turmasPorTurno = curso.anos[0].turmasPorTurno
+        turmasAno = curso.anos[0].turmas
+        semanasAno = curso.anos[0].semanas
         
-        docenteBlocoRows = auxfunc.getDocenteBlocos(projId, docente.numMecanografico)
-        docenteBloco = [ Bloco(row['id'], row['hora'], row['diaSemana']) for row in docenteBlocoRows]
-        docente.set_blocos(docenteBloco)
-        
-    # Fetch de todas as semanas de um dado ano
-    semanasAno = auxfunc.getSemanasFromCursoAno(projId, cursoNome, anoNum)
+        # Adicionar lista de UCs para o ano e curso atual
+        ucs_ano = [{'codigo': uc.codigo, 'nome': uc.nome, 'sigla': uc.sigla} for uc in ucs]
 
-    ano = Ano(anoNum)
-    ano.set_turmas(turmasAno)
-    ano.set_turmasPorTurno(turmasPorTurno)
-    ano.set_docentes(docentesAno)
-    ano.set_semanas(semanasAno)
-    anos = [ano]
-    
-    curso.set_anos(anos)
+        curso_encoder = CursoEncoder()
+        curso_json = curso_encoder.encode(curso)
 
-    # Fazer fetch da informação sobre turmas e turnos de um curso para cada ano
-    numAnos = auxfunc.getNumYearsFromCurso(projId, cursoNome)
-    
-    # Por default, a página é carregada com informação correspondente ao primeiro ano existente do curso selecionado
-    numeroTurmas = curso.anos[0].numTurmas
-    turmasPorTurno = curso.anos[0].turmasPorTurno
-    turmasAno = curso.anos[0].turmas
-    semanasAno = curso.anos[0].semanas
-    
-    # Adicionar lista de UCs para o ano e curso atual
-    ucs_ano = [{'codigo': uc.codigo, 'nome': uc.nome, 'sigla': uc.sigla} for uc in ucs]
+        response_data = {
+            'schedulehtml': render(request, 'editTurnos/schedule.html', {'numeroTurmas': numeroTurmas, 'turmasPorTurno': turmasPorTurno, 
+                                                                        'turmasAno': turmasAno, 'ano': anoNum, 'ucs': ucs}).content.decode(),
+            'curso_json': curso_json,
+            'numeroTurmas': numeroTurmas,
+            'turmasAno': turmasAno,
+            'turmasPorTurno': turmasPorTurno,
+            'semanasAno': semanasAno,
+            'numAnos': numAnos,
+            'ucsAno': ucs_ano  # Adicionando a lista de UCs para o ano e curso selecionados
+        }
 
-    curso_encoder = CursoEncoder()
-    curso_json = curso_encoder.encode(curso)
+        logger.info("Successfully processed fillPageForCursoAno request")
+        return JsonResponse(response_data)
 
-    response_data = {
-        'schedulehtml': render(request, 'editTurnos/schedule.html', {'numeroTurmas': numeroTurmas, 'turmasPorTurno': turmasPorTurno, 
-                                                                    'turmasAno': turmasAno, 'ano': anoNum, 'ucs': ucs}).content.decode(),
-        'curso_json': curso_json,
-        'numeroTurmas': numeroTurmas,
-        'turmasAno': turmasAno,
-        'turmasPorTurno': turmasPorTurno,
-        'semanasAno': semanasAno,
-        'numAnos': numAnos,
-        'ucsAno': ucs_ano  # Adicionando a lista de UCs para o ano e curso selecionados
-    }
-
-    return JsonResponse(response_data)
-
-
+    except Exception as e:
+        logger.error(f"Error in fillPageForCursoAno: {str(e)}", exc_info=True)
+        return JsonResponse({'error': str(e)}, status=500)
 
 def get_uc_list(request):
-    curso = request.GET.get('curso')
-    ano = request.GET.get('ano')
+    logger.debug("UC list requested - view entered")
+    
+    try:
+        curso = request.GET.get('curso')
+        ano = request.GET.get('ano')
+        logger.debug(f"Request parameters: curso={curso}, ano={ano}")
 
-    # Filtra as UC's com base no curso e ano
-    ucs = UC.objects.filter(curso=curso, ano=ano).values('codigo', 'nome')
+        if not curso or not ano:
+            logger.warning("Missing parameters in request")
+            return JsonResponse({'error': 'Missing parameters'}, status=400)
 
-    return JsonResponse({'uc_list': list(ucs)})
-
+        logger.debug("Querying database for UCs...")
+        ucs = UC.objects.filter(curso=curso, ano=ano).values('codigo', 'nome')
+        
+        logger.debug(f"Found {len(ucs)} UCs")
+        return JsonResponse({'uc_list': list(ucs)})
+        
+    except Exception as e:
+        logger.error(f"Error in get_uc_list: {str(e)}", exc_info=True)
+        return JsonResponse({'error': str(e)}, status=500)
 
 def createEmptyTable(request):
     cursoNome = request.GET.get('curso')

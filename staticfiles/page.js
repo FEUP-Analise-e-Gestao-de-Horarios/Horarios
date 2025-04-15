@@ -7,6 +7,7 @@ const turnosBtn = document.getElementById("turnosBtn");
 const turmasBtn = document.getElementById("turmasBtn");
 const semanasBtn = document.getElementById("semanasBtn");
 const distributionBtn = document.getElementById("showDistributionBtn");
+const ucsBtn = document.getElementById("ucsBtn");
 
 let curso, ano, semana, ucsDistribuicao, turmasPorTurno;
 let dataLoadBool = false;
@@ -86,17 +87,6 @@ function handleAnoBtn(anoNum, selectedAno, handleDist = false) {
     });
 }
 
-
-ucsBtn.addEventListener("change", function () {
-    const selectedUC = this.value;
-
-    if (selectedUC === 'UC') {
-        displayAllUcs();  // Supondo que você tenha uma função para mostrar todas as UCs
-    } else {
-        displayUc(selectedUC);  // Supondo que você tenha uma função para exibir uma UC específica
-    }
-    updateDayDivisions();
-});
 
 for (let i = 0; i < cursosLista.length; i++) {
     const new_option = document.createElement("option");
@@ -191,8 +181,13 @@ function updateSemanasButton(semanas) {
  * @returns {null} Não retorna qualquer valor.
  */
 function updateUCButton(ucsAno) {
-    const ucStrings = ucsAno.map(uc => uc.nome);  // Usando o nome da UC para ser exibido no botão
-    createAndAppendOptions(ucsBtn, ucStrings, "UC");  // Assume que existe o botão de UCs
+    ucsBtn.innerHTML = '<option selected>UC</option>';
+    ucsAno.forEach(uc => {
+        const option = document.createElement('option');
+        option.value = uc.codigo;  // Must match database codigo
+        option.textContent = uc.nome;
+        ucsBtn.appendChild(option);
+    });
 }
 
 
@@ -231,6 +226,28 @@ cursoBtn.addEventListener("change", function () {
 anoBtn.addEventListener("change", function () {
     ano = this.value;
     handleAnoBtn(ano, ano).then(updateDayDivisions);
+});
+document.addEventListener('DOMContentLoaded', function() {
+    ucsBtn.addEventListener("change", function() {
+        const selectedUC = this.value;
+
+        if (selectedUC === 'UC') {
+          if (typeof displayAllAulas === 'function') {
+            displayAllUcs();
+          } else {
+            console.error('displayAllUcs not available - ensure display-functions.js is loaded before page.js');
+            // Fallback behavior or show user message
+          }
+        } else {
+          if (typeof displayUc === 'function') {
+            displayUc(selectedUC);
+          } else {
+            console.error('displayUc not available - ensure display-functions.js is loaded before page.js');
+            // Fallback behavior or show user message
+          }
+        }
+        updateDayDivisions();
+      });
 });
 
 turnosBtn.addEventListener("change", function () {
