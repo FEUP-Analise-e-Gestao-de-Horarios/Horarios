@@ -172,7 +172,14 @@ class AulaInfo:
         return (f"AulaInfo(id={self.id}, cadeira_id={self.cadeira_id}, hora_inicio={self.hora_inicio}, "
                 f"hora_fim={self.hora_fim}, dia={self.dia}, "
                 f"turmas_ids={self.turmas_ids}, docentes_ids={self.docentes_ids}, salas_ids={self.salas_ids})")
-
+    
+    def __hash__(self):
+        return hash(self.id)
+    
+    def __eq__(self, other):
+        if not isinstance(other, AulaInfo):
+            return False
+        return self.id == other.id
 #This class represents a change in the aula info
     #previous -> Information about the original aula
     #new -> Information about the new aula info
@@ -188,10 +195,6 @@ class AulaChange:
     def __init__(self, previous: AulaInfo, new: AulaInfo):
         self.previous = previous
         self.new = new
-        self.conflict = False
-    
-    def has_conflicts(self, value=True):
-        self.conflicts = value
 
     def check_dia(self):
         return self.previous.dia == self.new.dia
@@ -208,9 +211,9 @@ class AulaChange:
     def check_horario(self):
         return self.previous.hora_inicio == self.new.hora_inicio
     
-    
     def __str__(self):
         """Human-friendly string representation."""
         return (
                 f"  Previous: {self.previous}\n"
                 f"  New: {self.new})")
+    
