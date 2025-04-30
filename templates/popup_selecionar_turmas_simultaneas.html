@@ -24,7 +24,6 @@
             margin-bottom: 30px;
             border-radius: 8px;
             background: #f9f9f9;
-            display: none;
         }
 
         button {
@@ -56,6 +55,14 @@
         .curso-btn.active {
             background-color: gold;
         }
+        .curso-wrapper {
+            display: none;
+            border: 2px solid #aaa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 40px;
+            background: #fff;
+        }
     </style>
 </head>
 <body>
@@ -73,19 +80,23 @@
     <p>Selecione os cursos para que pretende selecionar aulas em paralelo</p>
     <p>Selecione as aulas que são em paralelo</p>
 
-    {% for grupo in grupos %}
-        <div class="grupo-box" data-curso="{{ grupo.curso }}" id="grupo-{{ grupo.id }}">
-            <h4>Grupo {{ grupo.id }} — UC {{ grupo.uc }} | Curso {{ grupo.curso }}</h4>
+    {% for curso in cursos %}
+        <div class="curso-wrapper" data-curso="{{ curso }}">
+            <h3>Curso: {{ curso }}</h3>
 
-            {% for aula, turmas in grupo.aulas %}
-                <label>
-                    <input type="checkbox" name="grupo_{{ grupo.id }}" value="{{ aula }}|{{ turmas|join:"," }}">
-                    Aula {{ aula }} &emsp; Turma: {{ turmas|join:", " }}
-                </label><br>
+            {% for grupo in grupos %}
+                {% if grupo.curso == curso %}
+                    <div class="grupo-box" data-curso="{{ grupo.curso }}" id="grupo-{{ grupo.id }}">
+                        <h4>Grupo {{ grupo.id }} — UC {{ grupo.uc }} | Curso {{ grupo.curso }}</h4>
+                        {% for aula, turmas, horario in grupo.aulas %}
+                            <label>
+                                <input type="checkbox" name="grupo_{{ grupo.id }}" value="{{ aula }}|{{ turmas|join:"," }}">
+                                Aula {{ aula }} &emsp; {{ horario }} &emsp; Turmas: {{ turmas|join:", " }}
+                            </label><br>
+                        {% endfor %}
+                    </div>
+                {% endif %}
             {% endfor %}
-
-
-            <!--<button onclick="submeterGrupo('{{ grupo.id }}')">Submeter Grupo</button>-->
         </div>
     {% endfor %}
     <hr>
@@ -98,7 +109,7 @@
         const curso = button.dataset.curso;
         const isActive = button.classList.toggle('active');
 
-        document.querySelectorAll(`.grupo-box[data-curso="${curso}"]`).forEach(el => {
+        document.querySelectorAll(`.curso-wrapper[data-curso="${curso}"]`).forEach(el => {
             el.style.display = isActive ? 'block' : 'none';
         });
     }

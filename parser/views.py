@@ -870,16 +870,25 @@ def candidatos_turmas_simultaneas(request):
         turmas_por_aula = grupos_dict.setdefault(key, defaultdict(set))
         turmas_por_aula[row['aula_id']].add(row['turma_id'])
 
-    grupos_list = [
-        {
+    grupos_list = []
+    for i, (key, aulas) in enumerate(grupos_dict.items(), start=1):
+        if len(aulas) <= 1:
+            continue
+
+        dia_semana, hora_inicial, semana_inicial, id_uc, id_curso = key
+        hora_str = f"{str(hora_inicial)[:2]}:{str(hora_inicial)[2:]}"
+        horario_str = f"{dia_semana}, {hora_str}"
+
+        grupo_dict = {
             'id': i,
-            'uc': key[3],
-            'curso': key[4],
-            'aulas': [(aula_id, sorted(list(turmas))) for aula_id, turmas in aulas.items()]
-        } # TODO horário tb né
-        for i, (key, aulas) in enumerate(grupos_dict.items(), start=1)
-        if len(aulas) > 1  # só incluir grupos com 2+ aulas
-    ]
+            'uc': id_uc,
+            'curso': id_curso,
+            'aulas': [(aula_id, sorted(list(turmas)), horario_str) for aula_id, turmas in aulas.items()]
+        }
+
+        grupos_list.append(grupo_dict)
+
+
     
     cursos_unicos = sorted(set(grupo['curso'] for grupo in grupos_list))
 
