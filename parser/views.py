@@ -18,6 +18,10 @@ import concurrent.futures
 import sys
 import linecache
 import traceback
+from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
+import json
+
 
 turnosMap = {}
 max_workers = 4  # Estabelece o número máximo de threads permitidas
@@ -803,7 +807,7 @@ def turmas_simultaneas():
             AND a1.diaSemana = a2.diaSemana
             AND a1.horaInicial = a2.horaInicial
             AND uc1.codigo = uc2.codigo
-            AND uc1.idCurso = 'M.EIC'
+            AND uc1.idCurso = uc2.idCurso
             AND (
                 (a1.semanaInicial <= a2.semanaFinal AND a1.semanaFinal >= a2.semanaInicial)
                 OR
@@ -824,6 +828,89 @@ def turmas_simultaneas():
         cursor.execute(query, (idAula1, idAula2, idTurma1, idTurma2))
     
     conn.commit()
+
+def candidatos_turmas_simultaneas(request):
+    project_id = request.GET.get("id")
+    #db_path = f"./database/Project{project_id}/general_database.db"
+    db_path = os.path.join(settings.BASE_DIR, "database", f"Project{project_id}", "general_database.db")
+
+
+    conn = sqlite3.connect(db_path) 
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        SELECT
+            a.id AS aula_id,
+            at.idTurma AS turma_id,
+            a.diaSemana,
+            a.horaInicial,
+            a.semanaInicial,
+            auc.idUC,
+            uc.idCurso
+        FROM aula a
+        JOIN aulaTurmas at ON a.id = at.idAula
+        JOIN aulaUC auc ON a.id = auc.idAula
+        JOIN uc ON auc.idUC = uc.codigo
+        WHERE a.teorico = FALSE
+    ''')
+
+    resultados_query = cursor.fetchall()
+
+    # Agrupar por critérios de simultaneidade
+    grupos_dict = defaultdict(list)
+    for row in resultados_query:
+        key = (
+            row['diaSemana'],
+            row['horaInicial'],
+            row['semanaInicial'],
+            row['idUC'],
+            row['idCurso']
+        )
+        turmas_por_aula = grupos_dict.setdefault(key, defaultdict(set))
+        turmas_por_aula[row['aula_id']].add(row['turma_id'])
+
+    grupos_list = [
+        {
+            'id': i,
+            'uc': key[3],
+            'curso': key[4],
+            'aulas': [(aula_id, sorted(list(turmas))) for aula_id, turmas in aulas.items()]
+        } # TODO horário tb né
+        for i, (key, aulas) in enumerate(grupos_dict.items(), start=1)
+        if len(aulas) > 1  # só incluir grupos com 2+ aulas
+    ]
+    
+    cursos_unicos = sorted(set(grupo['curso'] for grupo in grupos_list))
+
+    return render(request, 'popup_selecionar_turmas_simultaneas.html', {
+        'grupos': grupos_list,
+        'cursos': cursos_unicos,
+        'project_id': project_id,
+    })
+
+@csrf_exempt
+def guardar_simultaneas(request):
+    data = json.loads(request.body)
+    aulas = [aula.split("|") for aula in data["aulas"]]  # [(aula_id, turma_id)]
+
+    if len(aulas) < 2:
+        return JsonResponse({'status': 'ignorado'})
+
+    project_id = request.GET.get("id")
+    db_path = os.path.join(settings.BASE_DIR, "database", f"Project{project_id}", "general_database.db")
+
+    conn = sqlite3.connect(db_path) 
+    cursor = conn.cursor()
+
+    for (a1, t1), (a2, t2) in zip(aulas, aulas[1:]):
+        cursor.execute('''
+            INSERT INTO turmasSimultaneas (aula1, aula2, turma1, turma2)
+            VALUES (?, ?, ?, ?)
+        ''', (a1, a2, t1, t2))
+
+    conn.commit()
+    return JsonResponse({'status': 'ok'})
 
 # -----------------------------------------------------------------------
 # Função parse()
