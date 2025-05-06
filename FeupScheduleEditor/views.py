@@ -969,6 +969,7 @@ def export(request, projId):
         'projeto': projeto[2], # obter nome do projeto
         'manager' : manager,
         'ucs': manager.ucs,
+        'ucs_ordered': manager.ordered_list,
         'projId': projId,
         'is_edit_turnos': False,
     })

@@ -99,6 +99,10 @@ def getAllTurmas(dic):
 def getTurmaName(lista, numTurma):
     return lista[numTurma-1]
 
+@register.filter
+def dict_get(d, key):
+    return d.get(key)
+
 @register.filter(name='getTurmasTurno')
 def getTurmasTurno(dictionary, numTurno):
     if(0 in dictionary):

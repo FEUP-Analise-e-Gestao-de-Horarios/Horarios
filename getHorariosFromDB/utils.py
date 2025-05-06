@@ -7,6 +7,10 @@ from networkx import dfs_tree
 from getHorariosFromDB.conflictFunctionsDup import organizeInformation, findAnyConflicts
 import getHorariosFromDB.graphDup as graph_controller
 from FeupScheduleEditor.models import AulaChange, AulaInfo
+import json
+import os
+from pathlib import Path
+
 
 
 from . import models
@@ -583,9 +587,9 @@ def getDifferencesFromDatabases(ProjectNumber):
             print("Starting data (removed):", row_dict)
 
             # Process associated data for the removed aula
-            old_aula = get_aula_info(aula_id, cursorDB, row_dict)
-            change = AulaChange(old_aula, None)
-            changesList.append((None, old_aula))  # Store removed aula
+            old_aula = get_aula_info(aula_id, cursorIni, row_dict)
+            if change.has_changes():
+                changesList.append(change)  # Store added aula  # Store removed aula
             
         else:
             # If row2 exists, compare the two rows for differences
@@ -597,12 +601,13 @@ def getDifferencesFromDatabases(ProjectNumber):
                 print("Starting data (new):", row_dict2)
 
                 # Get associated data for both rows
-                old_aula = get_aula_info(aula_id, cursorDB, row_dict1)
+                old_aula = get_aula_info(aula_id, cursorIni, row_dict1)
                 new_aula = get_aula_info(aula_id, cursorDB, row_dict2)
 
                 # Append the change
                 change = AulaChange(old_aula, new_aula)
-                changesList.append(change)  # Store both the old and new aulas
+                if change.has_changes():
+                    changesList.append(change)  # Store added aula  # Store both the old and new aulas
 
     # Check for aulas that exist only in the second database (added rows)
     for aula_id, row2 in db2_aulas.items():
@@ -613,7 +618,8 @@ def getDifferencesFromDatabases(ProjectNumber):
             # Process associated data for the added aula
             new_aula = get_aula_info(aula_id, cursorDB, row_dict)
             change = AulaChange(None, new_aula)
-            changesList.append(change)  # Store added aula
+            if change.has_changes():
+                changesList.append(change)  # Store added aula
 
     # Print changes
     print("\nDetected Changes:")
@@ -621,6 +627,24 @@ def getDifferencesFromDatabases(ProjectNumber):
         print(f"Previous: {aula_change.previous}")
         print(f"New: {aula_change.new}")
 
+    serialized_changes = []
+    for change in changesList:
+        serialized_change = {
+            'previous': change.previous.to_dict() if change.previous else None,
+            'new': change.new.to_dict() if change.new else None
+        }
+        serialized_changes.append(serialized_change)
+    
+    # Ensure output directory exists
+    output_dir = f'./database/Project{ProjectNumber}/'
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Write to JSON file
+    output_file = os.path.join(output_dir, 'changes.json')
+    with open(output_file, 'w', encoding='utf-8') as f:
+        json.dump(serialized_changes, f, ensure_ascii=False, indent=4)
+    
+    print(f"\nChanges saved to {output_file}")
     return changesList
 
 
@@ -670,7 +694,7 @@ def get_aula_info(aula_id, cursorDB, row_dict):
             FROM uc
             WHERE uc.codigo = ?;
         """, (uc_codigo,))  # Using placeholder for uc_codigo
-    uc_name = [row[0] for row in cursorDB.fetchall()]
+        uc_name = [row[0] for row in cursorDB.fetchall()]
 
     # Create AulaInfo from row_dict and the associated data
     data = append_aula_data(row_dict)
@@ -681,18 +705,85 @@ def get_aula_info(aula_id, cursorDB, row_dict):
     aula = AulaInfo.from_data(data)
     aula.uc_name = uc_name[0]
     return aula
+def debug_log_existing_aulas(project_number, dia_semana):
+    """Logs the existing aulas from the database for the given project number and day"""
+    
+    # Construct the database path
+    db_path = Path(f'./database/Project{project_number}/general_database.db')
+    try:
+        # Connect to the database
+        connection = sqlite3.connect(str(db_path))
+        cursor = connection.cursor()
+
+        # Log existing aula data for the specified day
+        print(f"\n[DEBUG] Existing aulas on dia_semana={dia_semana} for Project {project_number}")
+        cursor.execute("""
+            SELECT a.id, a.horaInicial, a.duracao, a.diaSemana,
+                   GROUP_CONCAT(DISTINCT asl.idSala), 
+                   GROUP_CONCAT(DISTINCT ad.idDocente),
+                   GROUP_CONCAT(DISTINCT at.idTurma),
+                   uc.nome
+            FROM aula a
+            LEFT JOIN aulaSala asl ON a.id = asl.idAula
+            LEFT JOIN aulaDocente ad ON a.id = ad.idAula
+            LEFT JOIN aulaTurmas at ON a.id = at.idAula
+            JOIN aulaUC auc ON a.id = auc.idAula
+            JOIN uc ON auc.idUC = uc.codigo
+            WHERE a.diaSemana = ?
+            GROUP BY a.id
+        """, (dia_semana,))
+        
+        rows = cursor.fetchall()
+        for row in rows:
+            print(
+                f"[AULA] ID: {row[0]} | START: {row[1]} | DURACAO: {row[2]} | DIA: {row[3]} | "
+                f"SALAS: {row[4]} | DOCENTES: {row[5]} | TURMAS: {row[6]} | UC: {row[7]}"
+            )
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if 'connection' in locals():
+            connection.close()
+
 
 def organize_changes(ProjectId):
     # TODO organize
-    changes = getDifferencesFromDatabases(ProjectId)
-    manager = models.GraphManager()
+    json_path = f'./database/Project{ProjectId}/changes.json'
+
+    if os.path.exists(json_path):
+        print(f"Loading changes from {json_path}")
+        with open(json_path, 'r', encoding='utf-8') as f:
+            raw_changes = json.load(f)
+
+        # Convert raw dicts back to AulaChange objects
+        changes = []
+        for change in raw_changes:
+            prev = models.AulaInfo.from_data(change['previous']) if change['previous'] else None
+            new = models.AulaInfo.from_data(change['new']) if change['new'] else None
+            if prev:
+                prev.uc_name = change['previous'].get('uc_name', '')
+            if new:
+                new.uc_name = change['new'].get('uc_name', '')
+            changes.append(models.AulaChange(prev, new))
+    else:
+        changes = getDifferencesFromDatabases(ProjectId)
+    
+    manager = models.GraphManager(ProjectId)
 
     
     for change in changes:
         node = models.Node(change)
         manager.add_node(node)
-    manager.print_turmas()
+    print("====Finished operations====")
+    manager.create_local_edges()
+    manager.update_local_edges()
+    manager.order_ucs()
     manager.print_ucs()
+    
     return manager
     # it should return a datastructure in the format of a list of tuples. Here's the format of the tuples expected
     # (Node, string tipodetroca, [int, int, int, ...])

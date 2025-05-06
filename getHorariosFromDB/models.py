@@ -10,7 +10,7 @@ class Node:
         self.id = generate_node_id()
         self.root_local = root_local
         self.root_global = root_global
-        self.dependency_ids = set()
+        self.dependency_ids = []
 
         if root_local and root_global:
             raise ValueError("A node cannot be both root_local and root_global.")
@@ -22,11 +22,12 @@ class Node:
         self.conflict = False
     
     def has_conflicts(self, value=True):
-        self.conflicts = value
+        self.conflict = value
     
     def add_dependencies(self, ids):
-        for id in ids:
-            self.dependency_ids.add(id)
+        for dep_id in ids:
+            if dep_id not in self.dependency_ids:
+                self.dependency_ids.append(dep_id)
     
     def is_local_root(self, value=True):
         self.root_local = value
@@ -74,17 +75,19 @@ class Edge:
                 f"local={self.local}, global_={self.global_}, uc={self.uc}, turma={self.turma})")
 
 class Graph:
-    def __init__(self, identifier: str, type: int):
+    def __init__(self, identifier: str, type: int, uc_name):
         self.id = identifier  # UC or Turma ID
         self.root = None
 
         self.nodes = set()  # Nodes that belong to this subgraph
-        self.edges = set()
+        self.edges = []
 
         self.unsolved_nodes = set()
         self.type = type    #0 for uc and 1 for turma
-        self.uc_name = None
-        self.ordered_list = []
+        self.uc_name = uc_name
+        self.ordered_list = set()
+
+        self.original = None
 
     def add_node(self, node):
         if node not in self.nodes:
@@ -97,6 +100,8 @@ class Graph:
             self.edges = [edge for edge in self.edges if node not in (edge.node1, edge.node2)]
     
     def create_edges(self):
+        nodes_to_remove = []
+        self.original = len(self.nodes)
         for node in self.nodes:
             if node.conflict:
                 for tmp in self.nodes:
@@ -108,13 +113,16 @@ class Graph:
                             edge.uc = True
                             if not tmp.conflict:
                                 edge.solution = True
-                            self.edges.add(edge)
+                            if edge not in self.edges:
+                                self.edges.append(edge)
                             node.dependency_ids.remove(id)
                         else:
                             self.unsolved_nodes.add(node)
             else:
-                self.nodes.remove(node)
-                self.ordered_list.append(node)
+                nodes_to_remove.append(node)
+                self.ordered_list.add(node)
+        for node in nodes_to_remove:
+            self.nodes.remove(node)
     
     def update_list(self):
         for edge in self.edges:
@@ -122,14 +130,23 @@ class Graph:
                 node = edge.node1
                 if (node.conflict):
                     node = edge.node2
-                self.follow_dependency(node)
+                    self.follow_dependency(node)
     
     def follow_dependency(self, node):
+        if node in self.ordered_list:
+            print("In the ordered_list")
+        elif node in self.nodes:
+            print("In the nodes")
+        elif node in self.unsolved_nodes:
+            print("In the unsolved_nodes")
+        else:
+            print("Not found")
         edges = self.get_node_edges(node)
-        self.nodes.remove(node)
-        self.ordered_list.append(node)
-        cur = edge.node1
+        if node not in self.ordered_list:
+            self.nodes.remove(node)
+            self.ordered_list.add(node)
         for edge in edges:
+            cur = edge.node1
             if edge.node1.id == node.id:
                 cur = edge.node2
             cur.has_conflicts(value=False)
@@ -144,15 +161,17 @@ class Graph:
         """Human-readable string representation of the Graph."""
         # First print the graph ID
         graph_info = f"Graph ID: {self.uc_name}\n"
-        
-        # Then print all the nodes in the graph
-        graph_info += "Nodes:\n"
-        for node in self.nodes:
-            graph_info += f"  {node}\n"  # Assuming Node has a __str__ method that provides useful info
-            graph_info += "Edges (start):\n"
-            for edge in self.get_edges_node(node):
-                graph_info += f"  {edge}\n"
-            graph_info += "Edges (end):\n"
+        graph_info += f"Original Nodes: {self.original}\n"
+        graph_info += f"Solved Nodes: {len(self.ordered_list)}\n"
+        graph_info += f"Unsolved Nodes: {len(self.unsolved_nodes)}\n"
+        for node in self.ordered_list:
+             graph_info += f"  {node}\n"  
+        for node in self.unsolved_nodes:
+            graph_info += f"  {node}\n"  
+            #graph_info += "Edges (start):\n"
+            #for edge in self.get_node_edges(node):
+            #    graph_info += f"  {edge}\n"
+            #graph_info += "Edges (end):\n"
         return graph_info
 
 class ConflictManager:
@@ -176,39 +195,64 @@ class GraphManager:
         self.unsolved_nodes = set()
 
         self.local_roots = []
+
+        self.ordered_list = []
     
     def add_node(self, node: Node):
         checker = check_aula_change_conflicts(node.change, self.project_number)
-        if not checker.empty():
+        if checker:
+            print("IM HERE")
             node.has_conflicts()
-            ids = [key for key in checker]
-            node.add_dependency(ids)
-            #self.conflicts[node.id].append()
-            #self.conflicts_ucs.update(checker)
-        if node.change.previous.id in self.conflicts and not node.conflict:
-            self.global_nodes.add(node)
-        if node.get_uc() not in self.ucs:
-            new = Graph(node.get_uc(), 0)
-            new.uc_name = node.change.previous.uc_name
-            self.ucs[node.get_uc()] = new
-            print(f"Created new subgraph for UC {id}")
-        else:
-            self.ucs[node.get_uc()].add_node(node)
-
+            node.add_dependencies(checker)
+            
+        uc_id = node.get_uc()  # Get the UC ID first
+        if uc_id not in self.ucs:
+            new = Graph(uc_id, 0, node.change.new.uc_name)
+            print(f"{node.change.new.uc_name}")
+            self.ucs[uc_id] = new
+            print(f"Created new subgraph for UC {uc_id}")  # Use uc_id instead of id
+        self.ucs[uc_id].add_node(node)
+    
         for turma in node.get_turmas():
             if turma not in self.turmas:
-                new = Graph(turma, 1)
+                new = Graph(turma, 1, None)
                 new.add_node(node)
                 self.turmas[turma] = new
             else:
                 self.turmas[turma].add_node(node)
 
+    def order_ucs(self):
+        # Filter keys not already in ordered_list
+        remaining_keys = [key for key in self.ucs if key not in self.ordered_list]
+
+        # Sort by the number of unsolved nodes (ascending)
+        sorted_keys = sorted(remaining_keys, key=lambda k: len(self.ucs[k].unsolved_nodes))
+
+        # Extend ordered_list with the sorted keys
+        self.ordered_list.extend(sorted_keys)
+
+
+    def print_conflicts(self):
+        for id in self.ucs:
+            aux = 0
+            graph = self.ucs[id]
+            for node in graph.nodes:
+                if node.conflict:
+                    aux+=1
+            print(f"Total nodes: {len(graph.nodes)}\n")
+            print(f"Number of conflicts: {aux}\n")
+
     def create_local_edges(self):
         for key in self.ucs:
             graph = self.ucs[key]
             graph.create_edges()
-            self.global_nodes.update(graph.unsolved_nodes) 
-     
+            self.global_nodes.update(graph.unsolved_nodes)
+    
+    def update_local_edges(self):
+        for key in self.ucs:
+            graph = self.ucs[key]
+            graph.update_list()
+    
     def create_global_edges(self):
         for node in self.global_nodes:
             for tmp in self.global_nodes:
@@ -228,8 +272,14 @@ class GraphManager:
         """This function will add the global edges to the unsolved conflicts in the class nodes"""
     
     def print_ucs(self):
+        print("Before order:")
         for id in self.ucs:
             print(self.ucs[id])
+        print("After order:")
+        for uc in self.ordered_list:
+            print(self.ucs[uc])
+        
+
     def print_turmas(self):
         for id in self.turmas:
             print(self.turmas[id])

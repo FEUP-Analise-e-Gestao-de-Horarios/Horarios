@@ -100,22 +100,16 @@ class Bloco:
 
 class AulaInfo:
     def __init__(self, aula_id=None, cadeira_id=None, hora_inicio=None, hora_fim=None, dia=None, 
-                 turmas_ids=None, docentes_ids=None, salas_ids=None):
+                 turmas_ids=None, docentes_ids=None, salas_ids=None, uc_name=None):
         self.id = aula_id
         self.cadeira_id = cadeira_id
-        self.uc_name = None
+        self.uc_name = uc_name
         self.hora_inicio = hora_inicio
         self.hora_fim = hora_fim
         self.dia = dia
         self.turmas_ids = turmas_ids
         self.docentes_ids = docentes_ids
         self.salas_ids = salas_ids
-
-    def __str__(self):
-        return f"AulaInfo(aula_id={self.id}, cadeira_id={self.cadeira_id}, hora_inicio={self.hora_inicio}, " \
-               f"duracao={self.duracao}, dia={self.dia}, turmas_ids={self.turmas_ids}, " \
-               f"docentes_ids={self.docentes_ids}, salas_ids={self.salas_ids})"
-
     @staticmethod
     def from_data(data):
         """Create an AulaInfo instance from the provided data."""
@@ -133,7 +127,6 @@ class AulaInfo:
         # Calculate derived values
         #duracao = utils.reverse_time_span_conversion(int(hora_fim)- int(hora_inicio))  # Get the duration based on time difference
         dia = data['dia']  # Convert day number to day name
-        
         # Return a new AulaInfo object
         return AulaInfo(
             aula_id=aula_id,
@@ -143,7 +136,7 @@ class AulaInfo:
             dia=dia,
             turmas_ids=turmas_ids,
             docentes_ids=docentes_ids,
-            salas_ids=salas_ids
+            salas_ids=salas_ids,
         )
      
     def formatted_time(self):
@@ -154,6 +147,15 @@ class AulaInfo:
         """Return the day name from the day number."""
         days = ["Segunda", "Terca", "Quarta", "Quinta", "Sexta"]
         return days[self.dia] if 0 <= self.dia < len(days) else "Unknown"
+
+    def day_index(self):
+        """Return the day number from the day name string."""
+        days = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"]
+
+        if isinstance(self.dia, str):
+            return days.index(self.dia) if self.dia in days else -1
+        else:
+            return -1
 
     def formatted_salas(self):
         """Return a comma-separated list of rooms."""
@@ -166,6 +168,20 @@ class AulaInfo:
     def formatted_turmas(self):
         """Return a comma-separated list of turmas."""
         return ", ".join(str(turma) for turma in self.turmas_ids)
+
+    def to_dict(self):
+        return {
+            'aulaId': self.id,
+            'cadeiraId': self.cadeira_id,
+            'horaInicio': self.hora_inicio,
+            'horaFim': self.hora_fim,
+            'dia': self.dia,
+            'turmasIds': self.turmas_ids,
+            'docentesIds': self.docentes_ids,
+            'salasIds': self.salas_ids,
+            'uc_name': self.uc_name
+        }
+
     
     def __str__(self):
         """Human-friendly string representation."""
@@ -197,20 +213,29 @@ class AulaChange:
         self.new = new
 
     def check_dia(self):
-        return self.previous.dia == self.new.dia
+        return self.previous.dia != self.new.dia
     
     def check_docentes(self):
-        return self.previous.docentes_ids == self.new.docentes_ids
+        return set(self.previous.docentes_ids) != set(self.new.docentes_ids)
     
     def check_turmas(self):
-        return self.previous.turmas_ids == self.new.turmas_ids
+        return set(self.previous.turmas_ids) != set(self.new.turmas_ids)
 
     def check_salas(self):
-        return self.previous.salas_ids == self.new.salas_ids
+        return set(self.previous.salas_ids) != set(self.new.salas_ids)
     
     def check_horario(self):
-        return self.previous.hora_inicio == self.new.hora_inicio
+        return self.previous.hora_inicio != self.new.hora_inicio or self.previous.hora_fim != self.new.hora_fim
     
+    def has_changes(self):
+        return any([
+            self.check_horario(),
+            self.check_docentes(),
+            self.check_salas(),
+            self.check_dia(),
+            self.check_turmas()
+        ])
+
     def __str__(self):
         """Human-friendly string representation."""
         return (
