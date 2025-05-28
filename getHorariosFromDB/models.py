@@ -10,6 +10,7 @@ class Node:
         self.id = generate_node_id()
         self.root_local = root_local
         self.root_global = root_global
+        self.red_conflicts = False
         self.dependency_ids = []
 
         if root_local and root_global:
@@ -23,6 +24,10 @@ class Node:
     
     def has_conflicts(self, value=True):
         self.conflict = value
+    
+    def has_red_conflicts(self, value=True):    
+        """This function will set the red conflicts to true or false"""
+        self.red_conflicts = value
     
     def add_dependencies(self, ids):
         for dep_id in ids:
@@ -200,11 +205,14 @@ class GraphManager:
     
     def add_node(self, node: Node):
         checker = check_aula_change_conflicts(node.change, self.project_number)
-        if checker:
+        if checker and "red" not in checker:
             print("IM HERE")
             node.has_conflicts()
             node.add_dependencies(checker)
-            
+        print("Checker:", checker)
+        if "red" in checker:
+            print("Setting red conflict for node", node)
+            node.has_red_conflicts()
         uc_id = node.get_uc()  # Get the UC ID first
         if uc_id not in self.ucs:
             new = Graph(uc_id, 0, node.change.new.uc_name)
@@ -230,7 +238,7 @@ class GraphManager:
 
         # Extend ordered_list with the sorted keys
         self.ordered_list.extend(sorted_keys)
-
+    #One more order type (not by conflicts but ascending)
 
     def print_conflicts(self):
         for id in self.ucs:
@@ -278,9 +286,27 @@ class GraphManager:
         print("After order:")
         for uc in self.ordered_list:
             print(self.ucs[uc])
+    
+    def get_all_nodes_with_counter(self):
+        """
+        Returns a dict {node.id: counter}, assigning an incremental counter to each node
+        from all UCs in the ordered list, keeping the count across UCs.
+        """
+        all_nodes = []
+        for uc in self.ordered_list:
+            graph = self.ucs[uc]
+            nodes = list(graph.ordered_list) + list(graph.unsolved_nodes)
+            for node in nodes:
+                if node not in all_nodes:
+                    all_nodes.append(node)
+        node_counter_dict = {}
+        for idx, node in enumerate(all_nodes, start=1):
+            node.counter = idx
+            node_counter_dict[node.id] = idx
+        return node_counter_dict
         
 
     def print_turmas(self):
         for id in self.turmas:
             print(self.turmas[id])
-    
+

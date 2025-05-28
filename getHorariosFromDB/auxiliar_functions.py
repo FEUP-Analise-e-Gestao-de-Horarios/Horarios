@@ -168,6 +168,10 @@ def check_aula_change_conflicts(change: AulaChange, project_number):
                 check_turma_conflicts(cursor, new_aula.turmas_ids, dia_semana, hora_inicio, hora_fim, aula_id)
             )
 
+        # ---- MOVE THIS INSIDE THE TRY, BEFORE FINALLY ----
+        if check_bloco_vermelho_conflicts(cursor, new_aula, dia_semana, hora_inicio, hora_fim):
+            conflicts.append("red")
+
     except sqlite3.Error as e:
         print(f"Database error: {e}")
         conflicts.append("Erro ao verificar conflitos na base de dados")
@@ -179,7 +183,6 @@ def check_aula_change_conflicts(change: AulaChange, project_number):
             cursor.close()
         if 'connection' in locals():
             connection.close()
-
     return conflicts
 
 def generate_node_id():
@@ -188,3 +191,72 @@ def generate_node_id():
     node_id = generate_node_id.counter
     generate_node_id.counter += 1
     return node_id
+
+def check_bloco_vermelho_conflicts(cursor, new_aula, dia_semana, hora_inicio, hora_fim):
+    """
+    Checks if the given aula (by AulaInfo) has a conflict with any blocosVermelhos,
+    using blocoTurma, blocoDocente, blocoUC, salaBloco association tables.
+    Returns a list of conflicting bloco ids (with type for debug).
+    """
+    conflicts = []
+
+    # Helper to check time overlap
+    def bloco_time_overlaps(bloco_hora):
+        bloco_hora_str = converter_horario(bloco_hora)
+        bloco_hora_min = time_str_to_minutes(bloco_hora_str)
+        bloco_end_min = bloco_hora_min + 30  # blocosVermelhos are always 30min blocks
+        return hora_inicio < bloco_end_min and hora_fim > bloco_hora_min
+
+    # Turmas
+    for turma in getattr(new_aula, "turmas_ids", []):
+        cursor.execute("""
+            SELECT bv.id, bv.hora
+            FROM blocoTurma bt
+            JOIN blocosVermelhos bv ON bt.idBloco = bv.id
+            WHERE bt.idTurma = ? AND bv.diaSemana = ?
+        """, (turma, dia_semana))
+        for bloco_id, bloco_hora in cursor.fetchall():
+            if bloco_time_overlaps(bloco_hora):
+                print(f"[DEBUG] Conflict with blocoVermelho (turma) {bloco_id} at {bloco_hora}")  # Debug print
+                conflicts.append({"type": "turma", "bloco_id": bloco_id})
+
+    # Docentes
+    for docente in getattr(new_aula, "docentes_ids", []):
+        cursor.execute("""
+            SELECT bv.id, bv.hora
+            FROM blocoDocente bd
+            JOIN blocosVermelhos bv ON bd.idBloco = bv.id
+            WHERE bd.idDocente = ? AND bv.diaSemana = ?
+        """, (docente, dia_semana))
+        for bloco_id, bloco_hora in cursor.fetchall():
+            if bloco_time_overlaps(bloco_hora):
+                print(f"[DEBUG] Conflict with blocoVermelho (docente) {bloco_id} at {bloco_hora}")  # Debug print
+                conflicts.append({"type": "docente", "bloco_id": bloco_id})
+
+    # UCs
+    for uc in getattr(new_aula, "ucs_ids", []):
+        cursor.execute("""
+            SELECT bv.id, bv.hora
+            FROM blocoUC bu
+            JOIN blocosVermelhos bv ON bu.idBloco = bv.id
+            WHERE bu.idUC = ? AND bv.diaSemana = ?
+        """, (uc, dia_semana))
+        for bloco_id, bloco_hora in cursor.fetchall():
+            if bloco_time_overlaps(bloco_hora):
+                print(f"[DEBUG] Conflict with blocoVermelho (uc) {bloco_id} at {bloco_hora}")  # Debug print
+                conflicts.append({"type": "uc", "bloco_id": bloco_id})
+
+    # Salas
+    for sala in getattr(new_aula, "salas_ids", []):
+        cursor.execute("""
+            SELECT bv.id, bv.hora
+            FROM salaBloco sb
+            JOIN blocosVermelhos bv ON sb.idBloco = bv.id
+            WHERE sb.idSala = ? AND bv.diaSemana = ?
+        """, (sala, dia_semana))
+        for bloco_id, bloco_hora in cursor.fetchall():
+            if bloco_time_overlaps(bloco_hora):
+                print(f"[DEBUG] Conflict with blocoVermelho (sala) {bloco_id} at {bloco_hora}")  # Debug print
+                conflicts.append({"type": "sala", "bloco_id": bloco_id})
+
+    return conflicts

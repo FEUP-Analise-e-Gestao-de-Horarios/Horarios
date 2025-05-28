@@ -101,7 +101,7 @@ def getTurmaName(lista, numTurma):
 
 @register.filter
 def dict_get(d, key):
-    return d.get(key)
+    return d.get(key, '')
 
 @register.filter(name='getTurmasTurno')
 def getTurmasTurno(dictionary, numTurno):

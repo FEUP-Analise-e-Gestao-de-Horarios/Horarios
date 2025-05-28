@@ -960,9 +960,8 @@ def export(request, projId):
 
     manager = organize_changes(projId)
 
-    #if len(message) == 0:  # TODO if organized_changes is empty
-        #message.append('Não Foram Efetuadas Mudanças')
-
+    # Get the list of (node, counter) tuples
+    node_counter_dict = manager.get_all_nodes_with_counter()
 
     return render(request, 'export/page.html', {
         'projetos': projetos,
@@ -972,4 +971,5 @@ def export(request, projId):
         'ucs_ordered': manager.ordered_list,
         'projId': projId,
         'is_edit_turnos': False,
+        'node_counter_list': node_counter_dict  # <-- Add this line
     })
