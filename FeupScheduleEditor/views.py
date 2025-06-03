@@ -393,9 +393,9 @@ def editTurnos(request: HttpRequest, projId: int) -> HttpResponse:
     projetos = getProjetosListAux(request, request.user.pk)
     projeto = Project.objects.values_list().get(id = projId)
 
-    # verificar se é a primeira vez que se abre o editTurnos deste projeto para redirecionar
-    # para a seleção de turmas simultâneas
-    if not projeto.has_selected_simultaneas:
+    # verificar se é a primeira vez que se abre o editTurnos deste projeto 
+    # se for entao redirecionar para a seleção de aulas em paralelo
+    if not Project.objects.values_list('has_selected_aulas_em_paralelo', flat=True).get(id=projId):
         return redirect(f'/parser/selecionar_aulas_em_paralelo/?id={projId}')
 
     #salas e docentes para dropdown select

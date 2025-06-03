@@ -832,11 +832,6 @@ def turmas_simultaneas():
 def selecionar_aulas_em_paralelo(request):
     project_id = request.GET.get("id")
 
-    # verificar se a seleção de turmas simultâneas está a ser acedida na altura certa
-    project = Project.objects.get(id=project_id)
-    if project.has_selected_simultaneas:
-        return redirect(f'/editturnos/{project_id}')
-
     #db_path = f"./database/Project{project_id}/general_database.db"
     db_path = os.path.join(settings.BASE_DIR, "database", f"Project{project_id}", "general_database.db")
 
@@ -909,6 +904,8 @@ def selecionar_aulas_em_paralelo(request):
 
     grupos_list.sort(key=lambda g: (g["curso"], g["nomeUC"]))
 
+    conn.close()
+
     return render(request, 'selecionar_aulas_em_paralelo.html', {
         'grupos_aulas_ao_mesmo_tempo': grupos_list,
         'cursos': cursos_unicos,
@@ -917,32 +914,35 @@ def selecionar_aulas_em_paralelo(request):
 
 @csrf_exempt
 def guardar_aulas_em_paralelo(request):
-    data = json.loads(request.body)
-    aulas = [aula.split("|") for aula in data["aulas"]]  # [(aula_id, turma_id)]
+    try:
+        data = json.loads(request.body)
+        pares = data["pares"]  # [(aula1, aula2, turma1, turma2), ...]
 
-    if len(aulas) < 2:
-        return JsonResponse({'status': 'ignorado'})
+        if len(pares) == 0:
+            return JsonResponse({'status': 'ignorado'})
 
-    project_id = request.GET.get("id")
-    db_path = os.path.join(settings.BASE_DIR, "database", f"Project{project_id}", "general_database.db")
+        project_id = request.GET.get("id")
+        db_path = os.path.join(settings.BASE_DIR, "database", f"Project{project_id}", "general_database.db")
 
-    conn = sqlite3.connect(db_path) 
-    cursor = conn.cursor()
+        with sqlite3.connect(db_path, timeout=10) as conn:
+            cursor = conn.cursor()
+            for a1, a2, t1, t2 in pares:
+                cursor.execute('''
+                    INSERT OR IGNORE INTO turmasSimultaneas (aula1, aula2, turma1, turma2)
+                    VALUES (?, ?, ?, ?)
+                ''', (a1, a2, t1, t2))
+            conn.commit()
 
-    for (a1, t1), (a2, t2) in zip(aulas, aulas[1:]):
-        cursor.execute('''
-            INSERT INTO turmasSimultaneas (aula1, aula2, turma1, turma2)
-            VALUES (?, ?, ?, ?)
-        ''', (a1, a2, t1, t2))
+        project = Project.objects.get(id=project_id)
+        project.has_selected_aulas_em_paralelo = True
+        project.save()
 
-    conn.commit()
-    conn.close()
+        return JsonResponse({'status': 'ok'})
 
-    project = Project.objects.get(id=project_id)
-    #project.has_selected_simultaneas = True
-    project.save()
+    except Exception as e:
+        return JsonResponse({'status': 'erro', 'message': str(e)}, status=500)
 
-    return JsonResponse({'status': 'ok'})
+
 
 # -----------------------------------------------------------------------
 # Função parse()

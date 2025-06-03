@@ -331,7 +331,7 @@
                 'X-CSRFToken': getCSRFToken()
             },
             body: JSON.stringify({
-                aulas: getAllSelectedAulas()
+                pares: getAllSelectedAulas()
             })
         })
         .then(async res => {
@@ -339,7 +339,7 @@
             try {
                 const data = JSON.parse(text);
                 if (data.status === "ok") {
-                    window.location.href = `/edit_turnos/{{ project_id }}`;
+                    window.location.href = `/editturnos/{{ project_id }}`;
                 } else {
                     alert("Erro ao guardar.");
                 }
@@ -355,20 +355,42 @@
     }
 
     function getAllSelectedAulas() {
-        const result = [];
+       // criar pares (em cadeia)
+        for (let i = 0; i < aulasSelecionadas.length - 1; i++) {
+            const a1 = aulasSelecionadas[i];
+            const a2 = aulasSelecionadas[i + 1];
+            pares.push([a1.aulaId, a2.aulaId, a1.turma, a2.turma]);
+        }
 
-        document.querySelectorAll('.aula-checkbox:checked').forEach(cb => {
-            const grupoId = cb.dataset.grupo;
-            const aulaId = cb.dataset.aula;
-            const turmas = cb.dataset.turmas.split(',');
+        return pares;
+    }
+    function getAllSelectedAulas() {
+        const pares = [];
 
-            turmas.forEach(turma => {
-            result.push(`${aulaId}|${turma}`);
+        // Para cada caixa .aulas-simultaneas-box
+        document.querySelectorAll('.aulas-simultaneas-box').forEach(box => {
+            const aulasSelecionadas = [];
+
+            // Recolhe checkboxes marcadas dentro da caixa
+            box.querySelectorAll('.aula-checkbox:checked').forEach(cb => {
+                const aulaId = cb.dataset.aula;
+                const turmas = cb.dataset.turmas.split(',');
+                const primeiraTurma = turmas[0].trim();
+                aulasSelecionadas.push({ aulaId, turma: primeiraTurma });
             });
+
+            // Formar a "cadeia" de aulas correspondente à caixa      exemplo do que estou a referir com "cadeia" -> (Aula1, Aula2), (Aula2, Aula3),...
+            for (let i = 0; i < aulasSelecionadas.length - 1; i++) {
+                const a1 = aulasSelecionadas[i];
+                const a2 = aulasSelecionadas[i + 1];
+                pares.push([a1.aulaId, a2.aulaId, a1.turma, a2.turma]);
+            }
         });
 
-        return result;
+        return pares;
     }
+
+
 
 
     // verificar se há grupos com apenas uma turma selecionada
