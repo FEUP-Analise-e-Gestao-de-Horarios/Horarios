@@ -252,6 +252,43 @@
         icon.textContent = isHidden ? "▾" : "▸";
     }
 
+    // guarda que checkboxes estava selecionadas temporariamente para não fazer "reset" das escolhas quando se dá refresh à página
+    function guardarEstadoCheckboxes() {
+        const estado = {};
+        document.querySelectorAll('.aula-checkbox').forEach(cb => {
+            const aulaId = cb.dataset.aula;
+            const grupoId = cb.dataset.grupo;
+            const box = cb.closest('.aulas-simultaneas-box');
+            const boxIndex = box ? box.dataset.boxIndex : "0";
+            const key = `${grupoId}__${boxIndex}__${aulaId}`;
+            estado[key] = cb.checked;
+        });
+        localStorage.setItem("checkboxesMarcadas", JSON.stringify(estado));
+    }
+
+
+    // restora as checkboxes guardadas
+    function restaurarEstadoCheckboxes() {
+        const estado = JSON.parse(localStorage.getItem("checkboxesMarcadas") || '{}');
+
+        document.querySelectorAll('.aula-checkbox').forEach(cb => {
+            const aulaId = cb.dataset.aula;
+            const grupoId = cb.dataset.grupo;
+            const box = cb.closest('.aulas-simultaneas-box');
+            const boxIndex = box ? box.dataset.boxIndex : "0";
+            const key = `${grupoId}__${boxIndex}__${aulaId}`;
+            if (estado[key]) {
+                cb.checked = true;
+            }
+        });
+
+        atualizarCheckboxesDisponiveis();
+        validarGrupos();
+    }
+
+
+
+
     // dentro dos grupos de aulas ao mesmo tempo, se uma aula tiver sido selecionada numa checkbox então desativa essa opção nas outras checkboxes
     function atualizarCheckboxesDisponiveis() {
         const checkboxesPorGrupo = {};
@@ -355,16 +392,6 @@
     }
 
     function getAllSelectedAulas() {
-       // criar pares (em cadeia)
-        for (let i = 0; i < aulasSelecionadas.length - 1; i++) {
-            const a1 = aulasSelecionadas[i];
-            const a2 = aulasSelecionadas[i + 1];
-            pares.push([a1.aulaId, a2.aulaId, a1.turma, a2.turma]);
-        }
-
-        return pares;
-    }
-    function getAllSelectedAulas() {
         const pares = [];
 
         // Para cada caixa .aulas-simultaneas-box
@@ -421,23 +448,6 @@
         }
     }
 
-
-    function aplicarSelectAllListenersOld() {
-        document.querySelectorAll('.select-all-checkbox').forEach(selectAll => {
-            selectAll.addEventListener('change', function () {
-                const turmasList = this.closest('.aulas-simultaneas-box');
-                const checkboxes = turmasList.querySelectorAll('.aula-checkbox');
-
-                checkboxes.forEach(cb => {
-                    if (!cb.disabled) {
-                        cb.checked = this.checked;
-                        cb.dispatchEvent(new Event('change'));
-                    }
-                });
-            });
-        });
-    }
-
     function aplicarSelectAllListeners() {
         document.querySelectorAll('.select-all-checkbox').forEach(selectAll => {
             const turmasList = selectAll.closest('.aulas-simultaneas-box');
@@ -452,6 +462,7 @@
                 });
                 atualizarCheckboxesDisponiveis();
                 validarGrupos();
+                guardarEstadoCheckboxes();
             });
 
             // Evento: clicar em qualquer aula individual
@@ -468,7 +479,7 @@
                     }
                     atualizarCheckboxesDisponiveis();
                     validarGrupos();
-
+                    guardarEstadoCheckboxes();
                 });
             });
         });
@@ -477,6 +488,7 @@
     document.addEventListener("DOMContentLoaded", () => {
         aplicarSelectAllListeners();
         atualizarCheckboxesDisponiveis();
+        restaurarEstadoCheckboxes();
     });
 </script>
 </body>
