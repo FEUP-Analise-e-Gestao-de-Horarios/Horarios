@@ -148,10 +148,6 @@
             display: block;
         }
 
-        .uc-grupos {
-            display: none;
-        }
-
         .uc-container {
             border: 1px dashed #aaa;
             margin-bottom: 20px;
@@ -190,7 +186,7 @@
                 {% if uc.grouper and uc.list.0.curso == curso %}
                     <div class="uc-container">
                         <h4 onclick="toggleUC(this)" style="cursor: pointer;">
-                            <span class="toggle-icon">▸</span> {{ uc.grouper }} &emsp; {{ uc.list.0.uc }}
+                            <span class="toggle-icon">▾</span> {{ uc.grouper }} &emsp; {{ uc.list.0.uc }}
                         </h4>
                         <div class="uc-grupos">
                             {% for grupo in uc.list %}
@@ -247,7 +243,7 @@
     function toggleUC(header) {
         const container = header.nextElementSibling;
         const icon = header.querySelector(".toggle-icon");
-        const isHidden = container.style.display === "none" || container.style.display === "";
+        const isHidden = window.getComputedStyle(container).display === "none";
         container.style.display = isHidden ? "block" : "none";
         icon.textContent = isHidden ? "▾" : "▸";
     }
