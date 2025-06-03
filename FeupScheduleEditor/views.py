@@ -372,6 +372,10 @@ def editTurnos(request: HttpRequest, projId: int) -> HttpResponse:
     """
     Cria a página `editTurnos` para o projeto selecionado.
 
+    Primeiro verifica se é a primeira vez que a página é aberta para saber se é para
+    redirecionar para a página da seleção de turmas simultâneas. Caso a seleção das
+    turmas simultâneas já esteja feita então procede ao carregamento da página `editTurnos`.
+
     Começa por obter a informação do projeto e o json dos cursos, assim como
     os conflitos existentes até à altura. Usa essa informação para 
     fazer o render da página.
@@ -388,6 +392,11 @@ def editTurnos(request: HttpRequest, projId: int) -> HttpResponse:
     #projetos = Project.objects.filter(person = Person.objects.get(username = request.user.pk))
     projetos = getProjetosListAux(request, request.user.pk)
     projeto = Project.objects.values_list().get(id = projId)
+
+    # verificar se é a primeira vez que se abre o editTurnos deste projeto para redirecionar
+    # para a seleção de turmas simultâneas
+    if not projeto.has_selected_simultaneas:
+        return redirect(f'/parser/selecionar_aulas_em_paralelo/?id={projId}')
 
     #salas e docentes para dropdown select
     conn = sqlite3.connect('./database/Project'+ str(projId)+'/general_database.db')

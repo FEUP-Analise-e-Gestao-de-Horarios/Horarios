@@ -5,6 +5,6 @@ app_name = "parser"
 
 urlpatterns = [
     path('parse/', views.parse),
-    path('selecionar_simultaneas/', views.candidatos_turmas_simultaneas, name='selecionar_simultaneas'),
-    path('guardar_simultaneas/', views.guardar_simultaneas, name='guardar_simultaneas'),
+    path('selecionar_aulas_em_paralelo/', views.selecionar_aulas_em_paralelo, name='selecionar_aulas_em_paralelo'),
+    path('guardar_aulas_em_paralelo/', views.guardar_aulas_em_paralelo, name='guardar_aulas_em_paralelo'),
 ]

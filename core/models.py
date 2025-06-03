@@ -26,6 +26,7 @@ class Project(models.Model):
     people = models.ManyToManyField("Person", related_name="People", blank=True)
     isParsed = models.BooleanField(default=False)
     data = models.DateField(default=timezone.now)
+    has_selected_simultaneas = models.BooleanField(default=False)
     
     def __str__(self):
         return f"{self.project}, {self.person}, {self.group}"

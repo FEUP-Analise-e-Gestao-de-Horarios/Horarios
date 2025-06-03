@@ -829,8 +829,14 @@ def turmas_simultaneas():
     
     conn.commit()
 
-def candidatos_turmas_simultaneas(request):
+def selecionar_aulas_em_paralelo(request):
     project_id = request.GET.get("id")
+
+    # verificar se a seleção de turmas simultâneas está a ser acedida na altura certa
+    project = Project.objects.get(id=project_id)
+    if project.has_selected_simultaneas:
+        return redirect(f'/editturnos/{project_id}')
+
     #db_path = f"./database/Project{project_id}/general_database.db"
     db_path = os.path.join(settings.BASE_DIR, "database", f"Project{project_id}", "general_database.db")
 
@@ -847,7 +853,8 @@ def candidatos_turmas_simultaneas(request):
             a.horaInicial,
             a.semanaInicial,
             auc.idUC,
-            uc.idCurso
+            uc.idCurso,
+            uc.nome AS nomeUC
         FROM aula a
         JOIN aulaTurmas at ON a.id = at.idAula
         JOIN aulaUC auc ON a.id = auc.idAula
@@ -857,7 +864,7 @@ def candidatos_turmas_simultaneas(request):
 
     resultados_query = cursor.fetchall()
 
-    # Agrupar por critérios de simultaneidade
+    # Agrupar numa lista aulas da mesma UC  (e curso) que são ao mesmo tempo
     grupos_dict = defaultdict(list)
     for row in resultados_query:
         key = (
@@ -865,6 +872,7 @@ def candidatos_turmas_simultaneas(request):
             row['horaInicial'],
             row['semanaInicial'],
             row['idUC'],
+            row['nomeUC'],
             row['idCurso']
         )
         turmas_por_aula = grupos_dict.setdefault(key, defaultdict(set))
@@ -875,31 +883,40 @@ def candidatos_turmas_simultaneas(request):
         if len(aulas) <= 1:
             continue
 
-        dia_semana, hora_inicial, semana_inicial, id_uc, id_curso = key
-        hora_str = f"{str(hora_inicial)[:2]}:{str(hora_inicial)[2:]}"
+        dia_semana, hora_inicial, semana_inicial, codigoUC, nomeUC, id_curso = key
+        hora_str = f"{hora_inicial:04d}"
+        hora_str = f"{hora_str[:2]}:{hora_str[2:]}"
         horario_str = f"{dia_semana}, {hora_str}"
+
+        num_boxes = len(aulas) // 2
 
         grupo_dict = {
             'id': i,
-            'uc': id_uc,
+            'uc': codigoUC,
+            'nomeUC': nomeUC,
             'curso': id_curso,
-            'aulas': [(aula_id, sorted(list(turmas)), horario_str) for aula_id, turmas in aulas.items()]
+            'horario': horario_str,
+            'aulas': [
+                (aula_id, sorted([turma.strip() for turma in turmas]))
+                for aula_id, turmas in aulas.items()
+            ],
+            'num_boxes': num_boxes
         }
 
         grupos_list.append(grupo_dict)
 
-
-    
     cursos_unicos = sorted(set(grupo['curso'] for grupo in grupos_list))
 
-    return render(request, 'popup_selecionar_turmas_simultaneas.html', {
-        'grupos': grupos_list,
+    grupos_list.sort(key=lambda g: (g["curso"], g["nomeUC"]))
+
+    return render(request, 'selecionar_aulas_em_paralelo.html', {
+        'grupos_aulas_ao_mesmo_tempo': grupos_list,
         'cursos': cursos_unicos,
         'project_id': project_id,
     })
 
 @csrf_exempt
-def guardar_simultaneas(request):
+def guardar_aulas_em_paralelo(request):
     data = json.loads(request.body)
     aulas = [aula.split("|") for aula in data["aulas"]]  # [(aula_id, turma_id)]
 
@@ -919,6 +936,12 @@ def guardar_simultaneas(request):
         ''', (a1, a2, t1, t2))
 
     conn.commit()
+    conn.close()
+
+    project = Project.objects.get(id=project_id)
+    #project.has_selected_simultaneas = True
+    project.save()
+
     return JsonResponse({'status': 'ok'})
 
 # -----------------------------------------------------------------------
@@ -1009,7 +1032,7 @@ def parse(request: requests.Request) -> JsonResponse:
 
             aulas_simultaneas()
 
-            turmas_simultaneas()
+            #turmas_simultaneas()
 
             shutil.copy2(path + '/general_database.db', path + '/initial_database.db')
 

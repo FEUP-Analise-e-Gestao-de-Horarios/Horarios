@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <title>Selecionar Aulas em Paralelo</title>
+    <style> 
+        body {
+            font-family: sans-serif;
+            margin: 0;
+        }
+
+        .main-container {
+            position: fixed;
+            inset: 0;
+            overflow-y: auto;
+            background-color: white;
+            padding-left: 20%;
+            padding-right: 20%;
+            padding-top: 3%;
+            padding-bottom: 3%;
+            z-index: 9999;
+        }
+
+        .grupo-box {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin-bottom: 5px;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+
+        .grupo-box-content {
+            display: flex;
+            gap: 30px;
+            align-items: flex-start;
+            justify-content: space-between;
+            font-size: 4px;
+        }
+
+        button {
+            margin-top: 10px;
+            background: #ffc107;
+            color: black;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #curso-selector {
+            margin-bottom: 20px;
+        }
+
+        .curso-btn {
+            padding: 10px 20px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            border: none;
+            border-radius: 10px;
+            color: #333;
+            background-color: #ddd;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .curso-btn.active {
+            background-color: #ffc107;
+        }
+        .curso-wrapper {
+            display: none;
+            border: 2px solid #aaa;
+            border-radius: 10px;
+            padding-left: 3%;
+            padding-right: 3%;
+            padding-bottom: 1%;
+            margin-bottom: 40px;
+            background: #fff;
+        }
+
+        .aulas-list {
+            flex: 0 1 auto;
+            max-width: 100%;
+            font-size: 16px;
+        }
+
+        .aulas-simultaneas-boxes {
+            flex: 1 1 0;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            align-items: flex-start;
+            min-width: 0;
+        }
+
+        .aulas-simultaneas-box {
+            background-color: #f0f0f0;
+            padding: 10px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            gap: 6px;
+            margin-top: 8px;
+            font-size: 14px;
+            
+        }
+
+        .aulas-simultaneas-box span {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #bbb;
+            padding-top: 0.2em;
+            padding-bottom: 0.2em;
+            padding-left: 1em;
+            padding-right: 1em;
+            border-radius: 5px;
+            margin: 0px;
+        }
+
+        .aulas-simultaneas-box span .remove {
+            cursor: pointer;
+            color: #333;
+        }
+
+        .popup-turmas-scroll {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            background: #f9f9f9;
+        }
+
+        .curso-wrapper h3{
+            font-size: 25px;
+        }
+
+        button.disabled {
+            background-color: #ccc !important;
+            cursor: not-allowed;
+            color: #666;
+        }
+        .warning-msg {
+            font-size: 16px;
+            margin-top: 6px;
+            color: red;
+            display: block;
+        }
+
+        .uc-grupos {
+            display: none;
+        }
+
+        .uc-container {
+            border: 1px dashed #aaa;
+            margin-bottom: 20px;
+            padding: 10px;
+            border-radius: 6px;
+            background-color: #fcfcfc;
+        }
+        .uc-container h4 {
+            font-size: 18px;
+            margin-bottom: 10px;
+            margin-top: 0px;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="main-container">
+    <h2>Selecionar Aulas em Paralelo</h2>
+    <div id="curso-selector">
+        {% for curso in cursos %}
+            <button class="curso-btn" data-curso="{{ curso }}" onclick="toggleCurso(this)">
+                {{ curso }}
+            </button>
+        {% endfor %}
+    </div>
+
+    <p>Selecione os cursos para que pretende selecionar aulas em paralelo.</p>
+    <p>Selecione as aulas que deverão ser em paralelo.</p>
+
+    {% for curso in cursos %}
+        <div class="curso-wrapper" data-curso="{{ curso }}">
+            <h2>Curso {{ curso }}</h2>
+            {% regroup grupos_aulas_ao_mesmo_tempo by nomeUC as grupos_por_uc %}
+            {% for uc in grupos_por_uc %}
+                {% if uc.grouper and uc.list.0.curso == curso %}
+                    <div class="uc-container">
+                        <h4 onclick="toggleUC(this)" style="cursor: pointer;">
+                            <span class="toggle-icon">▸</span> {{ uc.grouper }} &emsp; {{ uc.list.0.uc }}
+                        </h4>
+                        <div class="uc-grupos">
+                            {% for grupo in uc.list %}
+                                <div class="grupo-box" data-curso="{{ grupo.curso }}" id="grupo-{{ grupo.id }}">
+                                    <div class="grupo-box-content" style="display: flex; gap: 10px;">
+                                        <div class="aulas-list">
+                                            <h4>{{ grupo.horario }}</h4>
+                                            {% for aula, turmas in grupo.aulas %}
+                                                Turmas: {{ turmas|join:", " }} <br>
+                                            {% endfor %}
+                                        </div>
+                                        <div class="aulas-simultaneas-boxes">
+                                            {% for i in "x"|rjust:grupo.num_boxes %}
+                                                <div class="aulas-simultaneas-box" data-grupo="{{ grupo.id }}" data-box-index="{{ forloop.counter0 }}">
+                                                    <label><input type="checkbox" class="select-all-checkbox"> Selecionar todas</label>
+                                                    {% for aula, turmas in grupo.aulas %}
+                                                        <label>
+                                                        <input type="checkbox"
+                                                                class="aula-checkbox"
+                                                                data-grupo="{{ grupo.id }}"
+                                                                data-aula="{{ aula }}"
+                                                                data-turmas="{{ turmas|join:',' }}">
+                                                        {{ turmas|join:", " }}
+                                                        </label>
+                                                    {% endfor %}
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    {% endfor %}
+    <hr>
+    <div id="aviso-uma-aula-so-selecionada" class="warning-msg" style="display: none;"></div>
+    <button type="button" id="btn-guardar" onclick="guardarTodasSelecoes()">Guardar Seleção</button>
+
+</div>
+
+<script>
+    function toggleCurso(button) {
+        const curso = button.dataset.curso;
+        const isActive = button.classList.toggle('active');
+
+        document.querySelectorAll(`.curso-wrapper[data-curso="${curso}"]`).forEach(el => {
+            el.style.display = isActive ? 'block' : 'none';
+        });
+    }
+
+    function toggleUC(header) {
+        const container = header.nextElementSibling;
+        const icon = header.querySelector(".toggle-icon");
+        const isHidden = container.style.display === "none" || container.style.display === "";
+        container.style.display = isHidden ? "block" : "none";
+        icon.textContent = isHidden ? "▾" : "▸";
+    }
+
+    // dentro dos grupos de aulas ao mesmo tempo, se uma aula tiver sido selecionada numa checkbox então desativa essa opção nas outras checkboxes
+    function atualizarCheckboxesDisponiveis() {
+        const checkboxesPorGrupo = {};
+
+        document.querySelectorAll('.aula-checkbox').forEach(cb => {
+            const grupo = cb.dataset.grupo;
+            if (!checkboxesPorGrupo[grupo]) {
+                checkboxesPorGrupo[grupo] = [];
+            }
+            checkboxesPorGrupo[grupo].push(cb);
+        });
+
+        Object.entries(checkboxesPorGrupo).forEach(([grupoId, checkboxes]) => {
+            const aulasSelecionadas = new Set();
+
+            // Recolhe os aulaIds selecionados
+            checkboxes.forEach(cb => {
+                if (cb.checked) {
+                    aulasSelecionadas.add(cb.dataset.aula);
+                }
+            });
+
+            // Atualiza o estado de todas as checkboxes
+            checkboxes.forEach(cb => {
+                const aulaId = cb.dataset.aula;
+                const deveDesativar = aulasSelecionadas.has(aulaId) && !cb.checked;
+
+                cb.disabled = deveDesativar;
+                cb.parentElement.style.color = deveDesativar ? 'gray' : '';
+            });
+        });
+
+        // atualiza o estado da checkbox Select All (fica desativada tb se todas estiverem desativadas)
+        document.querySelectorAll('.aulas-simultaneas-box').forEach(box => {
+            const checkboxes = box.querySelectorAll('.aula-checkbox');
+            const selectAll = box.querySelector('.select-all-checkbox');
+
+            const checkboxesAtivos = Array.from(checkboxes).filter(cb => !cb.disabled);
+            const todosDesativados = Array.from(checkboxes).every(cb => cb.disabled);
+            selectAll.disabled = todosDesativados;
+            selectAll.parentElement.style.color = todosDesativados ? 'gray' : '';
+
+            if (!todosDesativados) {
+                const todosSelecionados = checkboxesAtivos.every(cb => cb.checked);
+                const algumSelecionado = checkboxesAtivos.some(cb => cb.checked);
+
+                selectAll.checked = todosSelecionados;
+            } else {
+                selectAll.checked = false;
+            }
+        });
+    }
+
+
+    function getCSRFToken() {
+        const name = 'csrftoken';
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+            if (cookie.trim().startsWith(name + '=')) {
+                return decodeURIComponent(cookie.trim().substring(name.length + 1));
+            }
+        }
+        return '';
+    }
+
+    let popupGrupoId = null;
+    let popupBoxIndex = null;
+
+    function guardarTodasSelecoes() {
+        console.log("Payload:", getAllSelectedAulas());
+
+        // collect data, then call save
+        fetch("/parser/guardar_aulas_em_paralelo/?id={{ project_id }}", {
+            method: "POST",
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({
+                aulas: getAllSelectedAulas()
+            })
+        })
+        .then(async res => {
+            const text = await res.text(); // read raw text
+            try {
+                const data = JSON.parse(text);
+                if (data.status === "ok") {
+                    window.location.href = `/edit_turnos/{{ project_id }}`;
+                } else {
+                    alert("Erro ao guardar.");
+                }
+            } catch (e) {
+                console.error("Not JSON!", text);
+                alert("Erro do servidor: resposta inesperada.");
+            }
+        })
+        .catch(err => {
+            console.error("Fetch failed:", err);
+            alert("Erro na comunicação com o servidor.");
+        });
+    }
+
+    function getAllSelectedAulas() {
+        const result = [];
+
+        document.querySelectorAll('.aula-checkbox:checked').forEach(cb => {
+            const grupoId = cb.dataset.grupo;
+            const aulaId = cb.dataset.aula;
+            const turmas = cb.dataset.turmas.split(',');
+
+            turmas.forEach(turma => {
+            result.push(`${aulaId}|${turma}`);
+            });
+        });
+
+        return result;
+    }
+
+
+    // verificar se há grupos com apenas uma turma selecionada
+    // se sim desativar o botão de 'Guardar Alterações' e chamar à atenção do utilizador
+    function validarGrupos() {
+        let algumInvalido = false;
+
+        document.querySelectorAll('.aulas-simultaneas-box').forEach(box => {
+            const checkboxes = box.querySelectorAll('.aula-checkbox');
+            const selecionadas = Array.from(checkboxes).filter(cb => cb.checked);
+
+            if (selecionadas.length === 1) {
+                algumInvalido = true;
+            }
+        });
+
+        const btn = document.getElementById("btn-guardar");
+        btn.disabled = algumInvalido;
+        btn.classList.toggle('disabled', algumInvalido);
+
+        const avisoFinal = document.getElementById("aviso-uma-aula-so-selecionada");
+        if (algumInvalido) {
+            avisoFinal.style.display = "block";
+            avisoFinal.innerHTML = "Um grupo de aulas simultâneas não de ser formado por apenas uma aula. <br>Por favor verifique se não deixou nenhum grupo com uma aula só selecionada. <br>Deselecione a aula ou selecione uma segunda aula.";
+        } else {
+            avisoFinal.style.display = "none";
+            avisoFinal.innerHTML = "";
+        }
+    }
+
+
+    function aplicarSelectAllListenersOld() {
+        document.querySelectorAll('.select-all-checkbox').forEach(selectAll => {
+            selectAll.addEventListener('change', function () {
+                const turmasList = this.closest('.aulas-simultaneas-box');
+                const checkboxes = turmasList.querySelectorAll('.aula-checkbox');
+
+                checkboxes.forEach(cb => {
+                    if (!cb.disabled) {
+                        cb.checked = this.checked;
+                        cb.dispatchEvent(new Event('change'));
+                    }
+                });
+            });
+        });
+    }
+
+    function aplicarSelectAllListeners() {
+        document.querySelectorAll('.select-all-checkbox').forEach(selectAll => {
+            const turmasList = selectAll.closest('.aulas-simultaneas-box');
+            const checkboxes = turmasList.querySelectorAll('.aula-checkbox');
+
+            // Evento: clicar em "Selecionar todas"
+            selectAll.addEventListener('change', function () {
+                checkboxes.forEach(cb => {
+                    if (!cb.disabled) {
+                        cb.checked = this.checked;
+                    }
+                });
+                atualizarCheckboxesDisponiveis();
+                validarGrupos();
+            });
+
+            // Evento: clicar em qualquer aula individual
+            checkboxes.forEach(cb => {
+                cb.addEventListener('change', function () {
+                    const allEnabled = Array.from(checkboxes).filter(cb => !cb.disabled);
+                    const allChecked = allEnabled.every(cb => cb.checked);
+                    const someChecked = allEnabled.some(cb => cb.checked);
+
+                    if (allChecked) {
+                        selectAll.checked = true;
+                    } else {
+                        selectAll.checked = false;
+                    }
+                    atualizarCheckboxesDisponiveis();
+                    validarGrupos();
+
+                });
+            });
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        aplicarSelectAllListeners();
+        atualizarCheckboxesDisponiveis();
+    });
+</script>
+</body>
+</html>
