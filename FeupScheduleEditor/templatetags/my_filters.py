@@ -145,3 +145,7 @@ def increment_if_busy(context, is_busy):
 @register.simple_tag(takes_context=True, name="can_mark_busy")
 def can_mark_busy(context, aulas):
     return context.get('busy_counter', 0) < len(aulas)
+
+@register.filter(name='dict_get')
+def dict_get(d, key):
+    return d.get(key)

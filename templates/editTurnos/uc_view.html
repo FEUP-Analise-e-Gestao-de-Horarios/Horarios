@@ -1,0 +1,122 @@
+{% extends '../common/base.html' %}
+{% load my_filters %}
+{% load static %}
+
+{% block page %}
+
+{% include '../common/header.html' %}
+{% include '../common/editHeader.html' %}
+
+
+<div class="container my-3">
+    {% include '../common/exportButton.html' %}
+</div>
+
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            
+
+            <table id="table_vistas" class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>Horário</th>
+                        <th colspan="1" class="segunda">Segunda</th>
+                        <th colspan="1" class="terça">Terça</th>
+                        <th colspan="1" class="quarta">Quarta</th>
+                        <th colspan="1" class="quinta">Quinta</th>
+                        <th colspan="1" class="sexta">Sexta</th>
+                        <th colspan="1" class="sábado">Sábado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for hour in 8|times:19 %}
+                        {% with hour|firstHalfHour as first %}
+                        {% with hour|secondHalfHour as second %}
+                        {% with hour|concat:"00" as firstHora %}
+                        {% with hour|concat:"30" as secondHora %}
+
+                        <!-- First Half Hour Row -->
+                        <tr>
+                            <td id="{{ firstHora }}">{{ first }}</td>
+                            {% for dia in dias %}
+                                <td id="turma_{{ uc_info.sigla }}_{{ forloop.counter }}_{{ firstHora }}" class="turno1">
+                                    {% for aula in aulas_por_dia|dict_get:dia %}
+                                        {% if aula.horaInicial|stringformat:"s" == firstHora %}
+                                            <div class="aula-box"
+                                                data-aula-id="{{ aula.id }}"
+                                                data-toggle="popover"
+                                                data-placement="top"
+                                                data-content="
+                                                    UC: {{ uc_info.sigla }}<br>
+                                                    Sala: {% for sala in salas %}{% if aula.id in aula.salas %}{{ sala.numero }}{% endif %}{% endfor %}<br>
+                                                    Docente: {% for docente in docentes %}{% if aula.id in aula.docentes %}{{ docente.abreviacao }}{% endif %}{% endfor %}
+                                                ">
+                                                {{ uc_info.sigla }}
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                </td>
+                            {% endfor %}
+                        </tr>
+
+                        <!-- Second Half Hour Row -->
+                        <tr>
+                            <td id="{{ secondHora }}">{{ second }}</td>
+                            {% for dia in dias %}
+                                <td id="turma_{{ uc_info.sigla }}_{{ forloop.counter }}_{{ secondHora }}" class="turno1">
+                                    {% for aula in aulas_por_dia|dict_get:dia %}
+                                        {% if aula.horaInicial|stringformat:"s" == secondHora %}
+                                            <div class="aula-box"
+                                                data-aula-id="{{ aula.id }}"
+                                                data-toggle="popover"
+                                                data-placement="top"
+                                                data-content="
+                                                    UC: {{ uc_info.sigla }}<br>
+                                                    Sala: {% for sala in salas %}{% if aula.id in aula.salas %}{{ sala.numero }}{% endif %}{% endfor %}<br>
+                                                    Docente: {% for docente in docentes %}{% if aula.id in aula.docentes %}{{ docente.abreviacao }}{% endif %}{% endfor %}
+                                                ">
+                                                {{ uc_info.sigla }}
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                </td>
+                            {% endfor %}
+                        </tr>
+
+                        {% endwith %}
+                        {% endwith %}
+                        {% endwith %}
+                        {% endwith %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    $('[data-toggle="popover"]').popover({
+        trigger: 'hover',
+        html: true
+    });
+});
+</script>
+
+<style>
+.aula-box {
+    background-color: #e9f7fe;
+    border: 1px solid #b3e0ff;
+    border-radius: 4px;
+    padding: 5px;
+    margin: 2px;
+    text-align: center;
+    cursor: pointer;
+}
+.aula-box:hover {
+    background-color: #d0ebff;
+}
+</style>
+
+{% endblock page %}

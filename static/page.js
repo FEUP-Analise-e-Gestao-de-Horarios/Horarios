@@ -272,13 +272,15 @@ ucsBtn.addEventListener("change", function() {
         console.log('[Event] Calling displayAllAulas()');
         displayAllAulas();
     } else {
-        console.log(`[Event] Calling displayUc(${this.value})`);
-        displayUc(this.value);
+        // Redirect to the UC-specific view
+        window.location.href = `/ucview/${projId}/${this.value}`;
     }
     console.log('[Event] Calling update functions');
     updateColspan();
     updateDayDivisions();
 });
+
+
 turnosBtn.addEventListener("change", function () {
     const selectedTurno = this.value;
 

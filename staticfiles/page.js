@@ -227,28 +227,59 @@ anoBtn.addEventListener("change", function () {
     ano = this.value;
     handleAnoBtn(ano, ano).then(updateDayDivisions);
 });
-document.addEventListener('DOMContentLoaded', function() {
-    ucsBtn.addEventListener("change", function() {
-        const selectedUC = this.value;
 
-        if (selectedUC === 'UC') {
-          if (typeof displayAllAulas === 'function') {
-            displayAllUcs();
-          } else {
-            console.error('displayAllUcs not available - ensure display-functions.js is loaded before page.js');
-            // Fallback behavior or show user message
-          }
-        } else {
-          if (typeof displayUc === 'function') {
-            displayUc(selectedUC);
-          } else {
-            console.error('displayUc not available - ensure display-functions.js is loaded before page.js');
-            // Fallback behavior or show user message
-          }
+function displayUc(targetUc) {
+    const allCells = document.querySelectorAll("tbody td[id*=turma_]");
+    
+    // First make all cells visible and reset their structure
+    allCells.forEach(cell => {
+        cell.style.visibility = 'visible';
+        cell.style.opacity = '1';
+        if (cell.hasAttribute("data-originalcolspan")) {
+            cell.colSpan = parseInt(cell.getAttribute("data-originalcolspan"), 10);
         }
-        updateDayDivisions();
-      });
+    });
+
+    // Then handle UC filtering
+    allCells.forEach(cell => {
+        const ucElement = cell.querySelector('p.uc');
+        
+        if (ucElement) {
+            if (ucElement.id !== targetUc) {
+                // Hide content but maintain cell structure
+                cell.style.visibility = 'hidden';
+                cell.style.opacity = '0';
+                cell.style.height = '0';
+                cell.style.padding = '0';
+                cell.style.border = 'none';
+            } else {
+                // Show matching UC with original formatting
+                cell.style.visibility = 'visible';
+                cell.style.opacity = '1';
+                cell.style.height = '';
+                cell.style.padding = '';
+                cell.style.border = '';
+                const originalColspan = cell.getAttribute('data-originalcolspan');
+                cell.colSpan = originalColspan ? parseInt(originalColspan) : 1;
+            }
+        }
+    });
+}
+
+ucsBtn.addEventListener("change", function() {
+    console.log(`[Event] UC selection changed to: ${this.value}`);
+    if (this.value === 'UC') {
+        console.log('[Event] Calling displayAllAulas()');
+        displayAllAulas();
+    } else {
+        // Redirect to the UC-specific view
+        window.location.href = `/ucview/${projId}/${this.value}`;
+    }
+    console.log('[Event] Calling update functions');
+    updateColspan();
+    updateDayDivisions();
 });
+
 
 turnosBtn.addEventListener("change", function () {
     const selectedTurno = this.value;

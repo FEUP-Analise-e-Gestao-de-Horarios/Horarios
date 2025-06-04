@@ -1,0 +1,32 @@
+{% load my_filters %}
+
+<table class="mini-horario-table">
+  <thead>
+    <tr>
+      <th>Hora</th>
+      {% for turma in turmas %}
+        <th>{{ turma }}</th>
+      {% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for horario in horarios %}
+      <tr>
+        <td>{{ horario }}</td>
+        {% for turma in turmas %}
+          {% with lesson=schedule|dict_get:horario|dict_get:turma %}
+            {% if lesson %}
+              <td class="busy">
+                <div><strong>{{ lesson.nome_uc }}</strong></div>
+                <div>{{ lesson.docente }}</div>
+                <div>{{ lesson.sala }}</div>
+              </td>
+            {% else %}
+              <td class="free"></td>
+            {% endif %}
+          {% endwith %}
+        {% endfor %}
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>

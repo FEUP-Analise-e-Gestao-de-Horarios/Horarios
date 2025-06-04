@@ -606,6 +606,86 @@ def fillPageForCursoAno(request):
         logger.error(f"Error in fillPageForCursoAno: {str(e)}", exc_info=True)
         return JsonResponse({'error': str(e)}, status=500)
 
+def uc_view(request: HttpRequest, projId: int, uc_codigo: str) -> HttpResponse:
+    """
+    Creates a page showing the schedule for a specific UC.
+    
+    Parameters:
+    request (HttpRequest): The HTTP request object
+    projId (int): The project ID
+    uc_codigo (str): The UC code
+    
+    Returns:
+    HttpResponse: The rendered UC view page
+    """
+    if not request.user.is_authenticated:
+        return redirect('login/')
+    
+    projetos = getProjetosListAux(request, request.user.pk)
+    projeto = Project.objects.values_list().get(id=projId)
+    
+    # Get UC information
+    conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    # Get UC details
+    cursor.execute('SELECT * FROM uc WHERE codigo = ?', (uc_codigo,))
+    uc_info = cursor.fetchone()
+    
+    # Get all aulas for this UC
+    aulas = auxfunc.getUcHorario(projId, uc_codigo)
+    
+    # Organize aulas by day
+    aulas_por_dia = {
+        'Segunda': [],
+        'Terça': [],
+        'Quarta': [],
+        'Quinta': [],
+        'Sexta': [],
+        'Sábado': []
+    }
+    
+    for aula in aulas:
+        dia = aula['diaSemana']
+        if dia in aulas_por_dia:
+            aulas_por_dia[dia].append(aula)
+    
+    # Get docentes for this UC
+    cursor.execute('''SELECT DISTINCT d.numeroMecanografico, d.nome, d.abreviacao 
+                      FROM docentes d
+                      JOIN aulaDocente ad ON d.numeroMecanografico = ad.idDocente
+                      JOIN aulaUC au ON ad.idAula = au.idAula
+                      WHERE au.idUC = ?''', (uc_codigo,))
+    docentes = cursor.fetchall()
+    
+    # Get salas for this UC
+    cursor.execute('''SELECT DISTINCT s.numero, s.tipo, s.capacidade 
+                      FROM salas s
+                      JOIN aulaSala asl ON s.numero = asl.idSala
+                      JOIN aulaUC au ON asl.idAula = au.idAula
+                      WHERE au.idUC = ?''', (uc_codigo,))
+    salas = cursor.fetchall()
+    
+    conn.close()
+    
+    context = {
+        'projetos': projetos,
+        'projId': projId,
+        'projeto': projeto,
+        'uc_info': uc_info,
+        'aulas_por_dia': aulas_por_dia,
+        'docentes': docentes,
+        'salas': salas,
+        'dias': ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"],
+        'horas': horas,
+        'is_edit_turnos': True
+    }
+    import pprint
+    pprint.pprint(context)
+    
+    return render(request, 'editTurnos/uc_view.html', context)
+
 def get_uc_list(request):
     logger.debug("UC list requested - view entered")
     
