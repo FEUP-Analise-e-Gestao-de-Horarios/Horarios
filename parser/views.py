@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import defaultdict, deque
 from ctypes import sizeof
 from django.shortcuts import render, redirect
 from django.http import HttpResponse, JsonResponse
@@ -904,13 +904,54 @@ def selecionar_aulas_em_paralelo(request):
 
     grupos_list.sort(key=lambda g: (g["curso"], g["nomeUC"]))
 
+    aulas_em_paralelo = obter_aulas_em_paralelo(cursor)
+    
     conn.close()
 
     return render(request, 'selecionar_aulas_em_paralelo.html', {
         'grupos_aulas_ao_mesmo_tempo': grupos_list,
         'cursos': cursos_unicos,
         'project_id': project_id,
+        'aulas_em_paralelo' : aulas_em_paralelo,
     })
+
+def obter_aulas_em_paralelo(cursor):
+    """
+    Recebe um cursor de SQLite já conectado à base de dados de um projeto.
+    Devolve uma lista de aulas em paralelo (listasde IDs de aulas) com base nas relações da tabela turmasSimultaneas.
+    """
+    cursor.execute('SELECT aula1, aula2 FROM turmasSimultaneas')
+    pares = cursor.fetchall()
+
+    # Construir grafo aula -> vizinhos
+    adj = defaultdict(set)
+    for a1, a2 in pares:
+        adj[a1].add(a2)
+        adj[a2].add(a1)
+
+    # Obter cadeias
+    visitados = set()
+    cadeias = []
+
+    for aula in adj:
+        if aula in visitados:
+            continue
+
+        fila = deque([aula])
+        cadeia = []
+
+        while fila:
+            atual = fila.popleft()
+            if atual in visitados:
+                continue
+            visitados.add(atual)
+            cadeia.append(atual)
+            fila.extend(adj[atual] - visitados)
+
+        cadeia.sort()
+        cadeias.append(cadeia)
+
+    return cadeias
 
 @csrf_exempt
 def guardar_aulas_em_paralelo(request):
@@ -926,9 +967,10 @@ def guardar_aulas_em_paralelo(request):
 
         with sqlite3.connect(db_path, timeout=10) as conn:
             cursor = conn.cursor()
+            cursor.execute('DELETE FROM turmasSimultaneas')
             for a1, a2, t1, t2 in pares:
                 cursor.execute('''
-                    INSERT OR IGNORE INTO turmasSimultaneas (aula1, aula2, turma1, turma2)
+                    INSERT INTO turmasSimultaneas (aula1, aula2, turma1, turma2)
                     VALUES (?, ?, ?, ?)
                 ''', (a1, a2, t1, t2))
             conn.commit()

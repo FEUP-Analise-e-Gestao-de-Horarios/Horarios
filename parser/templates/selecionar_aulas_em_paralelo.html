@@ -10,16 +10,19 @@
         }
 
         .main-container {
-            position: fixed;
-            inset: 0;
-            overflow-y: auto;
+            flex: 0 0 1000px;
+            position: relative;
+            max-width: 1000px;
+            margin: 0;
+            padding: 20px;
+            margin-left: 6%;
             background-color: white;
-            padding-left: 20%;
-            padding-right: 20%;
-            padding-top: 3%;
-            padding-bottom: 3%;
+            min-height: auto;
+            box-sizing: border-box;
+            inset: 0;
             z-index: 9999;
         }
+
 
         .grupo-box {
             border: 1px solid #ccc;
@@ -146,6 +149,7 @@
             margin-top: 6px;
             color: red;
             display: block;
+            word-break: break-word;
         }
 
         .uc-container {
@@ -161,74 +165,116 @@
             margin-top: 0px;
         }
 
+        .botoes-canto {
+            position: sticky;
+            flex-direction: column;
+            display: flex;
+            gap: 10px;
+            margin-top: auto;
+            margin-left: auto;
+            bottom: 20px;
+            align-items: flex-end;
+            max-width: 270px;
+        }
+
+        .botoes-canto button {
+            background: #ffc107;
+            color: black;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 135px;
+        }
+
+        .wrapper-total {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+            gap: 30px;
+            min-height: 100vh;
+        }
+
+        #btn-cancelar {
+            border-style: solid;
+            border-width: 2px;
+            border-color: #ffc107;
+            background-color: #f5f5f5;
+        }
+
+
     </style>
 </head>
 <body>
+    <div class="wrapper-total">
+        <div class="main-container">
+            <h2>Selecionar Aulas em Paralelo</h2>
+            <div id="curso-selector">
+                {% for curso in cursos %}
+                    <button class="curso-btn" data-curso="{{ curso }}" onclick="toggleCurso(this)">
+                        {{ curso }}
+                    </button>
+                {% endfor %}
+            </div>
 
-<div class="main-container">
-    <h2>Selecionar Aulas em Paralelo</h2>
-    <div id="curso-selector">
-        {% for curso in cursos %}
-            <button class="curso-btn" data-curso="{{ curso }}" onclick="toggleCurso(this)">
-                {{ curso }}
-            </button>
-        {% endfor %}
-    </div>
+            <p>Selecione os cursos para que pretende selecionar aulas em paralelo.</p>
+            <p>Selecione as aulas que deverão ser em paralelo.</p>
 
-    <p>Selecione os cursos para que pretende selecionar aulas em paralelo.</p>
-    <p>Selecione as aulas que deverão ser em paralelo.</p>
-
-    {% for curso in cursos %}
-        <div class="curso-wrapper" data-curso="{{ curso }}">
-            <h2>Curso {{ curso }}</h2>
-            {% regroup grupos_aulas_ao_mesmo_tempo by nomeUC as grupos_por_uc %}
-            {% for uc in grupos_por_uc %}
-                {% if uc.grouper and uc.list.0.curso == curso %}
-                    <div class="uc-container">
-                        <h4 onclick="toggleUC(this)" style="cursor: pointer;">
-                            <span class="toggle-icon">▾</span> {{ uc.grouper }} &emsp; {{ uc.list.0.uc }}
-                        </h4>
-                        <div class="uc-grupos">
-                            {% for grupo in uc.list %}
-                                <div class="grupo-box" data-curso="{{ grupo.curso }}" id="grupo-{{ grupo.id }}">
-                                    <div class="grupo-box-content" style="display: flex; gap: 10px;">
-                                        <div class="aulas-list">
-                                            <h4>{{ grupo.horario }}</h4>
-                                            {% for aula, turmas in grupo.aulas %}
-                                                Turmas: {{ turmas|join:", " }} <br>
-                                            {% endfor %}
-                                        </div>
-                                        <div class="aulas-simultaneas-boxes">
-                                            {% for i in "x"|rjust:grupo.num_boxes %}
-                                                <div class="aulas-simultaneas-box" data-grupo="{{ grupo.id }}" data-box-index="{{ forloop.counter0 }}">
-                                                    <label><input type="checkbox" class="select-all-checkbox"> Selecionar todas</label>
+            {% for curso in cursos %}
+                <div class="curso-wrapper" data-curso="{{ curso }}">
+                    <h2>Curso {{ curso }}</h2>
+                    {% regroup grupos_aulas_ao_mesmo_tempo by nomeUC as grupos_por_uc %}
+                    {% for uc in grupos_por_uc %}
+                        {% if uc.grouper and uc.list.0.curso == curso %}
+                            <div class="uc-container">
+                                <h4 onclick="toggleUC(this)" style="cursor: pointer;">
+                                    <span class="toggle-icon">▾</span> {{ uc.grouper }} &emsp; {{ uc.list.0.uc }}
+                                </h4>
+                                <div class="uc-grupos">
+                                    {% for grupo in uc.list %}
+                                        <div class="grupo-box" data-curso="{{ grupo.curso }}" id="grupo-{{ grupo.id }}">
+                                            <div class="grupo-box-content" style="display: flex; gap: 10px;">
+                                                <div class="aulas-list">
+                                                    <h4>{{ grupo.horario }}</h4>
                                                     {% for aula, turmas in grupo.aulas %}
-                                                        <label>
-                                                        <input type="checkbox"
-                                                                class="aula-checkbox"
-                                                                data-grupo="{{ grupo.id }}"
-                                                                data-aula="{{ aula }}"
-                                                                data-turmas="{{ turmas|join:',' }}">
-                                                        {{ turmas|join:", " }}
-                                                        </label>
+                                                        Turmas: {{ turmas|join:", " }} <br>
                                                     {% endfor %}
                                                 </div>
-                                            {% endfor %}
+                                                <div class="aulas-simultaneas-boxes">
+                                                    {% for i in "x"|rjust:grupo.num_boxes %}
+                                                        <div class="aulas-simultaneas-box" data-grupo="{{ grupo.id }}" data-box-index="{{ forloop.counter0 }}">
+                                                            <label><input type="checkbox" class="select-all-checkbox"> Selecionar todas</label>
+                                                            {% for aula, turmas in grupo.aulas %}
+                                                                <label>
+                                                                <input type="checkbox"
+                                                                        class="aula-checkbox"
+                                                                        data-grupo="{{ grupo.id }}"
+                                                                        data-aula="{{ aula }}"
+                                                                        data-turmas="{{ turmas|join:',' }}">
+                                                                {{ turmas|join:", " }}
+                                                                </label>
+                                                            {% endfor %}
+                                                        </div>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
+                                    {% endfor %}
                                 </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                {% endif %}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
             {% endfor %}
         </div>
-    {% endfor %}
-    <hr>
-    <div id="aviso-uma-aula-so-selecionada" class="warning-msg" style="display: none;"></div>
-    <button type="button" id="btn-guardar" onclick="guardarTodasSelecoes()">Guardar Seleção</button>
 
-</div>
+        <div class="botoes-canto">
+            <div id="aviso-uma-aula-so-selecionada" class="warning-msg" style="display: none;"></div>
+            <button type="button" id="btn-guardar" onclick="guardarTodasSelecoes()">Guardar Seleção</button>
+            <button type="button" id="btn-cancelar" onclick="cancelarMudancas()">Cancelar</button>
+        </div>
+    </div>
 
 <script>
     function toggleCurso(button) {
@@ -247,43 +293,6 @@
         container.style.display = isHidden ? "block" : "none";
         icon.textContent = isHidden ? "▾" : "▸";
     }
-
-    // guarda que checkboxes estava selecionadas temporariamente para não fazer "reset" das escolhas quando se dá refresh à página
-    function guardarEstadoCheckboxes() {
-        const estado = {};
-        document.querySelectorAll('.aula-checkbox').forEach(cb => {
-            const aulaId = cb.dataset.aula;
-            const grupoId = cb.dataset.grupo;
-            const box = cb.closest('.aulas-simultaneas-box');
-            const boxIndex = box ? box.dataset.boxIndex : "0";
-            const key = `${grupoId}__${boxIndex}__${aulaId}`;
-            estado[key] = cb.checked;
-        });
-        localStorage.setItem("checkboxesMarcadas", JSON.stringify(estado));
-    }
-
-
-    // restora as checkboxes guardadas
-    function restaurarEstadoCheckboxes() {
-        const estado = JSON.parse(localStorage.getItem("checkboxesMarcadas") || '{}');
-
-        document.querySelectorAll('.aula-checkbox').forEach(cb => {
-            const aulaId = cb.dataset.aula;
-            const grupoId = cb.dataset.grupo;
-            const box = cb.closest('.aulas-simultaneas-box');
-            const boxIndex = box ? box.dataset.boxIndex : "0";
-            const key = `${grupoId}__${boxIndex}__${aulaId}`;
-            if (estado[key]) {
-                cb.checked = true;
-            }
-        });
-
-        atualizarCheckboxesDisponiveis();
-        validarGrupos();
-    }
-
-
-
 
     // dentro dos grupos de aulas ao mesmo tempo, se uma aula tiver sido selecionada numa checkbox então desativa essa opção nas outras checkboxes
     function atualizarCheckboxesDisponiveis() {
@@ -417,7 +426,7 @@
 
 
     // verificar se há grupos com apenas uma turma selecionada
-    // se sim desativar o botão de 'Guardar Alterações' e chamar à atenção do utilizador
+    // se sim desativar o botão de 'Guardar Seleção' e pôr aviso
     function validarGrupos() {
         let algumInvalido = false;
 
@@ -437,7 +446,7 @@
         const avisoFinal = document.getElementById("aviso-uma-aula-so-selecionada");
         if (algumInvalido) {
             avisoFinal.style.display = "block";
-            avisoFinal.innerHTML = "Um grupo de aulas simultâneas não de ser formado por apenas uma aula. <br>Por favor verifique se não deixou nenhum grupo com uma aula só selecionada. <br>Deselecione a aula ou selecione uma segunda aula.";
+            avisoFinal.innerHTML = "Um grupo de aulas em paralelo não de ser formado por apenas uma aula.";
         } else {
             avisoFinal.style.display = "none";
             avisoFinal.innerHTML = "";
@@ -458,7 +467,6 @@
                 });
                 atualizarCheckboxesDisponiveis();
                 validarGrupos();
-                guardarEstadoCheckboxes();
             });
 
             // Evento: clicar em qualquer aula individual
@@ -475,16 +483,52 @@
                     }
                     atualizarCheckboxesDisponiveis();
                     validarGrupos();
-                    guardarEstadoCheckboxes();
                 });
             });
         });
     }
 
+    function cancelarMudancas() {
+        window.location.href = "/editturnos/{{ project_id }}";
+    }
+
+    const AULAS_EM_PARALELO = {{ aulas_em_paralelo|safe }};
+
+    function preencherCheckboxesComAulasEmParalelo() {
+        const boxes = document.querySelectorAll('.aulas-simultaneas-box');
+
+        let usadas = new Set();
+
+        AULAS_EM_PARALELO.forEach(cadeia => {
+            for (let box of boxes) {
+                const boxId = box.dataset.grupo + "__" + box.dataset.boxIndex;
+                if (usadas.has(boxId)) continue;
+
+                const checkboxes = Array.from(box.querySelectorAll('.aula-checkbox'));
+                const aulaIdsNaBox = new Set(checkboxes.map(cb => cb.dataset.aula));
+
+                if (cadeia.every(aulaId => aulaIdsNaBox.has(String(aulaId)))) {
+                    console.log("Preenchida cadeia:", cadeia, "na box:", boxId);
+                    checkboxes.forEach(cb => {
+                        if (cadeia.map(String).includes(cb.dataset.aula)) {
+                            cb.checked = true;
+                        }
+                    });
+
+                    usadas.add(boxId);
+                    break;
+                }
+            }
+        });
+
+        atualizarCheckboxesDisponiveis();
+        validarGrupos();
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
         aplicarSelectAllListeners();
         atualizarCheckboxesDisponiveis();
-        restaurarEstadoCheckboxes();
+        preencherCheckboxesComAulasEmParalelo();
     });
 </script>
 </body>
