@@ -1001,3 +1001,27 @@ def getSemanasFromCursoAno(ProjectNumber, curso, ano):
     result = cursor.fetchall()
     return [(row['semanaInicial'], row['semanaFinal']) for row in result]
 
+
+
+def getAulaSalas(projId, aula_id):
+    """
+    Returns a list of sala numbers for the given aula.
+    """
+    conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT idSala FROM aulaSala WHERE idAula = ?', (aula_id,))
+    result = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    return result
+
+def getAulaDocentes(projId, aula_id):
+    """
+    Returns a list of docente IDs for the given aula.
+    """
+    conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT idDocente FROM aulaDocente WHERE idAula = ?', (aula_id,))
+    result = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    return result
+

@@ -149,3 +149,15 @@ def can_mark_busy(context, aulas):
 @register.filter(name='dict_get')
 def dict_get(d, key):
     return d.get(key)
+
+@register.filter(name='get_day_name')
+def get_day_name(num):
+    days = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"]
+    return days[num] if num < len(days) else ""
+
+@register.filter
+
+def extract_sigla(value):
+    if value is None:
+        return ""
+    return str(value).split('(')[0].strip()

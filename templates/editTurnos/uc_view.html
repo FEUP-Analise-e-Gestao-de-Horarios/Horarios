@@ -5,18 +5,13 @@
 {% block page %}
 
 {% include '../common/header.html' %}
-{% include '../common/editHeader.html' %}
 
 
-<div class="container my-3">
-    {% include '../common/exportButton.html' %}
-</div>
+
 
 <div class="container-fluid mt-4">
     <div class="row">
         <div class="col-md-12">
-            
-
             <table id="table_vistas" class="table table-bordered">
                 <thead>
                     <tr>
@@ -39,48 +34,62 @@
                         <!-- First Half Hour Row -->
                         <tr>
                             <td id="{{ firstHora }}">{{ first }}</td>
-                            {% for dia in dias %}
-                                <td id="turma_{{ uc_info.sigla }}_{{ forloop.counter }}_{{ firstHora }}" class="turno1">
+                            {% for dia_num in 0|times:5 %}
+                                {% with dia_num|get_day_name as dia %}
+                                <td id="uc_{{ uc_info.codigo }}_{{ dia_num }}_{{ firstHora }}">
                                     {% for aula in aulas_por_dia|dict_get:dia %}
                                         {% if aula.horaInicial|stringformat:"s" == firstHora %}
-                                            <div class="aula-box"
+                                            {% with aula.duracao as rowspan %}
+                                            <div class="aula-box {% if aula.tipo == 'TP' %}aula-pratica{% elif aula.tipo == 'PL' %}aula-laboratorio{% else %}aula-teorica{% endif %}"
                                                 data-aula-id="{{ aula.id }}"
+                                                data-rowspan="{{ aula.duracao }}"
                                                 data-toggle="popover"
                                                 data-placement="top"
                                                 data-content="
-                                                    UC: {{ uc_info.sigla }}<br>
-                                                    Sala: {% for sala in salas %}{% if aula.id in aula.salas %}{{ sala.numero }}{% endif %}{% endfor %}<br>
-                                                    Docente: {% for docente in docentes %}{% if aula.id in aula.docentes %}{{ docente.abreviacao }}{% endif %}{% endfor %}
+                                                    UC: {{ uc_info.sigla|extract_sigla }}<br>
+                                                    Sala: {{ aula.salas_num|join:', ' }}<br>
+                                                    Docente: {{ aula.docentes_abrev|join:', ' }}
                                                 ">
-                                                {{ uc_info.sigla }}
+                                                {{ uc_info.sigla }}<br>
+                                                {{ aula.docentes_abrev|join:', ' }}<br>
+                                                {{ aula.salas_num|join:', ' }}
                                             </div>
+                                            {% endwith %}
                                         {% endif %}
                                     {% endfor %}
                                 </td>
+                                {% endwith %}
                             {% endfor %}
                         </tr>
 
                         <!-- Second Half Hour Row -->
                         <tr>
                             <td id="{{ secondHora }}">{{ second }}</td>
-                            {% for dia in dias %}
-                                <td id="turma_{{ uc_info.sigla }}_{{ forloop.counter }}_{{ secondHora }}" class="turno1">
+                            {% for dia_num in 0|times:5 %}
+                                {% with dia_num|get_day_name as dia %}
+                                <td id="uc_{{ uc_info.codigo }}_{{ dia_num }}_{{ secondHora }}">
                                     {% for aula in aulas_por_dia|dict_get:dia %}
                                         {% if aula.horaInicial|stringformat:"s" == secondHora %}
-                                            <div class="aula-box"
+                                            {% with aula.duracao as rowspan %}
+                                            <div class="aula-box {% if aula.tipo == 'TP' %}aula-pratica{% elif aula.tipo == 'PL' %}aula-laboratorio{% else %}aula-teorica{% endif %}"
                                                 data-aula-id="{{ aula.id }}"
+                                                data-rowspan="{{ aula.duracao }}"
                                                 data-toggle="popover"
                                                 data-placement="top"
                                                 data-content="
-                                                    UC: {{ uc_info.sigla }}<br>
-                                                    Sala: {% for sala in salas %}{% if aula.id in aula.salas %}{{ sala.numero }}{% endif %}{% endfor %}<br>
-                                                    Docente: {% for docente in docentes %}{% if aula.id in aula.docentes %}{{ docente.abreviacao }}{% endif %}{% endfor %}
+                                                    UC: {{ uc_info.sigla|extract_sigla }}<br>
+                                                    Sala: {{ aula.salas_num|join:', ' }}<br>
+                                                    Docente: {{ aula.docentes_abrev|join:', ' }}
                                                 ">
-                                                {{ uc_info.sigla }}
+                                                {{ uc_info.sigla }}<br>
+                                                {{ aula.docentes_abrev|join:', ' }}<br>
+                                                {{ aula.salas_num|join:', ' }}
                                             </div>
+                                            {% endwith %}
                                         {% endif %}
                                     {% endfor %}
                                 </td>
+                                {% endwith %}
                             {% endfor %}
                         </tr>
 
@@ -95,28 +104,96 @@
     </div>
 </div>
 
+
 <script>
+
+
 $(document).ready(function() {
+    // Initialize popovers
     $('[data-toggle="popover"]').popover({
         trigger: 'hover',
         html: true
+    });
+
+    // Get actual table row height dynamically
+    var cellHeight = $('#table_vistas tbody tr:first td').outerHeight();
+
+    // Set aula-box height based on data-rowspan attribute and real cell height
+    $('.aula-box').each(function() {
+        var rowspan = parseInt($(this).attr('data-rowspan'));
+        if (!isNaN(rowspan) && rowspan > 0) {
+            $(this).css('height', (cellHeight * rowspan) + 'px');
+        }
     });
 });
 </script>
 
 <style>
-.aula-box {
-    background-color: #e9f7fe;
-    border: 1px solid #b3e0ff;
-    border-radius: 4px;
-    padding: 5px;
-    margin: 2px;
+  html, body {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+  }
+
+    .container-fluid,
+  .row,
+  .col-md-12 {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+
+
+  #table_vistas {
+    width: 100%;
+    height: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  #table_vistas thead, #table_vistas tbody {
+    width: 100%;
+  }
+
+  #table_vistas th, #table_vistas td {
+    border: 1px solid #ddd;
+    padding: 0;
     text-align: center;
-    cursor: pointer;
-}
-.aula-box:hover {
+    vertical-align: top;
+    position: relative;
+  }
+
+  .aula-box {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    border: 1px solid #ddd;
+    background-color: #e6f7ff;
+    font-size: 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    z-index: 1;
+    margin: 0;
+  }
+
+  .aula-teorica { background-color: #fff7e6; }
+  .aula-pratica { background-color: #f0ffe6; }
+  .aula-laboratorio { background-color: #ffe6f7; }
+
+  .aula-box:hover {
     background-color: #d0ebff;
-}
+  }
 </style>
+
 
 {% endblock page %}

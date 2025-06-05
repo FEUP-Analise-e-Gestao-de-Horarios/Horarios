@@ -666,6 +666,26 @@ def uc_view(request: HttpRequest, projId: int, uc_codigo: str) -> HttpResponse:
                       JOIN aulaUC au ON asl.idAula = au.idAula
                       WHERE au.idUC = ?''', (uc_codigo,))
     salas = cursor.fetchall()
+
+    docente_dict = {str(d['numeroMecanografico']): d['abreviacao'] for d in docentes}
+    sala_dict = {s['numero']: s['numero'] for s in salas}  # You can expand this to include 'tipo' or 'capacidade'
+
+    # You MUST convert sqlite3.Row to dict to allow assignment
+    for dia, aulas_list in aulas_por_dia.items():
+        for i, aula in enumerate(aulas_list):
+            aula_dict = dict(aula)
+
+            # These should be pre-joined in your getUcHorario; otherwise, you must fetch them here
+            aula_docentes = auxfunc.getAulaDocentes(projId, aula_dict['id'])
+            aula_salas = auxfunc.getAulaSalas(projId, aula_dict['id'])
+
+            # Force all IDs to str for consistency
+            aula_dict['docentes_abrev'] = [docente_dict.get(str(did), 'N/A') for did in aula_docentes]
+            aula_dict['salas_num'] = [sala_dict.get(str(sid), 'N/A') for sid in aula_salas]
+
+            aulas_list[i] = aula_dict
+
+
     
     conn.close()
     
@@ -679,10 +699,10 @@ def uc_view(request: HttpRequest, projId: int, uc_codigo: str) -> HttpResponse:
         'salas': salas,
         'dias': ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"],
         'horas': horas,
-        'is_edit_turnos': True
+        'is_edit_turnos': True,
+        'display_edit_buttons': True,
     }
-    import pprint
-    pprint.pprint(context)
+
     
     return render(request, 'editTurnos/uc_view.html', context)
 
