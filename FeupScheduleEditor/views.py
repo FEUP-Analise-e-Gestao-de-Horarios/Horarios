@@ -20,6 +20,7 @@ from getHorariosFromDB.comparingDatabases import getDifferencesFromDatabases
 from getHorariosFromDB.utils import organize_changes
 from getHorariosFromDB.models import AulaChange, AulaInfo, Node, GraphManager, Graph, Edge
 import getHorariosFromDB.graph as graph_controller
+from FeupScheduleEditor.utils import reverse_time_span_conversion, switch_number_to_day
 
 
 PLACEHOLDER_ID = 0
@@ -373,8 +374,8 @@ def editTurnos(request: HttpRequest, projId: int) -> HttpResponse:
     Cria a página `editTurnos` para o projeto selecionado.
 
     Primeiro verifica se é a primeira vez que a página é aberta para saber se é para
-    redirecionar para a página da seleção de turmas simultâneas. Caso a seleção das
-    turmas simultâneas já esteja feita então procede ao carregamento da página `editTurnos`.
+    redirecionar para a página da seleção de aulas em paralelo. Caso a seleção das
+    aulas em paralelo já esteja feita então procede ao carregamento da página `editTurnos`.
 
     Começa por obter a informação do projeto e o json dos cursos, assim como
     os conflitos existentes até à altura. Usa essa informação para 
@@ -763,8 +764,14 @@ def makeChanges(request, projId):
     body_unicode = request.body.decode('utf-8')
     data = json.loads(body_unicode)
 
-    aula = AulaInfo.from_data(data)
-    aula_original = AulaInfo(aula_id=data['aulaId'])
+    aulaId     = data['aulaId']
+    cadeiraId  = data['cadeiraId']
+    horaInicio = data['horaInicio']
+    duracao = reverse_time_span_conversion(int(data['horaFim']) - int(horaInicio))
+    dia        = switch_number_to_day(data['dia'])
+    turmasIds  = data['turmasIds']
+    docentesIds= [str(num) for num in data['docentesIds']]
+    salasIds   = data['salasIds']
 
     #get original data for comparison
     conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
@@ -773,89 +780,86 @@ def makeChanges(request, projId):
 
     #horainicio, duracao, dia
     stmt = ''' SELECT horaInicial, duracao, diaSemana FROM aula WHERE id=?'''
-    cursor.execute(stmt, [aula.id,])
+    cursor.execute(stmt, [aulaId,])
     found = cursor.fetchone()
 
-    aula_original.hora_inicio = found['horaInicial']
-    aula_original.duracao = found['duracao']
-    aula_original.dia = found['diaSemana']
+    horaInicio_origin = found['horaInicial']
+    duracao_origin = found['duracao']
+    dia_origin = found['diaSemana']
 
     #cadeira
     stmt= ''' SELECT idUC FROM aulaUC WHERE idAula = ?'''
-    cursor.execute(stmt, [aula.id,])
-    aula_original.cadeira_id = cursor.fetchone()['idUC']
+    cursor.execute(stmt, [aulaId,])
+    cadeiraId_origin = cursor.fetchone()['idUC']
 
     #turmas
     stmt= '''SELECT idTurma FROM aulaTurmas WHERE idAula=?'''
-    cursor.execute(stmt, [aula.id,])
-    aula_original.turmas_ids = [row['idTurma'] for row in cursor.fetchall()]
+    cursor.execute(stmt, [aulaId,])
+    turmasIds_origin = [row['idTurma'] for row in cursor.fetchall()]
 
     #docentes
     stmt= '''SELECT idDocente FROM aulaDocente WHERE idAula=?'''
-    cursor.execute(stmt, [aula.id,])
-    aula_original.docentes_ids = [row['idDocente'] for row in cursor.fetchall()]
+    cursor.execute(stmt, [aulaId,])
+    docentesIds_origin = [row['idDocente'] for row in cursor.fetchall()]
 
     #salas
     stmt= '''SELECT idSala FROM aulaSala WHERE idAula=?'''
-    cursor.execute(stmt, [aula.id,])
-    aula_original.salas_ids = [row['idSala'] for row in cursor.fetchall()]
+    cursor.execute(stmt, [aulaId,])
+    salasIds_origin = [row['idSala'] for row in cursor.fetchall()]
 
     #print(aulaId, cadeiraId_origin, horaInicio_origin, duracao_origin, dia_origin, turmasIds_origin, docentesIds_origin, salasIds_origin)
 
     #guardar booleanos
-    cadeiraBool = False
+    cadeiraBool = False 
     duracaoBool = False
     diaHoraBool = False
     docenteBool = False
     salaBool = False
     turmaBool = False
 
-    change = Change(old=aula_original, new=aula)
-
-    if aula.cadeira_id != aula_original.cadeira_id:
+    if cadeiraId != cadeiraId_origin:
         #trocar cadeira
         cadeiraBool = True
-        changeUC(projId, aula.id, aula.cadeira_id)
-    if aula.duracao != aula_original.duracao:
+        changeUC(projId, aulaId, cadeiraId)
+    if duracao != duracao_origin:
         #trocar duracao
         duracaoBool = True
-        updateAulaDuration(projId, aula.id, aula.duracao)
-    if aula.hora_inicio != aula_original.hora_inicio or aula.dia != aula_original.dia:
+        updateAulaDuration(projId, aulaId, duracao)
+    if horaInicio != horaInicio_origin or dia != dia_origin:
         # trocar hora ou dia
         diaHoraBool = True
-        moveAula(projId, aula.id, aula.dia, aula.hora_inicio)
-    for docente in [docente for docente in aula.docentes_ids if docente not in aula_original.docentes_ids]:
+        moveAula(projId, aulaId, dia, horaInicio)
+    for docente in [docente for docente in docentesIds if docente not in docentesIds_origin]:
         #adicionar docente
         docenteBool = True
-        addDocente(projId, aula.id, docente)
-    for docente in [docente for docente in aula_original.docentes_ids if docente not in aula.docentes_ids]:
+        addDocente(projId, aulaId, docente)
+    for docente in [docente for docente in docentesIds_origin if docente not in docentesIds]:
         #remover docente
         docenteBool = True
-        removeDocente(projId, aula.id, docente)
-    for sala in [sala for sala in aula.salas_ids if sala not in aula_original.salas_ids]:
+        removeDocente(projId, aulaId, docente)
+    for sala in [sala for sala in salasIds if sala not in salasIds_origin]:
         #adicionar sala
         salaBool = True
-        addSala(projId, aula.id, sala)
-    for sala in [sala for sala in aula_original.salas_ids if sala not in aula.salas_ids]:
+        addSala(projId, aulaId, sala)
+    for sala in [sala for sala in salasIds_origin if sala not in salasIds]:
         #remover sala
         salaBool = True
-        removeSala(projId, aula.id, sala)
-    for turma in [turma for turma in aula.turmas_ids if turma not in aula_original.turmas_ids]:
+        removeSala(projId, aulaId, sala)
+    for turma in [turma for turma in turmasIds if turma not in turmasIds_origin]:
         #adicionar turma
         turmaBool = True
-        addTurma(projId, aula.id, turma)
-    for turma in [turma for turma in aula_original.turmas_ids if turma not in aula.turmas_ids]:
+        addTurma(projId, aulaId, turma)
+    for turma in [turma for turma in turmasIds_origin if turma not in turmasIds]:
         #remover turma
         turmaBool = True
-        removeTurma(projId, aula.id, turma)
+        removeTurma(projId, aulaId, turma)
 
-    checkConflict = findAnyConflicts(projId, aula.dia, aula.hora_inicio, aula.id)
+    checkConflict = findAnyConflicts(projId, dia, horaInicio, aulaId)
     #buscar conflitos e envia-los
     if (checkConflict == 0):
         conflicts = []
     else:
         conflicts = checkConflict
-        change.has_conflict()
     return JsonResponse({"id": projId, "conflicts": conflicts}, status=200)
 
 # editDocentes
