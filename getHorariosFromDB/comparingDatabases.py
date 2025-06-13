@@ -519,9 +519,16 @@ def changeAulaTurma(ProjectNumber, idAula, idTurma):
     path = "Project"+str(ProjectNumber)
     conn = sqlite3.connect('./database/' + path + '/duplicate_initial_database.db', check_same_thread=False)
     cursor = conn.cursor()
-    stmt = '''UPDATE aulaTurmas SET idTurma=? WHERE idAula=?'''
-    cursor.execute(stmt, (idTurma, idAula))
-    conn.commit()
+    # Check if the (idAula, idTurma) already exists
+    cursor.execute("SELECT COUNT(*) FROM aulaTurmas WHERE idAula = ? AND idTurma = ?", (idAula, idTurma))
+    result = cursor.fetchone()
+
+    if result[0] == 0:  # If no existing entry, insert it
+        cursor.execute("INSERT INTO aulaTurmas (idAula, idTurma) VALUES (?, ?)", (idAula, idTurma))
+    else:
+        print(f"⚠️ Skipping duplicate entry: (idAula={idAula}, idTurma={idTurma})")
+
+    cursor.connection.commit()
 
 def changeAula(ProjectNumber, aula):
     path = "Project"+str(ProjectNumber)

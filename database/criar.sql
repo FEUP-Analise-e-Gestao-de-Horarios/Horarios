@@ -20,7 +20,7 @@ DROP TABLE IF EXISTS docentes;
 CREATE TABLE docentes(
     numeroMecanografico INTEGER PRIMARY KEY,
     nome TEXT,
-    abreviacao TEXT 
+    abreviacao TEXT
 );
 
 CREATE TABLE uc(
