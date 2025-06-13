@@ -992,12 +992,6 @@ def export(request, projId):
 
     # Get the list of (node, counter) tuples
     node_counter_dict = manager.get_all_nodes_with_counter()
-    all_nodes = manager.get_all_nodes()
-    for node in all_nodes:
-        aula_id = node.change.new.id
-        node_id = node.id
-        print(f"Aula -> {aula_id} : Node_id -> {node_id}")
-    print("====Starting dependencies====")
     for node_id in node_counter_dict:
         node = manager.get_node(node_id)
         if node.dependency_ids:
@@ -1009,16 +1003,6 @@ def export(request, projId):
                     tmp.append(node_counter_dict[conflict_node.id])
 
             node.dependencies = tmp
-    print("====Finished dependencies====")
-    manager.get_aula_details_new(projId, 1143) 
-    manager.get_aula_details_new(projId, 1190)
-
-
-    print("AULAS COM CONFLITOS:")
-    #manager.get_aula_details(projId, 1115)  # Example call to get_aula_details for aula_id 2~
-    #manager.get_aula_details(projId, 1166)  # Example call to get_aula_details for aula_id 3~   
-    #manager.get_aula_details(projId, 1070)  # Example call to get_aula_details for aula_id 3~   
-    #manager.get_aula_details(projId, 1146)  # Example call to get_aula_details for aula_id 3~   
 
     return render(request, 'export/page.html', {
         'projetos': projetos,
