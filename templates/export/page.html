@@ -188,7 +188,7 @@
                             <h5>Alterações com possíveis conflitos:</h5>
                             {% for node in uc_graph.unsolved_nodes %}
                                 <div class="change-box conflict">
-                                    <div class="change-title">Alteração {{ node_counter_list|dict_get:node.id }} -> ID: {{node.change.previous.id}}</div>
+                                    <div class="change-title">Alteração {{ node_counter_list|dict_get:node.id }}</div>
                                     <div class="change-details">
                                         {% if node.change.check_dia %}
                                             <p>Troca de dia na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
