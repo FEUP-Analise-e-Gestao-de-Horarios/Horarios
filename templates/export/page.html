@@ -1,173 +1,248 @@
-{% extends '../common/base.html' %}
-{% load static %}
 {% load my_filters %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <title>Alterações de Horários</title>
+    <style> 
+        body {
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+        }
 
-{% block page %}
+        .main-container {
+            flex: 0 1 1000px;
+            padding: 20px;
+            position: relative;
+            max-width: 1000px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            margin: 20px;
+        }
 
-<style>
-    .box {
-        min-height: 84.5vh;
-    }
+        h1 {
+            color: #333;
+            text-align: center;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #ffc107;
+            margin-bottom: 20px;
+        }
 
-    .contentMargin {
-        margin-top: 5.5em;
-    }
+        .uc-container {
+            margin-bottom: 20px;
+        }
 
-    .bottom-border {
-        border-bottom: 2px solid lightgray;
-    }
+        .uc-header {
+            font-size: 22px;
+            color: black;
+            cursor: pointer;
+            padding: 10px;
+            background-color: #fff1c8;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
 
-    .conflicts-text {
-        max-width: 700px;
-        text-align: left;
-    }
+        .uc-header .toggle-icon {
+            font-size: 18px;
+        }
 
-    .conflicts-text h3 {
-        color: #aa1f1f;
-    }
+        .change-section {
+            margin-bottom: 20px;
+        }
 
-    .change-ok {
-        color: white;
-    }
+        .change-section h5 {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 10px;
+            padding-left: 10px;
+        }
 
-    .change-conflict {
-        color: red;
-        font-weight: bold;
-    }
+        .change-box {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            background-color: white;
+        }
 
-    .change-circular {
-        color: blue;
-    }
+        .change-box.conflict {
+            border-left: 4px solid #aa1f1f;
+        }
 
-    .change-upcoming {
-        color: darkgoldenrod;
-    }
+        .change-box.non-conflict {
+            border-left: 4px solid #28a745;
+        }
 
-    .sub-info {
-        font-size: 0.85em;
-        color: gray;
-    }
+        .change-title {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #333;
+        }
 
-    .custom-accordion-header {
-    background-color: #ffc107 !important; /* Light Orange Background */
-    color: black !important;  /* Text color set to black */
-    }
+        .change-details p {
+            margin: 5px 0;
+            font-size: 14px;
+            line-height: 1.4;
+        }
 
-    .custom-accordion-button {
-        color: black !important;  /* Set text color of button to black */
-        background-color: #ffc107 !important; /* Light Orange Background */
-        border-color: #ffc107 !important;  /* Border color set to light orange */
-        padding: 0.5rem 1rem !important;
-        font-size: 1rem;
-    }
+        .change-details strong {
+            color: #333;
+        }
 
-    .custom-accordion-button.collapsed {
-        color: black !important;
-        background-color: #ffc720 !important; /* Slightly lighter orange for collapsed state */
-        border-color: #ffc720 !important;  /* Light orange border */
-    }
-    .accordion-body {
-        padding: 0.5rem !important;
-    }
-    .mt-3 {
-        margin-top: 0.5rem !important; /* instead of Bootstrap default (1rem) */
-    }
-    .pb-3, .pt-3, .mb-3 {
-        padding-bottom: 0.5rem !important;
-        padding-top: 0.5rem !important;
-        margin-bottom: 0.5rem !important;
-    }
+        .dependencies {
+            font-size: 14px;
+            color: #333;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed #ddd;
+        }
 
-    .change-details p {
-        margin: 0.3rem 0;
-        font-size: 0.92rem;
-        line-height: 1.2;
-}
+        .sub-info {
+            font-size: 0.85em;
+            color: gray;
+        }
 
-</style>
+        .botoes-canto {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
 
-{% include '../common/header.html' with display_edit_buttons=is_edit_turnos %}
+        .botoes-canto button {
+            background: #ffc107;
+            color: black;
+            padding: 10px 16px;
+            border-radius: 6px;
+            border: none;
+            width: 150px;
+            font-weight: bold;
+            cursor: pointer;
+        }
 
-<section class="h-100 contentMargin ms-3 me-3 mb-3 pb-3 box bg-dark" id="exportContent">
-    <div class="container-fluid">
-        <h1 class="bottom-border pb-3 pt-3 d-flex flex-row justify-content-center">Projeto: {{ projeto }}</h1>    
-        <div class="accordion">
-            {% for uc in ucs_ordered %}
-                {% with uc_graph=ucs|dict_get:uc %}
-                <div class="accordion-item">
-                    <h2 class="accordion-header custom-accordion-header">
-                        <button class="accordion-button custom-accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ uc|slugify }}" aria-expanded="true" aria-controls="collapse{{ uc|slugify }}">
-                            {{ uc }} : {{ uc_graph.uc_name }}
-                        </button>
-                    </h2>
-                    <div id="collapse{{ uc|slugify }}" class="accordion-collapse collapse show">
-                        <div class="accordion-body">
-                            <!-- Non-conflicting changes -->
-                            <div class="mb-4">
-                                <h5 class="mb-3">Alterações sem conflitos:</h5>
-                                {% for node in uc_graph.ordered_list %}
-                                    {% if node not in uc_graph.unsolved_nodes %}
-                                        <div class="border border-black rounded p-3 mb-3 bg-white">
-                                            <strong class="d-block mb-2">Alteração {{ node_counter_list|dict_get:node.id }}</strong>
-                                            <div class="change-details">
-                                                {% if node.change.check_dia %}
-                                                    <p>Troca de dia na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
-                                                    <strong>({{ node.change.previous.dia }}) → ({{ node.change.new.dia }})</strong></p>
-                                                {% endif %}
-                                                {% if node.change.check_horario %}
-                                                    <p>Troca de horário na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
-                                                    <strong>({{ node.change.previous.hora_inicio }} até às {{ node.change.previous.hora_fim }}) → ({{ node.change.new.hora_inicio }} até às {{ node.change.new.hora_fim }})</strong></p>
-                                                {% endif %}
-                                                {% if node.change.check_salas %}
-                                                    <p>Troca de salas na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
-                                                    <strong>{{ node.change.previous.formatted_salas }} → {{ node.change.new.formatted_salas }}</strong></p>
-                                                {% endif %}
-                                                {% if node.change.check_docentes %}
-                                                    <p>Troca de docentes na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
-                                                    <strong>{{ node.change.previous.formatted_docentes }} → {{ node.change.new.formatted_docentes }}</strong></p>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                    {% endif %}
-                                {% endfor %}
-                            </div>
-                        
-                            <!-- Conflicting changes -->
-                            {% if uc_graph.unsolved_nodes %}
-                                <div>
-                                    <h5 class="mb-3">Alterações com possiveis conflitos:</h5>
-                                    {% for node in uc_graph.unsolved_nodes %}
-                                        <div class="border border-black rounded p-3 mb-3 bg-white">
-                                            <strong class="d-block mb-2">Alteração {{ node_counter_list|dict_get:node.id }}</strong>
-                                            <div class="change-details">
-                                                {% if node.change.check_dia %}
-                                                    <p>Troca de dia na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
-                                                    <strong>({{ node.change.previous.dia }}) → ({{ node.change.new.dia }})</strong></p>
-                                                {% endif %}
-                                                {% if node.change.check_horario %}
-                                                    <p>Troca de horário na turma(s) {{ node.change.previous.formatted_turmas }}:
-                                                    <strong>({{ node.change.previous.hora_inicio }} até às {{ node.change.previous.hora_fim }}) → ({{ node.change.new.hora_inicio }} até às {{ node.change.new.hora_fim }})</strong></p>
-                                                {% endif %}
-                                                {% if node.change.check_salas %}
-                                                    <p>Troca de salas na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
-                                                    <strong>{{ node.change.previous.formatted_salas }} → {{ node.change.new.formatted_salas }}</strong></p>
-                                                {% endif %}
-                                                {% if node.change.check_docentes %}
-                                                    <p>Troca de docentes na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
-                                                    <strong>{{ node.change.previous.formatted_docentes }} → {{ node.change.new.formatted_docentes }}</strong></p>
-                                                {% endif %}
-                                                <p><strong>⚠ Esta alteração pode conter conflitos que serão resolvidos no decorrer das trocas</strong></p>
-                                            </div>
-                                        </div>
-                                    {% endfor %}
+        #btn-voltar {
+            border: 2px solid #ffc107;
+            background-color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <h1>{{ projeto }}</h1>
+        
+        {% for uc in ucs_ordered %}
+            {% with uc_graph=ucs|dict_get:uc %}
+            <div class="uc-container">
+                <div class="uc-header" onclick="toggleUC(this)">
+                    <span>{{ uc }} : {{ uc_graph.uc_name }}</span>
+                    <span class="toggle-icon">▾</span>
+                </div>
+                
+                <div class="uc-content">
+                    <!-- Non-conflicting changes -->
+                    <div class="change-section">
+                        <h5>Alterações sem conflitos:</h5>
+                        {% for node in uc_graph.ordered_list %}
+                            {% if node not in uc_graph.unsolved_nodes %}
+                                <div class="change-box non-conflict">
+                                    <div class="change-title">Alteração {{ node_counter_list|dict_get:node.id }}</div>
+                                    <div class="change-details">
+                                        {% if node.change.check_dia %}
+                                            <p>Troca de dia na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
+                                            <strong>({{ node.change.previous.dia }}) → ({{ node.change.new.dia }})</strong></p>
+                                        {% endif %}
+                                        {% if node.change.check_horario %}
+                                            <p>Troca de horário na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
+                                            <strong>({{ node.change.previous.hora_inicio }} até às {{ node.change.previous.hora_fim }}) → ({{ node.change.new.hora_inicio }} até às {{ node.change.new.hora_fim }})</strong></p>
+                                        {% endif %}
+                                        {% if node.change.check_salas %}
+                                            <p>Troca de salas na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
+                                            <strong>{{ node.change.previous.formatted_salas }} → {{ node.change.new.formatted_salas }}</strong></p>
+                                        {% endif %}
+                                        {% if node.change.check_docentes %}
+                                            <p>Troca de docentes na aula de {{ node.change.previous.dia }} ({{node.change.previous.hora_inicio}} até {{ node.change.new.hora_fim }}) na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
+                                            <strong>{{ node.change.previous.formatted_docentes }} → {{ node.change.new.formatted_docentes }}</strong></p>
+                                        {% endif %}
+                                    </div>
                                 </div>
                             {% endif %}
-                        </div>                                   
-                {% endwith %}
-            {% endfor %}
-        </div>          
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- Conflicting changes -->
+                    {% if uc_graph.unsolved_nodes %}
+                        <div class="change-section">
+                            <h5>Alterações com possíveis conflitos:</h5>
+                            {% for node in uc_graph.unsolved_nodes %}
+                                <div class="change-box conflict">
+                                    <div class="change-title">Alteração {{ node_counter_list|dict_get:node.id }} -> ID: {{node.change.previous.id}}</div>
+                                    <div class="change-details">
+                                        {% if node.change.check_dia %}
+                                            <p>Troca de dia na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
+                                            <strong>({{ node.change.previous.dia }}) → ({{ node.change.new.dia }})</strong></p>
+                                        {% endif %}
+                                        {% if node.change.check_horario %}
+                                            <p>Troca de horário na turma(s) {{ node.change.previous.formatted_turmas }}:
+                                            <strong>({{ node.change.previous.hora_inicio }} até às {{ node.change.previous.hora_fim }}) → ({{ node.change.new.hora_inicio }} até às {{ node.change.new.hora_fim }})</strong></p>
+                                        {% endif %}
+                                        {% if node.change.check_salas %}
+                                            <p>Troca de salas na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
+                                            <strong>{{ node.change.previous.formatted_salas }} → {{ node.change.new.formatted_salas }}</strong></p>
+                                        {% endif %}
+                                        {% if node.change.check_docentes %}
+                                            <p>Troca de docentes na aula de {{ node.change.previous.dia }} ({{node.change.previous.hora_inicio}} até {{ node.change.new.hora_fim }}) na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
+                                            <strong>{{ node.change.previous.formatted_docentes }} → {{ node.change.new.formatted_docentes }}</strong></p>
+                                        {% endif %}
+                                        {% if node.dependencies %}
+                                            <div class="dependencies">
+                                                <strong>Este conflito é resolvido pelas seguintes alterações:</strong> 
+                                                {{ node.dependencies|join:", " }}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endwith %}
+        {% endfor %}
     </div>
-</section>
 
+    <div class="botoes-canto">
+        <button type="button" id="btn-voltar" onclick="window.location.href='/editturnos/{{ projId }}'">Voltar</button>
+    </div>
 
-{% endblock page %}
+<script>
+    function toggleUC(header) {
+        const content = header.nextElementSibling;
+        const icon = header.querySelector(".toggle-icon");
+        const isHidden = content.style.display === "none";
+        
+        content.style.display = isHidden ? "block" : "none";
+        icon.textContent = isHidden ? "▾" : "▸";
+    }
+
+    // Initialize - hide all UC contents by default
+    document.addEventListener("DOMContentLoaded", () => {
+        document.querySelectorAll(".uc-content").forEach(content => {
+            content.style.display = "none";
+        });
+    });
+</script>
+</body>
+</html>

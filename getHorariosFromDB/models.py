@@ -6,19 +6,12 @@ from .auxiliar_functions import *
     #root_global -> boolean to tell if the node is the starting node of the global graph (only 1 node will have this type)
     #root_local -> boolean to tell if the node is the starting point of a local graph (e.g. the first change for an uc)
 class Node:
-    def __init__(self, change: AulaChange = None, root_local=False, root_global=False):
+    def __init__(self, change: AulaChange = None):
         self.id = generate_node_id()
-        self.root_local = root_local
-        self.root_global = root_global
         self.red_conflicts = False
         self.dependency_ids = []
-
-        if root_local and root_global:
-            raise ValueError("A node cannot be both root_local and root_global.")
         
-        if change is None and not root_global:
-            raise ValueError("Non-global nodes must have a change.")
-        
+        self.dependencies = []
         self.change = change
         self.conflict = False
     
@@ -33,27 +26,18 @@ class Node:
         for dep_id in ids:
             if dep_id not in self.dependency_ids:
                 self.dependency_ids.append(dep_id)
-    
-    def is_local_root(self, value=True):
-        self.root_local = value
-    
+        
     def get_uc(self):
-        if(self.root_global or not self.check_uc()):
-            raise ValueError("Change from one uc to another?")
-        else:
-            return str(self.change.new.cadeira_id)
+        return str(self.change.new.cadeira_id)
     
     def check_uc(self):
         return self.change.previous.cadeira_id == self.change.new.cadeira_id
   
     def get_turmas(self):
-        if(self.root_global):
-            raise ValueError("A global root does not have any change and consequently no turmas")
-        else:
-            turmas = set()
-            turmas.update(self.change.new.turmas_ids)
-            turmas.update(self.change.previous.turmas_ids)
-            return turmas
+        turmas = set()
+        turmas.update(self.change.new.turmas_ids)
+        turmas.update(self.change.previous.turmas_ids)
+        return turmas
     def __str__(self):
         """Human-readable string representation of the node."""
         return f"Node(id={self.id}, change={self.change})"
@@ -81,14 +65,14 @@ class Edge:
 
 class Graph:
     def __init__(self, identifier: str, type: int, uc_name):
-        self.id = identifier  # UC or Turma ID
+        self.id = identifier
         self.root = None
 
-        self.nodes = set()  # Nodes that belong to this subgraph
+        self.nodes = set()  
         self.edges = []
 
         self.unsolved_nodes = set()
-        self.type = type    #0 for uc and 1 for turma
+        self.type = type    
         self.uc_name = uc_name
         self.ordered_list = set()
 
@@ -101,7 +85,6 @@ class Graph:
     def remove_node(self, node):
         if node in self.nodes:
             self.nodes.remove(node)
-            # Remove edges involving this node
             self.edges = [edge for edge in self.edges if node not in (edge.node1, edge.node2)]
     
     def create_edges(self):
@@ -138,25 +121,21 @@ class Graph:
                     self.follow_dependency(node)
     
     def follow_dependency(self, node):
-        if node in self.ordered_list:
-            print("In the ordered_list")
-        elif node in self.nodes:
-            print("In the nodes")
-        elif node in self.unsolved_nodes:
-            print("In the unsolved_nodes")
-        else:
-            print("Not found")
         edges = self.get_node_edges(node)
         if node not in self.ordered_list:
             self.nodes.remove(node)
             self.ordered_list.add(node)
         for edge in edges:
+            if edge.solution:
+                self.edges.remove(edge)
             cur = edge.node1
             if edge.node1.id == node.id:
                 cur = edge.node2
-            cur.has_conflicts(value=False)
-            self.edges.remove(edge)
-            self.follow_dependency(cur)
+            if len(self.get_node_edges(cur)) == 0:
+                cur.has_conflicts(value=False)
+                self.follow_dependency(cur)
+            else:
+                self.update_list()
 
     def get_node_edges(self, node):
         """Return a list of edges that include the given node."""
@@ -202,23 +181,250 @@ class GraphManager:
         self.local_roots = []
 
         self.ordered_list = []
+
+    def get_aula_details(self, project_number, aula_id):
+        db_path = Path(f'./database/Project{project_number}/initial_database.db')
+
+        try:
+            connection = sqlite3.connect(str(db_path))
+            cursor = connection.cursor()
+
+            # Get basic aula information
+            cursor.execute("""
+                SELECT id, horaInicial, duracao, diaSemana, teorico, semanaInicial, semanaFinal
+                FROM aula
+                WHERE id = ?
+            """, (aula_id,))
+            aula_data = cursor.fetchone()
+
+            if not aula_data:
+                print(f"No aula found with id {aula_id}")
+                return
+
+            # Get associated UCs
+            cursor.execute("""
+                SELECT uc.codigo, uc.nome
+                FROM aulaUC
+                JOIN uc ON aulaUC.idUC = uc.codigo
+                WHERE aulaUC.idAula = ?
+            """, (aula_id,))
+            ucs = cursor.fetchall()
+
+            # Get associated salas
+            cursor.execute("""
+                SELECT salas.numero, salas.tipo, salas.capacidade
+                FROM aulaSala
+                JOIN salas ON aulaSala.idSala = salas.numero
+                WHERE aulaSala.idAula = ?
+            """, (aula_id,))
+            salas = cursor.fetchall()
+
+            # Get associated docentes
+            cursor.execute("""
+                SELECT docentes.numeroMecanografico, docentes.nome, docentes.abreviacao
+                FROM aulaDocente
+                JOIN docentes ON aulaDocente.idDocente = docentes.numeroMecanografico
+                WHERE aulaDocente.idAula = ?
+            """, (aula_id,))
+            docentes = cursor.fetchall()
+
+            # Get associated turmas
+            cursor.execute("""
+            SELECT turmas.codigo
+            FROM aulaTurmas
+            JOIN turmas ON aulaTurmas.idTurma = turmas.codigo
+            WHERE aulaTurmas.idAula = ?
+            """, (aula_id,))
+            turmas = cursor.fetchall()
+
+            # Format and print the information
+            print("\n" + "="*50)
+            print(f" DETAILS FOR AULA ID: {aula_id}")
+            print("="*50)
+
+            # Basic info
+            hora_inicial = converter_horario(aula_data[1])
+            hora_final = converter_horario(calculate_hora_final(str(aula_data[1]), aula_data[2]))
+            print(f"\n[Basic Information]")
+            print(f"  • Time: {hora_inicial} - {hora_final} ({aula_data[2]} blocks)")
+            print(f"  • Day: {aula_data[3]}")
+            print(f"  • Type: {'Theoretical' if aula_data[4] else 'Practical'}")
+            print(f"  • Period: {aula_data[5]} to {aula_data[6]}")
+
+            # UCs
+            print("\n[Associated UCs]")
+            for uc in ucs:
+                print(f"  • {uc[0]} - {uc[1]}")
+
+            # Salas
+            print("\n[Associated Rooms]")
+            for sala in salas:
+                print(f"  • {sala[0]} ({sala[1]}, Capacity: {sala[2]})")
+
+            # Docentes
+            print("\n[Associated Professors]")
+            for docente in docentes:
+                print(f"  • {docente[0]}: {docente[1]} ({docente[2]})")
+
+            # Turmas - simplified output
+            print("\n[Associated Classes]")
+            if turmas:
+                for turma in turmas:
+                    print(f"  • {turma[0]}")
+            else:
+                print("  • No classes associated")
+
+            print("\n" + "="*50 + "\n")
+
+        except sqlite3.Error as e:
+            print(f"Database error: {e}")
+        finally:
+            if 'cursor' in locals():
+                cursor.close()
+            if 'connection' in locals():
+                connection.close()
+    
+    def get_aula_details_new(self, project_number, aula_id):
+        db_path = Path(f'./database/Project{project_number}/general_database.db')
+
+        try:
+            connection = sqlite3.connect(str(db_path))
+            cursor = connection.cursor()
+
+            # Get basic aula information
+            cursor.execute("""
+                SELECT id, horaInicial, duracao, diaSemana, teorico, semanaInicial, semanaFinal
+                FROM aula
+                WHERE id = ?
+            """, (aula_id,))
+            aula_data = cursor.fetchone()
+
+            if not aula_data:
+                print(f"No aula found with id {aula_id}")
+                return
+
+            # Get associated UCs
+            cursor.execute("""
+                SELECT uc.codigo, uc.nome
+                FROM aulaUC
+                JOIN uc ON aulaUC.idUC = uc.codigo
+                WHERE aulaUC.idAula = ?
+            """, (aula_id,))
+            ucs = cursor.fetchall()
+
+            # Get associated salas
+            cursor.execute("""
+                SELECT salas.numero, salas.tipo, salas.capacidade
+                FROM aulaSala
+                JOIN salas ON aulaSala.idSala = salas.numero
+                WHERE aulaSala.idAula = ?
+            """, (aula_id,))
+            salas = cursor.fetchall()
+
+            # Get associated docentes
+            cursor.execute("""
+                SELECT docentes.numeroMecanografico, docentes.nome, docentes.abreviacao
+                FROM aulaDocente
+                JOIN docentes ON aulaDocente.idDocente = docentes.numeroMecanografico
+                WHERE aulaDocente.idAula = ?
+            """, (aula_id,))
+            docentes = cursor.fetchall()
+
+            # Get associated turmas
+            cursor.execute("""
+            SELECT turmas.codigo
+            FROM aulaTurmas
+            JOIN turmas ON aulaTurmas.idTurma = turmas.codigo
+            WHERE aulaTurmas.idAula = ?
+            """, (aula_id,))
+            turmas = cursor.fetchall()
+
+            # Format and print the information
+            print("\n" + "="*50)
+            print(f" DETAILS FOR AULA ID: {aula_id}")
+            print("="*50)
+
+            # Basic info
+            hora_inicial = converter_horario(aula_data[1])
+            hora_final = converter_horario(calculate_hora_final(str(aula_data[1]), aula_data[2]))
+            print(f"\n[Basic Information]")
+            print(f"  • Time: {hora_inicial} - {hora_final} ({aula_data[2]} blocks)")
+            print(f"  • Day: {aula_data[3]}")
+            print(f"  • Type: {'Theoretical' if aula_data[4] else 'Practical'}")
+            print(f"  • Period: {aula_data[5]} to {aula_data[6]}")
+
+            # UCs
+            print("\n[Associated UCs]")
+            for uc in ucs:
+                print(f"  • {uc[0]} - {uc[1]}")
+
+            # Salas
+            print("\n[Associated Rooms]")
+            for sala in salas:
+                print(f"  • {sala[0]} ({sala[1]}, Capacity: {sala[2]})")
+
+            # Docentes
+            print("\n[Associated Professors]")
+            for docente in docentes:
+                print(f"  • {docente[0]}: {docente[1]} ({docente[2]})")
+
+            # Turmas - simplified output
+            print("\n[Associated Classes]")
+            if turmas:
+                for turma in turmas:
+                    print(f"  • {turma[0]}")
+            else:
+                print("  • No classes associated")
+
+            print("\n" + "="*50 + "\n")
+
+        except sqlite3.Error as e:
+            print(f"Database error: {e}")
+        finally:
+            if 'cursor' in locals():
+                cursor.close()
+            if 'connection' in locals():
+                connection.close()
+
+    def get_all_nodes(self):
+        """
+        Returns a list of all nodes from all UCs in the ordered list.
+        """
+        all_nodes = []
+        for uc in self.ordered_list:
+            graph = self.ucs[uc]
+            nodes = list(graph.ordered_list) + list(graph.unsolved_nodes)
+            for node in nodes:
+                if node not in all_nodes:
+                    all_nodes.append(node)
+        return all_nodes
+    
+    def get_node(self, id):
+        all_nodes = self.get_all_nodes()
+        for node in all_nodes:
+            if node.id == id:
+                return node
+        return None
+    
+    def get_node_by_aula_id(self, aula_id):
+        all_nodes = self.get_all_nodes()
+        for node in all_nodes:
+            #print(f"DEBUG: PREVIOUS ID: {node.change.previous.id} - AULA ID: {aula_id}")
+            if node.change.new.id == aula_id:
+                return node
+        return None
     
     def add_node(self, node: Node):
         checker = check_aula_change_conflicts(node.change, self.project_number)
         if checker and "red" not in checker:
-            print("IM HERE")
             node.has_conflicts()
             node.add_dependencies(checker)
-        print("Checker:", checker)
-        if "red" in checker:
-            print("Setting red conflict for node", node)
-            node.has_red_conflicts()
-        uc_id = node.get_uc()  # Get the UC ID first
+        #if "red" in checker:
+        #    node.has_red_conflicts()
+        uc_id = node.get_uc()
         if uc_id not in self.ucs:
             new = Graph(uc_id, 0, node.change.new.uc_name)
-            print(f"{node.change.new.uc_name}")
             self.ucs[uc_id] = new
-            print(f"Created new subgraph for UC {uc_id}")  # Use uc_id instead of id
         self.ucs[uc_id].add_node(node)
     
         for turma in node.get_turmas():
@@ -230,15 +436,14 @@ class GraphManager:
                 self.turmas[turma].add_node(node)
 
     def order_ucs(self):
-        # Filter keys not already in ordered_list
         remaining_keys = [key for key in self.ucs if key not in self.ordered_list]
 
-        # Sort by the number of unsolved nodes (ascending)
         sorted_keys = sorted(remaining_keys, key=lambda k: len(self.ucs[k].unsolved_nodes))
 
-        # Extend ordered_list with the sorted keys
         self.ordered_list.extend(sorted_keys)
-    #One more order type (not by conflicts but ascending)
+    
+    def default_order(self):
+        self.ordered_list = sorted(self.ucs.keys())
 
     def print_conflicts(self):
         for id in self.ucs:
@@ -247,9 +452,6 @@ class GraphManager:
             for node in graph.nodes:
                 if node.conflict:
                     aux+=1
-            print(f"Total nodes: {len(graph.nodes)}\n")
-            print(f"Number of conflicts: {aux}\n")
-
     def create_local_edges(self):
         for key in self.ucs:
             graph = self.ucs[key]
@@ -260,30 +462,11 @@ class GraphManager:
         for key in self.ucs:
             graph = self.ucs[key]
             graph.update_list()
-    
-    def create_global_edges(self):
-        for node in self.global_nodes:
-            for tmp in self.global_nodes:
-                    for id in node.dependency_ids:
-                        if tmp.change.previous.id == id:
-                            edge = Edge(node, tmp)
-                            edge.dependency = True
-                            edge.uc = True
-                            node.dependency_ids.remove(id)
-                        else:
-                            self.unsolved_nodes.add(tmp)
 
-    def get_unsolved_conflicts(self):
-        """Will get all the nodes from all the graphs with unsolved conflicts and stores them in the class"""
-        
-    def add_edges(self):
-        """This function will add the global edges to the unsolved conflicts in the class nodes"""
     
     def print_ucs(self):
-        print("Before order:")
         for id in self.ucs:
             print(self.ucs[id])
-        print("After order:")
         for uc in self.ordered_list:
             print(self.ucs[uc])
     
@@ -300,9 +483,10 @@ class GraphManager:
                 if node not in all_nodes:
                     all_nodes.append(node)
         node_counter_dict = {}
-        for idx, node in enumerate(all_nodes, start=1):
-            node.counter = idx
-            node_counter_dict[node.id] = idx
+        counter = 1
+        for node in all_nodes:
+            node_counter_dict[node.id] = counter
+            counter += 1
         return node_counter_dict
         
 

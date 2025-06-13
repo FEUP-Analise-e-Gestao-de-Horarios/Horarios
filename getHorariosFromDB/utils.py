@@ -607,7 +607,7 @@ def getDifferencesFromDatabases(ProjectNumber):
                 # Append the change
                 change = AulaChange(old_aula, new_aula)
                 if change.has_changes():
-                    changesList.append(change)  # Store added aula  # Store both the old and new aulas
+                    changesList.append(change)
 
     # Check for aulas that exist only in the second database (added rows)
     for aula_id, row2 in db2_aulas.items():
@@ -755,11 +755,9 @@ def organize_changes(ProjectId):
     json_path = f'./database/Project{ProjectId}/changes.json'
 
     if os.path.exists(json_path):
-        print(f"Loading changes from {json_path}")
         with open(json_path, 'r', encoding='utf-8') as f:
             raw_changes = json.load(f)
 
-        # Convert raw dicts back to AulaChange objects
         changes = []
         for change in raw_changes:
             prev = models.AulaInfo.from_data(change['previous']) if change['previous'] else None
@@ -781,8 +779,7 @@ def organize_changes(ProjectId):
     print("====Finished operations====")
     manager.create_local_edges()
     manager.update_local_edges()
-    manager.order_ucs()
-    manager.print_ucs()
+    manager.default_order()
     
     return manager
     # it should return a datastructure in the format of a list of tuples. Here's the format of the tuples expected
