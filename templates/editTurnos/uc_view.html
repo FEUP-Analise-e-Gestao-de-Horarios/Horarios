@@ -6,9 +6,6 @@
 
 {% include '../common/header.html' %}
 
-
-
-
 <div class="container-fluid mt-4">
     <div class="row">
         <div class="col-md-12">
@@ -37,26 +34,35 @@
                             {% for dia_num in 0|times:5 %}
                                 {% with dia_num|get_day_name as dia %}
                                 <td id="uc_{{ uc_info.codigo }}_{{ dia_num }}_{{ firstHora }}">
-                                    {% for aula in aulas_por_dia|dict_get:dia %}
-                                        {% if aula.horaInicial|stringformat:"s" == firstHora %}
-                                            {% with aula.duracao as rowspan %}
-                                            <div class="aula-box {% if aula.tipo == 'TP' %}aula-pratica{% elif aula.tipo == 'PL' %}aula-laboratorio{% else %}aula-teorica{% endif %}"
-                                                data-aula-id="{{ aula.id }}"
-                                                data-rowspan="{{ aula.duracao }}"
-                                                data-toggle="popover"
-                                                data-placement="top"
-                                                data-content="
-                                                    UC: {{ uc_info.sigla|extract_sigla }}<br>
-                                                    Sala: {{ aula.salas_num|join:', ' }}<br>
-                                                    Docente: {{ aula.docentes_abrev|join:', ' }}
-                                                ">
-                                                {{ uc_info.sigla }}<br>
-                                                {{ aula.docentes_abrev|join:', ' }}<br>
-                                                {{ aula.salas_num|join:', ' }}
-                                            </div>
-                                            {% endwith %}
-                                        {% endif %}
-                                    {% endfor %}
+                                    {% with aulas_por_dia|dict_get:dia as dia_aulas %}
+                                        {% for aula in dia_aulas %}
+                                            {% if aula.horaInicial|stringformat:"s" == firstHora %}
+                                                {% with aula.duracao as rowspan %}
+                                                {% with dia_aulas|get_overlapping_aulas:aula as overlapping_aulas %}
+                                                <div class="aula-container">
+                                                    {% for overlap in overlapping_aulas %}
+                                                        <div class="aula-box {% if aula.tipo == 'TP' %}aula-pratica{% elif aula.tipo == 'PL' %}aula-laboratorio{% else %}aula-teorica{% endif %}"
+                                                            style="width: calc(100% / {{ overlapping_aulas|length }});"
+                                                            data-aula-id="{{ overlap.id }}"
+                                                            data-rowspan="{{ overlap.duracao }}"
+                                                            data-toggle="popover"
+                                                            data-placement="top"
+                                                            data-content="
+                                                                UC: {{ uc_info.sigla|extract_sigla }}<br>
+                                                                Sala: {{ overlap.salas_num|join:', ' }}<br>
+                                                                Docente: {{ overlap.docentes_abrev|join:', ' }}
+                                                            ">
+                                                            {{ uc_info.sigla|extract_sigla }}<br>
+                                                            {{ overlap.docentes_abrev|join:', ' }}<br>
+                                                            {{ overlap.salas_num|join:', ' }}
+                                                        </div>
+                                                    {% endfor %}
+                                                </div>
+                                                {% endwith %}
+                                                {% endwith %}
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% endwith %}
                                 </td>
                                 {% endwith %}
                             {% endfor %}
@@ -68,26 +74,35 @@
                             {% for dia_num in 0|times:5 %}
                                 {% with dia_num|get_day_name as dia %}
                                 <td id="uc_{{ uc_info.codigo }}_{{ dia_num }}_{{ secondHora }}">
-                                    {% for aula in aulas_por_dia|dict_get:dia %}
-                                        {% if aula.horaInicial|stringformat:"s" == secondHora %}
-                                            {% with aula.duracao as rowspan %}
-                                            <div class="aula-box {% if aula.tipo == 'TP' %}aula-pratica{% elif aula.tipo == 'PL' %}aula-laboratorio{% else %}aula-teorica{% endif %}"
-                                                data-aula-id="{{ aula.id }}"
-                                                data-rowspan="{{ aula.duracao }}"
-                                                data-toggle="popover"
-                                                data-placement="top"
-                                                data-content="
-                                                    UC: {{ uc_info.sigla|extract_sigla }}<br>
-                                                    Sala: {{ aula.salas_num|join:', ' }}<br>
-                                                    Docente: {{ aula.docentes_abrev|join:', ' }}
-                                                ">
-                                                {{ uc_info.sigla }}<br>
-                                                {{ aula.docentes_abrev|join:', ' }}<br>
-                                                {{ aula.salas_num|join:', ' }}
-                                            </div>
-                                            {% endwith %}
-                                        {% endif %}
-                                    {% endfor %}
+                                    {% with aulas_por_dia|dict_get:dia as dia_aulas %}
+                                        {% for aula in dia_aulas %}
+                                            {% if aula.horaInicial|stringformat:"s" == secondHora %}
+                                                {% with aula.duracao as rowspan %}
+                                                {% with dia_aulas|get_overlapping_aulas:aula as overlapping_aulas %}
+                                                <div class="aula-container">
+                                                    {% for overlap in overlapping_aulas %}
+                                                        <div class="aula-box {% if aula.tipo == 'TP' %}aula-pratica{% elif aula.tipo == 'PL' %}aula-laboratorio{% else %}aula-teorica{% endif %}"
+                                                            style="width: calc(100% / {{ overlapping_aulas|length }});"
+                                                            data-aula-id="{{ overlap.id }}"
+                                                            data-rowspan="{{ overlap.duracao }}"
+                                                            data-toggle="popover"
+                                                            data-placement="top"
+                                                            data-content="
+                                                                UC: {{ uc_info.sigla|extract_sigla }}<br>
+                                                                Sala: {{ overlap.salas_num|join:', ' }}<br>
+                                                                Docente: {{ overlap.docentes_abrev|join:', ' }}
+                                                            ">
+                                                            {{ uc_info.sigla }}<br>
+                                                            {{ overlap.docentes_abrev|join:', ' }}<br>
+                                                            {{ overlap.salas_num|join:', ' }}
+                                                        </div>
+                                                    {% endfor %}
+                                                </div>
+                                                {% endwith %}
+                                                {% endwith %}
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% endwith %}
                                 </td>
                                 {% endwith %}
                             {% endfor %}
@@ -104,10 +119,7 @@
     </div>
 </div>
 
-
 <script>
-
-
 $(document).ready(function() {
     // Initialize popovers
     $('[data-toggle="popover"]').popover({
@@ -139,7 +151,7 @@ $(document).ready(function() {
     flex-direction: column;
   }
 
-    .container-fluid,
+  .container-fluid,
   .row,
   .col-md-12 {
     flex: 1;
@@ -147,8 +159,6 @@ $(document).ready(function() {
     flex-direction: column;
     overflow: hidden;
   }
-
-
 
   #table_vistas {
     width: 100%;
@@ -169,13 +179,18 @@ $(document).ready(function() {
     position: relative;
   }
 
-  .aula-box {
+  .aula-container {
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
+    bottom: 0;
+    display: flex;
+  }
+
+  .aula-box {
+    flex: 1;
     border: 1px solid #ddd;
-    background-color: #e6f7ff;
     font-size: 12px;
     display: flex;
     flex-direction: column;
@@ -194,6 +209,5 @@ $(document).ready(function() {
     background-color: #d0ebff;
   }
 </style>
-
 
 {% endblock page %}

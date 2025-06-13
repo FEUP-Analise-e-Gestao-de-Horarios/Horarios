@@ -700,7 +700,8 @@ def uc_view(request: HttpRequest, projId: int, uc_codigo: str) -> HttpResponse:
         'dias': ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"],
         'horas': horas,
         'is_edit_turnos': True,
-        'display_edit_buttons': True,
+        
+        
     }
 
     

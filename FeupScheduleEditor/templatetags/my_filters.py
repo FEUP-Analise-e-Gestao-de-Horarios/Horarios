@@ -156,8 +156,47 @@ def get_day_name(num):
     return days[num] if num < len(days) else ""
 
 @register.filter
-
 def extract_sigla(value):
     if value is None:
         return ""
     return str(value).split('(')[0].strip()
+
+@register.filter(name='get_overlapping_aulas')
+def get_overlapping_aulas(aulas, current_aula):
+    if not aulas or not current_aula:
+        return []
+    
+    def hora_to_minutes(hora):
+        """Converts 'HHMM' string to total minutes (e.g., '1700' → 1020)."""
+        hora_str = str(hora).zfill(4)  # Ensure 4 digits (e.g., '900' → '0900')
+        h = int(hora_str[:2])  # Hours
+        m = int(hora_str[2:])  # Minutes
+        return h * 60 + m
+
+    current_start = hora_to_minutes(current_aula['horaInicial'])
+    current_duration = current_aula['duracao'] * 30  # Convert to minutes (30 min per unit)
+    current_end = current_start + current_duration
+    
+    overlapping = []
+    for aula in aulas:
+        if aula['diaSemana'] != current_aula['diaSemana']:
+            continue  # Skip if different day
+        
+        aula_start = hora_to_minutes(aula['horaInicial'])
+        aula_duration = aula['duracao'] * 30
+        aula_end = aula_start + aula_duration
+        
+        # Check if classes overlap (even partially)
+        if (aula_start < current_end and aula_end > current_start):
+            # Only include if it's the same UC or different sections
+            overlapping.append(aula)
+    
+    return overlapping
+
+@register.filter
+def split(value, key):
+    """Returns the value turned into a list split by the given key."""
+    if not value:
+        return []
+    return value.split(key)
+
