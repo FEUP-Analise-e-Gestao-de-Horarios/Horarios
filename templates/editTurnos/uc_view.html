@@ -258,7 +258,7 @@ $(document).ready(function() {
                 }
             } else {
                 // SINGLE MOVE (original functionality)
-                if (confirm(`Move class to ${targetDia} at ${formatTime(targetHora)}?`)) {
+                if (true) {
                     // Update database FIRST
                     $.ajax({
                         url: '/editturnos/' + '{{ projId }}' + '/uc_changes/',
@@ -297,7 +297,7 @@ $(document).ready(function() {
                             }
                         },
                         error: function(xhr, status, error) {
-                            alert('Error: Failed to connect to server');
+                            
                             window.location.reload();
                         }
                     });
