@@ -165,70 +165,143 @@ $(document).ready(function() {
     // Make cells droppable
     $('.schedule-cell').droppable({
         accept: '.aula-box',
+        tolerance: 'pointer',
         hoverClass: 'drop-target',
         drop: function(event, ui) {
-            console.log("[FRONTEND 1] Drop event triggered");
             var $dragged = ui.draggable;
             var $target = $(this);
+            var $existingClass = $target.find('.aula-box');
             
-            console.log("[FRONTEND 2] Dragged element:", $dragged);
-            console.log("[FRONTEND 3] Target cell:", $target);
-
-            // Don't allow dropping on occupied cells
-            if ($target.find('.aula-box').length > 0) {
-                console.log("[FRONTEND !] Target cell occupied - aborting");
-
-                return false;
-            }
-
+            // Get position data
             var targetDia = $target.data('dia');
             var targetHora = $target.data('hora');
-            var aulaId = $dragged.data('aula-id');
-            var ucId = $dragged.data('uc-id');
-            var duracao = $dragged.data('duracao');
+            var draggedData = {
+                aulaId: $dragged.data('aula-id'),
+                ucId: $dragged.data('uc-id'),
+                dia: $dragged.data('dia'),
+                hora: $dragged.data('hora-inicial'),
+                duracao: $dragged.data('duracao')
+            };
 
-            console.log("[FRONTEND 4] Extracted data:", {
-                aulaId: aulaId,
-                ucId: ucId,
-                targetDia: targetDia,
-                targetHora: targetHora,
-                duracao: duracao
-            });
+            if ($existingClass.length > 0) {
+                // SWAP CLASSES
+                var existingData = {
+                    aulaId: $existingClass.data('aula-id'),
+                    ucId: $existingClass.data('uc-id'),
+                    dia: $existingClass.data('dia'),
+                    hora: $existingClass.data('hora-inicial'),
+                    duracao: $existingClass.data('duracao')
+                };
 
-            if (confirm(`Move class to ${targetDia} at ${formatTime(targetHora)}?`)) {
-                // Update database FIRST
-                console.log("[FRONTEND 5] User confirmed move - making AJAX call");
-                $.ajax({
-                    url: '/editturnos/' + '{{ projId }}' + '/uc_changes/',
-                    type: 'POST',
-                    data: JSON.stringify({
-                        aulaId: aulaId,
-                        ucId: ucId,
-                        newDia: targetDia,
-                        newHora: targetHora,
-                        duracao: duracao,
+                if (confirm(`Swap ${draggedData.ucId} (${formatTime(draggedData.hora)}) with ${existingData.ucId} (${formatTime(existingData.hora)})?`)) {
+                    // Prepare swap data for backend
+                    var swapData = {
+                        aula1: {
+                            id: draggedData.aulaId,
+                            newDia: targetDia,
+                            newHora: targetHora
+                        },
+                        aula2: {
+                            id: existingData.aulaId,
+                            newDia: draggedData.dia,
+                            newHora: draggedData.hora
+                        },
                         csrfmiddlewaretoken: '{{ csrf_token }}'
-                    }),
-                    contentType: 'application/json',
-                    headers: {
-                        'X-CSRFToken': getCookie('csrftoken'),
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            // Only update visually after successful DB update
-                            $target.empty().append($dragged);
-                            setAulaHeights();
-                        } else {
-                            alert('Error: ' + (response.error || 'Failed to save changes'));
+                    };
+
+                    // Perform swap via AJAX
+                    $.ajax({
+                        url: '/editturnos/' + '{{ projId }}' + '/swap_aulas/',
+                        type: 'POST',
+                        data: JSON.stringify(swapData),
+                        contentType: 'application/json',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken'),
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                // Visual update after successful swap
+                                var $originalCell = $dragged.closest('.schedule-cell');
+                                
+                                // Move existing class to original position
+                                $originalCell.empty().append($existingClass);
+                                $existingClass.attr({
+                                    'data-dia': draggedData.dia,
+                                    'data-hora-inicial': draggedData.hora
+                                });
+                                
+                                // Move dragged class to new position
+                                $target.empty().append($dragged);
+                                $dragged.attr({
+                                    'data-dia': targetDia,
+                                    'data-hora-inicial': targetHora
+                                });
+                                
+                                setAulaHeights();
+                                
+                                // Show conflicts if any
+                                if (response.conflicts && response.conflicts.length > 0) {
+                                    alert('Swap completed with conflicts:\n' + 
+                                        response.conflicts.join('\n'));
+                                }
+                            } else {
+                                alert('Swap failed: ' + (response.error || 'Unknown error'));
+                                window.location.reload();
+                            }
+                        },
+                        error: function(xhr, status, error) {
+                            alert('Error connecting to server');
                             window.location.reload();
                         }
-                    },
-                    error: function(xhr, status, error) {
-                        alert('Error: Failed to connect to server');
-                        window.location.reload();
-                    }
-                });
+                    });
+                }
+            } else {
+                // SINGLE MOVE (original functionality)
+                if (confirm(`Move class to ${targetDia} at ${formatTime(targetHora)}?`)) {
+                    // Update database FIRST
+                    $.ajax({
+                        url: '/editturnos/' + '{{ projId }}' + '/uc_changes/',
+                        type: 'POST',
+                        data: JSON.stringify({
+                            aulaId: draggedData.aulaId,
+                            ucId: draggedData.ucId,
+                            newDia: targetDia,
+                            newHora: targetHora,
+                            duracao: draggedData.duracao,
+                            csrfmiddlewaretoken: '{{ csrf_token }}'
+                        }),
+                        contentType: 'application/json',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken'),
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                // Only update visually after successful DB update
+                                $target.empty().append($dragged);
+                                $dragged.attr({
+                                    'data-dia': targetDia,
+                                    'data-hora-inicial': targetHora
+                                });
+                                setAulaHeights();
+                                
+                                // Show conflicts if any
+                                if (response.conflicts && response.conflicts.length > 0) {
+                                    alert('Move completed with conflicts:\n' + 
+                                        response.conflicts.join('\n'));
+                                }
+                            } else {
+                                alert('Error: ' + (response.error || 'Failed to save changes'));
+                                window.location.reload();
+                            }
+                        },
+                        error: function(xhr, status, error) {
+                            alert('Error: Failed to connect to server');
+                            window.location.reload();
+                        }
+                    });
+                }
             }
         }
     });

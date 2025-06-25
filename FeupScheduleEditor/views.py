@@ -900,6 +900,59 @@ def getSalaMiniHorario(request):
     except Exception as e:
         return JsonResponse({ 'error': str(e)}, status=500)
 
+def swap_aulas(request, projId):
+    if not request.user.is_authenticated:
+        return JsonResponse({"success": False, "error": "Unauthorized"}, status=401)
+    
+    try:
+        data = json.loads(request.body)
+        aula1 = data.get('aula1')
+        aula2 = data.get('aula2')
+        
+        if not all([aula1, aula2]):
+            return JsonResponse({"success": False, "error": "Missing data"}, status=400)
+
+        conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
+        cursor = conn.cursor()
+        
+        try:
+            # Start transaction
+            cursor.execute("BEGIN TRANSACTION")
+            
+            # Update first aula
+            cursor.execute('''
+                UPDATE aula 
+                SET diaSemana = ?, horaInicial = ?
+                WHERE id = ?
+            ''', (aula1['newDia'], aula1['newHora'], aula1['id']))
+            
+            # Update second aula
+            cursor.execute('''
+                UPDATE aula 
+                SET diaSemana = ?, horaInicial = ?
+                WHERE id = ?
+            ''', (aula2['newDia'], aula2['newHora'], aula2['id']))
+            
+            conn.commit()
+            
+            # Check for conflicts
+            conflicts1 = findAnyConflicts(projId, aula1['newDia'], aula1['newHora'], aula1['id'])
+            conflicts2 = findAnyConflicts(projId, aula2['newDia'], aula2['newHora'], aula2['id'])
+            
+            return JsonResponse({
+                "success": True,
+                "conflicts": (conflicts1 or []) + (conflicts2 or [])
+            })
+            
+        except sqlite3.Error as e:
+            conn.rollback()
+            return JsonResponse({"success": False, "error": str(e)}, status=500)
+        finally:
+            conn.close()
+            
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
+
 def uc_changes(request, projId):
     print(f"\n=== START UC_CHANGES VIEW ===")  # Start marker
     print(f"Request method: {request.method}")
