@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import defaultdict, deque
 from ctypes import sizeof
 from django.shortcuts import render, redirect
 from django.http import HttpResponse, JsonResponse
@@ -18,6 +18,10 @@ import concurrent.futures
 import sys
 import linecache
 import traceback
+from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
+import json
+
 
 turnosMap = {}
 max_workers = 4  # Estabelece o número máximo de threads permitidas
@@ -803,7 +807,7 @@ def turmas_simultaneas():
             AND a1.diaSemana = a2.diaSemana
             AND a1.horaInicial = a2.horaInicial
             AND uc1.codigo = uc2.codigo
-            AND uc1.idCurso = 'M.EIC'
+            AND uc1.idCurso = uc2.idCurso
             AND (
                 (a1.semanaInicial <= a2.semanaFinal AND a1.semanaFinal >= a2.semanaInicial)
                 OR
@@ -824,6 +828,163 @@ def turmas_simultaneas():
         cursor.execute(query, (idAula1, idAula2, idTurma1, idTurma2))
     
     conn.commit()
+
+def selecionar_aulas_em_paralelo(request):
+    project_id = request.GET.get("id")
+
+    #db_path = f"./database/Project{project_id}/general_database.db"
+    db_path = os.path.join(settings.BASE_DIR, "database", f"Project{project_id}", "general_database.db")
+
+
+    conn = sqlite3.connect(db_path) 
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        SELECT
+            a.id AS aula_id,
+            at.idTurma AS turma_id,
+            a.diaSemana,
+            a.horaInicial,
+            a.semanaInicial,
+            auc.idUC,
+            uc.idCurso,
+            uc.nome AS nomeUC
+        FROM aula a
+        JOIN aulaTurmas at ON a.id = at.idAula
+        JOIN aulaUC auc ON a.id = auc.idAula
+        JOIN uc ON auc.idUC = uc.codigo
+        WHERE a.teorico = FALSE
+    ''')
+
+    resultados_query = cursor.fetchall()
+
+    # Agrupar numa lista aulas da mesma UC  (e curso) que são ao mesmo tempo
+    grupos_dict = defaultdict(list)
+    for row in resultados_query:
+        key = (
+            row['diaSemana'],
+            row['horaInicial'],
+            row['semanaInicial'],
+            row['idUC'],
+            row['nomeUC'],
+            row['idCurso']
+        )
+        turmas_por_aula = grupos_dict.setdefault(key, defaultdict(set))
+        turmas_por_aula[row['aula_id']].add(row['turma_id'])
+
+    grupos_list = []
+    for i, (key, aulas) in enumerate(grupos_dict.items(), start=1):
+        if len(aulas) <= 1:
+            continue
+
+        dia_semana, hora_inicial, semana_inicial, codigoUC, nomeUC, id_curso = key
+        hora_str = f"{hora_inicial:04d}"
+        hora_str = f"{hora_str[:2]}:{hora_str[2:]}"
+        horario_str = f"{dia_semana}, {hora_str}"
+
+        num_boxes = len(aulas) // 2
+
+        grupo_dict = {
+            'id': i,
+            'uc': codigoUC,
+            'nomeUC': nomeUC,
+            'curso': id_curso,
+            'horario': horario_str,
+            'aulas': [
+                (aula_id, sorted([turma.strip() for turma in turmas]))
+                for aula_id, turmas in aulas.items()
+            ],
+            'num_boxes': num_boxes
+        }
+
+        grupos_list.append(grupo_dict)
+
+    cursos_unicos = sorted(set(grupo['curso'] for grupo in grupos_list))
+
+    grupos_list.sort(key=lambda g: (g["curso"], g["nomeUC"]))
+
+    aulas_em_paralelo = obter_aulas_em_paralelo(cursor)
+    
+    conn.close()
+
+    return render(request, 'selecionar_aulas_em_paralelo.html', {
+        'grupos_aulas_ao_mesmo_tempo': grupos_list,
+        'cursos': cursos_unicos,
+        'project_id': project_id,
+        'aulas_em_paralelo' : aulas_em_paralelo,
+    })
+
+def obter_aulas_em_paralelo(cursor):
+    """
+    Recebe um cursor de SQLite já conectado à base de dados de um projeto.
+    Devolve uma lista de aulas em paralelo (listasde IDs de aulas) com base nas relações da tabela turmasSimultaneas.
+    """
+    cursor.execute('SELECT aula1, aula2 FROM turmasSimultaneas')
+    pares = cursor.fetchall()
+
+    # Construir grafo aula -> vizinhos
+    adj = defaultdict(set)
+    for a1, a2 in pares:
+        adj[a1].add(a2)
+        adj[a2].add(a1)
+
+    # Obter cadeias
+    visitados = set()
+    cadeias = []
+
+    for aula in adj:
+        if aula in visitados:
+            continue
+
+        fila = deque([aula])
+        cadeia = []
+
+        while fila:
+            atual = fila.popleft()
+            if atual in visitados:
+                continue
+            visitados.add(atual)
+            cadeia.append(atual)
+            fila.extend(adj[atual] - visitados)
+
+        cadeia.sort()
+        cadeias.append(cadeia)
+
+    return cadeias
+
+@csrf_exempt
+def guardar_aulas_em_paralelo(request):
+    try:
+        data = json.loads(request.body)
+        pares = data["pares"]  # [(aula1, aula2, turma1, turma2), ...]
+
+        if len(pares) == 0:
+            return JsonResponse({'status': 'ignorado'})
+
+        project_id = request.GET.get("id")
+        db_path = os.path.join(settings.BASE_DIR, "database", f"Project{project_id}", "general_database.db")
+
+        with sqlite3.connect(db_path, timeout=10) as conn:
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM turmasSimultaneas')
+            for a1, a2, t1, t2 in pares:
+                cursor.execute('''
+                    INSERT INTO turmasSimultaneas (aula1, aula2, turma1, turma2)
+                    VALUES (?, ?, ?, ?)
+                ''', (a1, a2, t1, t2))
+            conn.commit()
+
+        project = Project.objects.get(id=project_id)
+        project.has_selected_aulas_em_paralelo = True
+        project.save()
+
+        return JsonResponse({'status': 'ok'})
+
+    except Exception as e:
+        return JsonResponse({'status': 'erro', 'message': str(e)}, status=500)
+
+
 
 # -----------------------------------------------------------------------
 # Função parse()
@@ -913,7 +1074,7 @@ def parse(request: requests.Request) -> JsonResponse:
 
             aulas_simultaneas()
 
-            turmas_simultaneas()
+            #turmas_simultaneas()
 
             shutil.copy2(path + '/general_database.db', path + '/initial_database.db')
 

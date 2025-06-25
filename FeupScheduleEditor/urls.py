@@ -42,4 +42,5 @@ urlpatterns = [
     path('manageProjects/<int:projId>', views.manageProjects),
     path('export/<int:projId>', views.export),
     path('ucview/<int:projId>/<str:uc_codigo>', views.uc_view, name='uc_view'),
+    path('editturnos/<int:projId>/uc_changes/', views.uc_changes, name='uc_changes'),
 ]

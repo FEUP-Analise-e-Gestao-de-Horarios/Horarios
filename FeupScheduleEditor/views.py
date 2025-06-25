@@ -385,6 +385,10 @@ def editTurnos(request: HttpRequest, projId: int) -> HttpResponse:
     """
     Cria a página `editTurnos` para o projeto selecionado.
 
+    Primeiro verifica se é a primeira vez que a página é aberta para saber se é para
+    redirecionar para a página da seleção de turmas simultâneas. Caso a seleção das
+    turmas simultâneas já esteja feita então procede ao carregamento da página `editTurnos`.
+
     Começa por obter a informação do projeto e o json dos cursos, assim como
     os conflitos existentes até à altura. Usa essa informação para 
     fazer o render da página.
@@ -401,6 +405,11 @@ def editTurnos(request: HttpRequest, projId: int) -> HttpResponse:
     #projetos = Project.objects.filter(person = Person.objects.get(username = request.user.pk))
     projetos = getProjetosListAux(request, request.user.pk)
     projeto = Project.objects.values_list().get(id = projId)
+
+    # verificar se é a primeira vez que se abre o editTurnos deste projeto 
+    # se for entao redirecionar para a seleção de aulas em paralelo
+    if not Project.objects.values_list('has_selected_aulas_em_paralelo', flat=True).get(id=projId):
+        return redirect(f'/parser/selecionar_aulas_em_paralelo/?id={projId}')
 
     #salas e docentes para dropdown select
     conn = sqlite3.connect('./database/Project'+ str(projId)+'/general_database.db')
@@ -607,6 +616,8 @@ def fillPageForCursoAno(request):
     except Exception as e:
         logger.error(f"Error in fillPageForCursoAno: {str(e)}", exc_info=True)
         return JsonResponse({'error': str(e)}, status=500)
+
+
 
 def uc_view(request: HttpRequest, projId: int, uc_codigo: str) -> HttpResponse:
     """
@@ -889,6 +900,95 @@ def getSalaMiniHorario(request):
     except Exception as e:
         return JsonResponse({ 'error': str(e)}, status=500)
 
+def uc_changes(request, projId):
+    print(f"\n=== START UC_CHANGES VIEW ===")  # Start marker
+    print(f"Request method: {request.method}")
+    print(f"User authenticated: {request.user.is_authenticated}")
+    
+    try:
+        print("\n[1] Raw request body:", request.body)
+        data = json.loads(request.body)
+        print("[2] Parsed JSON data:", data)
+        
+        aula_id = data.get('aulaId')
+        new_dia = data.get('newDia')
+        new_hora = data.get('newHora')
+        uc_id = data.get('ucId')
+        
+        print("\n[3] Extracted values:")
+        print(f"Aula ID: {aula_id} (Type: {type(aula_id)})")
+        print(f"New Dia: {new_dia} (Type: {type(new_dia)})")
+        print(f"New Hora: {new_hora} (Type: {type(new_hora)})")
+        print(f"UC ID: {uc_id} (Type: {type(uc_id)})")
+
+        # Validate inputs
+        if not all([aula_id, new_dia, new_hora, uc_id]):
+            print("\n[!] Missing parameters!")
+            return JsonResponse({"success": False, "error": "Missing required parameters"}, status=400)
+
+        # Convert time format
+        try:
+            hora_inicial = int(new_hora)
+            print(f"\n[4] Converted hora_inicial: {hora_inicial} (Type: {type(hora_inicial)})")
+        except ValueError as e:
+            print(f"\n[!] Hora conversion failed: {e}")
+            return JsonResponse({"success": False, "error": "Invalid time format"}, status=400)
+
+        # Database operations
+        conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
+        cursor = conn.cursor()
+        print("\n[5] Database connection established")
+
+        try:
+            # Verify aula-uc relationship
+            cursor.execute('SELECT idUC FROM aulaUC WHERE idAula = ?', (aula_id,))
+            result = cursor.fetchone()
+            print(f"\n[6] aulaUC query result: {result}")
+            
+            if not result or str(result[0]) != uc_id:
+                print(f"\n[!] Aula-UC mismatch: Result={result}, Expected UC={uc_id}")
+                return JsonResponse({"success": False, "error": "Aula doesn't belong to specified UC"}, status=400)
+
+            # Update aula
+            update_query = '''
+                UPDATE aula 
+                SET horaInicial = ?, diaSemana = ?
+                WHERE id = ?
+            '''
+            print(f"\n[7] Executing update: {update_query}")
+            print(f"With params: ({hora_inicial}, {new_dia}, {aula_id})")
+            
+            cursor.execute(update_query, (hora_inicial, new_dia, aula_id))
+            conn.commit()
+            print("\n[8] Update committed to database")
+
+            # Check for conflicts
+            conflicts = findAnyConflicts(projId, new_dia, hora_inicial, aula_id)
+            print(f"\n[9] Conflicts found: {conflicts if conflicts else 'None'}")
+            
+            return JsonResponse({
+                "success": True,
+                "message": "Aula moved successfully",
+                "conflicts": conflicts if conflicts else []
+            })
+            
+        except sqlite3.Error as e:
+            conn.rollback()
+            print(f"\n[!] Database error: {str(e)}")
+            return JsonResponse({"success": False, "error": f"Database error: {str(e)}"}, status=500)
+            
+        finally:
+            conn.close()
+            print("\n[10] Database connection closed")
+
+    except json.JSONDecodeError as e:
+        print(f"\n[!] JSON decode error: {e}")
+        return JsonResponse({"success": False, "error": "Invalid JSON data"}, status=400)
+    except Exception as e:
+        print(f"\n[!] Unexpected error: {e}")
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
+    finally:
+        print("=== END UC_CHANGES VIEW ===\n")
 # makeChanges
 #
 # Post Ajax request handler function
