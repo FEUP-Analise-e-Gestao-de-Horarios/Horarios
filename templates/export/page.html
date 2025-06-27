@@ -86,7 +86,6 @@
         .change-title {
             font-weight: bold;
             font-size: 16px;
-            margin-bottom: 10px;
             color: #333;
         }
 
@@ -133,6 +132,11 @@
             cursor: pointer;
         }
 
+        .class-time {
+            color: #555;
+            margin-bottom: 10px;
+        }
+
         #btn-voltar {
             border: 2px solid #ffc107;
             background-color: white;
@@ -159,21 +163,21 @@
                             {% if node not in uc_graph.unsolved_nodes %}
                                 <div class="change-box non-conflict">
                                     <div class="change-title">Alteração {{ node_counter_list|dict_get:node.id }}</div>
+                                    <div class="class-time">Aula de {{ node.change.previous.dia }}, {{ node.change.previous.hora_inicio }} - {{ node.change.previous.hora_fim }} na(s) sala(s) {{ node.change.previous.formatted_salas }}</div>
                                     <div class="change-details">
-                                        {% if node.change.check_dia %}
-                                            <p>Troca de dia na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
-                                            <strong>({{ node.change.previous.dia }}) → ({{ node.change.new.dia }})</strong></p>
-                                        {% endif %}
-                                        {% if node.change.check_horario %}
+                                        {% if node.change.check_horario and not node.change.check_dia %}
                                             <p>Troca de horário na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
                                             <strong>({{ node.change.previous.hora_inicio }} até às {{ node.change.previous.hora_fim }}) → ({{ node.change.new.hora_inicio }} até às {{ node.change.new.hora_fim }})</strong></p>
+                                        {% elif node.change.check_dia or node.change.check_horario %}
+                                            <p>Troca de horário na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
+                                            <strong>({{node.change.previous.dia}}, {{ node.change.previous.hora_inicio }} até às {{ node.change.previous.hora_fim }}) → ({{node.change.new.dia}}, {{ node.change.new.hora_inicio }} até às {{ node.change.new.hora_fim }})</strong></p>
                                         {% endif %}
                                         {% if node.change.check_salas %}
                                             <p>Troca de salas na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
                                             <strong>{{ node.change.previous.formatted_salas }} → {{ node.change.new.formatted_salas }}</strong></p>
                                         {% endif %}
                                         {% if node.change.check_docentes %}
-                                            <p>Troca de docentes na aula de {{ node.change.previous.dia }} ({{node.change.previous.hora_inicio}} até {{ node.change.new.hora_fim }}) na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
+                                            <p>Troca de docentes na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
                                             <strong>{{ node.change.previous.formatted_docentes }} → {{ node.change.new.formatted_docentes }}</strong></p>
                                         {% endif %}
                                     </div>
@@ -189,21 +193,21 @@
                             {% for node in uc_graph.unsolved_nodes %}
                                 <div class="change-box conflict">
                                     <div class="change-title">Alteração {{ node_counter_list|dict_get:node.id }}</div>
+                                    <div class="class-time">Aula de {{ node.change.previous.dia }}, {{ node.change.previous.hora_inicio }} - {{ node.change.previous.hora_fim }}</div>
                                     <div class="change-details">
-                                        {% if node.change.check_dia %}
-                                            <p>Troca de dia na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
-                                            <strong>({{ node.change.previous.dia }}) → ({{ node.change.new.dia }})</strong></p>
-                                        {% endif %}
-                                        {% if node.change.check_horario %}
-                                            <p>Troca de horário na turma(s) {{ node.change.previous.formatted_turmas }}:
+                                        {% if node.change.check_horario and not node.change.check_dia %}
+                                            <p>Troca de horário na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
                                             <strong>({{ node.change.previous.hora_inicio }} até às {{ node.change.previous.hora_fim }}) → ({{ node.change.new.hora_inicio }} até às {{ node.change.new.hora_fim }})</strong></p>
+                                        {% elif node.change.check_dia or node.change.check_horario %}
+                                            <p>Troca de horário na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
+                                            <strong>({{node.change.previous.dia}}, {{ node.change.previous.hora_inicio }} até às {{ node.change.previous.hora_fim }}) → ({{node.change.new.dia}}, {{ node.change.new.hora_inicio }} até às {{ node.change.new.hora_fim }})</strong></p>
                                         {% endif %}
                                         {% if node.change.check_salas %}
                                             <p>Troca de salas na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
                                             <strong>{{ node.change.previous.formatted_salas }} → {{ node.change.new.formatted_salas }}</strong></p>
                                         {% endif %}
                                         {% if node.change.check_docentes %}
-                                            <p>Troca de docentes na aula de {{ node.change.previous.dia }} ({{node.change.previous.hora_inicio}} até {{ node.change.new.hora_fim }}) na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
+                                            <p>Troca de docentes na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
                                             <strong>{{ node.change.previous.formatted_docentes }} → {{ node.change.new.formatted_docentes }}</strong></p>
                                         {% endif %}
                                         {% if node.dependencies %}

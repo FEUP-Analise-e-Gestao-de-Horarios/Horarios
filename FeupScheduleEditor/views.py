@@ -17,7 +17,7 @@ from django.contrib import messages
 from getHorariosFromDB.movementFunctions import addDocente, removeDocente, addSala, removeSala, moveAula, changeUC, updateAulaDuration, addTurma, removeTurma
 from getHorariosFromDB.conflictFunctions import organizeInformation, findAnyConflicts
 from getHorariosFromDB.comparingDatabases import getDifferencesFromDatabases
-from getHorariosFromDB.utils import organize_changes
+from getHorariosFromDB.utils import organize_changes, append_aula_data
 from getHorariosFromDB.models import AulaChange, AulaInfo, Node, GraphManager, Graph, Edge
 import getHorariosFromDB.graph as graph_controller
 
@@ -979,8 +979,101 @@ def switch_number_to_day(number_string):
 #
 # loads the changes between the projects general and initial databases
 # and renders the export page for the project
+def get_aula_info(projId, aulaId):
+    """
+    Retrieves complete AulaInfo for a specific aula from the project database
+    Returns an AulaInfo object or None if not found
+    """
+    conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    try:
+        # Get basic aula information
+        cursor.execute('''
+            SELECT a.id, a.horaInicial, a.duracao, a.diaSemana,
+                   GROUP_CONCAT(DISTINCT asl.idSala) as salas_ids,
+                   GROUP_CONCAT(DISTINCT ad.idDocente) as docentes_ids,
+                   GROUP_CONCAT(DISTINCT at.idTurma) as turmas_ids,
+                   uc.codigo as cadeiraId, uc.nome as uc_name
+            FROM aula a
+            LEFT JOIN aulaSala asl ON a.id = asl.idAula
+            LEFT JOIN aulaDocente ad ON a.id = ad.idAula
+            LEFT JOIN aulaTurmas at ON a.id = at.idAula
+            JOIN aulaUC auc ON a.id = auc.idAula
+            JOIN uc ON auc.idUC = uc.codigo
+            WHERE a.id = ?
+            GROUP BY a.id
+        ''', [aulaId])
+        
+        aula_data = cursor.fetchone()
+        
+        if not aula_data:
+            return None
+
+        # Prepare the data dictionary for AulaInfo
+        row_dict = {
+            "id": aula_data['id'],
+            "horaInicial": aula_data['horaInicial'],
+            "duracao": aula_data['duracao'],
+            "diaSemana": aula_data['diaSemana'],
+            "idUc": aula_data['cadeiraId'],
+            "idTurma": aula_data['turmas_ids'].split(',')[0] if aula_data['turmas_ids'] else None,
+            "idDocente": aula_data['docentes_ids'].split(',')[0] if aula_data['docentes_ids'] else None,
+            "idSala": aula_data['salas_ids'].split(',')[0] if aula_data['salas_ids'] else None
+        }
+
+        # Process the base data
+        data = append_aula_data(row_dict)
+        
+        # Add the collected relationships
+        data.update({
+            'turmasIds': aula_data['turmas_ids'].split(',') if aula_data['turmas_ids'] else [],
+            'docentesIds': [str(d) for d in aula_data['docentes_ids'].split(',')] if aula_data['docentes_ids'] else [],
+            'salasIds': aula_data['salas_ids'].split(',') if aula_data['salas_ids'] else [],
+        })
+
+        # Create and return the AulaInfo instance
+        aula = AulaInfo.from_data(data)
+        aula.uc_name = aula_data['uc_name'] if aula_data['uc_name'] else ''
+        return aula
+        
+    except Exception as e:
+        print(f"Error fetching aula info: {e}")
+        return None
+    finally:
+        conn.close()
+
+def getConflicts(request, projId):
+    if not request.user.is_authenticated:
+        return redirect('login/')
+
+    projetos = getProjetosListAux(request, request.user.pk)
+    projeto = Project.objects.values_list().get(id=projId)
+
+    manager = organize_changes(projId, "general")
+    
+    # Build conflicts dictionary {main_aula_id: [conflicting_aula_info1, conflicting_aula_info2]}
+    conflicts_dict = {}
+    for node in manager.get_all_nodes():
+        if node.dependency_ids:
+            main_info = get_aula_info(projId, node.change.new.id)
+            conflicts = []
+            for conflict_id in node.dependency_ids:
+                conflict_node = manager.get_node_by_aula_id(conflict_id)
+                conflict_info = get_aula_info(projId, conflict_id)
+                conflicts.append(conflict_info)
+            if conflicts:
+                conflicts_dict[main_info] = conflicts
 
 
+    return render(request, 'export/conflicts.html', {
+        'projeto': projeto[2],
+        'projId': projId,
+        'conflicts_dict': conflicts_dict,
+        'has_conflicts': bool(conflicts_dict)
+    })
+    
 def export(request, projId): 
     if not request.user.is_authenticated:
         return redirect('login/')
@@ -988,7 +1081,7 @@ def export(request, projId):
     projetos = getProjetosListAux(request, request.user.pk)
     projeto = Project.objects.values_list().get(id=projId)
 
-    manager = organize_changes(projId)
+    manager = organize_changes(projId, "initial")
 
     # Get the list of (node, counter) tuples
     node_counter_dict = manager.get_all_nodes_with_counter()

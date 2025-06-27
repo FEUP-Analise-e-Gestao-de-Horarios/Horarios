@@ -79,6 +79,8 @@ def check_docente_conflicts(cursor, docentes_ids, dia_semana, hora_inicio, hora_
             if hora_inicio < aula_end_min and hora_fim > aula_hora_min:
                 conflicts.append(aula_id)
                 print(f"[DEBUG] Docente conflict: Aula {aula_id} (UC {uc_nome})")
+                print(f"Checking docente {docente} on aula -> {exclude_aula_id}, {dia_semana} at {hora_inicio//60}-{hora_fim//60} vs aula {aula_id} at {dia_semana} {aula_hora_str}-{aula_end_min//60}:{aula_end_min%60}")
+
 
     return conflicts
 
@@ -108,9 +110,9 @@ def check_turma_conflicts(cursor, turmas_ids, dia_semana, hora_inicio, hora_fim,
 
     return conflicts
 
-def check_aula_change_conflicts(change: AulaChange, project_number):
+def check_aula_change_conflicts(change: AulaChange, project_number, mode):
     conflicts = []
-    db_path = Path(f'./database/Project{project_number}/general_database.db')
+    db_path = Path(f'./database/Project{project_number}/{mode}_database.db')
 
     try:
         connection = sqlite3.connect(str(db_path))
@@ -119,6 +121,8 @@ def check_aula_change_conflicts(change: AulaChange, project_number):
         new_aula = change.new
         if not new_aula:
             return conflicts
+        if new_aula.id == 3426:
+            print(f"IM HERE: {new_aula.dia}")
 
         dia_semana = new_aula.dia
         hora_inicio = time_str_to_minutes(new_aula.hora_inicio)
@@ -127,20 +131,17 @@ def check_aula_change_conflicts(change: AulaChange, project_number):
 
         #print(f"[DEBUG] Checking conflicts for new class ({aula_id}): Day {dia_semana}, Start time {hora_inicio}, End time {hora_fim}")
         
-        if change.check_salas():
-            conflicts.extend(
-                check_sala_conflicts(cursor, new_aula.salas_ids, dia_semana, hora_inicio, hora_fim, aula_id)
-            )
+        conflicts.extend(
+            check_sala_conflicts(cursor, new_aula.salas_ids, dia_semana, hora_inicio, hora_fim, aula_id)
+        )
 
-        if change.check_docentes():
-            conflicts.extend(
-                check_docente_conflicts(cursor, new_aula.docentes_ids, dia_semana, hora_inicio, hora_fim, aula_id)
-            )
+        conflicts.extend(
+            check_docente_conflicts(cursor, new_aula.docentes_ids, dia_semana, hora_inicio, hora_fim, aula_id)
+        )
 
-        if change.check_turmas():
-            conflicts.extend(
-                check_turma_conflicts(cursor, new_aula.turmas_ids, dia_semana, hora_inicio, hora_fim, aula_id)
-            )
+        conflicts.extend(
+            check_turma_conflicts(cursor, new_aula.turmas_ids, dia_semana, hora_inicio, hora_fim, aula_id)
+        )
 
         # Check for red block conflicts
         #red_conflicts = check_bloco_vermelho_conflicts(cursor, new_aula, dia_semana, hora_inicio, hora_fim)

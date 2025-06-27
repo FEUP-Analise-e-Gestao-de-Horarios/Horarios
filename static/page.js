@@ -263,6 +263,13 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 
+document.addEventListener('DOMContentLoaded', function() {
+    const conflictsBtn = document.getElementById('conflictsBtn');
+    conflictsBtn.addEventListener('click', function() {
+        window.location.href = "/conflicts/" + projId;
+    });
+});
+
 for (let i = 0; i < cursosLista.length; i++) {
     const new_option = document.createElement("option");
     new_option.value = cursosLista[i];

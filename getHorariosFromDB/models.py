@@ -158,18 +158,14 @@ class Graph:
             #graph_info += "Edges (end):\n"
         return graph_info
 
-class ConflictManager:
-    def __init__(self):
-        self.current = set()
-    def update(self, change: AulaChange):
-        self.current.add(change.new)
 
 class GraphManager:
-    def __init__(self, project_number):
+    def __init__(self, project_number, mode):
         self.root = None
         self.ucs = {}
         self.turmas = {}
         self.project_number = project_number
+        self.mode = mode
 
         self.conflicts = set()
         self.conflicts_ucs = {}
@@ -415,7 +411,7 @@ class GraphManager:
         return None
     
     def add_node(self, node: Node):
-        checker = check_aula_change_conflicts(node.change, self.project_number)
+        checker = check_aula_change_conflicts(node.change, self.project_number, self.mode)
         if checker and "red" not in checker:
             node.has_conflicts()
             node.add_dependencies(checker)

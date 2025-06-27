@@ -22,6 +22,11 @@
         </div>
         <button type="button" class="btn btn-outline-light me-2" onclick="location.href='/groups';"
           data-bs-toggle="modal">Grupos</button>
+        {% if display_edit_buttons %}
+        <button class="btn btn-outline-danger me-2" type="button" id="conflictsBtn" aria-expanded="false">
+          <i class="bi bi-exclamation-triangle-fill"></i> Ver Conflitos
+        </button>
+        {% endif %}
         {% include './exportButton.html' %}
       </ul>
 

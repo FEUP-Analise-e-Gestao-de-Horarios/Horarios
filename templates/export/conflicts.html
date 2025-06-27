@@ -1,0 +1,139 @@
+{% load my_filters %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <title>Conflitos de Horários</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #ffc107;
+        }
+        
+        .conflict-group {
+            margin-bottom: 25px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            background-color: #fff9f9;
+        }
+        
+        .conflict-title {
+            font-weight: bold;
+            font-size: 18px;
+            color: #aa1f1f;
+            margin-bottom: 15px;
+        }
+        
+        .conflict-class {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px 30px;
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: white;
+            border-radius: 5px;
+            border-left: 4px solid #aa1f1f;
+        }
+        
+        .class-info {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .class-uc {
+            font-weight: bold;
+        }
+        
+        .class-time {
+            color: #555;
+        }
+        
+        .no-conflicts {
+            text-align: center;
+            padding: 40px;
+            font-size: 18px;
+            color: #666;
+        }
+        
+        .back-button {
+            display: block;
+            text-align: center;
+            margin-top: 30px;
+        }
+        
+        .back-button a {
+            background: #ffc107;
+            color: black;
+            padding: 10px 20px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Conflitos em {{ projeto }}</h1>
+        
+        {% if has_conflicts %}
+            {% for main_class, conflicting_classes in conflicts_dict.items %}
+                <div class="conflict-group">
+                    <div class="conflict-title">Conflito entre:</div>
+                    
+                    <!-- Main class -->
+                    <div class="conflict-class">
+                        <div class="class-info">
+                            <div class="class-uc">{{ main_class.cadeira_id }} - {{ main_class.uc_name }} ({{ main_class.id }})</div>
+                            <div class="class-time">{{ main_class.dia }}, {{ main_class.hora_inicio }} - {{ main_class.hora_fim }}</div>
+                            <div>Turmas: {{ main_class.formatted_turmas }}</div>
+                            <div>Docentes: {{ main_class.formatted_docentes }}</div>
+                            <div>Salas: {{ main_class.formatted_salas }}</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Conflicting classes -->
+                    {% for conflict in conflicting_classes %}
+                        <div class="conflict-class">
+                            <div class="class-info">
+                                <div class="class-uc">{{ conflict.cadeira_id }} - {{ conflict.uc_name }} ({{ conflict.id }})</div>
+                                <div class="class-time">{{ conflict.dia }}, {{ conflict.hora_inicio }} - {{ conflict.hora_fim }}</div>
+                                <div>Turmas: {{ conflict.formatted_turmas }}</div>
+                                <div>Docentes: {{ conflict.formatted_docentes }}</div>
+                                <div>Salas: {{ conflict.formatted_salas }}</div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-conflicts">
+                Não foram encontrados conflitos nas alterações realizadas.
+            </div>
+        {% endif %}
+        
+        <div class="back-button">
+            <a href="/editturnos/{{ projId }}">Voltar</a>
+        </div>
+    </div>
+</body>
+</html>
