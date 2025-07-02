@@ -411,6 +411,7 @@ class GraphManager:
         return None
     
     def add_node(self, node: Node):
+        true_checker = check_aula_change_conflicts(node.change, self.project_number, "general")
         checker = check_aula_change_conflicts(node.change, self.project_number, self.mode)
         if checker and "red" not in checker:
             node.has_conflicts()
@@ -421,7 +422,10 @@ class GraphManager:
         if uc_id not in self.ucs:
             new = Graph(uc_id, 0, node.change.new.uc_name)
             self.ucs[uc_id] = new
-        self.ucs[uc_id].add_node(node)
+        if not true_checker:
+            self.ucs[uc_id].add_node(node)
+        else:
+            self.ucs[uc_id].unsolved_nodes.add(node)
     
         for turma in node.get_turmas():
             if turma not in self.turmas:

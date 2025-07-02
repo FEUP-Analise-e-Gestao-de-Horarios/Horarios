@@ -2,6 +2,7 @@ from FeupScheduleEditor.models import AulaChange, AulaInfo
 import sqlite3
 from pathlib import Path
 
+
 def converter_horario(num):
     hora, minuto = divmod(num, 100)
     return f"{hora:02d}:{minuto:02d}"   
