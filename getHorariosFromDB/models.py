@@ -158,6 +158,70 @@ class Graph:
             #graph_info += "Edges (end):\n"
         return graph_info
 
+class Conflict_Manager:
+    def __init__(self, project_number, conflicts):
+        self.project_number = project_number
+        self.conflicts = conflicts
+
+        self.conflicts_turmas = {}
+        self.conflicts_docentes = {}
+        self.conflicts_salas = {}
+    
+    def grouping(self):
+        print("Total conflicts: " + str(len(self.conflicts)))
+        for conflict in self.conflicts:
+            for turma in conflict.turmas_ids:
+                tmp = aula_conflicts(conflict, self.conflicts, turma, "turma")
+                if tmp:
+                    tmp.add(conflict)
+                if turma not in self.conflicts_turmas:
+                    self.conflicts_turmas[turma] = set()
+                self.conflicts_turmas[turma].update(tmp)
+            for sala in conflict.salas_ids:
+                tmp = aula_conflicts(conflict, self.conflicts, sala, "sala")
+                if tmp:
+                    print("Im here")
+                    tmp.add(conflict)
+                if sala not in self.conflicts_salas:
+                    self.conflicts_salas[sala] = set()
+                self.conflicts_salas[sala].update(tmp)
+            for docente in conflict.docentes_ids:
+                tmp = aula_conflicts(conflict, self.conflicts, docente, "docente")
+                if tmp:
+                    tmp.add(conflict)
+                if docente not in self.conflicts_docentes:
+                    self.conflicts_docentes[docente] = set()
+                self.conflicts_docentes[docente].update(tmp)
+        self.remove_single_conflicts()
+        self.organize_dicts()
+
+    def organize_dicts(self):
+        for key in self.conflicts_turmas:
+            self.conflicts_turmas[key] = sort_by_day(self.conflicts_turmas[key])
+        for key in self.conflicts_salas:
+            self.conflicts_salas[key] = sort_by_day(self.conflicts_salas[key])  
+        for key in self.conflicts_docentes:
+            self.conflicts_docentes[key] = sort_by_day(self.conflicts_docentes[key])
+
+    def remove_single_conflicts(self):
+        """Remove all dictionary entries with 1 or fewer conflicts"""
+        def clean_dict(d):
+            # Create list of keys to avoid modifying dict during iteration
+            keys_to_remove = [k for k, v in d.items() if len(v) <= 1]
+            for k in keys_to_remove:
+                del d[k]
+            return len(keys_to_remove)
+
+        removed_turmas = clean_dict(self.conflicts_turmas)
+        removed_salas = clean_dict(self.conflicts_salas)
+        removed_docentes = clean_dict(self.conflicts_docentes)
+    
+        print(f"Removed: {removed_turmas} turmas, {removed_salas} salas, {removed_docentes} docentes")
+    def get_turma_conflicts(self):
+        for turma in self.conflicts_turmas:
+            for aula in self.conflicts_turmas[turma]:
+                continue
+                
 
 class GraphManager:
     def __init__(self, project_number, mode):

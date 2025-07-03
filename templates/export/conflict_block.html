@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <title>Conflitos de Horários</title>
+    <style>
+        /* Base Styles */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.05);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #ffc107;
+        }
+        
+        /* Conflict Cards */
+        .conflicts-container {
+            margin-top: 30px;
+        }
+        
+        .conflict-title {
+            font-size: 1.3rem;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        
+        .conflict-card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+            padding: 20px;
+            border-left: 4px solid #ffc107;
+            transition: all 0.2s ease;
+        }
+        
+        .conflict-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .uc-name {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 1.1rem;
+        }
+        
+        .uc-id {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+        
+        .card-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .info-group {
+            margin-bottom: 5px;
+        }
+        
+        .info-label {
+            font-weight: 500;
+            color: #555;
+            font-size: 0.85rem;
+            margin-bottom: 3px;
+        }
+        
+        .info-value {
+            color: #333;
+            font-size: 0.95rem;
+        }
+        
+        .time-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #333;
+        }
+        
+        .time-icon {
+            color: #ffc107;
+        }
+        
+        /* No Conflicts Message */
+        .no-conflicts {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.1rem;
+            color: #7f8c8d;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        /* Back Button */
+        .back-button {
+            display: block;
+            text-align: center;
+            margin-top: 40px;
+        }
+        
+        .back-button a {
+            background: #ffc107;
+            color: #2c3e50;
+            padding: 10px 25px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        
+        .back-button a:hover {
+            background: #e0a800;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .card-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="conflicts-container">
+                <div class="conflict-title">Aulas com conflitos:</div>
+                {% for conflict in conflicts %}
+                <div class="conflict-card">
+                    <div class="card-header">
+                        <span class="uc-name">{{ conflict.cadeira_id }} - {{ conflict.uc_name }}</span>
+                        <span class="uc-id">ID: {{ conflict.id }}</span>
+                    </div>
+                    
+                    <div class="card-content">
+                        <div class="info-group">
+                            <div class="info-label">Horário</div>
+                            <div class="time-info">
+                                <span class="time-icon">🕒</span>
+                                <span class="info-value">{{ conflict.dia }}, {{ conflict.hora_inicio }} - {{ conflict.hora_fim }}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="info-group">
+                            <div class="info-label">Turmas</div>
+                            <div class="info-value">{{ conflict.formatted_turmas }}</div>
+                        </div>
+                        
+                        <div class="info-group">
+                            <div class="info-label">Docentes</div>
+                            <div class="info-value">{{ conflict.formatted_docentes }}</div>
+                        </div>
+                        
+                        <div class="info-group">
+                            <div class="info-label">Salas</div>
+                            <div class="info-value">{{ conflict.formatted_salas }}</div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+        </div>
+    </div>
+</body>
+</html>

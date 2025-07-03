@@ -18,13 +18,15 @@ from getHorariosFromDB.movementFunctions import addDocente, removeDocente, addSa
 from getHorariosFromDB.conflictFunctions import organizeInformation, findAnyConflicts
 from getHorariosFromDB.comparingDatabases import getDifferencesFromDatabases
 from getHorariosFromDB.utils import organize_changes, append_aula_data
-from getHorariosFromDB.models import AulaChange, AulaInfo, Node, GraphManager, Graph, Edge
+from getHorariosFromDB.models import Node, GraphManager, Graph, Edge, Conflict_Manager
 import getHorariosFromDB.graph as graph_controller
 
 
 PLACEHOLDER_ID = 0
 dias = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"]
 horas = ["8:00", "8:30", "9:00", "9:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30"]
+
+validator = False
 
 
 class CursoEncoder(json.JSONEncoder):
@@ -745,6 +747,7 @@ def getSalaMiniHorario(request):
 # makes apropriate changes
 # checks for and returns conflicts 
 def makeChanges(request, projId):
+    global validator
     if (not request.user.is_authenticated):
         return JsonResponse({"error": "User is not authenticated", "id": projId}, status=401)
     if request.method != "POST" and not request.is_ajax():
@@ -844,6 +847,7 @@ def makeChanges(request, projId):
         turmaBool = True
         removeTurma(projId, aulaId, turma)
 
+    validator = False
     checkConflict = findAnyConflicts(projId, dia, horaInicio, aulaId)
     #buscar conflitos e envia-los
     if (checkConflict == 0):
@@ -1045,44 +1049,66 @@ def get_aula_info(projId, aulaId):
         conn.close()
 
 def getConflicts(request, projId):
+    global validator
     if not request.user.is_authenticated:
         return redirect('login/')
 
     projetos = getProjetosListAux(request, request.user.pk)
     projeto = Project.objects.values_list().get(id=projId)
 
-    manager = organize_changes(projId, "general")
+    manager = organize_changes(projId, "general", validator)
+    validator = True  # Reset validator for next use
     
     # Build conflicts dictionary {main_aula_id: [conflicting_aula_info1, conflicting_aula_info2]}
     conflicts_dict = {}
+    all_conflicts = set()
     for node in manager.get_all_nodes():
         if node.dependency_ids:
             main_info = get_aula_info(projId, node.change.new.id)
+            all_conflicts.add(main_info)
             conflicts = []
             for conflict_id in node.dependency_ids:
                 conflict_node = manager.get_node_by_aula_id(conflict_id)
                 conflict_info = get_aula_info(projId, conflict_id)
+                all_conflicts.add(conflict_info)
                 conflicts.append(conflict_info)
             if conflicts:
                 conflicts_dict[main_info] = conflicts
-
-
+                
+    conflict_manager = Conflict_Manager(projId, all_conflicts)
+    conflict_manager.grouping()
+    aux = 0
+    for docente in conflict_manager.conflicts_docentes:
+        aux += len(conflict_manager.conflicts_docentes[docente])
+        print(f"Docente: {docente}, Conflitos: {len(conflict_manager.conflicts_docentes[docente])}")
+    for turma in conflict_manager.conflicts_turmas:
+        aux += len(conflict_manager.conflicts_turmas[turma])
+        print(f"Turma: {turma}, Conflitos: {len(conflict_manager.conflicts_turmas[turma])}")
+    for sala in conflict_manager.conflicts_salas:
+        aux += len(conflict_manager.conflicts_salas[sala])
+        print(f"Sala: {sala}, Conflitos: {len(conflict_manager.conflicts_salas[sala])}")
+    
+    print(f"Total de conflitos docentes: {aux}")
+    print(f"Total de conflitos: {len(all_conflicts)}")
     return render(request, 'export/conflicts.html', {
         'projeto': projeto[2],
         'projId': projId,
-        'conflicts_dict': conflicts_dict,
+        'conflicts_turmas': conflict_manager.conflicts_turmas,
+        'conflicts_salas': conflict_manager.conflicts_salas,
+        'conflicts_docentes': conflict_manager.conflicts_docentes,
         'has_conflicts': bool(conflicts_dict)
     })
     
-def export(request, projId): 
+def export(request, projId):
+    global validator
     if not request.user.is_authenticated:
         return redirect('login/')
 
     projetos = getProjetosListAux(request, request.user.pk)
     projeto = Project.objects.values_list().get(id=projId)
 
-    manager = organize_changes(projId, "initial")
-
+    manager = organize_changes(projId, "initial", validator)
+    validator = True  # Reset validator for next use
     # Get the list of (node, counter) tuples
     node_counter_dict = manager.get_all_nodes_with_counter()
     for node_id in node_counter_dict:

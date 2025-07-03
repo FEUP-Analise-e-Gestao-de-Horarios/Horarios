@@ -640,6 +640,9 @@ def getDifferencesFromDatabases(ProjectNumber):
     
     # Write to JSON file
     output_file = os.path.join(output_dir, 'changes.json')
+
+    if os.path.exists(output_file):
+        os.remove(output_file)
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(serialized_changes, f, ensure_ascii=False, indent=4)
     
@@ -752,11 +755,11 @@ def debug_log_existing_aulas(project_number, dia_semana):
             connection.close()
 
 
-def organize_changes(ProjectId, mode):
+def organize_changes(ProjectId, mode, validator):
     # TODO organize
     json_path = f'./database/Project{ProjectId}/changes.json'
 
-    if os.path.exists(json_path):
+    if os.path.exists(json_path and validator):
         with open(json_path, 'r', encoding='utf-8') as f:
             raw_changes = json.load(f)
 
