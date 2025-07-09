@@ -854,6 +854,10 @@ def selecionar_aulas_em_paralelo(request):
     grupos_list.sort(key=lambda g: (g["curso"], g["nomeUC"]))
 
     aulas_em_paralelo = obter_aulas_em_paralelo(project_id)
+
+    project = Project.objects.get(id=project_id)
+    project.has_selected_aulas_em_paralelo = True
+    project.save()
     
     conn.close()
 
@@ -932,10 +936,6 @@ def guardar_aulas_em_paralelo(request):
             conn.commit()
 
         inconsistentes = verificar_aulas_em_paralelo(request, project_id, pares)
-
-        project = Project.objects.get(id=project_id)
-        project.has_selected_aulas_em_paralelo = True
-        project.save()
 
         return JsonResponse({
             'status': 'ok',

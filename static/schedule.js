@@ -749,7 +749,7 @@ function submitToDatabase(cell) {
         // on success
         success: function (response) {
             const conflicts = response.conflicts
-            writeConflicts(conflicts)
+            writeConflicts(conflicts)            
         },
         // on error
         error: function (response, status, error) {
@@ -900,7 +900,7 @@ function swapFullCells(firstCell, secondCell) {
  * @param {HTMLElement} cell2 - A segunda célula.
  * @returns {boolean} - Retorna true se as células podem ser trocadas. False, em caso contrário.
  */
-function canSwap(cell1, cell2) {
+async function canSwap(cell1, cell2) {
     const colspanFirst = cell1.getAttribute('colspan') ? parseInt(cell1.getAttribute('colspan')) : 1;
     const originalcolspanFirst = cell1.getAttribute('data-originalcolspan') ? parseInt(cell1.getAttribute('data-originalcolspan')) : 1;
     const rowspanFirst = cell1.getAttribute('rowspan') ? parseInt(cell1.getAttribute('rowspan')) : 1;
@@ -955,6 +955,27 @@ function canSwap(cell1, cell2) {
     else if (rowspanFirst < rowspanSecond && colspanFirst < colspanSecond) {
         swap = checkIfSwapPossible(cell1, cell2, colspanSecond - colspanFirst, rowspanSecond - 1);
     }
+
+    if (swap) {
+        const aulaId = cell1.getAttribute("data-aulaid");
+        const projectNumber = $('script[data-proj-id]').data('projId');
+    
+        const response = await fetch(`/getaulaparalelosimultanea?projId=${projectNumber}&aulaId=${aulaId}`);
+        const data = await response.json();
+
+            
+        if (data.paralelo) {
+            const opcao = await new Promise(resolve => abrirPopupParalelo(resolve));
+            if (opcao === 'cancelar')
+                swap = false;  
+        }
+        if (data.simultanea) {
+            const opcao = await new Promise(resolve => abrirPopupSimultanea(resolve));
+            if (opcao === 'cancelar')
+                swap = false;
+        }
+    }    
+
     return swap;
 }
 
@@ -1028,7 +1049,7 @@ document.addEventListener('DOMContentLoaded', function () {
     myDefaultAllowList.td = [];
 });
 
-$(document).on('click', 'td:not(:first-child)', function (event) {
+$(document).on('click', 'td:not(:first-child)', async function (event) {
     const td = this;
     const targetElement = event.target;
     const turma = td.id.split('_')[1];
@@ -1062,7 +1083,7 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
             const idCellBefore = $(prevCell).attr('id');
 
             try {
-                if (canSwap(prevCell, td)) {
+                if (await canSwap(prevCell, td)) {
                     swapFullCells(prevCell, td);
                     if (prevCell.querySelector("p") !== null) {
                         submitToDatabase(prevCell);

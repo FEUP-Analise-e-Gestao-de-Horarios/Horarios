@@ -860,7 +860,38 @@ def makeChanges(request, projId):
         conflicts = []
     else:
         conflicts = checkConflict
-    return JsonResponse({"id": projId, "conflicts": conflicts}, status=200)
+    return JsonResponse({
+        "aulaId" : aulaId,
+        "id": projId, 
+        "conflicts": conflicts, 
+    }, status=200)
+
+def getAulaSimultaneasParalelas(request):    
+    try:
+        projId = int(request.GET.get('projId'))
+        aulaId = int(request.GET.get('aulaId'))
+
+        if (not request.user.is_authenticated):
+            return JsonResponse({"error": "User is not authenticated", "id": projId}, status=401)
+        if request.method != "GET" and not request.is_ajax():
+            return JsonResponse({"error": "Invalid request", "id": projId}, status=400)
+
+        conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT COUNT(*) FROM turmasSimultaneas WHERE aula1 = ? OR aula2 = ?", [aulaId, aulaId])
+        show_popup_paralelo = cursor.fetchone()[0] > 0
+
+        cursor.execute("SELECT COUNT(*) FROM aulasSimultaneas WHERE aula1 = ? OR aula2 = ?", [aulaId, aulaId])
+        show_popup_simultanea = cursor.fetchone()[0] > 0
+
+        return JsonResponse({
+            'paralelo': show_popup_paralelo,
+            'simultanea': show_popup_simultanea
+        }, status=200)
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 # editDocentes
 #

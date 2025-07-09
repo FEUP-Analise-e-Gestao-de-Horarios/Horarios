@@ -40,4 +40,5 @@ urlpatterns = [
     path('editturnos/<int:projId>/makechanges', views.makeChanges),
     path('manageProjects/<int:projId>', views.manageProjects),
     path('export/<int:projId>', views.export),
+    path('getaulaparalelosimultanea', views.getAulaSimultaneasParalelas, name='getaulaparalelosimultanea'),
 ]
