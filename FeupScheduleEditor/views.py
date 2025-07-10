@@ -620,17 +620,6 @@ def fillPageForCursoAno(request):
 
 
 def uc_view(request: HttpRequest, projId: int, uc_codigo: str) -> HttpResponse:
-    """
-    Creates a page showing the schedule for a specific UC.
-    
-    Parameters:
-    request (HttpRequest): The HTTP request object
-    projId (int): The project ID
-    uc_codigo (str): The UC code
-    
-    Returns:
-    HttpResponse: The rendered UC view page
-    """
     if not request.user.is_authenticated:
         return redirect('login/')
     
@@ -660,54 +649,40 @@ def uc_view(request: HttpRequest, projId: int, uc_codigo: str) -> HttpResponse:
     }
     
     for aula in aulas:
-        dia = aula['diaSemana']
+        aula_dict = dict(aula)
+        dia = aula_dict['diaSemana']
+        
+        # Get docentes for this aula
+        aula_docentes = auxfunc.getAulaDocentes(projId, aula_dict['id'])
+        aula_dict['docentes'] = []
+        for docente_id in aula_docentes:
+            cursor.execute('''SELECT numeroMecanografico, nome, abreviacao 
+                            FROM docentes 
+                            WHERE numeroMecanografico = ?''', (docente_id,))
+            docente = cursor.fetchone()
+            if docente:
+                aula_dict['docentes'].append({
+                    'id': docente['numeroMecanografico'],
+                    'nome': docente['nome'],
+                    'abreviacao': docente['abreviacao']
+                })
+        
+        # Get salas for this aula
+        aula_salas = auxfunc.getAulaSalas(projId, aula_dict['id'])
+        aula_dict['salas'] = []
+        for sala_num in aula_salas:
+            cursor.execute('''SELECT numero, tipo 
+                            FROM salas 
+                            WHERE numero = ?''', (sala_num,))
+            sala = cursor.fetchone()
+            if sala:
+                aula_dict['salas'].append(sala['numero'])
+        
+        aula_dict['salas_num'] = aula_dict['salas']  # For template compatibility
+        aula_dict['docentes_abrev'] = [d['abreviacao'] for d in aula_dict['docentes']]
+        
         if dia in aulas_por_dia:
-            aulas_por_dia[dia].append(aula)
-    
-    # Get docentes for this UC
-    cursor.execute('''SELECT DISTINCT d.numeroMecanografico, d.nome, d.abreviacao 
-                      FROM docentes d
-                      JOIN aulaDocente ad ON d.numeroMecanografico = ad.idDocente
-                      JOIN aulaUC au ON ad.idAula = au.idAula
-                      WHERE au.idUC = ?''', (uc_codigo,))
-    docentes = cursor.fetchall()
-    
-    # Get salas for this UC
-    cursor.execute('''SELECT DISTINCT s.numero, s.tipo, s.capacidade 
-                      FROM salas s
-                      JOIN aulaSala asl ON s.numero = asl.idSala
-                      JOIN aulaUC au ON asl.idAula = au.idAula
-                      WHERE au.idUC = ?''', (uc_codigo,))
-    salas = cursor.fetchall()
-
-    docente_dict = {str(d['numeroMecanografico']): d['abreviacao'] for d in docentes}
-    sala_dict = {s['numero']: s['numero'] for s in salas}  # You can expand this to include 'tipo' or 'capacidade'
-
-    # You MUST convert sqlite3.Row to dict to allow assignment
-    for dia, aulas_list in aulas_por_dia.items():
-        for i, aula in enumerate(aulas_list):
-            aula_dict = dict(aula)
-            
-            # Get docentes for this aula
-            aula_docentes = auxfunc.getAulaDocentes(projId, aula_dict['id'])
-            aula_dict['docentes'] = []
-            for docente_id in aula_docentes:
-                cursor.execute('SELECT numeroMecanografico, abreviacao FROM docentes WHERE numeroMecanografico = ?', (docente_id,))
-                docente = cursor.fetchone()
-                if docente:
-                    aula_dict['docentes'].append({
-                        'id': docente['numeroMecanografico'],
-                        'abreviacao': docente['abreviacao']
-                    })
-            
-            # Get salas for this aula
-            aula_salas = auxfunc.getAulaSalas(projId, aula_dict['id'])
-            aula_dict['salas'] = aula_salas
-            
-            aulas_list[i] = aula_dict
-
-
-
+            aulas_por_dia[dia].append(aula_dict)
     
     conn.close()
     
@@ -717,15 +692,10 @@ def uc_view(request: HttpRequest, projId: int, uc_codigo: str) -> HttpResponse:
         'projeto': projeto,
         'uc_info': uc_info,
         'aulas_por_dia': aulas_por_dia,
-        'docentes': docentes,
-        'salas': salas,
         'dias': ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"],
         'horas': horas,
         'is_edit_turnos': True,
-        
-        
     }
-
     
     return render(request, 'editTurnos/uc_view.html', context)
 
@@ -1002,22 +972,26 @@ def swap_teachers(request, projId):
         }, status=500)
 
 def swap_aulas(request, projId):
+    """
+    Handles swapping of two classes including their time slots and days.
+    """
     if not request.user.is_authenticated:
         return JsonResponse({"success": False, "error": "Unauthorized"}, status=401)
     
     try:
         data = json.loads(request.body)
-        aula1 = data.get('aula1')
-        aula2 = data.get('aula2')
+        aula1 = data.get('aula1', {})
+        aula2 = data.get('aula2', {})
         
-        if not all([aula1, aula2]):
-            return JsonResponse({"success": False, "error": "Missing data"}, status=400)
+        if not all([aula1.get('id'), aula2.get('id'), 
+                   aula1.get('newDia'), aula2.get('newDia'),
+                   aula1.get('newHora'), aula2.get('newHora')]):
+            return JsonResponse({"success": False, "error": "Missing required parameters"}, status=400)
 
         conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
         cursor = conn.cursor()
         
         try:
-            # Start transaction
             cursor.execute("BEGIN TRANSACTION")
             
             # Update first aula
@@ -1039,110 +1013,154 @@ def swap_aulas(request, projId):
             # Check for conflicts
             conflicts1 = findAnyConflicts(projId, aula1['newDia'], aula1['newHora'], aula1['id'])
             conflicts2 = findAnyConflicts(projId, aula2['newDia'], aula2['newHora'], aula2['id'])
+            all_conflicts = (conflicts1 or []) + (conflicts2 or [])
             
             return JsonResponse({
                 "success": True,
-                "conflicts": (conflicts1 or []) + (conflicts2 or [])
+                "conflicts": all_conflicts
             })
             
         except sqlite3.Error as e:
             conn.rollback()
-            return JsonResponse({"success": False, "error": str(e)}, status=500)
+            return JsonResponse({
+                "success": False, 
+                "error": f"Database error: {str(e)}"
+            }, status=500)
         finally:
             conn.close()
             
     except Exception as e:
-        return JsonResponse({"success": False, "error": str(e)}, status=500)
+        return JsonResponse({
+            "success": False, 
+            "error": f"Unexpected error: {str(e)}"
+        }, status=500)
 
 def uc_changes(request, projId):
-    print(f"\n=== START UC_CHANGES VIEW ===")  # Start marker
-    print(f"Request method: {request.method}")
-    print(f"User authenticated: {request.user.is_authenticated}")
+    """
+    Handles:
+    - Class time changes (move to empty cell)
+    - Class swaps
+    - Teacher swaps
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"success": False, "error": "Unauthorized"}, status=401)
     
     try:
-        print("\n[1] Raw request body:", request.body)
         data = json.loads(request.body)
-        print("[2] Parsed JSON data:", data)
+        change_type = data.get('type')  # 'move', 'swap', or 'teacher'
         
-        aula_id = data.get('aulaId')
-        new_dia = data.get('newDia')
-        new_hora = data.get('newHora')
-        uc_id = data.get('ucId')
-        
-        print("\n[3] Extracted values:")
-        print(f"Aula ID: {aula_id} (Type: {type(aula_id)})")
-        print(f"New Dia: {new_dia} (Type: {type(new_dia)})")
-        print(f"New Hora: {new_hora} (Type: {type(new_hora)})")
-        print(f"UC ID: {uc_id} (Type: {type(uc_id)})")
-
-        # Validate inputs
-        if not all([aula_id, new_dia, new_hora, uc_id]):
-            print("\n[!] Missing parameters!")
-            return JsonResponse({"success": False, "error": "Missing required parameters"}, status=400)
-
-        # Convert time format
-        try:
-            hora_inicial = int(new_hora)
-            print(f"\n[4] Converted hora_inicial: {hora_inicial} (Type: {type(hora_inicial)})")
-        except ValueError as e:
-            print(f"\n[!] Hora conversion failed: {e}")
-            return JsonResponse({"success": False, "error": "Invalid time format"}, status=400)
-
-        # Database operations
         conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
         cursor = conn.cursor()
-        print("\n[5] Database connection established")
-
+        
         try:
-            # Verify aula-uc relationship
-            cursor.execute('SELECT idUC FROM aulaUC WHERE idAula = ?', (aula_id,))
-            result = cursor.fetchone()
-            print(f"\n[6] aulaUC query result: {result}")
+            cursor.execute("BEGIN TRANSACTION")
             
-            if not result or str(result[0]) != uc_id:
-                print(f"\n[!] Aula-UC mismatch: Result={result}, Expected UC={uc_id}")
-                return JsonResponse({"success": False, "error": "Aula doesn't belong to specified UC"}, status=400)
-
-            # Update aula
-            update_query = '''
-                UPDATE aula 
-                SET horaInicial = ?, diaSemana = ?
-                WHERE id = ?
-            '''
-            print(f"\n[7] Executing update: {update_query}")
-            print(f"With params: ({hora_inicial}, {new_dia}, {aula_id})")
-            
-            cursor.execute(update_query, (hora_inicial, new_dia, aula_id))
-            conn.commit()
-            print("\n[8] Update committed to database")
-
-            # Check for conflicts
-            conflicts = findAnyConflicts(projId, new_dia, hora_inicial, aula_id)
-            print(f"\n[9] Conflicts found: {conflicts if conflicts else 'None'}")
-            
-            return JsonResponse({
-                "success": True,
-                "message": "Aula moved successfully",
-                "conflicts": conflicts if conflicts else []
-            })
-            
+            if change_type == 'move':
+                # Handle moving class to empty cell
+                aula_id = data.get('aulaId')
+                new_dia = data.get('newDia')
+                new_hora = data.get('newHora')
+                
+                if not all([aula_id, new_dia, new_hora]):
+                    return JsonResponse({"success": False, "error": "Missing parameters"}, status=400)
+                
+                # Update aula position
+                cursor.execute('''
+                    UPDATE aula 
+                    SET diaSemana = ?, horaInicial = ?
+                    WHERE id = ?
+                ''', (new_dia, new_hora, aula_id))
+                
+                conn.commit()
+                
+                # Check for conflicts
+                conflicts = findAnyConflicts(projId, new_dia, new_hora, aula_id)
+                return JsonResponse({
+                    "success": True,
+                    "conflicts": conflicts if conflicts else []
+                })
+                
+            elif change_type == 'swap':
+                # Handle class swaps (existing functionality)
+                aula1 = data.get('aula1', {})
+                aula2 = data.get('aula2', {})
+                
+                if not all([aula1.get('id'), aula2.get('id'), 
+                           aula1.get('newDia'), aula2.get('newDia'),
+                           aula1.get('newHora'), aula2.get('newHora')]):
+                    return JsonResponse({"success": False, "error": "Missing parameters"}, status=400)
+                
+                # Update both aulas
+                cursor.execute('''
+                    UPDATE aula 
+                    SET diaSemana = ?, horaInicial = ?
+                    WHERE id = ?
+                ''', (aula1['newDia'], aula1['newHora'], aula1['id']))
+                
+                cursor.execute('''
+                    UPDATE aula 
+                    SET diaSemana = ?, horaInicial = ?
+                    WHERE id = ?
+                ''', (aula2['newDia'], aula2['newHora'], aula2['id']))
+                
+                conn.commit()
+                
+                # Check for conflicts
+                conflicts1 = findAnyConflicts(projId, aula1['newDia'], aula1['newHora'], aula1['id'])
+                conflicts2 = findAnyConflicts(projId, aula2['newDia'], aula2['newHora'], aula2['id'])
+                return JsonResponse({
+                    "success": True,
+                    "conflicts": (conflicts1 or []) + (conflicts2 or [])
+                })
+                
+            elif change_type == 'teacher':
+                # Handle teacher swaps (existing functionality)
+                aula1 = data.get('aula1', {})
+                aula2 = data.get('aula2', {})
+                teacher1 = data.get('teacher1')
+                teacher2 = data.get('teacher2')
+                
+                if not all([aula1.get('id'), aula2.get('id'), teacher1, teacher2]):
+                    return JsonResponse({"success": False, "error": "Missing parameters"}, status=400)
+                
+                # Verify teachers exist
+                cursor.execute('SELECT numeroMecanografico, abreviacao FROM docentes WHERE numeroMecanografico IN (?, ?)', 
+                             (teacher1, teacher2))
+                teachers = {str(row[0]): row[1] for row in cursor.fetchall()}
+                
+                if len(teachers) != 2:
+                    return JsonResponse({"success": False, "error": "Teacher not found"}, status=404)
+                
+                # Remove existing assignments
+                cursor.execute('DELETE FROM aulaDocente WHERE idAula = ? AND idDocente = ?', 
+                              (aula1['id'], teacher1))
+                cursor.execute('DELETE FROM aulaDocente WHERE idAula = ? AND idDocente = ?', 
+                              (aula2['id'], teacher2))
+                
+                # Create new assignments
+                cursor.execute('INSERT INTO aulaDocente (idAula, idDocente) VALUES (?, ?)', 
+                              (aula1['id'], teacher2))
+                cursor.execute('INSERT INTO aulaDocente (idAula, idDocente) VALUES (?, ?)', 
+                              (aula2['id'], teacher1))
+                
+                conn.commit()
+                return JsonResponse({
+                    "success": True,
+                    "new_teacher1_abbreviation": teachers.get(teacher2),
+                    "new_teacher2_abbreviation": teachers.get(teacher1)
+                })
+                
+            else:
+                return JsonResponse({"success": False, "error": "Invalid change type"}, status=400)
+                
         except sqlite3.Error as e:
             conn.rollback()
-            print(f"\n[!] Database error: {str(e)}")
             return JsonResponse({"success": False, "error": f"Database error: {str(e)}"}, status=500)
-            
         finally:
             conn.close()
-            print("\n[10] Database connection closed")
-
-    except json.JSONDecodeError as e:
-        print(f"\n[!] JSON decode error: {e}")
-        return JsonResponse({"success": False, "error": "Invalid JSON data"}, status=400)
+            
     except Exception as e:
-        print(f"\n[!] Unexpected error: {e}")
         return JsonResponse({"success": False, "error": str(e)}, status=500)
-    finally:
-        print("=== END UC_CHANGES VIEW ===\n")
 # makeChanges
 #
 # Post Ajax request handler function

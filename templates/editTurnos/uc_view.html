@@ -41,15 +41,32 @@
                                             {% with dia_aulas|get_overlapping_aulas:aula as overlapping_aulas %}
                                             <div class="aula-container">
                                                 {% for overlap in overlapping_aulas %}
-                                                    <div class="aula-box">
+                                                    <div class="aula-box {% if aula.tipo == 'TP' %}aula-pratica{% elif aula.tipo == 'PL' %}aula-laboratorio{% else %}aula-teorica{% endif %}"
+                                                        style="width: calc(100% / {{ overlapping_aulas|length }});"
+                                                        data-aula-id="{{ overlap.id }}"
+                                                        data-uc-id="{{ uc_info.codigo }}"
+                                                        data-rowspan="{{ overlap.duracao }}"
+                                                        data-dia="{{ dia }}"
+                                                        data-hora-inicial="{{ overlap.horaInicial }}"
+                                                        data-duracao="{{ overlap.duracao }}"
+                                                        data-toggle="popover"
+                                                        data-placement="top"
+                                                        data-content="
+                                                            UC: {{ uc_info.sigla|extract_sigla }}<br>
+                                                            Sala: {{ overlap.salas_num|join:', ' }}<br>
+                                                            Docente: {{ overlap.docentes_abrev|join:', ' }}
+                                                        "
+                                                        draggable="true">
                                                         {{ uc_info.sigla|extract_sigla }}<br>
-                                                        <span class="teacher-acronym" 
-                                                            data-teacher-id="{{ docente.numeroMecanografico }}">
-                                                            {{ docente.abreviacao }}
-                                                        </span><br>
-                                                        {{ sala.numero }}
+                                                        {% for docente in overlap.docentes %}
+                                                            <span class="teacher-acronym" 
+                                                                  data-teacher-id="{{ docente.id }}"
+                                                                  data-aula-id="{{ overlap.id }}">
+                                                                {{ docente.abreviacao }}
+                                                            </span>{% if not forloop.last %}, {% endif %}
+                                                        {% endfor %}<br>
+                                                        {{ overlap.salas_num|join:', ' }}
                                                     </div>
-                                                        
                                                 {% endfor %}
                                             </div>
                                             {% endwith %}
@@ -76,24 +93,31 @@
                                             <div class="aula-container">
                                                 {% for overlap in overlapping_aulas %}
                                                     <div class="aula-box {% if aula.tipo == 'TP' %}aula-pratica{% elif aula.tipo == 'PL' %}aula-laboratorio{% else %}aula-teorica{% endif %}"
-                                                        style="width: calc(100% / '{{ overlapping_aulas|length }}');"
-                                                        data-aula-id="{{ overlap.id }}"
-                                                        data-uc-id="{{ uc_info.codigo }}"
-                                                        data-rowspan="{{ overlap.duracao }}"
-                                                        data-dia="{{ dia }}"
-                                                        data-hora-inicial="{{ overlap.horaInicial }}"
-                                                        data-duracao="{{ overlap.duracao }}"
-                                                        draggable="true">
-                                                        {{ uc_info.sigla|extract_sigla }}<br>
-                                                        {% for docente in overlap.docentes %}
-                                                            <span class="teacher-acronym" 
-                                                                data-teacher-id="{{ docente.id }}"
-                                                                data-aula-id="{{ overlap.id }}">
-                                                                {{ docente.abreviacao }}
-                                                            </span>{% if not forloop.last %}, {% endif %}
-                                                        {% endfor %}<br>
-                                                        {{ overlap.salas|join:', ' }}
-                                                    </div>
+                                                    style="width: calc(100% / '{{ overlapping_aulas|length }}');"
+                                                    data-aula-id="{{ overlap.id }}"
+                                                    data-uc-id="{{ uc_info.codigo }}"
+                                                    data-rowspan="{{ overlap.duracao }}"
+                                                    data-dia="{{ dia }}"
+                                                    data-hora-inicial="{{ overlap.horaInicial }}"
+                                                    data-duracao="{{ overlap.duracao }}"
+                                                    data-toggle="popover"
+                                                    data-placement="top"
+                                                    data-content="
+                                                        UC: {{ uc_info.sigla|extract_sigla }}<br>
+                                                        Sala: {{ overlap.salas_num|join:', ' }}<br>
+                                                        Docente: {{ overlap.docentes_abrev|join:', ' }}
+                                                    "
+                                                    draggable="true">
+                                                    {{ uc_info.sigla|extract_sigla }}<br>
+                                                    {% for docente in overlap.docentes %}
+                                                        <span class="teacher-acronym" 
+                                                            data-teacher-id="{{ docente.id }}"
+                                                            data-aula-id="{{ overlap.id }}">
+                                                            {{ docente.abreviacao }}
+                                                        </span>{% if not forloop.last %}, {% endif %}
+                                                    {% endfor %}<br>
+                                                    {{ overlap.salas_num|join:', ' }}
+                                                </div>
                                                 {% endfor %}
                                             </div>
                                             {% endwith %}
@@ -136,244 +160,216 @@ $(document).ready(function() {
     }
     setAulaHeights();
 
-    // Make aulas draggable
-    $('.aula-box').draggable({
-        revert: 'invalid',
-        helper: 'clone',
-        opacity: 0.7,
-        zIndex: 1000,
-        start: function() {
-            $(this).css('visibility', 'hidden');
-        },
-        stop: function() {
-            $(this).css('visibility', 'visible');
-        }
-    });
+    // Track selected element for both teachers and classes
+    let selectedElement = null;
 
-    // Make cells droppable
-    $('.schedule-cell').droppable({
-        accept: '.aula-box',
-        tolerance: 'pointer',
-        hoverClass: 'drop-target',
-        drop: function(event, ui) {
-            var $dragged = ui.draggable;
-            var $target = $(this);
-            var $existingClass = $target.find('.aula-box');
-            
-            // Get position data
-            var targetDia = $target.data('dia');
-            var targetHora = $target.data('hora');
-            var draggedData = {
-                aulaId: $dragged.data('aula-id'),
-                ucId: $dragged.data('uc-id'),
-                dia: $dragged.data('dia'),
-                hora: $dragged.data('hora-inicial'),
-                duracao: $dragged.data('duracao')
-            };
-
-            if ($existingClass.length > 0) {
-                // SWAP CLASSES
-                var existingData = {
-                    aulaId: $existingClass.data('aula-id'),
-                    ucId: $existingClass.data('uc-id'),
-                    dia: $existingClass.data('dia'),
-                    hora: $existingClass.data('hora-inicial'),
-                    duracao: $existingClass.data('duracao')
-                };
-
-                if (confirm(`Swap ${draggedData.ucId} (${formatTime(draggedData.hora)}) with ${existingData.ucId} (${formatTime(existingData.hora)})?`)) {
-                    // Prepare swap data for backend
-                    var swapData = {
-                        aula1: {
-                            id: draggedData.aulaId,
-                            newDia: targetDia,
-                            newHora: targetHora
-                        },
-                        aula2: {
-                            id: existingData.aulaId,
-                            newDia: draggedData.dia,
-                            newHora: draggedData.hora
-                        },
-                        csrfmiddlewaretoken: '{{ csrf_token }}'
-                    };
-
-                    // Perform swap via AJAX
-                    $.ajax({
-                        url: '/editturnos/' + '{{ projId }}' + '/swap_aulas/',
-                        type: 'POST',
-                        data: JSON.stringify(swapData),
-                        contentType: 'application/json',
-                        headers: {
-                            'X-CSRFToken': getCookie('csrftoken'),
-                            'X-Requested-With': 'XMLHttpRequest'
-                        },
-                        success: function(response) {
-                            if (response.success) {
-                                // Visual update after successful swap
-                                var $originalCell = $dragged.closest('.schedule-cell');
-                                
-                                // Move existing class to original position
-                                $originalCell.empty().append($existingClass);
-                                $existingClass.attr({
-                                    'data-dia': draggedData.dia,
-                                    'data-hora-inicial': draggedData.hora
-                                });
-                                
-                                // Move dragged class to new position
-                                $target.empty().append($dragged);
-                                $dragged.attr({
-                                    'data-dia': targetDia,
-                                    'data-hora-inicial': targetHora
-                                });
-                                
-                                setAulaHeights();
-                                
-                                // Show conflicts if any
-                                if (response.conflicts && response.conflicts.length > 0) {
-                                    alert('Swap completed with conflicts:\n' + 
-                                        response.conflicts.join('\n'));
-                                }
-                            } else {
-                                alert('Swap failed: ' + (response.error || 'Unknown error'));
-                                window.location.reload();
-                            }
-                        },
-                        error: function(xhr, status, error) {
-                            alert('Error connecting to server');
-                            window.location.reload();
-                        }
-                    });
-                }
-            } else {
-                // SINGLE MOVE (original functionality)
-                if (true) {
-                    // Update database FIRST
-                    $.ajax({
-                        url: '/editturnos/' + '{{ projId }}' + '/uc_changes/',
-                        type: 'POST',
-                        data: JSON.stringify({
-                            aulaId: draggedData.aulaId,
-                            ucId: draggedData.ucId,
-                            newDia: targetDia,
-                            newHora: targetHora,
-                            duracao: draggedData.duracao,
-                            csrfmiddlewaretoken: '{{ csrf_token }}'
-                        }),
-                        contentType: 'application/json',
-                        headers: {
-                            'X-CSRFToken': getCookie('csrftoken'),
-                            'X-Requested-With': 'XMLHttpRequest'
-                        },
-                        success: function(response) {
-                            if (response.success) {
-                                // Only update visually after successful DB update
-                                $target.empty().append($dragged);
-                                $dragged.attr({
-                                    'data-dia': targetDia,
-                                    'data-hora-inicial': targetHora
-                                });
-                                setAulaHeights();
-                                
-                                // Show conflicts if any
-                                if (response.conflicts && response.conflicts.length > 0) {
-                                    alert('Move completed with conflicts:\n' + 
-                                        response.conflicts.join('\n'));
-                                }
-                            } else {
-                                alert('Error: ' + (response.error || 'Failed to save changes'));
-                                window.location.reload();
-                            }
-                        },
-                        error: function(xhr, status, error) {
-                            
-                            window.location.reload();
-                        }
-                    });
-                }
-            }
-        }
-    });
-
-    function formatTime(timeStr) {
-        // Convert to string if it isn't already
-        timeStr = String(timeStr);
-        
-        // Pad with leading zeros if needed (e.g., 800 -> "0800")
-        timeStr = timeStr.padStart(4, '0');
-        
-        // Format as HH:MM
-        return timeStr.substring(0, 2) + ':' + timeStr.substring(2);
-    }
-
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
-    }
-});
-</script>
-
-
-<script>
-$(document).ready(function() {
-    // Track selected teacher
-    let selectedTeacher = null;
-
-    // Teacher selection handler
-    $(document).on('click', '.teacher-acronym', function(e) {
+    // Handle clicks for both teachers and class boxes
+    $(document).on('click', '.teacher-acronym, .aula-box, .schedule-cell', function(e) {
         e.stopPropagation();
+        const $element = $(this);
         
-        const $teacherElement = $(this);
-        const teacherId = $teacherElement.data('teacher-id');
-        const teacherAbbreviation = $teacherElement.text().trim();
-        const aulaId = $teacherElement.data('aula-id');
+        // Determine what was clicked
+        let elementType;
+        if ($element.hasClass('teacher-acronym')) {
+            elementType = 'teacher';
+        } else if ($element.hasClass('aula-box')) {
+            elementType = 'class';
+        } else if ($element.hasClass('schedule-cell')) {
+            elementType = 'cell';
+        }
 
-        if (!selectedTeacher) {
-            // First click - select teacher
-            selectedTeacher = {
-                id: teacherId,
-                abbreviation: teacherAbbreviation,
-                aulaId: aulaId,
-                element: $teacherElement
-            };
-            $teacherElement.addClass('teacher-selected');
-        } else {
-            // Second click - check if it's the same teacher
-            if (teacherId === selectedTeacher.id) {
-                // Deselect if same teacher clicked again
-                $teacherElement.removeClass('teacher-selected');
-                selectedTeacher = null;
+        if (!selectedElement) {
+            // First selection
+            if (elementType === 'cell') {
+                // Can't select empty cell first
                 return;
             }
-
-            // Confirm swap
-            if (confirm(`Swap teacher ${selectedTeacher.abbreviation} with ${teacherAbbreviation}?`)) {
-                swapTeachers(
-                    selectedTeacher.aulaId,
-                    selectedTeacher.id,
-                    aulaId,
-                    teacherId,
-                    selectedTeacher.element,
-                    $teacherElement
-                );
+            
+            selectedElement = {
+                element: $element,
+                type: elementType,
+                id: elementType === 'teacher' ? $element.data('teacher-id') : $element.data('aula-id'),
+                text: elementType === 'teacher' ? $element.text() : $element.find('.teacher-acronym').first().text(),
+                aulaElement: elementType === 'teacher' ? $element.closest('.aula-box') : $element
+            };
+            $element.addClass('selected');
+        } else {
+            // Second selection - handle different combinations
+            if (selectedElement.type === 'teacher' && elementType === 'teacher') {
+                // Teacher swap
+                if (confirm(`Swap teacher ${selectedElement.text} with ${$element.text()}?`)) {
+                    swapTeachers(
+                        selectedElement.aulaElement.data('aula-id'),
+                        selectedElement.id,
+                        $element.closest('.aula-box').data('aula-id'),
+                        $element.data('teacher-id'),
+                        selectedElement.element,
+                        $element
+                    );
+                }
+            } else if (selectedElement.type === 'class' && elementType === 'cell') {
+                // Move class to empty cell
+                const $targetCell = $element;
+                const newDia = $targetCell.data('dia');
+                const newHora = $targetCell.data('hora');
+                
+                if (confirm(`Move this class to ${newDia} at ${formatTime(newHora)}?`)) {
+                    moveClassToCell(
+                        selectedElement.id,
+                        newDia,
+                        newHora,
+                        selectedElement.element,
+                        $targetCell
+                    );
+                }
+            } else if (selectedElement.type === 'class' && elementType === 'class') {
+                // Class swap
+                if (confirm(`Swap these two classes?`)) {
+                    swapClasses(
+                        selectedElement.id,
+                        $element.data('aula-id'),
+                        selectedElement.element,
+                        $element
+                    );
+                }
+            } else {
+                alert("Invalid selection combination");
             }
             
             // Reset selection
-            $('.teacher-acronym').removeClass('teacher-selected');
-            selectedTeacher = null;
+            $('.selected').removeClass('selected');
+            selectedElement = null;
         }
     });
 
-    // Function to perform teacher swap via AJAX
+    // New function to move class to empty cell
+    function moveClassToCell(aulaId, newDia, newHora, $aulaElement, $targetCell) {
+        // Show loading state
+        $aulaElement.css('opacity', '0.5');
+
+        $.ajax({
+            url: `/editturnos/${'{{ projId }}'}/uc_changes/`,
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                type: 'move',
+                aulaId: aulaId,
+                newDia: newDia,
+                newHora: newHora,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            }),
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function(response) {
+                if (response.success) {
+                    // Update UI
+                    $aulaElement.attr({
+                        'data-dia': newDia,
+                        'data-hora-inicial': newHora
+                    });
+                    
+                    // Move the aula to the new cell
+                    const $aulaContainer = $aulaElement.closest('.aula-container').detach();
+                    $targetCell.empty().append($aulaContainer);
+                    
+                    if (response.conflicts && response.conflicts.length > 0) {
+                        alert('Move completed with conflicts:\n' + response.conflicts.join('\n'));
+                    }
+                } else {
+                    alert('Error: ' + (response.error || 'Failed to move class'));
+                }
+            },
+            error: function(xhr, status, error) {
+                alert('Error connecting to server');
+            },
+            complete: function() {
+                $aulaElement.css('opacity', '1');
+            }
+        });
+    }
+
+    // Helper function to format time
+    function formatTime(timeStr) {
+        timeStr = String(timeStr).padStart(4, '0');
+        return timeStr.substring(0, 2) + ':' + timeStr.substring(2);
+    }
+
+    // Function to swap classes
+    function swapClasses(aula1Id, aula2Id, $element1, $element2) {
+        // Get current positions
+        const dia1 = $element1.data('dia');
+        const hora1 = $element1.data('hora-inicial');
+        const dia2 = $element2.data('dia');
+        const hora2 = $element2.data('hora-inicial');
+        
+        // Show loading state
+        $element1.css('opacity', '0.5');
+        $element2.css('opacity', '0.5');
+
+        $.ajax({
+            url: `/editturnos/${'{{ projId }}'}/swap_aulas/`,
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                aula1: {
+                    id: aula1Id,
+                    newDia: dia2,
+                    newHora: hora2
+                },
+                aula2: {
+                    id: aula2Id,
+                    newDia: dia1,
+                    newHora: hora1
+                },
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            }),
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function(response) {
+                if (response.success) {
+                    // Update UI positions
+                    $element1.attr({
+                        'data-dia': dia2,
+                        'data-hora-inicial': hora2
+                    });
+                    $element2.attr({
+                        'data-dia': dia1,
+                        'data-hora-inicial': hora1
+                    });
+                    
+                    // Move elements to new positions in the table
+                    const $cell1 = $element1.closest('td');
+                    const $cell2 = $element2.closest('td');
+                    
+                    // Swap the aula-container contents
+                    const $container1 = $cell1.find('.aula-container').detach();
+                    const $container2 = $cell2.find('.aula-container').detach();
+                    
+                    $cell1.append($container2);
+                    $cell2.append($container1);
+                    
+                    if (response.conflicts && response.conflicts.length > 0) {
+                        alert('Swap completed with conflicts:\n' + response.conflicts.join('\n'));
+                    }
+                } else {
+                    alert('Error: ' + (response.error || 'Failed to swap classes'));
+                }
+            },
+            error: function(xhr, status, error) {
+                alert('Error connecting to server');
+            },
+            complete: function() {
+                $element1.css('opacity', '1');
+                $element2.css('opacity', '1');
+            }
+        });
+    }
+
+    // Function to swap teachers
     function swapTeachers(aula1Id, teacher1Id, aula2Id, teacher2Id, $teacher1Element, $teacher2Element) {
         // Show loading state
         const originalTeacher1 = $teacher1Element.text();
@@ -399,8 +395,8 @@ $(document).ready(function() {
             success: function(response) {
                 if (response.success) {
                     // Update UI with the returned teacher abbreviations
-                    $teacher1Element.text(response.new_teacher2_abbreviation);
-                    $teacher2Element.text(response.new_teacher1_abbreviation);
+                    $teacher1Element.text(response.new_teacher1_abbreviation);
+                    $teacher2Element.text(response.new_teacher2_abbreviation);
                     
                     // Update data attributes
                     $teacher1Element.data('teacher-id', teacher2Id);
@@ -438,6 +434,7 @@ $(document).ready(function() {
     }
 });
 </script>
+
 <style>
   html, body {
     height: 100%;
@@ -497,71 +494,85 @@ $(document).ready(function() {
     overflow: hidden;
     z-index: 1;
     margin: 0;
-    cursor: move;
+    cursor: pointer;
+    transition: all 0.3s ease;
   }
 
-  .aula-box.dragging {
-    opacity: 0.5;
+  .aula-box:hover {
+    background-color: #d0ebff;
   }
 
   .aula-teorica { background-color: #fff7e6; }
   .aula-pratica { background-color: #f0ffe6; }
   .aula-laboratorio { background-color: #ffe6f7; }
 
-  .aula-box:hover {
-    background-color: #d0ebff;
+  .selected {
+    box-shadow: 0 0 0 3px #4CAF50;
+    position: relative;
+    z-index: 10;
   }
 
-  .drop-target {
-    background-color: #f0f8ff !important;
+  .selected::after {
+    content: "✓";
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #4CAF50;
+    color: white;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
   }
 
-
-/* Add to your existing styles */
-.ui-draggable-dragging {
-    transform: scale(1.05);
-    box-shadow: 0 0 10px rgba(0,0,0,0.2);
-}
-
-.dragging-source {
-    opacity: 0.4;
-}
-
-.drop-target {
-    background-color: #e6f7ff !important;
-    outline: 2px dashed #1890ff;
-}
-
-.aula-box.ui-draggable-dragging {
-    transform: scale(1.05);
-    box-shadow: 0 0 10px rgba(0,0,0,0.3);
-}
-
-.drop-target {
-    background-color: #e6f7ff !important;
-    outline: 2px dashed #1890ff;
-}
-
-.dragging-source {
-    opacity: 0.3;
-}
-
-.teacher-acronym {
+  .teacher-acronym {
     cursor: pointer;
     padding: 2px 4px;
     border-radius: 3px;
     transition: all 0.2s;
     display: inline-block;
-}
+  }
 
-.teacher-acronym:hover {
+  .teacher-acronym:hover {
     background-color: #e6f7ff;
-}
+  }
 
-.teacher-selected {
+  .teacher-selected {
     background-color: #4CAF50 !important;
     color: white !important;
-    box-shadow: 0 0 0 2px #4CAF50;
+  }
+
+  .ui-draggable-dragging {
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(0,0,0,0.2);
+  }
+
+  .drop-target {
+    background-color: #e6f7ff !important;
+    outline: 2px dashed #1890ff;
+  }
+  
+.schedule-cell {
+    min-height: 50px;
+    position: relative;
+    cursor: pointer;
+}
+
+.schedule-cell:hover {
+    background-color: #f5f5f5;
+}
+
+.schedule-cell.empty:hover::after {
+    content: "+";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 20px;
+    color: #ccc;
 }
 </style>
 
