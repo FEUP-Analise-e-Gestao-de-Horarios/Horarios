@@ -687,16 +687,25 @@ def uc_view(request: HttpRequest, projId: int, uc_codigo: str) -> HttpResponse:
     for dia, aulas_list in aulas_por_dia.items():
         for i, aula in enumerate(aulas_list):
             aula_dict = dict(aula)
-
-            # These should be pre-joined in your getUcHorario; otherwise, you must fetch them here
+            
+            # Get docentes for this aula
             aula_docentes = auxfunc.getAulaDocentes(projId, aula_dict['id'])
+            aula_dict['docentes'] = []
+            for docente_id in aula_docentes:
+                cursor.execute('SELECT numeroMecanografico, abreviacao FROM docentes WHERE numeroMecanografico = ?', (docente_id,))
+                docente = cursor.fetchone()
+                if docente:
+                    aula_dict['docentes'].append({
+                        'id': docente['numeroMecanografico'],
+                        'abreviacao': docente['abreviacao']
+                    })
+            
+            # Get salas for this aula
             aula_salas = auxfunc.getAulaSalas(projId, aula_dict['id'])
-
-            # Force all IDs to str for consistency
-            aula_dict['docentes_abrev'] = [docente_dict.get(str(did), 'N/A') for did in aula_docentes]
-            aula_dict['salas_num'] = [sala_dict.get(str(sid), 'N/A') for sid in aula_salas]
-
+            aula_dict['salas'] = aula_salas
+            
             aulas_list[i] = aula_dict
+
 
 
     
@@ -899,6 +908,98 @@ def getSalaMiniHorario(request):
         return JsonResponse(response_data)
     except Exception as e:
         return JsonResponse({ 'error': str(e)}, status=500)
+
+
+def swap_teachers(request, projId):
+    """
+    Handles teacher swapping between two classes with improved error handling and logging.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"success": False, "error": "Unauthorized"}, status=401)
+    
+    try:
+        # Parse request data with validation
+        try:
+            data = json.loads(request.body)
+            aula1 = data.get('aula1', {})
+            aula2 = data.get('aula2', {})
+            teacher1 = data.get('teacher1')
+            teacher2 = data.get('teacher2')
+            
+            if not all([aula1.get('id'), aula2.get('id'), teacher1, teacher2]):
+                raise ValueError("Missing required parameters")
+        except (json.JSONDecodeError, ValueError) as e:
+            return JsonResponse({"success": False, "error": "Invalid request data"}, status=400)
+
+        conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("BEGIN TRANSACTION")
+            
+            # Verify teachers exist and get their abbreviations
+            cursor.execute('''SELECT numeroMecanografico, abreviacao 
+                            FROM docentes 
+                            WHERE numeroMecanografico IN (?, ?)''', 
+                            (teacher1, teacher2))
+            teachers = {str(row[0]): row[1] for row in cursor.fetchall()}
+            
+            if len(teachers) != 2:
+                return JsonResponse({"success": False, "error": "One or both teachers not found"}, status=404)
+            
+            # Verify teachers are assigned to their respective aulas
+            cursor.execute('''SELECT 1 FROM aulaDocente 
+                            WHERE idAula = ? AND idDocente = ?''', 
+                            (aula1['id'], teacher1))
+            if not cursor.fetchone():
+                return JsonResponse({"success": False, "error": "Teacher1 not assigned to aula1"}, status=400)
+                
+            cursor.execute('''SELECT 1 FROM aulaDocente 
+                            WHERE idAula = ? AND idDocente = ?''', 
+                            (aula2['id'], teacher2))
+            if not cursor.fetchone():
+                return JsonResponse({"success": False, "error": "Teacher2 not assigned to aula2"}, status=400)
+            
+            # Remove existing assignments
+            cursor.execute('''DELETE FROM aulaDocente 
+                            WHERE idAula = ? AND idDocente = ?''', 
+                            (aula1['id'], teacher1))
+            
+            cursor.execute('''DELETE FROM aulaDocente 
+                            WHERE idAula = ? AND idDocente = ?''', 
+                            (aula2['id'], teacher2))
+            
+            # Create new assignments
+            cursor.execute('''INSERT INTO aulaDocente (idAula, idDocente)
+                            VALUES (?, ?)''', 
+                            (aula1['id'], teacher2))
+            
+            cursor.execute('''INSERT INTO aulaDocente (idAula, idDocente)
+                            VALUES (?, ?)''', 
+                            (aula2['id'], teacher1))
+            
+            conn.commit()
+            
+            return JsonResponse({
+                "success": True,
+                "new_teacher1_abbreviation": teachers.get(teacher2),
+                "new_teacher2_abbreviation": teachers.get(teacher1)
+            })
+            
+        except sqlite3.Error as e:
+            conn.rollback()
+            return JsonResponse({
+                "success": False, 
+                "error": f"Database error: {str(e)}"
+            }, status=500)
+        finally:
+            conn.close()
+            
+    except Exception as e:
+        return JsonResponse({
+            "success": False, 
+            "error": f"Unexpected error: {str(e)}"
+        }, status=500)
 
 def swap_aulas(request, projId):
     if not request.user.is_authenticated:

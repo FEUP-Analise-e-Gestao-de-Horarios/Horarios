@@ -33,42 +33,31 @@
                             <td id="{{ firstHora }}">{{ first }}</td>
                             {% for dia_num in 0|times:5 %}
                                 {% with dia_num|get_day_name as dia %}
+                                {% with aulas_por_dia|dict_get:dia as dia_aulas %}
                                 <td id="cell_{{ dia_num }}_{{ firstHora }}" class="schedule-cell" data-dia="{{ dia }}" data-hora="{{ firstHora }}">
-                                    {% with aulas_por_dia|dict_get:dia as dia_aulas %}
-                                        {% for aula in dia_aulas %}
-                                            {% if aula.horaInicial|stringformat:"s" == firstHora %}
-                                                {% with aula.duracao as rowspan %}
-                                                {% with dia_aulas|get_overlapping_aulas:aula as overlapping_aulas %}
-                                                <div class="aula-container">
-                                                    {% for overlap in overlapping_aulas %}
-                                                        <div class="aula-box {% if aula.tipo == 'TP' %}aula-pratica{% elif aula.tipo == 'PL' %}aula-laboratorio{% else %}aula-teorica{% endif %}"
-                                                            style="width: calc(100% / {{ overlapping_aulas|length }});"
-                                                            data-aula-id="{{ overlap.id }}"
-                                                            data-uc-id="{{ uc_info.codigo }}"
-                                                            data-rowspan="{{ overlap.duracao }}"
-                                                            data-dia="{{ dia }}"
-                                                            data-hora-inicial="{{ overlap.horaInicial }}"
-                                                            data-duracao="{{ overlap.duracao }}"
-                                                            data-toggle="popover"
-                                                            data-placement="top"
-                                                            data-content="
-                                                                UC: {{ uc_info.sigla|extract_sigla }}<br>
-                                                                Sala: {{ overlap.salas_num|join:', ' }}<br>
-                                                                Docente: {{ overlap.docentes_abrev|join:', ' }}
-                                                            "
-                                                            draggable="true">
-                                                            {{ uc_info.sigla|extract_sigla }}<br>
-                                                            {{ overlap.docentes_abrev|join:', ' }}<br>
-                                                            {{ overlap.salas_num|join:', ' }}
-                                                        </div>
-                                                    {% endfor %}
-                                                </div>
-                                                {% endwith %}
-                                                {% endwith %}
-                                            {% endif %}
-                                        {% endfor %}
-                                    {% endwith %}
+                                    {% for aula in dia_aulas %}
+                                        {% if aula.horaInicial|stringformat:"s" == firstHora %}
+                                            {% with aula.duracao as rowspan %}
+                                            {% with dia_aulas|get_overlapping_aulas:aula as overlapping_aulas %}
+                                            <div class="aula-container">
+                                                {% for overlap in overlapping_aulas %}
+                                                    <div class="aula-box">
+                                                        {{ uc_info.sigla|extract_sigla }}<br>
+                                                        <span class="teacher-acronym" 
+                                                            data-teacher-id="{{ docente.numeroMecanografico }}">
+                                                            {{ docente.abreviacao }}
+                                                        </span><br>
+                                                        {{ sala.numero }}
+                                                    </div>
+                                                        
+                                                {% endfor %}
+                                            </div>
+                                            {% endwith %}
+                                            {% endwith %}
+                                        {% endif %}
+                                    {% endfor %}
                                 </td>
+                                {% endwith %}
                                 {% endwith %}
                             {% endfor %}
                         </tr>
@@ -78,42 +67,41 @@
                             <td id="{{ secondHora }}">{{ second }}</td>
                             {% for dia_num in 0|times:5 %}
                                 {% with dia_num|get_day_name as dia %}
+                                {% with aulas_por_dia|dict_get:dia as dia_aulas %}
                                 <td id="cell_{{ dia_num }}_{{ secondHora }}" class="schedule-cell" data-dia="{{ dia }}" data-hora="{{ secondHora }}">
-                                    {% with aulas_por_dia|dict_get:dia as dia_aulas %}
-                                        {% for aula in dia_aulas %}
-                                            {% if aula.horaInicial|stringformat:"s" == secondHora %}
-                                                {% with aula.duracao as rowspan %}
-                                                {% with dia_aulas|get_overlapping_aulas:aula as overlapping_aulas %}
-                                                <div class="aula-container">
-                                                    {% for overlap in overlapping_aulas %}
-                                                        <div class="aula-box {% if aula.tipo == 'TP' %}aula-pratica{% elif aula.tipo == 'PL' %}aula-laboratorio{% else %}aula-teorica{% endif %}"
-                                                            style="width: calc(100% / {{ overlapping_aulas|length }});"
-                                                            data-aula-id="{{ overlap.id }}"
-                                                            data-uc-id="{{ uc_info.codigo }}"
-                                                            data-rowspan="{{ overlap.duracao }}"
-                                                            data-dia="{{ dia }}"
-                                                            data-hora-inicial="{{ overlap.horaInicial }}"
-                                                            data-duracao="{{ overlap.duracao }}"
-                                                            data-toggle="popover"
-                                                            data-placement="top"
-                                                            data-content="
-                                                                UC: {{ uc_info.sigla|extract_sigla }}<br>
-                                                                Sala: {{ overlap.salas_num|join:', ' }}<br>
-                                                                Docente: {{ overlap.docentes_abrev|join:', ' }}
-                                                            "
-                                                            draggable="true">
-                                                            {{ uc_info.sigla|extract_sigla }}<br>
-                                                            {{ overlap.docentes_abrev|join:', ' }}<br>
-                                                            {{ overlap.salas_num|join:', ' }}
-                                                        </div>
-                                                    {% endfor %}
-                                                </div>
-                                                {% endwith %}
-                                                {% endwith %}
-                                            {% endif %}
-                                        {% endfor %}
-                                    {% endwith %}
+                                    {% for aula in dia_aulas %}
+                                        {% if aula.horaInicial|stringformat:"s" == secondHora %}
+                                            {% with aula.duracao as rowspan %}
+                                            {% with dia_aulas|get_overlapping_aulas:aula as overlapping_aulas %}
+                                            <div class="aula-container">
+                                                {% for overlap in overlapping_aulas %}
+                                                    <div class="aula-box {% if aula.tipo == 'TP' %}aula-pratica{% elif aula.tipo == 'PL' %}aula-laboratorio{% else %}aula-teorica{% endif %}"
+                                                        style="width: calc(100% / '{{ overlapping_aulas|length }}');"
+                                                        data-aula-id="{{ overlap.id }}"
+                                                        data-uc-id="{{ uc_info.codigo }}"
+                                                        data-rowspan="{{ overlap.duracao }}"
+                                                        data-dia="{{ dia }}"
+                                                        data-hora-inicial="{{ overlap.horaInicial }}"
+                                                        data-duracao="{{ overlap.duracao }}"
+                                                        draggable="true">
+                                                        {{ uc_info.sigla|extract_sigla }}<br>
+                                                        {% for docente in overlap.docentes %}
+                                                            <span class="teacher-acronym" 
+                                                                data-teacher-id="{{ docente.id }}"
+                                                                data-aula-id="{{ overlap.id }}">
+                                                                {{ docente.abreviacao }}
+                                                            </span>{% if not forloop.last %}, {% endif %}
+                                                        {% endfor %}<br>
+                                                        {{ overlap.salas|join:', ' }}
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                            {% endwith %}
+                                            {% endwith %}
+                                        {% endif %}
+                                    {% endfor %}
                                 </td>
+                                {% endwith %}
                                 {% endwith %}
                             {% endfor %}
                         </tr>
@@ -334,6 +322,122 @@ $(document).ready(function() {
 });
 </script>
 
+
+<script>
+$(document).ready(function() {
+    // Track selected teacher
+    let selectedTeacher = null;
+
+    // Teacher selection handler
+    $(document).on('click', '.teacher-acronym', function(e) {
+        e.stopPropagation();
+        
+        const $teacherElement = $(this);
+        const teacherId = $teacherElement.data('teacher-id');
+        const teacherAbbreviation = $teacherElement.text().trim();
+        const aulaId = $teacherElement.data('aula-id');
+
+        if (!selectedTeacher) {
+            // First click - select teacher
+            selectedTeacher = {
+                id: teacherId,
+                abbreviation: teacherAbbreviation,
+                aulaId: aulaId,
+                element: $teacherElement
+            };
+            $teacherElement.addClass('teacher-selected');
+        } else {
+            // Second click - check if it's the same teacher
+            if (teacherId === selectedTeacher.id) {
+                // Deselect if same teacher clicked again
+                $teacherElement.removeClass('teacher-selected');
+                selectedTeacher = null;
+                return;
+            }
+
+            // Confirm swap
+            if (confirm(`Swap teacher ${selectedTeacher.abbreviation} with ${teacherAbbreviation}?`)) {
+                swapTeachers(
+                    selectedTeacher.aulaId,
+                    selectedTeacher.id,
+                    aulaId,
+                    teacherId,
+                    selectedTeacher.element,
+                    $teacherElement
+                );
+            }
+            
+            // Reset selection
+            $('.teacher-acronym').removeClass('teacher-selected');
+            selectedTeacher = null;
+        }
+    });
+
+    // Function to perform teacher swap via AJAX
+    function swapTeachers(aula1Id, teacher1Id, aula2Id, teacher2Id, $teacher1Element, $teacher2Element) {
+        // Show loading state
+        const originalTeacher1 = $teacher1Element.text();
+        const originalTeacher2 = $teacher2Element.text();
+        $teacher1Element.text('Swapping...');
+        $teacher2Element.text('Swapping...');
+
+        $.ajax({
+            url: `/editturnos/${'{{ projId }}'}/swap_teachers/`,
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                aula1: { id: aula1Id },
+                aula2: { id: aula2Id },
+                teacher1: teacher1Id.toString(),
+                teacher2: teacher2Id.toString(),
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            }),
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function(response) {
+                if (response.success) {
+                    // Update UI with the returned teacher abbreviations
+                    $teacher1Element.text(response.new_teacher2_abbreviation);
+                    $teacher2Element.text(response.new_teacher1_abbreviation);
+                    
+                    // Update data attributes
+                    $teacher1Element.data('teacher-id', teacher2Id);
+                    $teacher2Element.data('teacher-id', teacher1Id);
+                } else {
+                    // Revert on error
+                    $teacher1Element.text(originalTeacher1);
+                    $teacher2Element.text(originalTeacher2);
+                    alert('Error: ' + (response.error || 'Failed to swap teachers'));
+                }
+            },
+            error: function(xhr, status, error) {
+                // Revert on error
+                $teacher1Element.text(originalTeacher1);
+                $teacher2Element.text(originalTeacher2);
+                alert('Error connecting to server');
+            }
+        });
+    }
+
+    // Helper function to get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+});
+</script>
 <style>
   html, body {
     height: 100%;
@@ -440,6 +544,24 @@ $(document).ready(function() {
 
 .dragging-source {
     opacity: 0.3;
+}
+
+.teacher-acronym {
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: all 0.2s;
+    display: inline-block;
+}
+
+.teacher-acronym:hover {
+    background-color: #e6f7ff;
+}
+
+.teacher-selected {
+    background-color: #4CAF50 !important;
+    color: white !important;
+    box-shadow: 0 0 0 2px #4CAF50;
 }
 </style>
 
