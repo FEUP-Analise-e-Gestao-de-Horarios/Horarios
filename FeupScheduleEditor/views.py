@@ -1060,7 +1060,6 @@ def uc_changes(request, projId):
                 aula_id = data.get('aulaId')
                 new_dia = data.get('newDia')
                 new_hora = data.get('newHora')
-                
                 if not all([aula_id, new_dia, new_hora]):
                     return JsonResponse({"success": False, "error": "Missing parameters"}, status=400)
                 
