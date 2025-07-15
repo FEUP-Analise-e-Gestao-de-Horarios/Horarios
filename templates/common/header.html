@@ -9,6 +9,7 @@
 
       <ul class="nav mb-2 justify-content-center mb-md-0">
         <a class="btn btn-warning me-2" href="/">Início</a>
+        {% if not display_edit_buttons%}
         <button type="button" class="btn btn-outline-light me-2" data-bs-toggle="modal"
           data-bs-target="#createPopup">Novo Projeto</button>
         <button type="button" class="btn btn-outline-light me-2 dropdown-toggle" id="openDropDown"
@@ -22,7 +23,13 @@
         </div>
         <button type="button" class="btn btn-outline-light me-2" onclick="location.href='/groups';"
           data-bs-toggle="modal">Grupos</button>
+        {% endif %}
+        {% if display_edit_buttons %}
+        <button class="btn btn-outline-danger me-2" type="button" id="conflictsBtn" aria-expanded="false">
+          <i class="bi bi-exclamation-triangle-fill"></i> Ver Conflitos
+        </button>
         {% include './exportButton.html' %}
+        {% endif %}
       </ul>
 
       {% if display_edit_buttons %}
@@ -57,13 +64,14 @@
       </div>
       {% endif %}
       <!-- <h3> {{ projeto.nome }} </h3> -->
-
+      {% if not display_edit_buttons %}
       <div class="text-end">
         <button type="button" class="btn btn-warning" data-bs-toggle="modal"
           onclick="window.location.href='/login/password_change';">Mudar palavra-passe</button>
         <button type="button" class="btn btn-warning" data-bs-toggle="modal"
           data-bs-target="#logoutPopup">Logout</button>
-      </div>
+      </div> 
+      {% endif %}
     </div>
   </div>
 </header>

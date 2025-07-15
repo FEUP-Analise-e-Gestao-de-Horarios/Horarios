@@ -568,10 +568,10 @@ def getDifferencesFromDatabases(ProjectNumber):
     cursorIni = connIni.cursor()
 
     cursorDB.execute("SELECT * FROM aula;")
-    data1 = cursorDB.fetchall()
+    data2 = cursorDB.fetchall()
 
     cursorIni.execute("SELECT * FROM aula;")
-    data2 = cursorIni.fetchall()
+    data1 = cursorIni.fetchall()
 
     # Create dictionaries to map aulaId to row data for quick lookups
     db1_aulas = {row['id']: row for row in data1}
@@ -599,7 +599,6 @@ def getDifferencesFromDatabases(ProjectNumber):
 
                 print("Starting data (old):", row_dict1)
                 print("Starting data (new):", row_dict2)
-
                 # Get associated data for both rows
                 old_aula = get_aula_info(aula_id, cursorIni, row_dict1)
                 new_aula = get_aula_info(aula_id, cursorDB, row_dict2)
@@ -607,7 +606,7 @@ def getDifferencesFromDatabases(ProjectNumber):
                 # Append the change
                 change = AulaChange(old_aula, new_aula)
                 if change.has_changes():
-                    changesList.append(change)  # Store added aula  # Store both the old and new aulas
+                    changesList.append(change)
 
     # Check for aulas that exist only in the second database (added rows)
     for aula_id, row2 in db2_aulas.items():
@@ -641,6 +640,9 @@ def getDifferencesFromDatabases(ProjectNumber):
     
     # Write to JSON file
     output_file = os.path.join(output_dir, 'changes.json')
+
+    if os.path.exists(output_file):
+        os.remove(output_file)
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(serialized_changes, f, ensure_ascii=False, indent=4)
     
@@ -662,12 +664,13 @@ def get_aula_info(aula_id, cursorDB, row_dict):
 
     # Get associated 'docentes' (teachers) for the aula
     cursorDB.execute(f"""
-        SELECT d.numeroMecanografico 
+        SELECT d.numeroMecanografico, d.nome
         FROM aulaDocente ad 
         JOIN docentes d ON ad.idDocente = d.numeroMecanografico
         WHERE ad.idAula = {aula_id};
     """)
     docentes = [row[0] for row in cursorDB.fetchall()]
+    docentes_names = [row[1] for row in cursorDB.fetchall()]
 
     # Get associated 'salas' (rooms) for the aula
     cursorDB.execute(f"""
@@ -703,8 +706,10 @@ def get_aula_info(aula_id, cursorDB, row_dict):
     data['salasIds'] = salas
     data['cadeiraId'] = uc[0]
     aula = AulaInfo.from_data(data)
+    aula.set_docentes_names(docentes_names)
     aula.uc_name = uc_name[0]
     return aula
+
 def debug_log_existing_aulas(project_number, dia_semana):
     """Logs the existing aulas from the database for the given project number and day"""
     
@@ -750,39 +755,65 @@ def debug_log_existing_aulas(project_number, dia_semana):
             connection.close()
 
 
-def organize_changes(ProjectId):
+def organize_changes(ProjectId, mode, validator):
     # TODO organize
     json_path = f'./database/Project{ProjectId}/changes.json'
 
-    if os.path.exists(json_path):
-        print(f"Loading changes from {json_path}")
+    if os.path.exists(json_path) and validator:
         with open(json_path, 'r', encoding='utf-8') as f:
             raw_changes = json.load(f)
 
-        # Convert raw dicts back to AulaChange objects
         changes = []
         for change in raw_changes:
             prev = models.AulaInfo.from_data(change['previous']) if change['previous'] else None
             new = models.AulaInfo.from_data(change['new']) if change['new'] else None
             if prev:
                 prev.uc_name = change['previous'].get('uc_name', '')
+                prev.do = change['previous'].get('uc_name', '')
             if new:
                 new.uc_name = change['new'].get('uc_name', '')
             changes.append(models.AulaChange(prev, new))
     else:
         changes = getDifferencesFromDatabases(ProjectId)
     
-    manager = models.GraphManager(ProjectId)
+    manager = models.GraphManager(ProjectId, mode)
+    path = f"Project{ProjectId}"
+    db_path = f'./database/{path}/general_database.db'
+    connDB = sqlite3.connect(db_path, check_same_thread=False)
+    connDB.row_factory = sqlite3.Row
+    cursorDB = connDB.cursor()
 
+    db_path = f'./database/{path}/initial_database.db'
+    connIni = sqlite3.connect(db_path, check_same_thread=False)
+    connIni.row_factory = sqlite3.Row
+    cursorIni = connIni.cursor()
+    
     
     for change in changes:
+        cursorIni.execute(f"""
+        SELECT d.numeroMecanografico, d.nome
+        FROM aulaDocente ad 
+        JOIN docentes d ON ad.idDocente = d.numeroMecanografico
+        WHERE ad.idAula = {change.previous.id};
+        """)
+        names_ini = [row[1] for row in cursorIni.fetchall()]
+        change.previous.set_docentes_names(names_ini)
+
+        cursorDB.execute(f"""
+        SELECT d.numeroMecanografico, d.nome
+        FROM aulaDocente ad 
+        JOIN docentes d ON ad.idDocente = d.numeroMecanografico
+        WHERE ad.idAula = {change.new.id};
+        """)
+        names_new = [row[1] for row in cursorDB.fetchall()]
+
+        change.new.set_docentes_names(names_new)
         node = models.Node(change)
         manager.add_node(node)
     print("====Finished operations====")
     manager.create_local_edges()
     manager.update_local_edges()
-    manager.order_ucs()
-    manager.print_ucs()
+    manager.default_order()
     
     return manager
     # it should return a datastructure in the format of a list of tuples. Here's the format of the tuples expected
@@ -794,3 +825,4 @@ def organize_changes(ProjectId):
     #   node IDs from changes that solve "fake" conflicts, but will only appear later in the list - tipodetroca "upcoming_changes"
     #   node IDs that form a circular dependency with - tipodetroca "circular_dependency"
     #   empty list if tipodetroca is "ok" 
+

@@ -41,8 +41,10 @@ urlpatterns = [
     path('editturnos/<int:projId>/makechanges', views.makeChanges),
     path('manageProjects/<int:projId>', views.manageProjects),
     path('export/<int:projId>', views.export),
+    path('conflicts/<int:projId>/', views.getConflicts, name='conflicts_page'),
+    path('export/<int:projId>', views.export),
     path('ucview/<int:projId>/<str:uc_codigo>', views.uc_view, name='uc_view'),
     path('editturnos/<int:projId>/uc_changes/', views.uc_changes, name='uc_changes'),
     path('editturnos/<int:projId>/swap_teachers/', views.swap_teachers, name='swap_teachers'),
-    path('editturnos/<int:projId>/swap_aulas/', views.swap_aulas, name='swap_aulas'),
+    path('editturnos/<int:projId>/swap_aulas/', views.swap_aulas, name='swap_aulas')
 ]

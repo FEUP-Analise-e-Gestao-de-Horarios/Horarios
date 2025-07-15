@@ -1,0 +1,81 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <title>Conflitos de Horários</title>
+    <link rel="stylesheet" href="{% static 'conflicts.css' %}">
+</head>
+<body>
+    <div class="container">
+        <h1>Conflitos em {{ projeto }}</h1>
+        
+        {% if has_conflicts %}
+        <div class="filter-controls">
+            <div class="filter-tabs">
+                <div class="filter-tab active" data-filter="turmas">Por Turma</div>
+                <div class="filter-tab" data-filter="salas">Por Sala</div>
+                <div class="filter-tab" data-filter="docentes">Por Docente</div>
+            </div>
+        </div>
+        
+        <!-- Turmas Section -->
+        <div id="turmas-section" class="conflict-section active">
+            {% for turma, conflicts in conflicts_turmas.items %}
+                <div class="resource-header">Turma: {{ turma }}</div>
+                <div class="conflict-group">
+                    {% include "export/conflict_block.html" with conflicts=conflicts %}
+                </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Salas Section -->
+        <div id="salas-section" class="conflict-section">
+            {% for sala, conflicts in conflicts_salas.items %}
+                <div class="resource-header">Sala: {{ sala }}</div>
+                <div class="conflict-group">
+                    {% include "export/conflict_block.html" with conflicts=conflicts %}
+                </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Docentes Section -->
+        <div id="docentes-section" class="conflict-section">
+            {% for docente, conflicts in conflicts_docentes.items %}
+                <div class="resource-header">Docente: {{ docente }}</div>
+                <div class="conflict-group">
+                    {% include "export/conflict_block.html" with conflicts=conflicts %}
+                </div>
+            {% endfor %}
+        </div>
+        {% else %}
+            <div class="no-conflicts">
+                Não foram encontrados conflitos nas alterações realizadas.
+            </div>
+        {% endif %}
+        
+        <div class="back-button">
+            <a href="/editturnos/{{ projId }}">Voltar</a>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const tabs = document.querySelectorAll('.filter-tab');
+            
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    // Remove active class from all tabs and sections
+                    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.conflict-section').forEach(s => s.classList.remove('active'));
+                    
+                    // Add active class to clicked tab and corresponding section
+                    this.classList.add('active');
+                    const filterType = this.getAttribute('data-filter');
+                    document.getElementById(`${filterType}-section`).classList.add('active');
+                });
+            });
+        });
+    </script>
+</body>
+</html>

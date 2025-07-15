@@ -23,3 +23,4 @@ def switch_number_to_day(number_string):
         '5' : 'Sábado'
     }
     return switch_dict.get(number_string, None)
+

@@ -18,8 +18,8 @@ from django.contrib import messages
 from getHorariosFromDB.movementFunctions import addDocente, removeDocente, addSala, removeSala, moveAula, changeUC, updateAulaDuration, addTurma, removeTurma
 from getHorariosFromDB.conflictFunctions import organizeInformation, findAnyConflicts
 from getHorariosFromDB.comparingDatabases import getDifferencesFromDatabases
-from getHorariosFromDB.utils import organize_changes
-from getHorariosFromDB.models import AulaChange, AulaInfo, Node, GraphManager, Graph, Edge
+from getHorariosFromDB.utils import organize_changes, append_aula_data
+from getHorariosFromDB.models import Node, GraphManager, Graph, Edge, Conflict_Manager
 import getHorariosFromDB.graph as graph_controller
 
 # Configure basic logging
@@ -38,6 +38,8 @@ logger = logging.getLogger(__name__)
 PLACEHOLDER_ID = 0
 dias = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"]
 horas = ["8:00", "8:30", "9:00", "9:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30"]
+
+validator = True
 
 
 class CursoEncoder(json.JSONEncoder):
@@ -433,11 +435,11 @@ def editTurnos(request: HttpRequest, projId: int) -> HttpResponse:
     try:
         graph_controller.init_graph(projId)
         conflicts_unorg = graph_controller.get_organized_conflicts(projId)
-        print(f"-------conflicts_unorg: {conflicts_unorg}")
+        #print(f"-------conflicts_unorg: {conflicts_unorg}")
         conflicts = organizeInformation(projId, conflicts_unorg)
         # print(f"Conflicts: {conflicts}")
     except:
-        print("Could not load conflicts")
+        #print("Could not load conflicts")
         conflicts = []
     return render(request, 'editTurnos/page.html', {'projetos':projetos, 'projId':projId, 'projeto':projeto, 'cursos': cursos_json,
                                                     'docentesList': docentesList, 'salasList': salasList, 'conflitos':conflicts, 'is_edit_turnos': True})
@@ -1178,6 +1180,7 @@ def uc_changes(request, projId):
 # makes apropriate changes
 # checks for and returns conflicts 
 def makeChanges(request, projId):
+    global validator
     if (not request.user.is_authenticated):
         return JsonResponse({"error": "User is not authenticated", "id": projId}, status=401)
     if request.method != "POST" and not request.is_ajax():
@@ -1187,8 +1190,14 @@ def makeChanges(request, projId):
     body_unicode = request.body.decode('utf-8')
     data = json.loads(body_unicode)
 
-    aula = AulaInfo.from_data(data)
-    aula_original = AulaInfo(aula_id=data['aulaId'])
+    aulaId     = data['aulaId']
+    cadeiraId  = data['cadeiraId']
+    horaInicio = data['horaInicio']
+    duracao = reverse_time_span_conversion(int(data['horaFim']) - int(horaInicio))
+    dia        = switch_number_to_day(data['dia'])
+    turmasIds  = data['turmasIds']
+    docentesIds= [str(num) for num in data['docentesIds']]
+    salasIds   = data['salasIds']
 
     #get original data for comparison
     conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
@@ -1197,89 +1206,87 @@ def makeChanges(request, projId):
 
     #horainicio, duracao, dia
     stmt = ''' SELECT horaInicial, duracao, diaSemana FROM aula WHERE id=?'''
-    cursor.execute(stmt, [aula.id,])
+    cursor.execute(stmt, [aulaId,])
     found = cursor.fetchone()
 
-    aula_original.hora_inicio = found['horaInicial']
-    aula_original.duracao = found['duracao']
-    aula_original.dia = found['diaSemana']
+    horaInicio_origin = found['horaInicial']
+    duracao_origin = found['duracao']
+    dia_origin = found['diaSemana']
 
     #cadeira
     stmt= ''' SELECT idUC FROM aulaUC WHERE idAula = ?'''
-    cursor.execute(stmt, [aula.id,])
-    aula_original.cadeira_id = cursor.fetchone()['idUC']
+    cursor.execute(stmt, [aulaId,])
+    cadeiraId_origin = cursor.fetchone()['idUC']
 
     #turmas
     stmt= '''SELECT idTurma FROM aulaTurmas WHERE idAula=?'''
-    cursor.execute(stmt, [aula.id,])
-    aula_original.turmas_ids = [row['idTurma'] for row in cursor.fetchall()]
+    cursor.execute(stmt, [aulaId,])
+    turmasIds_origin = [row['idTurma'] for row in cursor.fetchall()]
 
     #docentes
     stmt= '''SELECT idDocente FROM aulaDocente WHERE idAula=?'''
-    cursor.execute(stmt, [aula.id,])
-    aula_original.docentes_ids = [row['idDocente'] for row in cursor.fetchall()]
+    cursor.execute(stmt, [aulaId,])
+    docentesIds_origin = [row['idDocente'] for row in cursor.fetchall()]
 
     #salas
     stmt= '''SELECT idSala FROM aulaSala WHERE idAula=?'''
-    cursor.execute(stmt, [aula.id,])
-    aula_original.salas_ids = [row['idSala'] for row in cursor.fetchall()]
+    cursor.execute(stmt, [aulaId,])
+    salasIds_origin = [row['idSala'] for row in cursor.fetchall()]
 
     #print(aulaId, cadeiraId_origin, horaInicio_origin, duracao_origin, dia_origin, turmasIds_origin, docentesIds_origin, salasIds_origin)
 
     #guardar booleanos
-    cadeiraBool = False
+    cadeiraBool = False 
     duracaoBool = False
     diaHoraBool = False
     docenteBool = False
     salaBool = False
     turmaBool = False
 
-    change = Change(old=aula_original, new=aula)
-
-    if aula.cadeira_id != aula_original.cadeira_id:
+    if cadeiraId != cadeiraId_origin:
         #trocar cadeira
         cadeiraBool = True
-        changeUC(projId, aula.id, aula.cadeira_id)
-    if aula.duracao != aula_original.duracao:
+        changeUC(projId, aulaId, cadeiraId)
+    if duracao != duracao_origin:
         #trocar duracao
         duracaoBool = True
-        updateAulaDuration(projId, aula.id, aula.duracao)
-    if aula.hora_inicio != aula_original.hora_inicio or aula.dia != aula_original.dia:
+        updateAulaDuration(projId, aulaId, duracao)
+    if horaInicio != horaInicio_origin or dia != dia_origin:
         # trocar hora ou dia
         diaHoraBool = True
-        moveAula(projId, aula.id, aula.dia, aula.hora_inicio)
-    for docente in [docente for docente in aula.docentes_ids if docente not in aula_original.docentes_ids]:
+        moveAula(projId, aulaId, dia, horaInicio)
+    for docente in [docente for docente in docentesIds if docente not in docentesIds_origin]:
         #adicionar docente
         docenteBool = True
-        addDocente(projId, aula.id, docente)
-    for docente in [docente for docente in aula_original.docentes_ids if docente not in aula.docentes_ids]:
+        addDocente(projId, aulaId, docente)
+    for docente in [docente for docente in docentesIds_origin if docente not in docentesIds]:
         #remover docente
         docenteBool = True
-        removeDocente(projId, aula.id, docente)
-    for sala in [sala for sala in aula.salas_ids if sala not in aula_original.salas_ids]:
+        removeDocente(projId, aulaId, docente)
+    for sala in [sala for sala in salasIds if sala not in salasIds_origin]:
         #adicionar sala
         salaBool = True
-        addSala(projId, aula.id, sala)
-    for sala in [sala for sala in aula_original.salas_ids if sala not in aula.salas_ids]:
+        addSala(projId, aulaId, sala)
+    for sala in [sala for sala in salasIds_origin if sala not in salasIds]:
         #remover sala
         salaBool = True
-        removeSala(projId, aula.id, sala)
-    for turma in [turma for turma in aula.turmas_ids if turma not in aula_original.turmas_ids]:
+        removeSala(projId, aulaId, sala)
+    for turma in [turma for turma in turmasIds if turma not in turmasIds_origin]:
         #adicionar turma
         turmaBool = True
-        addTurma(projId, aula.id, turma)
-    for turma in [turma for turma in aula_original.turmas_ids if turma not in aula.turmas_ids]:
+        addTurma(projId, aulaId, turma)
+    for turma in [turma for turma in turmasIds_origin if turma not in turmasIds]:
         #remover turma
         turmaBool = True
-        removeTurma(projId, aula.id, turma)
+        removeTurma(projId, aulaId, turma)
 
-    checkConflict = findAnyConflicts(projId, aula.dia, aula.hora_inicio, aula.id)
+    validator = False
+    checkConflict = findAnyConflicts(projId, dia, horaInicio, aulaId)
     #buscar conflitos e envia-los
     if (checkConflict == 0):
         conflicts = []
     else:
         conflicts = checkConflict
-        change.has_conflict()
     return JsonResponse({"id": projId, "conflicts": conflicts}, status=200)
 
 # editDocentes
@@ -1379,26 +1386,189 @@ def createDocente(request, projId):
     except:
         return JsonResponse({"error": "Não foi possível criar o docente."}, status=500)
 
+# reverse_time_span_conversion
+#
+# auxiliary function that receives the duration 
+# and convertes it the corresponding rowspan
+def reverse_time_span_conversion(time_span):
+    if time_span % 100 == 30:
+        time_span = (time_span - 30) / 100 * 2 + 1
+    else:
+        time_span = time_span / 100 * 2
+    return int(time_span + 0.5)
+
+# switch_number_to_day
+#
+# Auxiliary function that receives a number as a string
+# and converts it to the corresponding week day string
+def switch_number_to_day(number_string):
+    switch_dict = {
+        '0' : 'Segunda',
+        '1' : 'Terça',
+        '2' : 'Quarta',
+        '3' : 'Quinta',
+        '4' : 'Sexta',
+        '5' : 'Sábado'
+    }
+    return switch_dict.get(number_string, None)
+
 # export
 #
 # loads the changes between the projects general and initial databases
 # and renders the export page for the project
+def get_aula_info(projId, aulaId):
+    """
+    Retrieves complete AulaInfo for a specific aula from the project database
+    Returns an AulaInfo object or None if not found
+    """
+    conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
 
-def export(request, projId): 
+    try:
+        # Get basic aula information
+        cursor.execute('''
+            SELECT a.id, a.horaInicial, a.duracao, a.diaSemana,
+                   GROUP_CONCAT(DISTINCT asl.idSala) as salas_ids,
+                   GROUP_CONCAT(DISTINCT ad.idDocente) as docentes_ids,
+                   GROUP_CONCAT(DISTINCT at.idTurma) as turmas_ids,
+                   uc.codigo as cadeiraId, uc.nome as uc_name
+            FROM aula a
+            LEFT JOIN aulaSala asl ON a.id = asl.idAula
+            LEFT JOIN aulaDocente ad ON a.id = ad.idAula
+            LEFT JOIN aulaTurmas at ON a.id = at.idAula
+            JOIN aulaUC auc ON a.id = auc.idAula
+            JOIN uc ON auc.idUC = uc.codigo
+            WHERE a.id = ?
+            GROUP BY a.id
+        ''', [aulaId])
+        
+        aula_data = cursor.fetchone()
+        
+        if not aula_data:
+            return None
+
+        # Prepare the data dictionary for AulaInfo
+        row_dict = {
+            "id": aula_data['id'],
+            "horaInicial": aula_data['horaInicial'],
+            "duracao": aula_data['duracao'],
+            "diaSemana": aula_data['diaSemana'],
+            "idUc": aula_data['cadeiraId'],
+            "idTurma": aula_data['turmas_ids'].split(',')[0] if aula_data['turmas_ids'] else None,
+            "idDocente": aula_data['docentes_ids'].split(',')[0] if aula_data['docentes_ids'] else None,
+            "idSala": aula_data['salas_ids'].split(',')[0] if aula_data['salas_ids'] else None
+        }
+
+        # Process the base data
+        data = append_aula_data(row_dict)
+        
+        # Add the collected relationships
+        data.update({
+            'turmasIds': aula_data['turmas_ids'].split(',') if aula_data['turmas_ids'] else [],
+            'docentesIds': [str(d) for d in aula_data['docentes_ids'].split(',')] if aula_data['docentes_ids'] else [],
+            'salasIds': aula_data['salas_ids'].split(',') if aula_data['salas_ids'] else [],
+        })
+
+        # Create and return the AulaInfo instance
+        aula = AulaInfo.from_data(data)
+        aula.uc_name = aula_data['uc_name'] if aula_data['uc_name'] else ''
+        return aula
+        
+    except Exception as e:
+        print(f"Error fetching aula info: {e}")
+        return None
+    finally:
+        conn.close()
+
+def getConflicts(request, projId):
+    global validator
     if not request.user.is_authenticated:
         return redirect('login/')
 
     projetos = getProjetosListAux(request, request.user.pk)
     projeto = Project.objects.values_list().get(id=projId)
 
-    manager = organize_changes(projId)
+    manager = organize_changes(projId, "general", validator)
+    validator = True  # Reset validator for next use
+    
+    # Build conflicts dictionary {main_aula_id: [conflicting_aula_info1, conflicting_aula_info2]}
+    conflicts_dict = {}
+    all_conflicts = set()
+    for node in manager.get_all_nodes():
+        if node.dependency_ids:
+            main_info = get_aula_info(projId, node.change.new.id)
+            all_conflicts.add(main_info)
+            conflicts = []
+            for conflict_id in node.dependency_ids:
+                conflict_node = manager.get_node_by_aula_id(conflict_id)
+                conflict_info = get_aula_info(projId, conflict_id)
+                all_conflicts.add(conflict_info)
+                conflicts.append(conflict_info)
+            if conflicts:
+                conflicts_dict[main_info] = conflicts
 
+    path = f"Project{projId}"
+    db_path = f'./database/{path}/general_database.db'
+    connDB = sqlite3.connect(db_path, check_same_thread=False)
+    connDB.row_factory = sqlite3.Row
+    cursorDB = connDB.cursor()
+
+    for aula in all_conflicts:
+        cursorDB.execute(f"""
+        SELECT d.numeroMecanografico, d.nome
+        FROM aulaDocente ad 
+        JOIN docentes d ON ad.idDocente = d.numeroMecanografico
+        WHERE ad.idAula = {aula.id};
+        """)
+        names_new = [row[1] for row in cursorDB.fetchall()]
+        aula.set_docentes_names(names_new)
+
+
+    conflict_manager = Conflict_Manager(projId, all_conflicts)
+    conflict_manager.grouping()
+    
+    
+    
+    return render(request, 'export/conflicts.html', {
+        'projeto': projeto[2],
+        'projId': projId,
+        'conflicts_turmas': conflict_manager.conflicts_turmas,
+        'conflicts_salas': conflict_manager.conflicts_salas,
+        'conflicts_docentes': conflict_manager.conflicts_docentes,
+        'has_conflicts': bool(conflicts_dict)
+    })
+    
+def export(request, projId):
+    global validator
+    if not request.user.is_authenticated:
+        return redirect('login/')
+
+    projetos = getProjetosListAux(request, request.user.pk)
+    projeto = Project.objects.values_list().get(id=projId)
+
+    manager = organize_changes(projId, "initial", validator)
+    validator = True  # Reset validator for next use
     # Get the list of (node, counter) tuples
     node_counter_dict = manager.get_all_nodes_with_counter()
-
+    for node_id in node_counter_dict:
+        node = manager.get_node(node_id)
+        if node.dependency_ids and node.conflict_ids != []:
+            tmp = []
+            for conflict in node.dependency_ids:
+                conflict_node = manager.get_node_by_aula_id(conflict)
+                if conflict_node is not None:
+                    print(f"Conflict_id -> {conflict_node.id}")
+                    tmp.append(node_counter_dict[conflict_node.id])
+            node.dependencies = tmp
+    # Count unsolved conflicts
+    unsolved_conflicts = 0
+    for uc in manager.ucs:
+        unsolved_conflicts += len(manager.ucs[uc].unsolved_nodes)
+    print(f"Unsolved conflicts: {unsolved_conflicts}")
     return render(request, 'export/page.html', {
         'projetos': projetos,
-        'projeto': projeto[2], # obter nome do projeto
+        'projeto': projeto[2], # obter nome do projeto  
         'manager' : manager,
         'ucs': manager.ucs,
         'ucs_ordered': manager.ordered_list,

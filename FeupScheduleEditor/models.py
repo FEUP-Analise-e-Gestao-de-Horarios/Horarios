@@ -110,6 +110,8 @@ class AulaInfo:
         self.turmas_ids = turmas_ids
         self.docentes_ids = docentes_ids
         self.salas_ids = salas_ids
+        self.docentes_names = []
+
     @staticmethod
     def from_data(data):
         """Create an AulaInfo instance from the provided data."""
@@ -124,9 +126,7 @@ class AulaInfo:
         docentes_ids = [str(num) for num in data['docentesIds']]
         salas_ids = data['salasIds']
         
-        # Calculate derived values
-        #duracao = utils.reverse_time_span_conversion(int(hora_fim)- int(hora_inicio))  # Get the duration based on time difference
-        dia = data['dia']  # Convert day number to day name
+        dia = data['dia']
         # Return a new AulaInfo object
         return AulaInfo(
             aula_id=aula_id,
@@ -138,7 +138,9 @@ class AulaInfo:
             docentes_ids=docentes_ids,
             salas_ids=salas_ids,
         )
-     
+    def set_docentes_names(self, docentes_names):
+        self.docentes_names = docentes_names
+
     def formatted_time(self):
         """Return the time range in a formatted string."""
         return f"{self.hora_inicio} - {self.hora_fim}"
@@ -163,7 +165,7 @@ class AulaInfo:
     
     def formatted_docentes(self):
         """Return a comma-separated list of docentes."""
-        return ", ".join(str(docente) for docente in self.docentes_ids)
+        return ", ".join(str(docente) for docente in self.docentes_names) if self.docentes_names else ", ".join(str(docente) for docente in self.docentes_ids)
 
     def formatted_turmas(self):
         """Return a comma-separated list of turmas."""
