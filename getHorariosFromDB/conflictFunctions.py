@@ -10,6 +10,7 @@ def converter_horario(num):
 def checkIfDocenteConflict(ProjectNumber, day, hour, idAula):
     manchaDocentes = {}
     listaConflitos = {}
+    
     path = "Project"+str(ProjectNumber)
     conn = sqlite3.connect('./database/' + path + '/general_database.db', check_same_thread=False)
     cursor = conn.cursor()

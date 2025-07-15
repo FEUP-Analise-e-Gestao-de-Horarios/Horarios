@@ -451,15 +451,17 @@ function deleteCells(cell, cellsRight, cellsBottom) {
  * 
  * @returns {null} Não retorna qualquer valor.
  */
-function displayAllAulas() {
+window.displayAllAulas = function() {
     const allTurmas = document.querySelectorAll("tbody [id*=turma_]");
     allTurmas.forEach(cell => {
         cell.style.display = '';
+        cell.style.visibility = 'visible';
         if (cell.hasAttribute("data-originalcolspan")) {
             cell.colSpan = parseInt(cell.getAttribute("data-originalcolspan"), 10);
         }
     });
-}
+};
+
 
 /**
  * Faz o display de todas as aulas de um dado turno.

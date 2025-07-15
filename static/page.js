@@ -7,6 +7,7 @@ const turnosBtn = document.getElementById("turnosBtn");
 const turmasBtn = document.getElementById("turmasBtn");
 const semanasBtn = document.getElementById("semanasBtn");
 const distributionBtn = document.getElementById("showDistributionBtn");
+const ucsBtn = document.getElementById("ucsBtn");
 
 let curso, ano, semana, ucsDistribuicao, turmasPorTurno;
 let dataLoadBool = false;
@@ -63,6 +64,7 @@ function handleAnoBtn(anoNum, selectedAno, handleDist = false) {
                 updateTurnosButton(turmasPorTurno);
                 updateTurmasButton(data.turmasAno);
                 updateSemanasButton(data.semanasAno);
+                updateUCButton(data.ucsAno);
 
                 dataLoadBool = true;
 
@@ -71,6 +73,9 @@ function handleAnoBtn(anoNum, selectedAno, handleDist = false) {
                 fillDocentes(ano);
                 fillSalas(ano);
                 enablePopovers();
+
+                // Atualiza o dropdown de UCs com as opções correspondentes
+                 // Aqui estamos agora utilizando o campo ucsAno
 
                 resolve(data);
             },
@@ -82,6 +87,13 @@ function handleAnoBtn(anoNum, selectedAno, handleDist = false) {
     });
 }
 
+
+for (let i = 0; i < cursosLista.length; i++) {
+    const new_option = document.createElement("option");
+    new_option.value = cursosLista[i];
+    new_option.innerHTML = cursosLista[i];
+    cursoBtn.appendChild(new_option);
+}
 /**
  * Lida com o evento de clique no botão de distribuição.
  * @returns {null} Não retorna qualquer valor.
@@ -161,6 +173,24 @@ function updateSemanasButton(semanas) {
     createAndAppendOptions(semanasBtn, semanasStrings, "Semanas");
 }
 
+
+/**
+ * Atualiza o botão de UCs com base nas opções possíveis.
+ *
+ * @param {Object[]} ucsAno - Lista de UCs para o ano atual.
+ * @returns {null} Não retorna qualquer valor.
+ */
+function updateUCButton(ucsAno) {
+    ucsBtn.innerHTML = '<option selected>UC</option>';
+    ucsAno.forEach(uc => {
+        const option = document.createElement('option');
+        option.value = uc.codigo;  // Must match database codigo
+        option.textContent = uc.nome;
+        ucsBtn.appendChild(option);
+    });
+}
+
+
 /**
  * Função auxiliar para criar e adicionar 'options' a um dado elemento HTML.
  * 
@@ -197,6 +227,59 @@ anoBtn.addEventListener("change", function () {
     ano = this.value;
     handleAnoBtn(ano, ano).then(updateDayDivisions);
 });
+
+function displayUc(targetUc) {
+    const allCells = document.querySelectorAll("tbody td[id*=turma_]");
+    
+    // First make all cells visible and reset their structure
+    allCells.forEach(cell => {
+        cell.style.visibility = 'visible';
+        cell.style.opacity = '1';
+        if (cell.hasAttribute("data-originalcolspan")) {
+            cell.colSpan = parseInt(cell.getAttribute("data-originalcolspan"), 10);
+        }
+    });
+
+    // Then handle UC filtering
+    allCells.forEach(cell => {
+        const ucElement = cell.querySelector('p.uc');
+        
+        if (ucElement) {
+            if (ucElement.id !== targetUc) {
+                // Hide content but maintain cell structure
+                cell.style.visibility = 'hidden';
+                cell.style.opacity = '0';
+                cell.style.height = '0';
+                cell.style.padding = '0';
+                cell.style.border = 'none';
+            } else {
+                // Show matching UC with original formatting
+                cell.style.visibility = 'visible';
+                cell.style.opacity = '1';
+                cell.style.height = '';
+                cell.style.padding = '';
+                cell.style.border = '';
+                const originalColspan = cell.getAttribute('data-originalcolspan');
+                cell.colSpan = originalColspan ? parseInt(originalColspan) : 1;
+            }
+        }
+    });
+}
+
+ucsBtn.addEventListener("change", function() {
+    console.log(`[Event] UC selection changed to: ${this.value}`);
+    if (this.value === 'UC') {
+        console.log('[Event] Calling displayAllAulas()');
+        displayAllAulas();
+    } else {
+        // Redirect to the UC-specific view
+        window.location.href = `/ucview/${projId}/${this.value}`;
+    }
+    console.log('[Event] Calling update functions');
+    updateColspan();
+    updateDayDivisions();
+});
+
 
 turnosBtn.addEventListener("change", function () {
     const selectedTurno = this.value;

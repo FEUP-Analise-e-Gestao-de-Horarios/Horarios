@@ -1,7 +1,8 @@
+import logging
 from django.shortcuts import render, redirect
 from django.http import HttpResponse, HttpRequest, JsonResponse
 from django.template.loader import render_to_string
-from .models import Curso, Ano, Docente, UC, Aula, Sala, Bloco
+from .models import Curso, Ano, Docente, UC, Aula, Sala, Bloco, AulaInfo, AulaChange
 import sqlite3
 import os
 import shutil
@@ -17,7 +18,22 @@ from django.contrib import messages
 from getHorariosFromDB.movementFunctions import addDocente, removeDocente, addSala, removeSala, moveAula, changeUC, updateAulaDuration, addTurma, removeTurma
 from getHorariosFromDB.conflictFunctions import organizeInformation, findAnyConflicts
 from getHorariosFromDB.comparingDatabases import getDifferencesFromDatabases
+from getHorariosFromDB.utils import organize_changes
+from getHorariosFromDB.models import AulaChange, AulaInfo, Node, GraphManager, Graph, Edge
 import getHorariosFromDB.graph as graph_controller
+
+# Configure basic logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),  # Logs to console
+    ]
+)
+
+# Get a logger for this module
+logger = logging.getLogger(__name__)
+
 
 PLACEHOLDER_ID = 0
 dias = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"]
@@ -369,6 +385,10 @@ def editTurnos(request: HttpRequest, projId: int) -> HttpResponse:
     """
     Cria a página `editTurnos` para o projeto selecionado.
 
+    Primeiro verifica se é a primeira vez que a página é aberta para saber se é para
+    redirecionar para a página da seleção de turmas simultâneas. Caso a seleção das
+    turmas simultâneas já esteja feita então procede ao carregamento da página `editTurnos`.
+
     Começa por obter a informação do projeto e o json dos cursos, assim como
     os conflitos existentes até à altura. Usa essa informação para 
     fazer o render da página.
@@ -385,6 +405,11 @@ def editTurnos(request: HttpRequest, projId: int) -> HttpResponse:
     #projetos = Project.objects.filter(person = Person.objects.get(username = request.user.pk))
     projetos = getProjetosListAux(request, request.user.pk)
     projeto = Project.objects.values_list().get(id = projId)
+
+    # verificar se é a primeira vez que se abre o editTurnos deste projeto 
+    # se for entao redirecionar para a seleção de aulas em paralelo
+    if not Project.objects.values_list('has_selected_aulas_em_paralelo', flat=True).get(id=projId):
+        return redirect(f'/parser/selecionar_aulas_em_paralelo/?id={projId}')
 
     #salas e docentes para dropdown select
     conn = sqlite3.connect('./database/Project'+ str(projId)+'/general_database.db')
@@ -418,153 +443,283 @@ def editTurnos(request: HttpRequest, projId: int) -> HttpResponse:
                                                     'docentesList': docentesList, 'salasList': salasList, 'conflitos':conflicts, 'is_edit_turnos': True})
 
 def fillPageForCursoAno(request):
-    #Retira do request o nome do curso e do ano com os quais as tabelas serão preenchidas
-    cursoNome = request.GET.get('curso')
-    projId = int(request.GET.get('projId'))
-    anoNum = int(request.GET.get('anoNum'))
-    semanaInterval = request.GET.get('semanas', None)
+    logger.info("fillPageForCursoAno view called")
+    
+    try:
+        # Retira do request o nome do curso e do ano com os quais as tabelas serão preenchidas
+        cursoNome = request.GET.get('curso')
+        projId = int(request.GET.get('projId'))
+        anoNum = int(request.GET.get('anoNum'))
+        semanaInterval = request.GET.get('semanas', None)
+        
+        logger.debug(f"Request parameters - curso: {cursoNome}, projId: {projId}, anoNum: {anoNum}, semanaInterval: {semanaInterval}")
 
-    start_date = None
-    end_date = None
+        start_date = None
+        end_date = None
 
-    if semanaInterval and semanaInterval != 'Semanas':
-        start_date_str, end_date_str = semanaInterval.split(' - ')
-        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-    
-    #Criar o objeto do tipo curso que contém docentes, anos, ucs e salas
-    curso = Curso(cursoNome)
-    
-    #Fazer fetch de todas as salas de um dado curso
-    salasRows = auxfunc.getSalasFromCurso(projId, cursoNome)
-    
-    salas = [ Sala(row['numero'], row['tipo'], row['capacidade']) for row in salasRows ]
-    for sala in salas:
-        #Fetch de todas as aulas de uma dada sala
-        aulasSalaRows = auxfunc.getSalaHorario(projId, sala.numero)
-        aulasSala = []
-        for row in aulasSalaRows:
-            semanaInicial = datetime.strptime(row['semanaInicial'], '%Y-%m-%d').date()
-            semanaFinal = datetime.strptime(row['semanaFinal'], '%Y-%m-%d').date()
-            if semanaInterval == None or semanaInterval == "Semanas" or areSemanasCompatible(semanaInicial, semanaFinal, start_date, end_date):
-                aulasSala.append(Aula(row['id'], row['horaInicial'], row['duracao'], row['diaSemana'], row['teorico'], row['semanaInicial'], row['semanaFinal']))
+        if semanaInterval and semanaInterval != 'Semanas':
+            start_date_str, end_date_str = semanaInterval.split(' - ')
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            logger.debug(f"Parsed dates - start_date: {start_date}, end_date: {end_date}")
         
-        for aula in aulasSala:
-            turmasAula = auxfunc.getTurmasFromAula(projId, aula.id, cursoNome)
-            aula.set_turmas(turmasAula) #FORMATO -> [codigoTurma]
+        # Criar o objeto do tipo curso que contém docentes, anos, ucs e salas
+        curso = Curso(cursoNome)
+        logger.debug(f"Created Curso object for {cursoNome}")
         
-        sala.set_aulas(aulasSala) #FORMATO -> [Aula]
-        rendered_html = render_to_string('editTurnos/miniSchedule.html', {'dias': dias, 'horas': horas, 'aulas': aulasSala})
-        minified_html = re.sub(r'>\s+<', '><', rendered_html)
-        sala.set_miniHorario(minified_html)
+        # Fazer fetch de todas as salas de um dado curso
+        salasRows = auxfunc.getSalasFromCurso(projId, cursoNome)
+        logger.debug(f"Retrieved {len(salasRows)} salas for curso {cursoNome}")
         
-        #Fetch de todos os blocos vermelhos de uma dada sala
-        salaBlocoRows = auxfunc.getSalaBlocos(projId, sala.numero)
-        salaBloco = [ Bloco(row['id'], row['hora'], row['diaSemana']) for row in salaBlocoRows]
-        sala.set_blocos(salaBloco) #FORMATO -> [Bloco]
-    
-    curso.set_salas(salas)
-    
-    #Fazer fetch de todos os docentes de um curso
-    docentesRows = auxfunc.getDocentesFromCurso(projId, cursoNome)
-    docentes = [ Docente(row['numeroMecanografico'], row['nome'], row['abreviacao']) for row in docentesRows]
-    
-    curso.set_docentes(docentes)
-    
-    #Fazer fetch de todas as ucs de um curso
-    ucsRows = auxfunc.getUCsFromCurso(projId, cursoNome)
-    
-    ucs = [ UC(row['codigo'], row['nome'], row['sigla']) for row in ucsRows ]
-    for uc in ucs:
-        #Fetch de todas as aulas de uma dada UC
-        aulasUCRows = auxfunc.getUcHorario(projId, uc.codigo)
-        aulasUC = []
-        for row in aulasUCRows:
-            semanaInicial = datetime.strptime(row['semanaInicial'], '%Y-%m-%d').date()
-            semanaFinal = datetime.strptime(row['semanaFinal'], '%Y-%m-%d').date()
-            if semanaInterval == None or semanaInterval == "Semanas" or (start_date and end_date and areSemanasCompatible(semanaInicial, semanaFinal, start_date, end_date)):
-                aulasUC.append(Aula(row['id'], row['horaInicial'], row['duracao'], row['diaSemana'], row['teorico'], row['semanaInicial'], row['semanaFinal']))
-        for aula in aulasUC:
-            turmasAula = auxfunc.getTurmasFromAula(projId, aula.id, cursoNome)
-            aula.set_turmas(turmasAula) #FORMATO -> [codigoTurma]
+        salas = [ Sala(row['numero'], row['tipo'], row['capacidade']) for row in salasRows ]
+        for sala in salas:
+            # Fetch de todas as aulas de uma dada sala
+            aulasSalaRows = auxfunc.getSalaHorario(projId, sala.numero)
+            aulasSala = []
+            for row in aulasSalaRows:
+                semanaInicial = datetime.strptime(row['semanaInicial'], '%Y-%m-%d').date()
+                semanaFinal = datetime.strptime(row['semanaFinal'], '%Y-%m-%d').date()
+                if semanaInterval == None or semanaInterval == "Semanas" or areSemanasCompatible(semanaInicial, semanaFinal, start_date, end_date):
+                    aulasSala.append(Aula(row['id'], row['horaInicial'], row['duracao'], row['diaSemana'], row['teorico'], row['semanaInicial'], row['semanaFinal']))
+            
+            for aula in aulasSala:
+                turmasAula = auxfunc.getTurmasFromAula(projId, aula.id, cursoNome)
+                aula.set_turmas(turmasAula) # FORMATO -> [codigoTurma]
+            
+            sala.set_aulas(aulasSala) # FORMATO -> [Aula]
+            rendered_html = render_to_string('editTurnos/miniSchedule.html', {'dias': dias, 'horas': horas, 'aulas': aulasSala})
+            minified_html = re.sub(r'>\s+<', '><', rendered_html)
+            sala.set_miniHorario(minified_html)
+            
+            # Fetch de todos os blocos vermelhos de uma dada sala
+            salaBlocoRows = auxfunc.getSalaBlocos(projId, sala.numero)
+            salaBloco = [ Bloco(row['id'], row['hora'], row['diaSemana']) for row in salaBlocoRows]
+            sala.set_blocos(salaBloco) # FORMATO -> [Bloco]
         
-        uc.set_aulas(aulasUC) #FORMATO -> [Aulas]
+        curso.set_salas(salas)
+        logger.debug(f"Processed {len(salas)} salas with their aulas and blocos")
         
-        anos = auxfunc.getAnoFromUcCurso(projId, cursoNome, uc.codigo)
-        uc.set_anos(anos)
+        # Fazer fetch de todos os docentes de um curso
+        docentesRows = auxfunc.getDocentesFromCurso(projId, cursoNome)
+        logger.debug(f"Retrieved {len(docentesRows)} docentes for curso {cursoNome}")
         
-    curso.set_ucs(ucs)
-    
-    #Fetch de todas as turmas de um dado ano
-    turmasAno = auxfunc.getTurmasFromAnoCurso(projId, cursoNome, anoNum)
-    turmasPorTurno = auxfunc.getTurmasPorTurnoCursoAno(projId, cursoNome, anoNum)
+        docentes = [ Docente(row['numeroMecanografico'], row['nome'], row['abreviacao']) for row in docentesRows]
+        
+        curso.set_docentes(docentes)
+        
+        # Fazer fetch de todas as ucs de um curso
+        ucsRows = auxfunc.getUCsFromCurso(projId, cursoNome, anoNum)
+        logger.debug(f"Retrieved {len(ucsRows)} UCs for curso {cursoNome} and ano {anoNum}")
+        
+        ucs = [ UC(row['codigo'], row['nome'], row['sigla']) for row in ucsRows ]
+        for uc in ucs:
+            # Fetch de todas as aulas de uma dada UC
+            aulasUCRows = auxfunc.getUcHorario(projId, uc.codigo)
+            aulasUC = []
+            for row in aulasUCRows:
+                semanaInicial = datetime.strptime(row['semanaInicial'], '%Y-%m-%d').date()
+                semanaFinal = datetime.strptime(row['semanaFinal'], '%Y-%m-%d').date()
+                if semanaInterval == None or semanaInterval == "Semanas" or (start_date and end_date and areSemanasCompatible(semanaInicial, semanaFinal, start_date, end_date)):
+                    aulasUC.append(Aula(row['id'], row['horaInicial'], row['duracao'], row['diaSemana'], row['teorico'], row['semanaInicial'], row['semanaFinal']))
+            for aula in aulasUC:
+                turmasAula = auxfunc.getTurmasFromAula(projId, aula.id, cursoNome)
+                aula.set_turmas(turmasAula) # FORMATO -> [codigoTurma]
+            
+            uc.set_aulas(aulasUC) # FORMATO -> [Aulas]
+            
+            anos = auxfunc.getAnoFromUcCurso(projId, cursoNome, uc.codigo)
+            uc.set_anos(anos)
+            
+        curso.set_ucs(ucs)
+        logger.debug(f"Processed {len(ucs)} UCs with their aulas and anos")
+        
+        # Fetch de todas as turmas de um dado ano
+        turmasAno = auxfunc.getTurmasFromAnoCurso(projId, cursoNome, anoNum)
+        turmasPorTurno = auxfunc.getTurmasPorTurnoCursoAno(projId, cursoNome, anoNum)
+        logger.debug(f"Retrieved turmas - total: {len(turmasAno)}, por turno: {turmasPorTurno}")
 
-    # Sort the list of turmas for each turno
-    for turno, turmas in turmasPorTurno.items():
-        turmas.sort()  # Sort in-place
-        #turmas = sorted(turmas, key=lambda x: int(re.findall(r'\d+', x)[0]))
+        # Sort the list of turmas for each turno
+        for turno, turmas in turmasPorTurno.items():
+            turmas.sort()  # Sort in-place
+            
+        # Fetch de todos os docentes de um dado ano
+        docentesAnoRows = auxfunc.getDocentesFromAnoFromCurso(projId, cursoNome, anoNum)
+        docentesAno = [ Docente(row['numeroMecanografico'], row['nome'], row['abreviacao']) for row in docentesAnoRows]
+        logger.debug(f"Retrieved {len(docentesAno)} docentes for ano {anoNum}")
         
-    #Fetch de todos os docentes de um dado ano
-    docentesAnoRows = auxfunc.getDocentesFromAnoFromCurso(projId, cursoNome, anoNum)
-    docentesAno = [ Docente(row['numeroMecanografico'], row['nome'], row['abreviacao']) for row in docentesAnoRows]
-    for docente in docentesAno:
-        aulasDocenteRows = auxfunc.getDocenteHorario(projId, docente.numMecanografico)
-        aulasDocente = []
-        for row in aulasDocenteRows:
-            semanaInicial = datetime.strptime(row['semanaInicial'], '%Y-%m-%d').date()
-            semanaFinal = datetime.strptime(row['semanaFinal'], '%Y-%m-%d').date()
-            if semanaInterval == None or semanaInterval == "Semanas" or (start_date and end_date and areSemanasCompatible(semanaInicial, semanaFinal, start_date, end_date)):
-                aulasDocente.append(Aula(row['id'], row['horaInicial'], row['duracao'], row['diaSemana'], row['teorico'], row['semanaInicial'], row['semanaFinal']))
-        
-        for aula in aulasDocente:
-            turmasAula = auxfunc.getTurmasFromAula(projId, aula.id, cursoNome)
-            aula.set_turmas(turmasAula) #FORMATO -> [codigoTurma]
-        
-        docente.set_aulas(aulasDocente)
-        rendered_html = render_to_string('editTurnos/miniSchedule.html', {'dias': dias, 'horas': horas, 'aulas': aulasDocente} )
-        minified_html = re.sub(r'>\s+<', '><', rendered_html)
-        docente.set_miniHorario(minified_html)
-        
-        docenteBlocoRows = auxfunc.getDocenteBlocos(projId, docente.numMecanografico)
-        docenteBloco = [ Bloco(row['id'], row['hora'], row['diaSemana']) for row in docenteBlocoRows]
-        docente.set_blocos(docenteBloco)
-        
-    #Fetch de todas as semanas de um dado ano
-    semanasAno = auxfunc.getSemanasFromCursoAno(projId, cursoNome, anoNum)
+        for docente in docentesAno:
+            aulasDocenteRows = auxfunc.getDocenteHorario(projId, docente.numMecanografico)
+            aulasDocente = []
+            for row in aulasDocenteRows:
+                semanaInicial = datetime.strptime(row['semanaInicial'], '%Y-%m-%d').date()
+                semanaFinal = datetime.strptime(row['semanaFinal'], '%Y-%m-%d').date()
+                if semanaInterval == None or semanaInterval == "Semanas" or (start_date and end_date and areSemanasCompatible(semanaInicial, semanaFinal, start_date, end_date)):
+                    aulasDocente.append(Aula(row['id'], row['horaInicial'], row['duracao'], row['diaSemana'], row['teorico'], row['semanaInicial'], row['semanaFinal']))
+            
+            for aula in aulasDocente:
+                turmasAula = auxfunc.getTurmasFromAula(projId, aula.id, cursoNome)
+                aula.set_turmas(turmasAula) # FORMATO -> [codigoTurma]
+            
+            docente.set_aulas(aulasDocente)
+            rendered_html = render_to_string('editTurnos/miniSchedule.html', {'dias': dias, 'horas': horas, 'aulas': aulasDocente} )
+            minified_html = re.sub(r'>\s+<', '><', rendered_html)
+            docente.set_miniHorario(minified_html)
+            
+            docenteBlocoRows = auxfunc.getDocenteBlocos(projId, docente.numMecanografico)
+            docenteBloco = [ Bloco(row['id'], row['hora'], row['diaSemana']) for row in docenteBlocoRows]
+            docente.set_blocos(docenteBloco)
+            
+        # Fetch de todas as semanas de um dado ano
+        semanasAno = auxfunc.getSemanasFromCursoAno(projId, cursoNome, anoNum)
+        logger.debug(f"Retrieved semanas for ano {anoNum}: {semanasAno}")
 
-    ano = Ano(anoNum)
-    ano.set_turmas(turmasAno)
-    ano.set_turmasPorTurno(turmasPorTurno)
-    ano.set_docentes(docentesAno)
-    ano.set_semanas(semanasAno)
-    anos = [ano]
-    
-    curso.set_anos(anos)
+        ano = Ano(anoNum)
+        ano.set_turmas(turmasAno)
+        ano.set_turmasPorTurno(turmasPorTurno)
+        ano.set_docentes(docentesAno)
+        ano.set_semanas(semanasAno)
+        anos = [ano]
+        
+        curso.set_anos(anos)
 
-    #Fazer fetch da informação sobre turmas e turnos de um curso para cada ano
-    numAnos = auxfunc.getNumYearsFromCurso(projId, cursoNome)
-    
-    #Por default, a página é carregada com informação correspondente ao primeiro ano existente do curso selecionado
-    numeroTurmas = curso.anos[0].numTurmas
-    turmasPorTurno = curso.anos[0].turmasPorTurno
-    turmasAno = curso.anos[0].turmas
-    semanasAno = curso.anos[0].semanas
-    
-    curso_encoder = CursoEncoder()
-    curso_json = curso_encoder.encode(curso)
+        # Fazer fetch da informação sobre turmas e turnos de um curso para cada ano
+        numAnos = auxfunc.getNumYearsFromCurso(projId, cursoNome)
+        logger.debug(f"Total number of anos for curso {cursoNome}: {numAnos}")
+        
+        # Por default, a página é carregada com informação correspondente ao primeiro ano existente do curso selecionado
+        numeroTurmas = curso.anos[0].numTurmas
+        turmasPorTurno = curso.anos[0].turmasPorTurno
+        turmasAno = curso.anos[0].turmas
+        semanasAno = curso.anos[0].semanas
+        
+        # Adicionar lista de UCs para o ano e curso atual
+        ucs_ano = [{'codigo': uc.codigo, 'nome': uc.nome, 'sigla': uc.sigla} for uc in ucs]
 
-    response_data = {
-        'schedulehtml': render(request, 'editTurnos/schedule.html', {'numeroTurmas':numeroTurmas, 'turmasPorTurno':turmasPorTurno, 
-                                                    'turmasAno': turmasAno, 'ano':anoNum}).content.decode(),
-        'curso_json': curso_json,
-        'numeroTurmas':numeroTurmas,
-        'turmasAno': turmasAno,
-        'turmasPorTurno': turmasPorTurno,
-        'semanasAno': semanasAno,
-        'numAnos': numAnos
+        curso_encoder = CursoEncoder()
+        curso_json = curso_encoder.encode(curso)
+
+        response_data = {
+            'schedulehtml': render(request, 'editTurnos/schedule.html', {'numeroTurmas': numeroTurmas, 'turmasPorTurno': turmasPorTurno, 
+                                                                        'turmasAno': turmasAno, 'ano': anoNum, 'ucs': ucs}).content.decode(),
+            'curso_json': curso_json,
+            'numeroTurmas': numeroTurmas,
+            'turmasAno': turmasAno,
+            'turmasPorTurno': turmasPorTurno,
+            'semanasAno': semanasAno,
+            'numAnos': numAnos,
+            'ucsAno': ucs_ano  # Adicionando a lista de UCs para o ano e curso selecionados
+        }
+
+        logger.info("Successfully processed fillPageForCursoAno request")
+        return JsonResponse(response_data)
+
+    except Exception as e:
+        logger.error(f"Error in fillPageForCursoAno: {str(e)}", exc_info=True)
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+
+def uc_view(request: HttpRequest, projId: int, uc_codigo: str) -> HttpResponse:
+    if not request.user.is_authenticated:
+        return redirect('login/')
+    
+    projetos = getProjetosListAux(request, request.user.pk)
+    projeto = Project.objects.values_list().get(id=projId)
+    
+    # Get UC information
+    conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    # Get UC details
+    cursor.execute('SELECT * FROM uc WHERE codigo = ?', (uc_codigo,))
+    uc_info = cursor.fetchone()
+    
+    # Get all aulas for this UC
+    aulas = auxfunc.getUcHorario(projId, uc_codigo)
+    
+    # Organize aulas by day
+    aulas_por_dia = {
+        'Segunda': [],
+        'Terça': [],
+        'Quarta': [],
+        'Quinta': [],
+        'Sexta': [],
+        'Sábado': []
     }
+    
+    for aula in aulas:
+        aula_dict = dict(aula)
+        dia = aula_dict['diaSemana']
+        
+        # Get docentes for this aula
+        aula_docentes = auxfunc.getAulaDocentes(projId, aula_dict['id'])
+        aula_dict['docentes'] = []
+        for docente_id in aula_docentes:
+            cursor.execute('''SELECT numeroMecanografico, nome, abreviacao 
+                            FROM docentes 
+                            WHERE numeroMecanografico = ?''', (docente_id,))
+            docente = cursor.fetchone()
+            if docente:
+                aula_dict['docentes'].append({
+                    'id': docente['numeroMecanografico'],
+                    'nome': docente['nome'],
+                    'abreviacao': docente['abreviacao']
+                })
+        
+        # Get salas for this aula
+        aula_salas = auxfunc.getAulaSalas(projId, aula_dict['id'])
+        aula_dict['salas'] = []
+        for sala_num in aula_salas:
+            cursor.execute('''SELECT numero, tipo 
+                            FROM salas 
+                            WHERE numero = ?''', (sala_num,))
+            sala = cursor.fetchone()
+            if sala:
+                aula_dict['salas'].append(sala['numero'])
+        
+        aula_dict['salas_num'] = aula_dict['salas']  # For template compatibility
+        aula_dict['docentes_abrev'] = [d['abreviacao'] for d in aula_dict['docentes']]
+        
+        if dia in aulas_por_dia:
+            aulas_por_dia[dia].append(aula_dict)
+    
+    conn.close()
+    
+    context = {
+        'projetos': projetos,
+        'projId': projId,
+        'projeto': projeto,
+        'uc_info': uc_info,
+        'aulas_por_dia': aulas_por_dia,
+        'dias': ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"],
+        'horas': horas,
+        'is_edit_turnos': True,
+    }
+    
+    return render(request, 'editTurnos/uc_view.html', context)
 
-    return JsonResponse(response_data)
+def get_uc_list(request):
+    logger.debug("UC list requested - view entered")
+    
+    try:
+        curso = request.GET.get('curso')
+        ano = request.GET.get('ano')
+        logger.debug(f"Request parameters: curso={curso}, ano={ano}")
+
+        if not curso or not ano:
+            logger.warning("Missing parameters in request")
+            return JsonResponse({'error': 'Missing parameters'}, status=400)
+
+        logger.debug("Querying database for UCs...")
+        ucs = UC.objects.filter(curso=curso, ano=ano).values('codigo', 'nome')
+        
+        logger.debug(f"Found {len(ucs)} UCs")
+        return JsonResponse({'uc_list': list(ucs)})
+        
+    except Exception as e:
+        logger.error(f"Error in get_uc_list: {str(e)}", exc_info=True)
+        return JsonResponse({'error': str(e)}, status=500)
 
 def createEmptyTable(request):
     cursoNome = request.GET.get('curso')
@@ -724,6 +879,287 @@ def getSalaMiniHorario(request):
     except Exception as e:
         return JsonResponse({ 'error': str(e)}, status=500)
 
+
+def swap_teachers(request, projId):
+    """
+    Handles teacher swapping between two classes with improved error handling and logging.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"success": False, "error": "Unauthorized"}, status=401)
+    
+    try:
+        # Parse request data with validation
+        try:
+            data = json.loads(request.body)
+            aula1 = data.get('aula1', {})
+            aula2 = data.get('aula2', {})
+            teacher1 = data.get('teacher1')
+            teacher2 = data.get('teacher2')
+            
+            if not all([aula1.get('id'), aula2.get('id'), teacher1, teacher2]):
+                raise ValueError("Missing required parameters")
+        except (json.JSONDecodeError, ValueError) as e:
+            return JsonResponse({"success": False, "error": "Invalid request data"}, status=400)
+
+        conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("BEGIN TRANSACTION")
+            
+            # Verify teachers exist and get their abbreviations
+            cursor.execute('''SELECT numeroMecanografico, abreviacao 
+                            FROM docentes 
+                            WHERE numeroMecanografico IN (?, ?)''', 
+                            (teacher1, teacher2))
+            teachers = {str(row[0]): row[1] for row in cursor.fetchall()}
+            
+            if len(teachers) != 2:
+                return JsonResponse({"success": False, "error": "One or both teachers not found"}, status=404)
+            
+            # Verify teachers are assigned to their respective aulas
+            cursor.execute('''SELECT 1 FROM aulaDocente 
+                            WHERE idAula = ? AND idDocente = ?''', 
+                            (aula1['id'], teacher1))
+            if not cursor.fetchone():
+                return JsonResponse({"success": False, "error": "Teacher1 not assigned to aula1"}, status=400)
+                
+            cursor.execute('''SELECT 1 FROM aulaDocente 
+                            WHERE idAula = ? AND idDocente = ?''', 
+                            (aula2['id'], teacher2))
+            if not cursor.fetchone():
+                return JsonResponse({"success": False, "error": "Teacher2 not assigned to aula2"}, status=400)
+            
+            # Remove existing assignments
+            cursor.execute('''DELETE FROM aulaDocente 
+                            WHERE idAula = ? AND idDocente = ?''', 
+                            (aula1['id'], teacher1))
+            
+            cursor.execute('''DELETE FROM aulaDocente 
+                            WHERE idAula = ? AND idDocente = ?''', 
+                            (aula2['id'], teacher2))
+            
+            # Create new assignments
+            cursor.execute('''INSERT INTO aulaDocente (idAula, idDocente)
+                            VALUES (?, ?)''', 
+                            (aula1['id'], teacher2))
+            
+            cursor.execute('''INSERT INTO aulaDocente (idAula, idDocente)
+                            VALUES (?, ?)''', 
+                            (aula2['id'], teacher1))
+            
+            conn.commit()
+            
+            return JsonResponse({
+                "success": True,
+                "new_teacher1_abbreviation": teachers.get(teacher2),
+                "new_teacher2_abbreviation": teachers.get(teacher1)
+            })
+            
+        except sqlite3.Error as e:
+            conn.rollback()
+            return JsonResponse({
+                "success": False, 
+                "error": f"Database error: {str(e)}"
+            }, status=500)
+        finally:
+            conn.close()
+            
+    except Exception as e:
+        return JsonResponse({
+            "success": False, 
+            "error": f"Unexpected error: {str(e)}"
+        }, status=500)
+
+def swap_aulas(request, projId):
+    """
+    Handles swapping of two classes including their time slots and days.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"success": False, "error": "Unauthorized"}, status=401)
+    
+    try:
+        data = json.loads(request.body)
+        aula1 = data.get('aula1', {})
+        aula2 = data.get('aula2', {})
+        
+        if not all([aula1.get('id'), aula2.get('id'), 
+                   aula1.get('newDia'), aula2.get('newDia'),
+                   aula1.get('newHora'), aula2.get('newHora')]):
+            return JsonResponse({"success": False, "error": "Missing required parameters"}, status=400)
+
+        conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("BEGIN TRANSACTION")
+            
+            # Update first aula
+            cursor.execute('''
+                UPDATE aula 
+                SET diaSemana = ?, horaInicial = ?
+                WHERE id = ?
+            ''', (aula1['newDia'], aula1['newHora'], aula1['id']))
+            
+            # Update second aula
+            cursor.execute('''
+                UPDATE aula 
+                SET diaSemana = ?, horaInicial = ?
+                WHERE id = ?
+            ''', (aula2['newDia'], aula2['newHora'], aula2['id']))
+            
+            conn.commit()
+            
+            # Check for conflicts
+            conflicts1 = findAnyConflicts(projId, aula1['newDia'], aula1['newHora'], aula1['id'])
+            conflicts2 = findAnyConflicts(projId, aula2['newDia'], aula2['newHora'], aula2['id'])
+            all_conflicts = (conflicts1 or []) + (conflicts2 or [])
+            
+            return JsonResponse({
+                "success": True,
+                "conflicts": all_conflicts
+            })
+            
+        except sqlite3.Error as e:
+            conn.rollback()
+            return JsonResponse({
+                "success": False, 
+                "error": f"Database error: {str(e)}"
+            }, status=500)
+        finally:
+            conn.close()
+            
+    except Exception as e:
+        return JsonResponse({
+            "success": False, 
+            "error": f"Unexpected error: {str(e)}"
+        }, status=500)
+
+def uc_changes(request, projId):
+    """
+    Handles:
+    - Class time changes (move to empty cell)
+    - Class swaps
+    - Teacher swaps
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"success": False, "error": "Unauthorized"}, status=401)
+    
+    try:
+        data = json.loads(request.body)
+        change_type = data.get('type')  # 'move', 'swap', or 'teacher'
+        
+        conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("BEGIN TRANSACTION")
+            
+            if change_type == 'move':
+                # Handle moving class to empty cell
+                aula_id = data.get('aulaId')
+                new_dia = data.get('newDia')
+                new_hora = data.get('newHora')
+                if not all([aula_id, new_dia, new_hora]):
+                    return JsonResponse({"success": False, "error": "Missing parameters"}, status=400)
+                
+                # Update aula position
+                cursor.execute('''
+                    UPDATE aula 
+                    SET diaSemana = ?, horaInicial = ?
+                    WHERE id = ?
+                ''', (new_dia, new_hora, aula_id))
+                
+                conn.commit()
+                
+                # Check for conflicts
+                conflicts = findAnyConflicts(projId, new_dia, new_hora, aula_id)
+                return JsonResponse({
+                    "success": True,
+                    "conflicts": conflicts if conflicts else []
+                })
+                
+            elif change_type == 'swap':
+                # Handle class swaps (existing functionality)
+                aula1 = data.get('aula1', {})
+                aula2 = data.get('aula2', {})
+                
+                if not all([aula1.get('id'), aula2.get('id'), 
+                           aula1.get('newDia'), aula2.get('newDia'),
+                           aula1.get('newHora'), aula2.get('newHora')]):
+                    return JsonResponse({"success": False, "error": "Missing parameters"}, status=400)
+                
+                # Update both aulas
+                cursor.execute('''
+                    UPDATE aula 
+                    SET diaSemana = ?, horaInicial = ?
+                    WHERE id = ?
+                ''', (aula1['newDia'], aula1['newHora'], aula1['id']))
+                
+                cursor.execute('''
+                    UPDATE aula 
+                    SET diaSemana = ?, horaInicial = ?
+                    WHERE id = ?
+                ''', (aula2['newDia'], aula2['newHora'], aula2['id']))
+                
+                conn.commit()
+                
+                # Check for conflicts
+                conflicts1 = findAnyConflicts(projId, aula1['newDia'], aula1['newHora'], aula1['id'])
+                conflicts2 = findAnyConflicts(projId, aula2['newDia'], aula2['newHora'], aula2['id'])
+                return JsonResponse({
+                    "success": True,
+                    "conflicts": (conflicts1 or []) + (conflicts2 or [])
+                })
+                
+            elif change_type == 'teacher':
+                # Handle teacher swaps (existing functionality)
+                aula1 = data.get('aula1', {})
+                aula2 = data.get('aula2', {})
+                teacher1 = data.get('teacher1')
+                teacher2 = data.get('teacher2')
+                
+                if not all([aula1.get('id'), aula2.get('id'), teacher1, teacher2]):
+                    return JsonResponse({"success": False, "error": "Missing parameters"}, status=400)
+                
+                # Verify teachers exist
+                cursor.execute('SELECT numeroMecanografico, abreviacao FROM docentes WHERE numeroMecanografico IN (?, ?)', 
+                             (teacher1, teacher2))
+                teachers = {str(row[0]): row[1] for row in cursor.fetchall()}
+                
+                if len(teachers) != 2:
+                    return JsonResponse({"success": False, "error": "Teacher not found"}, status=404)
+                
+                # Remove existing assignments
+                cursor.execute('DELETE FROM aulaDocente WHERE idAula = ? AND idDocente = ?', 
+                              (aula1['id'], teacher1))
+                cursor.execute('DELETE FROM aulaDocente WHERE idAula = ? AND idDocente = ?', 
+                              (aula2['id'], teacher2))
+                
+                # Create new assignments
+                cursor.execute('INSERT INTO aulaDocente (idAula, idDocente) VALUES (?, ?)', 
+                              (aula1['id'], teacher2))
+                cursor.execute('INSERT INTO aulaDocente (idAula, idDocente) VALUES (?, ?)', 
+                              (aula2['id'], teacher1))
+                
+                conn.commit()
+                return JsonResponse({
+                    "success": True,
+                    "new_teacher1_abbreviation": teachers.get(teacher2),
+                    "new_teacher2_abbreviation": teachers.get(teacher1)
+                })
+                
+            else:
+                return JsonResponse({"success": False, "error": "Invalid change type"}, status=400)
+                
+        except sqlite3.Error as e:
+            conn.rollback()
+            return JsonResponse({"success": False, "error": f"Database error: {str(e)}"}, status=500)
+        finally:
+            conn.close()
+            
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
 # makeChanges
 #
 # Post Ajax request handler function
@@ -751,14 +1187,8 @@ def makeChanges(request, projId):
     body_unicode = request.body.decode('utf-8')
     data = json.loads(body_unicode)
 
-    aulaId     = data['aulaId']
-    cadeiraId  = data['cadeiraId']
-    horaInicio = data['horaInicio']
-    duracao = reverse_time_span_conversion(int(data['horaFim']) - int(horaInicio))
-    dia        = switch_number_to_day(data['dia'])
-    turmasIds  = data['turmasIds']
-    docentesIds= [str(num) for num in data['docentesIds']]
-    salasIds   = data['salasIds']
+    aula = AulaInfo.from_data(data)
+    aula_original = AulaInfo(aula_id=data['aulaId'])
 
     #get original data for comparison
     conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
@@ -767,86 +1197,89 @@ def makeChanges(request, projId):
 
     #horainicio, duracao, dia
     stmt = ''' SELECT horaInicial, duracao, diaSemana FROM aula WHERE id=?'''
-    cursor.execute(stmt, [aulaId,])
+    cursor.execute(stmt, [aula.id,])
     found = cursor.fetchone()
 
-    horaInicio_origin = found['horaInicial']
-    duracao_origin = found['duracao']
-    dia_origin = found['diaSemana']
+    aula_original.hora_inicio = found['horaInicial']
+    aula_original.duracao = found['duracao']
+    aula_original.dia = found['diaSemana']
 
     #cadeira
     stmt= ''' SELECT idUC FROM aulaUC WHERE idAula = ?'''
-    cursor.execute(stmt, [aulaId,])
-    cadeiraId_origin = cursor.fetchone()['idUC']
+    cursor.execute(stmt, [aula.id,])
+    aula_original.cadeira_id = cursor.fetchone()['idUC']
 
     #turmas
     stmt= '''SELECT idTurma FROM aulaTurmas WHERE idAula=?'''
-    cursor.execute(stmt, [aulaId,])
-    turmasIds_origin = [row['idTurma'] for row in cursor.fetchall()]
+    cursor.execute(stmt, [aula.id,])
+    aula_original.turmas_ids = [row['idTurma'] for row in cursor.fetchall()]
 
     #docentes
     stmt= '''SELECT idDocente FROM aulaDocente WHERE idAula=?'''
-    cursor.execute(stmt, [aulaId,])
-    docentesIds_origin = [row['idDocente'] for row in cursor.fetchall()]
+    cursor.execute(stmt, [aula.id,])
+    aula_original.docentes_ids = [row['idDocente'] for row in cursor.fetchall()]
 
     #salas
     stmt= '''SELECT idSala FROM aulaSala WHERE idAula=?'''
-    cursor.execute(stmt, [aulaId,])
-    salasIds_origin = [row['idSala'] for row in cursor.fetchall()]
+    cursor.execute(stmt, [aula.id,])
+    aula_original.salas_ids = [row['idSala'] for row in cursor.fetchall()]
 
     #print(aulaId, cadeiraId_origin, horaInicio_origin, duracao_origin, dia_origin, turmasIds_origin, docentesIds_origin, salasIds_origin)
 
     #guardar booleanos
-    cadeiraBool = False 
+    cadeiraBool = False
     duracaoBool = False
     diaHoraBool = False
     docenteBool = False
     salaBool = False
     turmaBool = False
 
-    if cadeiraId != cadeiraId_origin:
+    change = Change(old=aula_original, new=aula)
+
+    if aula.cadeira_id != aula_original.cadeira_id:
         #trocar cadeira
         cadeiraBool = True
-        changeUC(projId, aulaId, cadeiraId)
-    if duracao != duracao_origin:
+        changeUC(projId, aula.id, aula.cadeira_id)
+    if aula.duracao != aula_original.duracao:
         #trocar duracao
         duracaoBool = True
-        updateAulaDuration(projId, aulaId, duracao)
-    if horaInicio != horaInicio_origin or dia != dia_origin:
+        updateAulaDuration(projId, aula.id, aula.duracao)
+    if aula.hora_inicio != aula_original.hora_inicio or aula.dia != aula_original.dia:
         # trocar hora ou dia
         diaHoraBool = True
-        moveAula(projId, aulaId, dia, horaInicio)
-    for docente in [docente for docente in docentesIds if docente not in docentesIds_origin]:
+        moveAula(projId, aula.id, aula.dia, aula.hora_inicio)
+    for docente in [docente for docente in aula.docentes_ids if docente not in aula_original.docentes_ids]:
         #adicionar docente
         docenteBool = True
-        addDocente(projId, aulaId, docente)
-    for docente in [docente for docente in docentesIds_origin if docente not in docentesIds]:
+        addDocente(projId, aula.id, docente)
+    for docente in [docente for docente in aula_original.docentes_ids if docente not in aula.docentes_ids]:
         #remover docente
         docenteBool = True
-        removeDocente(projId, aulaId, docente)
-    for sala in [sala for sala in salasIds if sala not in salasIds_origin]:
+        removeDocente(projId, aula.id, docente)
+    for sala in [sala for sala in aula.salas_ids if sala not in aula_original.salas_ids]:
         #adicionar sala
         salaBool = True
-        addSala(projId, aulaId, sala)
-    for sala in [sala for sala in salasIds_origin if sala not in salasIds]:
+        addSala(projId, aula.id, sala)
+    for sala in [sala for sala in aula_original.salas_ids if sala not in aula.salas_ids]:
         #remover sala
         salaBool = True
-        removeSala(projId, aulaId, sala)
-    for turma in [turma for turma in turmasIds if turma not in turmasIds_origin]:
+        removeSala(projId, aula.id, sala)
+    for turma in [turma for turma in aula.turmas_ids if turma not in aula_original.turmas_ids]:
         #adicionar turma
         turmaBool = True
-        addTurma(projId, aulaId, turma)
-    for turma in [turma for turma in turmasIds_origin if turma not in turmasIds]:
+        addTurma(projId, aula.id, turma)
+    for turma in [turma for turma in aula_original.turmas_ids if turma not in aula.turmas_ids]:
         #remover turma
         turmaBool = True
-        removeTurma(projId, aulaId, turma)
+        removeTurma(projId, aula.id, turma)
 
-    checkConflict = findAnyConflicts(projId, dia, horaInicio, aulaId)
+    checkConflict = findAnyConflicts(projId, aula.dia, aula.hora_inicio, aula.id)
     #buscar conflitos e envia-los
     if (checkConflict == 0):
         conflicts = []
     else:
         conflicts = checkConflict
+        change.has_conflict()
     return JsonResponse({"id": projId, "conflicts": conflicts}, status=200)
 
 # editDocentes
@@ -946,53 +1379,30 @@ def createDocente(request, projId):
     except:
         return JsonResponse({"error": "Não foi possível criar o docente."}, status=500)
 
-# reverse_time_span_conversion
-#
-# auxiliary function that receives the duration 
-# and convertes it the corresponding rowspan
-def reverse_time_span_conversion(time_span):
-    if time_span % 100 == 30:
-        time_span = (time_span - 30) / 100 * 2 + 1
-    else:
-        time_span = time_span / 100 * 2
-    return int(time_span + 0.5)
-
-# switch_number_to_day
-#
-# Auxiliary function that receives a number as a string
-# and converts it to the corresponding week day string
-def switch_number_to_day(number_string):
-    switch_dict = {
-        '0' : 'Segunda',
-        '1' : 'Terça',
-        '2' : 'Quarta',
-        '3' : 'Quinta',
-        '4' : 'Sexta',
-        '5' : 'Sábado'
-    }
-    return switch_dict.get(number_string, None)
-
 # export
 #
 # loads the changes between the projects general and initial databases
 # and renders the export page for the project
-def export(request, projId):
-    if (not request.user.is_authenticated):
+
+def export(request, projId): 
+    if not request.user.is_authenticated:
         return redirect('login/')
-    
 
     projetos = getProjetosListAux(request, request.user.pk)
-    projeto = Project.objects.values_list().get(id = projId)
-    conflicts = []
-    try:
-        graph_controller.init_graph(projId)
-        conflicts_unorg = graph_controller.get_organized_conflicts(projId)
-        conflicts = organizeInformation(projId, conflicts_unorg)
-        # print(f"Conflicts: {conflicts}")
-    except:
-        print("Could not load conflicts")
-        conflicts = []
-    message = getDifferencesFromDatabases(projId)
-    if len(message) <=0:
-        message.append('Não Foram Efetuadas Mudanças')
-    return render(request, 'export/page.html', {'projetos': projetos, 'projeto': projeto[2], 'message':message, 'conflicts':conflicts, 'projId':projId, 'is_edit_turnos': False})
+    projeto = Project.objects.values_list().get(id=projId)
+
+    manager = organize_changes(projId)
+
+    # Get the list of (node, counter) tuples
+    node_counter_dict = manager.get_all_nodes_with_counter()
+
+    return render(request, 'export/page.html', {
+        'projetos': projetos,
+        'projeto': projeto[2], # obter nome do projeto
+        'manager' : manager,
+        'ucs': manager.ucs,
+        'ucs_ordered': manager.ordered_list,
+        'projId': projId,
+        'is_edit_turnos': False,
+        'node_counter_list': node_counter_dict  # <-- Add this line
+    })

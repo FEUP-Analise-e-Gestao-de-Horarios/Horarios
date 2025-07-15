@@ -590,23 +590,30 @@ def getSalasFromCurso(ProjectNumber, abreviacao_curso):
     # Return list of UC codes
     return result
 
-def getUCsFromCurso(ProjectNumber, abreviacao_curso):
+def getUCsFromCurso(ProjectNumber, abreviacao_curso, anoNum):
     # Connect to database
     path = "Project" + str(ProjectNumber)
     conn = sqlite3.connect('./database/' + path + '/general_database.db', check_same_thread=False)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    # Execute query to get all UCs (courses) for the given course
-    stmt = '''SELECT DISTINCT codigo, nome, sigla
+    # Execute query to get all UCs (courses) for the given course and year
+    stmt = '''SELECT DISTINCT uc.codigo, uc.nome, uc.sigla
               FROM uc 
               JOIN curso ON uc.idCurso = curso.abreviacao 
-              WHERE curso.abreviacao = ?'''
-    cursor.execute(stmt, (abreviacao_curso,))
+              JOIN turno ON turno.idUC = uc.codigo
+              JOIN turmas ON turno.idTurma = turmas.codigo
+              WHERE curso.abreviacao = ? AND turmas.ano = ?'''
+    cursor.execute(stmt, (abreviacao_curso, anoNum))
     result = cursor.fetchall()
 
     # Return list of UC codes
     return result
+
+
+
+
+
 
 def getSalaHorarioAgrupado(ProjectNumber, numero, curso):
     # Connect to database
@@ -993,4 +1000,28 @@ def getSemanasFromCursoAno(ProjectNumber, curso, ano):
     cursor.execute(stmt, (curso, ano,))
     result = cursor.fetchall()
     return [(row['semanaInicial'], row['semanaFinal']) for row in result]
+
+
+
+def getAulaSalas(projId, aula_id):
+    """
+    Returns a list of sala numbers for the given aula.
+    """
+    conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT idSala FROM aulaSala WHERE idAula = ?', (aula_id,))
+    result = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    return result
+
+def getAulaDocentes(projId, aula_id):
+    """
+    Returns a list of docente IDs for the given aula.
+    """
+    conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT idDocente FROM aulaDocente WHERE idAula = ?', (aula_id,))
+    result = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    return result
 

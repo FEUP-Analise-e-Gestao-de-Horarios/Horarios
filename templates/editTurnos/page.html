@@ -130,9 +130,9 @@
 
 {% include '../common/editHeader.html' %}
 
-<script src="{% static './page.js' %}" data-cursos='{{ cursos|safe }}' data-proj-id='{{ projId }}'></script>
 <script src="{% static './colorDictionary.js' %}"></script>
-<script src="{% static './schedule.js' %}"></script>
+<script src="{% static './schedule.js' %}" defer></script>
+<script src="{% static './page.js' %}" data-cursos='{{ cursos|safe }}' data-proj-id='{{ projId }}' defer></script>
 <script src="{% static './distribuicao.js' %}" defer></script>
 
 <section class="contentMargin mb-3 pb-3 box" id="editPageContent">
