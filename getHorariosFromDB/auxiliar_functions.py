@@ -47,7 +47,7 @@ def get_aula_details_new(project_number=9, aula_id=None):
             aula_data = cursor.fetchone()
 
             if not aula_data:
-                print(f"No aula found with id {aula_id}")
+                #print(f"No aula found with id {aula_id}")
                 return
 
             # Get associated UCs
@@ -87,9 +87,9 @@ def get_aula_details_new(project_number=9, aula_id=None):
             turmas = cursor.fetchall()
 
             # Format and print the information
-            print("\n" + "="*50)
+            #print("\n" + "="*50)
             print(f" DETAILS FOR AULA ID: {aula_id}")
-            print("="*50)
+            ##print("="*50)
 
             # Basic info
             hora_inicial = converter_horario(aula_data[1])
@@ -132,6 +132,26 @@ def get_aula_details_new(project_number=9, aula_id=None):
                 cursor.close()
             if 'connection' in locals():
                 connection.close()
+
+def check_conflicts(aula1: AulaInfo, aula2: AulaInfo):
+    """
+    Check if two AulaInfo objects conflict based on their time and day.
+    Returns True if they conflict, False otherwise.
+    """
+    hora_inicio_a1 = time_str_to_minutes(aula1.hora_inicio)
+    hora_fim_a1 = time_str_to_minutes(aula1.hora_fim)
+
+    hora_inicio_a2 = time_str_to_minutes(aula2.hora_inicio)
+    hora_fim_a2 = time_str_to_minutes(aula2.hora_fim)
+
+    if aula1.id == aula2.id:
+        return False
+    if hora_inicio_a2 < hora_fim_a1 and hora_fim_a2 > hora_inicio_a1 and aula1.dia == aula2.dia:
+        if aula1.salas_ids.intersection(aula2.salas_ids) or \
+           aula1.turmas_ids.intersection(aula2.turmas_ids) or \
+           aula1.docentes_ids.intersection(aula2.docentes_ids):
+            return True
+    return False
 
 def aula_conflict(aula1: AulaInfo, aula2: AulaInfo, id, type):
     hora_inicio_a1 = time_str_to_minutes(aula1.hora_inicio)

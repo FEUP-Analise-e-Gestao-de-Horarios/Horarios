@@ -26,7 +26,7 @@ PLACEHOLDER_ID = 0
 dias = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"]
 horas = ["8:00", "8:30", "9:00", "9:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30"]
 
-validator = False
+validator = True
 
 
 class CursoEncoder(json.JSONEncoder):
@@ -413,11 +413,11 @@ def editTurnos(request: HttpRequest, projId: int) -> HttpResponse:
     try:
         graph_controller.init_graph(projId)
         conflicts_unorg = graph_controller.get_organized_conflicts(projId)
-        print(f"-------conflicts_unorg: {conflicts_unorg}")
+        #print(f"-------conflicts_unorg: {conflicts_unorg}")
         conflicts = organizeInformation(projId, conflicts_unorg)
         # print(f"Conflicts: {conflicts}")
     except:
-        print("Could not load conflicts")
+        #print("Could not load conflicts")
         conflicts = []
     return render(request, 'editTurnos/page.html', {'projetos':projetos, 'projId':projId, 'projeto':projeto, 'cursos': cursos_json,
                                                     'docentesList': docentesList, 'salasList': salasList, 'conflitos':conflicts, 'is_edit_turnos': True})
@@ -1074,22 +1074,29 @@ def getConflicts(request, projId):
                 conflicts.append(conflict_info)
             if conflicts:
                 conflicts_dict[main_info] = conflicts
-                
+
+    path = f"Project{projId}"
+    db_path = f'./database/{path}/general_database.db'
+    connDB = sqlite3.connect(db_path, check_same_thread=False)
+    connDB.row_factory = sqlite3.Row
+    cursorDB = connDB.cursor()
+
+    for aula in all_conflicts:
+        cursorDB.execute(f"""
+        SELECT d.numeroMecanografico, d.nome
+        FROM aulaDocente ad 
+        JOIN docentes d ON ad.idDocente = d.numeroMecanografico
+        WHERE ad.idAula = {aula.id};
+        """)
+        names_new = [row[1] for row in cursorDB.fetchall()]
+        aula.set_docentes_names(names_new)
+
+
     conflict_manager = Conflict_Manager(projId, all_conflicts)
     conflict_manager.grouping()
-    aux = 0
-    for docente in conflict_manager.conflicts_docentes:
-        aux += len(conflict_manager.conflicts_docentes[docente])
-        print(f"Docente: {docente}, Conflitos: {len(conflict_manager.conflicts_docentes[docente])}")
-    for turma in conflict_manager.conflicts_turmas:
-        aux += len(conflict_manager.conflicts_turmas[turma])
-        print(f"Turma: {turma}, Conflitos: {len(conflict_manager.conflicts_turmas[turma])}")
-    for sala in conflict_manager.conflicts_salas:
-        aux += len(conflict_manager.conflicts_salas[sala])
-        print(f"Sala: {sala}, Conflitos: {len(conflict_manager.conflicts_salas[sala])}")
     
-    print(f"Total de conflitos docentes: {aux}")
-    print(f"Total de conflitos: {len(all_conflicts)}")
+    
+    
     return render(request, 'export/conflicts.html', {
         'projeto': projeto[2],
         'projId': projId,
@@ -1113,16 +1120,19 @@ def export(request, projId):
     node_counter_dict = manager.get_all_nodes_with_counter()
     for node_id in node_counter_dict:
         node = manager.get_node(node_id)
-        if node.dependency_ids:
+        if node.dependency_ids and node.conflict_ids != []:
             tmp = []
             for conflict in node.dependency_ids:
                 conflict_node = manager.get_node_by_aula_id(conflict)
                 if conflict_node is not None:
                     print(f"Conflict_id -> {conflict_node.id}")
                     tmp.append(node_counter_dict[conflict_node.id])
-
             node.dependencies = tmp
-
+    # Count unsolved conflicts
+    unsolved_conflicts = 0
+    for uc in manager.ucs:
+        unsolved_conflicts += len(manager.ucs[uc].unsolved_nodes)
+    print(f"Unsolved conflicts: {unsolved_conflicts}")
     return render(request, 'export/page.html', {
         'projetos': projetos,
         'projeto': projeto[2], # obter nome do projeto  

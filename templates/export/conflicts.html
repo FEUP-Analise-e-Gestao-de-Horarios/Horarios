@@ -1,54 +1,10 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
     <title>Conflitos de Horários</title>
-    <style>
-        /* Your existing styles... */
-        
-        /* Add filter controls styling */
-        .filter-controls {
-            margin-bottom: 20px;
-            padding: 15px;
-            background-color: #f8f9fa;
-            border-radius: 5px;
-        }
-        
-        .filter-tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-        
-        .filter-tab {
-            padding: 8px 16px;
-            background-color: #e9ecef;
-            border-radius: 4px;
-            cursor: pointer;
-            border: 1px solid #dee2e6;
-        }
-        
-        .filter-tab.active {
-            background-color: #ffc107;
-            font-weight: bold;
-        }
-        
-        .conflict-section {
-            display: none;
-        }
-        
-        .conflict-section.active {
-            display: block;
-        }
-        
-        .resource-header {
-            background-color: #f0f0f0;
-            padding: 10px;
-            margin: 15px 0 5px 0;
-            border-radius: 5px;
-            font-weight: bold;
-        }
-    </style>
+    <link rel="stylesheet" href="{% static 'conflicts.css' %}">
 </head>
 <body>
     <div class="container">
@@ -57,20 +13,19 @@
         {% if has_conflicts %}
         <div class="filter-controls">
             <div class="filter-tabs">
-                <div class="filter-tab" data-filter="turmas">Por Turma</div>
+                <div class="filter-tab active" data-filter="turmas">Por Turma</div>
                 <div class="filter-tab" data-filter="salas">Por Sala</div>
                 <div class="filter-tab" data-filter="docentes">Por Docente</div>
             </div>
         </div>
         
         <!-- Turmas Section -->
-        <div id="turmas-section" class="conflict-section">
+        <div id="turmas-section" class="conflict-section active">
             {% for turma, conflicts in conflicts_turmas.items %}
                 <div class="resource-header">Turma: {{ turma }}</div>
-                    <div class="conflict-group">
-                        <!-- Same structure as turmas section -->
-                        {% include "export/conflict_block.html" with conflicts=conflicts %}
-                    </div>
+                <div class="conflict-group">
+                    {% include "export/conflict_block.html" with conflicts=conflicts %}
+                </div>
             {% endfor %}
         </div>
         
@@ -78,10 +33,9 @@
         <div id="salas-section" class="conflict-section">
             {% for sala, conflicts in conflicts_salas.items %}
                 <div class="resource-header">Sala: {{ sala }}</div>
-                    <div class="conflict-group">
-                        <!-- Same structure as turmas section -->
-                        {% include "export/conflict_block.html" with conflicts=conflicts %}
-                    </div>
+                <div class="conflict-group">
+                    {% include "export/conflict_block.html" with conflicts=conflicts %}
+                </div>
             {% endfor %}
         </div>
         
@@ -89,10 +43,9 @@
         <div id="docentes-section" class="conflict-section">
             {% for docente, conflicts in conflicts_docentes.items %}
                 <div class="resource-header">Docente: {{ docente }}</div>
-                    <div class="conflict-group">
-                        <!-- Same structure as turmas section -->
-                        {% include "export/conflict_block.html" with conflicts=conflicts %}
-                    </div>
+                <div class="conflict-group">
+                    {% include "export/conflict_block.html" with conflicts=conflicts %}
+                </div>
             {% endfor %}
         </div>
         {% else %}

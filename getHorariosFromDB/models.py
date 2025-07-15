@@ -10,6 +10,7 @@ class Node:
         self.id = generate_node_id()
         self.red_conflicts = False
         self.dependency_ids = []
+        self.conflict_ids = []
         
         self.dependencies = []
         self.change = change
@@ -126,7 +127,7 @@ class Graph:
             self.nodes.remove(node)
             self.ordered_list.add(node)
         for edge in edges:
-            if edge.solution:
+            if edge.solution and edge.node1.id == node.id or edge.node2.id == node.id:
                 self.edges.remove(edge)
             cur = edge.node1
             if edge.node1.id == node.id:
@@ -168,7 +169,6 @@ class Conflict_Manager:
         self.conflicts_salas = {}
     
     def grouping(self):
-        print("Total conflicts: " + str(len(self.conflicts)))
         for conflict in self.conflicts:
             for turma in conflict.turmas_ids:
                 tmp = aula_conflicts(conflict, self.conflicts, turma, "turma")
@@ -180,7 +180,6 @@ class Conflict_Manager:
             for sala in conflict.salas_ids:
                 tmp = aula_conflicts(conflict, self.conflicts, sala, "sala")
                 if tmp:
-                    print("Im here")
                     tmp.add(conflict)
                 if sala not in self.conflicts_salas:
                     self.conflicts_salas[sala] = set()
@@ -202,6 +201,7 @@ class Conflict_Manager:
             self.conflicts_salas[key] = sort_by_day(self.conflicts_salas[key])  
         for key in self.conflicts_docentes:
             self.conflicts_docentes[key] = sort_by_day(self.conflicts_docentes[key])
+    
 
     def remove_single_conflicts(self):
         """Remove all dictionary entries with 1 or fewer conflicts"""
@@ -216,7 +216,8 @@ class Conflict_Manager:
         removed_salas = clean_dict(self.conflicts_salas)
         removed_docentes = clean_dict(self.conflicts_docentes)
     
-        print(f"Removed: {removed_turmas} turmas, {removed_salas} salas, {removed_docentes} docentes")
+        #print(f"Removed: {removed_turmas} turmas, {removed_salas} salas, {removed_docentes} docentes")
+        
     def get_turma_conflicts(self):
         for turma in self.conflicts_turmas:
             for aula in self.conflicts_turmas[turma]:
@@ -227,7 +228,6 @@ class GraphManager:
     def __init__(self, project_number, mode):
         self.root = None
         self.ucs = {}
-        self.turmas = {}
         self.project_number = project_number
         self.mode = mode
 
@@ -241,210 +241,7 @@ class GraphManager:
         self.local_roots = []
 
         self.ordered_list = []
-
-    def get_aula_details(self, project_number, aula_id):
-        db_path = Path(f'./database/Project{project_number}/initial_database.db')
-
-        try:
-            connection = sqlite3.connect(str(db_path))
-            cursor = connection.cursor()
-
-            # Get basic aula information
-            cursor.execute("""
-                SELECT id, horaInicial, duracao, diaSemana, teorico, semanaInicial, semanaFinal
-                FROM aula
-                WHERE id = ?
-            """, (aula_id,))
-            aula_data = cursor.fetchone()
-
-            if not aula_data:
-                print(f"No aula found with id {aula_id}")
-                return
-
-            # Get associated UCs
-            cursor.execute("""
-                SELECT uc.codigo, uc.nome
-                FROM aulaUC
-                JOIN uc ON aulaUC.idUC = uc.codigo
-                WHERE aulaUC.idAula = ?
-            """, (aula_id,))
-            ucs = cursor.fetchall()
-
-            # Get associated salas
-            cursor.execute("""
-                SELECT salas.numero, salas.tipo, salas.capacidade
-                FROM aulaSala
-                JOIN salas ON aulaSala.idSala = salas.numero
-                WHERE aulaSala.idAula = ?
-            """, (aula_id,))
-            salas = cursor.fetchall()
-
-            # Get associated docentes
-            cursor.execute("""
-                SELECT docentes.numeroMecanografico, docentes.nome, docentes.abreviacao
-                FROM aulaDocente
-                JOIN docentes ON aulaDocente.idDocente = docentes.numeroMecanografico
-                WHERE aulaDocente.idAula = ?
-            """, (aula_id,))
-            docentes = cursor.fetchall()
-
-            # Get associated turmas
-            cursor.execute("""
-            SELECT turmas.codigo
-            FROM aulaTurmas
-            JOIN turmas ON aulaTurmas.idTurma = turmas.codigo
-            WHERE aulaTurmas.idAula = ?
-            """, (aula_id,))
-            turmas = cursor.fetchall()
-
-            # Format and print the information
-            print("\n" + "="*50)
-            print(f" DETAILS FOR AULA ID: {aula_id}")
-            print("="*50)
-
-            # Basic info
-            hora_inicial = converter_horario(aula_data[1])
-            hora_final = converter_horario(calculate_hora_final(str(aula_data[1]), aula_data[2]))
-            print(f"\n[Basic Information]")
-            print(f"  • Time: {hora_inicial} - {hora_final} ({aula_data[2]} blocks)")
-            print(f"  • Day: {aula_data[3]}")
-            print(f"  • Type: {'Theoretical' if aula_data[4] else 'Practical'}")
-            print(f"  • Period: {aula_data[5]} to {aula_data[6]}")
-
-            # UCs
-            print("\n[Associated UCs]")
-            for uc in ucs:
-                print(f"  • {uc[0]} - {uc[1]}")
-
-            # Salas
-            print("\n[Associated Rooms]")
-            for sala in salas:
-                print(f"  • {sala[0]} ({sala[1]}, Capacity: {sala[2]})")
-
-            # Docentes
-            print("\n[Associated Professors]")
-            for docente in docentes:
-                print(f"  • {docente[0]}: {docente[1]} ({docente[2]})")
-
-            # Turmas - simplified output
-            print("\n[Associated Classes]")
-            if turmas:
-                for turma in turmas:
-                    print(f"  • {turma[0]}")
-            else:
-                print("  • No classes associated")
-
-            print("\n" + "="*50 + "\n")
-
-        except sqlite3.Error as e:
-            print(f"Database error: {e}")
-        finally:
-            if 'cursor' in locals():
-                cursor.close()
-            if 'connection' in locals():
-                connection.close()
     
-    def get_aula_details_new(self, project_number, aula_id):
-        db_path = Path(f'./database/Project{project_number}/general_database.db')
-
-        try:
-            connection = sqlite3.connect(str(db_path))
-            cursor = connection.cursor()
-
-            # Get basic aula information
-            cursor.execute("""
-                SELECT id, horaInicial, duracao, diaSemana, teorico, semanaInicial, semanaFinal
-                FROM aula
-                WHERE id = ?
-            """, (aula_id,))
-            aula_data = cursor.fetchone()
-
-            if not aula_data:
-                print(f"No aula found with id {aula_id}")
-                return
-
-            # Get associated UCs
-            cursor.execute("""
-                SELECT uc.codigo, uc.nome
-                FROM aulaUC
-                JOIN uc ON aulaUC.idUC = uc.codigo
-                WHERE aulaUC.idAula = ?
-            """, (aula_id,))
-            ucs = cursor.fetchall()
-
-            # Get associated salas
-            cursor.execute("""
-                SELECT salas.numero, salas.tipo, salas.capacidade
-                FROM aulaSala
-                JOIN salas ON aulaSala.idSala = salas.numero
-                WHERE aulaSala.idAula = ?
-            """, (aula_id,))
-            salas = cursor.fetchall()
-
-            # Get associated docentes
-            cursor.execute("""
-                SELECT docentes.numeroMecanografico, docentes.nome, docentes.abreviacao
-                FROM aulaDocente
-                JOIN docentes ON aulaDocente.idDocente = docentes.numeroMecanografico
-                WHERE aulaDocente.idAula = ?
-            """, (aula_id,))
-            docentes = cursor.fetchall()
-
-            # Get associated turmas
-            cursor.execute("""
-            SELECT turmas.codigo
-            FROM aulaTurmas
-            JOIN turmas ON aulaTurmas.idTurma = turmas.codigo
-            WHERE aulaTurmas.idAula = ?
-            """, (aula_id,))
-            turmas = cursor.fetchall()
-
-            # Format and print the information
-            print("\n" + "="*50)
-            print(f" DETAILS FOR AULA ID: {aula_id}")
-            print("="*50)
-
-            # Basic info
-            hora_inicial = converter_horario(aula_data[1])
-            hora_final = converter_horario(calculate_hora_final(str(aula_data[1]), aula_data[2]))
-            print(f"\n[Basic Information]")
-            print(f"  • Time: {hora_inicial} - {hora_final} ({aula_data[2]} blocks)")
-            print(f"  • Day: {aula_data[3]}")
-            print(f"  • Type: {'Theoretical' if aula_data[4] else 'Practical'}")
-            print(f"  • Period: {aula_data[5]} to {aula_data[6]}")
-
-            # UCs
-            print("\n[Associated UCs]")
-            for uc in ucs:
-                print(f"  • {uc[0]} - {uc[1]}")
-
-            # Salas
-            print("\n[Associated Rooms]")
-            for sala in salas:
-                print(f"  • {sala[0]} ({sala[1]}, Capacity: {sala[2]})")
-
-            # Docentes
-            print("\n[Associated Professors]")
-            for docente in docentes:
-                print(f"  • {docente[0]}: {docente[1]} ({docente[2]})")
-
-            # Turmas - simplified output
-            print("\n[Associated Classes]")
-            if turmas:
-                for turma in turmas:
-                    print(f"  • {turma[0]}")
-            else:
-                print("  • No classes associated")
-
-            print("\n" + "="*50 + "\n")
-
-        except sqlite3.Error as e:
-            print(f"Database error: {e}")
-        finally:
-            if 'cursor' in locals():
-                cursor.close()
-            if 'connection' in locals():
-                connection.close()
 
     def get_all_nodes(self):
         """
@@ -476,10 +273,15 @@ class GraphManager:
     
     def add_node(self, node: Node):
         true_checker = check_aula_change_conflicts(node.change, self.project_number, "general")
+        #true checker not enough
         checker = check_aula_change_conflicts(node.change, self.project_number, self.mode)
-        if checker and "red" not in checker:
+        #checker = list(set(checker + true_checker))
+        
+        if checker:
             node.has_conflicts()
             node.add_dependencies(checker)
+        if true_checker:
+            node.conflict_ids = true_checker
         #if "red" in checker:
         #    node.has_red_conflicts()
         uc_id = node.get_uc()
@@ -491,13 +293,7 @@ class GraphManager:
         else:
             self.ucs[uc_id].unsolved_nodes.add(node)
     
-        for turma in node.get_turmas():
-            if turma not in self.turmas:
-                new = Graph(turma, 1, None)
-                new.add_node(node)
-                self.turmas[turma] = new
-            else:
-                self.turmas[turma].add_node(node)
+        
 
     def order_ucs(self):
         remaining_keys = [key for key in self.ucs if key not in self.ordered_list]

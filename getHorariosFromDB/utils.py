@@ -759,7 +759,7 @@ def organize_changes(ProjectId, mode, validator):
     # TODO organize
     json_path = f'./database/Project{ProjectId}/changes.json'
 
-    if os.path.exists(json_path and validator):
+    if os.path.exists(json_path) and validator:
         with open(json_path, 'r', encoding='utf-8') as f:
             raw_changes = json.load(f)
 
@@ -769,6 +769,7 @@ def organize_changes(ProjectId, mode, validator):
             new = models.AulaInfo.from_data(change['new']) if change['new'] else None
             if prev:
                 prev.uc_name = change['previous'].get('uc_name', '')
+                prev.do = change['previous'].get('uc_name', '')
             if new:
                 new.uc_name = change['new'].get('uc_name', '')
             changes.append(models.AulaChange(prev, new))

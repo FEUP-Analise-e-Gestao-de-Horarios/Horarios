@@ -66,7 +66,7 @@ function handleAnoBtn(anoNum, selectedAno, handleDist = false) {
 
                 dataLoadBool = true;
 
-                // Caso seja necessário, atualiza o conteúdo da página                
+                // Atualiza o conteúdo da página                
                 fillUcs(ano);
                 fillDocentes(ano);
                 fillSalas(ano);
@@ -254,6 +254,20 @@ semanasBtn.addEventListener("change", function () {
 
 distributionBtn.addEventListener("click", function () {
     handleDistributionBtn();
+});
+
+document.addEventListener('DOMContentLoaded', function () {
+    const exportBtn = document.getElementById('exportBtn');
+    exportBtn.addEventListener('click', function () {
+        window.location.href = "/export/" + projId;
+    });
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    const conflictsBtn = document.getElementById('conflictsBtn');
+    conflictsBtn.addEventListener('click', function() {
+        window.location.href = "/conflicts/" + projId;
+    });
 });
 
 for (let i = 0; i < cursosLista.length; i++) {

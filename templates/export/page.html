@@ -193,7 +193,7 @@
                             {% for node in uc_graph.unsolved_nodes %}
                                 <div class="change-box conflict">
                                     <div class="change-title">Alteração {{ node_counter_list|dict_get:node.id }}</div>
-                                    <div class="class-time">Aula de {{ node.change.previous.dia }}, {{ node.change.previous.hora_inicio }} - {{ node.change.previous.hora_fim }}</div>
+                                    <div class="class-time">Aula de {{ node.change.previous.dia }}, {{ node.change.previous.hora_inicio }} - {{ node.change.previous.hora_fim }} na(s) sala(s) {{ node.change.previous.formatted_salas }}</div>
                                     <div class="change-details">
                                         {% if node.change.check_horario and not node.change.check_dia %}
                                             <p>Troca de horário na(s) turma(s) {{ node.change.previous.formatted_turmas }}:
