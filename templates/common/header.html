@@ -29,6 +29,9 @@
           <i class="bi bi-exclamation-triangle-fill"></i> Ver Conflitos
         </button>
         {% include './exportButton.html' %}
+        <a href="/parser/selecionar_aulas_em_paralelo/?id={{ projId }}" class="btn btn-outline-danger me-2" style="color: white; border-color: white;">
+          <i class="bi bi-pencil-fill"></i> Editar Aulas em Paralelo
+        </a>
         {% endif %}
       </ul>
 
@@ -62,6 +65,7 @@
         <i id="offCanvasBtn" class="bi bi-caret-right-square-fill" type="button" data-bs-toggle="offcanvas"
           data-bs-target="#offcanvasDarkNavbar" aria-controls="offcanvasDarkNavbar"></i>
       </div>
+
       {% endif %}
       <!-- <h3> {{ projeto.nome }} </h3> -->
       {% if not display_edit_buttons %}
