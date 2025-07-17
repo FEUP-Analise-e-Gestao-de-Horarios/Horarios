@@ -21,6 +21,7 @@ from getHorariosFromDB.comparingDatabases import getDifferencesFromDatabases
 from getHorariosFromDB.utils import organize_changes, append_aula_data
 from getHorariosFromDB.models import Node, GraphManager, Graph, Edge, Conflict_Manager
 import getHorariosFromDB.graph as graph_controller
+from FeupScheduleEditor.utils import reverse_time_span_conversion, switch_number_to_day
 
 # Configure basic logging
 logging.basicConfig(
@@ -388,8 +389,8 @@ def editTurnos(request: HttpRequest, projId: int) -> HttpResponse:
     Cria a página `editTurnos` para o projeto selecionado.
 
     Primeiro verifica se é a primeira vez que a página é aberta para saber se é para
-    redirecionar para a página da seleção de turmas simultâneas. Caso a seleção das
-    turmas simultâneas já esteja feita então procede ao carregamento da página `editTurnos`.
+    redirecionar para a página da seleção de aulas em paralelo. Caso a seleção das
+    aulas em paralelo já esteja feita então procede ao carregamento da página `editTurnos`.
 
     Começa por obter a informação do projeto e o json dos cursos, assim como
     os conflitos existentes até à altura. Usa essa informação para 

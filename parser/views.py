@@ -780,61 +780,10 @@ def aulas_simultaneas():
     
     conn.commit()
 
-def turmas_simultaneas():
-    """
-    Encontra turmas simultâneas da mesma UC no horário e insere a informação na base de dados.
-
-    Realiza uma query à base de dados para encontrar aulas simultâneas do mesmo curso.
-    Aulas simultâneas têm os mesmos: hora, dia, UC e curso. Depois de encontradas estas aulas,
-    são inseridas numa tabela apropriada na base de dados.
-    """
-
-    query = '''
-        SELECT
-            CASE WHEN a1.id < a2.id THEN a1.id ELSE a2.id END AS id_aula1,
-            CASE WHEN a1.id < a2.id THEN a2.id ELSE a1.id END AS id_aula2,
-            at1.idTurma AS id_turma1,
-            at2.idTurma AS id_turma2
-        FROM aula AS a1
-        JOIN aulaTurmas AS at1 ON a1.id = at1.idAula
-        JOIN aulaUC AS auc1 ON a1.id = auc1.idAula
-        JOIN uc AS uc1 ON auc1.idUC = uc1.codigo
-        JOIN aula AS a2
-        JOIN aulaTurmas AS at2 ON a2.id = at2.idAula
-        JOIN aulaUC AS auc2 ON a2.id = auc2.idAula
-        JOIN uc AS uc2 ON auc2.idUC = uc2.codigo
-        WHERE a2.id > a1.id
-            AND a1.diaSemana = a2.diaSemana
-            AND a1.horaInicial = a2.horaInicial
-            AND uc1.codigo = uc2.codigo
-            AND uc1.idCurso = uc2.idCurso
-            AND (
-                (a1.semanaInicial <= a2.semanaFinal AND a1.semanaFinal >= a2.semanaInicial)
-                OR
-                (a1.semanaInicial >= a2.semanaInicial AND a1.semanaFinal <= a2.semanaFinal)
-                OR
-                (a1.semanaInicial <= a2.semanaInicial AND a1.semanaFinal >= a2.semanaFinal)
-            );
-    '''
-    cursor.execute(query)
-    turmas_sim = cursor.fetchall()
-
-    for entry in turmas_sim:
-        idAula1, idAula2, idTurma1, idTurma2 = entry
-        query = '''
-            INSERT into turmasSimultaneas (aula1, aula2, turma1, turma2)
-            VALUES (?, ?, ?, ?)
-        '''
-        cursor.execute(query, (idAula1, idAula2, idTurma1, idTurma2))
-    
-    conn.commit()
-
 def selecionar_aulas_em_paralelo(request):
     project_id = request.GET.get("id")
 
-    #db_path = f"./database/Project{project_id}/general_database.db"
-    db_path = os.path.join(settings.BASE_DIR, "database", f"Project{project_id}", "general_database.db")
-
+    db_path = os.path.join(settings.BASE_DIR, "database", f"Project{project_id}", "initial_database.db")
 
     conn = sqlite3.connect(db_path) 
     conn.row_factory = sqlite3.Row
@@ -904,7 +853,7 @@ def selecionar_aulas_em_paralelo(request):
 
     grupos_list.sort(key=lambda g: (g["curso"], g["nomeUC"]))
 
-    aulas_em_paralelo = obter_aulas_em_paralelo(cursor)
+    aulas_em_paralelo = obter_aulas_em_paralelo(project_id)
     
     conn.close()
 
@@ -915,11 +864,18 @@ def selecionar_aulas_em_paralelo(request):
         'aulas_em_paralelo' : aulas_em_paralelo,
     })
 
-def obter_aulas_em_paralelo(cursor):
+def obter_aulas_em_paralelo(projId):
     """
     Recebe um cursor de SQLite já conectado à base de dados de um projeto.
-    Devolve uma lista de aulas em paralelo (listasde IDs de aulas) com base nas relações da tabela turmasSimultaneas.
+    Devolve as aulas que atualmente estão guardadas como aulas em paralelo, em forma
+    de uma lista dos grupos de aulas em paralelo (que são listas de IDs de aulas).
     """
+
+    db_path = os.path.join(settings.BASE_DIR, "database", f"Project{projId}", "general_database.db")
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
     cursor.execute('SELECT aula1, aula2 FROM turmasSimultaneas')
     pares = cursor.fetchall()
 
@@ -975,14 +931,115 @@ def guardar_aulas_em_paralelo(request):
                 ''', (a1, a2, t1, t2))
             conn.commit()
 
+        inconsistentes = verificar_aulas_em_paralelo(request, project_id, pares)
+
         project = Project.objects.get(id=project_id)
         project.has_selected_aulas_em_paralelo = True
         project.save()
 
-        return JsonResponse({'status': 'ok'})
+        return JsonResponse({
+            'status': 'ok',
+            'inconsistentes': inconsistentes
+        })
 
     except Exception as e:
         return JsonResponse({'status': 'erro', 'message': str(e)}, status=500)
+
+def verificar_aulas_em_paralelo(request, projId, pares):
+    """
+    Função destinada para casos em que o utilizador muda os grupos de aulas em paralelo depois de já terem sido realizado trocas.
+    Esta função verifica quais dos grupos da nova seleção de aulas em paralelo sofreram mudanças e não estão, de momento, a ser dadas ao mesmo
+    tempo deviso às trocas.
+    """    
+    # 1. Construir grafo aula -> vizinhos
+    adj = defaultdict(set)
+    for a1, a2, _, _ in pares:
+        adj[a1].add(a2)
+        adj[a2].add(a1)
+
+    # 2. Obter grupos de aulas simultâneas em forma de cadeia
+    visitados = set()
+    cadeias = []
+
+    for aula in adj:
+        if aula in visitados:
+            continue
+
+        fila = deque([aula])
+        cadeia = []
+
+        while fila:
+            atual = fila.popleft()
+            if atual in visitados:
+                continue
+            visitados.add(atual)
+            cadeia.append(atual)
+            fila.extend(adj[atual] - visitados)
+
+        cadeia.sort()
+        cadeias.append(cadeia)
+
+    # 3. Verificar para cada cadeia se as aulas têm o mesmo dia, hora e intervalo de semanas
+    inconsistentes = []
+
+    db_path = os.path.join(settings.BASE_DIR, "database", f"Project{projId}", "general_database.db")
+
+    conn = sqlite3.connect(db_path) 
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    for cadeia in cadeias:
+        cursor.execute(
+            f'''
+            SELECT id, diaSemana, horaInicial, semanaInicial, semanaFinal
+            FROM aula
+            WHERE id IN ({','.join(['?'] * len(cadeia))})
+            ''', cadeia
+        )
+        aulas_info = cursor.fetchall()
+
+        # Normalizar comparação
+        referencia = (
+            aulas_info[0]["diaSemana"],
+            aulas_info[0]["horaInicial"],
+            aulas_info[0]["semanaInicial"],
+            aulas_info[0]["semanaFinal"],
+        )
+
+        for aula in aulas_info[1:]:
+            atual = (aula["diaSemana"], aula["horaInicial"], aula["semanaInicial"], aula["semanaFinal"])
+            if atual != referencia:
+                inconsistentes.append(cadeia)
+                break  # esta cadeia já está marcada como inconsistente
+
+    if inconsistentes:
+        grupos_inconsistentes = []
+
+        for cadeia in inconsistentes:
+            cursor.execute(
+                f'''
+                SELECT a.id, uc.nome as nomeUC, group_concat(t.codigo, ', ') as turmas
+                FROM aula a
+                JOIN aulaUC auc ON a.id = auc.idAula
+                JOIN uc ON auc.idUC = uc.codigo
+                JOIN aulaTurmas at ON a.id = at.idAula
+                JOIN turmas t ON at.idTurma = t.codigo
+                WHERE a.id IN ({','.join(['?'] * len(cadeia))})
+                GROUP BY a.id
+                ''', cadeia
+            )
+            aulas = cursor.fetchall()
+            if aulas:
+                nome_uc = aulas[0]["nomeUC"]
+                lista = {
+                    "nome_uc": nome_uc,
+                    "aulas": [f"Aula com as turmas: {a['turmas']}" for a in aulas]
+                }
+                grupos_inconsistentes.append(lista)
+        
+        conn.close()
+        return grupos_inconsistentes
+    conn.close()
 
 
 
@@ -1073,8 +1130,6 @@ def parse(request: requests.Request) -> JsonResponse:
             cleanup_aulas()
 
             aulas_simultaneas()
-
-            #turmas_simultaneas()
 
             shutil.copy2(path + '/general_database.db', path + '/initial_database.db')
 
