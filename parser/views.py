@@ -866,7 +866,6 @@ def selecionar_aulas_em_paralelo(request):
     })
 
 def obter_aulas_em_paralelo(projId):
-def obter_aulas_em_paralelo(projId):
     """
     Recebe um cursor de SQLite já conectado à base de dados de um projeto.
     Devolve as aulas que atualmente estão guardadas como aulas em paralelo, em forma
