@@ -840,10 +840,10 @@ def selecionar_aulas_em_paralelo(request):
             'nomeUC': nomeUC,
             'curso': id_curso,
             'horario': horario_str,
-            'aulas': [
+            'aulas': sorted([
                 (aula_id, sorted([turma.strip() for turma in turmas]))
                 for aula_id, turmas in aulas.items()
-            ],
+            ], key=lambda x: x[1][0]),
             'num_boxes': num_boxes
         }
 
