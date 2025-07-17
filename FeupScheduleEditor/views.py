@@ -21,6 +21,9 @@ from getHorariosFromDB.comparingDatabases import getDifferencesFromDatabases
 from getHorariosFromDB.utils import organize_changes, append_aula_data
 from getHorariosFromDB.models import Node, GraphManager, Graph, Edge, Conflict_Manager
 import getHorariosFromDB.graph as graph_controller
+from FeupScheduleEditor.utils import reverse_time_span_conversion, switch_number_to_day
+from collections import defaultdict, deque
+from django.conf import settings
 
 # Configure basic logging
 logging.basicConfig(
@@ -388,8 +391,8 @@ def editTurnos(request: HttpRequest, projId: int) -> HttpResponse:
     Cria a página `editTurnos` para o projeto selecionado.
 
     Primeiro verifica se é a primeira vez que a página é aberta para saber se é para
-    redirecionar para a página da seleção de turmas simultâneas. Caso a seleção das
-    turmas simultâneas já esteja feita então procede ao carregamento da página `editTurnos`.
+    redirecionar para a página da seleção de aulas em paralelo. Caso a seleção das
+    aulas em paralelo já esteja feita então procede ao carregamento da página `editTurnos`.
 
     Começa por obter a informação do projeto e o json dos cursos, assim como
     os conflitos existentes até à altura. Usa essa informação para 
@@ -1287,7 +1290,208 @@ def makeChanges(request, projId):
         conflicts = []
     else:
         conflicts = checkConflict
-    return JsonResponse({"id": projId, "conflicts": conflicts}, status=200)
+    return JsonResponse({
+        "aulaId" : aulaId,
+        "id": projId, 
+        "conflicts": conflicts, 
+    }, status=200)
+
+def getAulaSimultaneasParalelas(request):    
+    try:
+        projId = int(request.GET.get('projId'))
+        aulaId_1 = request.GET.get('aulaId_1')
+        aulaId_2 = request.GET.get('aulaId_2')
+        aulaId_1 = int(aulaId_1) if aulaId_1 and aulaId_1 != 'null' else None
+        aulaId_2 = int(aulaId_2) if aulaId_2 and aulaId_2 != 'null' else None
+
+        if (not request.user.is_authenticated):
+            return JsonResponse({"error": "User is not authenticated", "id": projId}, status=401)
+        if request.method != "GET" and not request.is_ajax():
+            return JsonResponse({"error": "Invalid request", "id": projId}, status=400)
+
+        conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
+        cursor = conn.cursor()
+
+        show_popup_paralelo = False
+        show_popup_simultanea = False
+        ambas_pertencem_a_grupos_diferentes = False
+        show_popup_aula_em_paralelo_e_simultanea = False
+        grupo_paralelo = []
+        grupo_simultanea = []
+        segundo_grupo_paralelo = []     # os segundos grupos são para o caso de cada uma das aulas pertencer a grupos diferentes
+        segundo_grupo_simultanea = []   # de aulas em paralelo ou em simultaneo
+        # TODOO check show_popup_aula_em_paralelo_e_simultanea!!
+        # for aulas em paralelo
+        if aulaId_1 is not None:
+            cursor.execute("SELECT COUNT(*) FROM turmasSimultaneas WHERE aula1 = ? OR aula2 = ?", [aulaId_1, aulaId_1])
+            show_popup_paralelo = cursor.fetchone()[0] > 0
+            grupo_paralelo = obter_grupo_de_aulas(aulaId_1, 'turmasSimultaneas', projId)
+            if (not show_popup_paralelo) and (aulaId_2 is not None):
+                cursor.execute("SELECT COUNT(*) FROM turmasSimultaneas WHERE aula1 = ? OR aula2 = ?", [aulaId_2, aulaId_2])
+                show_popup_paralelo = cursor.fetchone()[0] > 0
+                grupo_paralelo = obter_grupo_de_aulas(aulaId_2, 'turmasSimultaneas', projId)
+        elif aulaId_2 is not None:
+            cursor.execute("SELECT COUNT(*) FROM turmasSimultaneas WHERE aula1 = ? OR aula2 = ?", [aulaId_2, aulaId_2])
+            show_popup_paralelo = cursor.fetchone()[0] > 0
+            grupo_paralelo = obter_grupo_de_aulas(aulaId_2, 'turmasSimultaneas', projId)
+
+        # for aulas simultâneas
+        if aulaId_1 is not None:
+            cursor.execute("SELECT COUNT(*) FROM aulasSimultaneas WHERE aula1 = ? OR aula2 = ?", [aulaId_1, aulaId_1])
+            show_popup_simultanea = cursor.fetchone()[0] > 0
+            grupo_simultanea = obter_grupo_de_aulas(aulaId_1, 'aulasSimultaneas', projId)
+            if (not show_popup_simultanea) and (aulaId_2 is not None):
+                cursor.execute("SELECT COUNT(*) FROM aulasSimultaneas WHERE aula1 = ? OR aula2 = ?", [aulaId_2, aulaId_2])
+                show_popup_simultanea = cursor.fetchone()[0] > 0
+                grupo_simultanea = obter_grupo_de_aulas(aulaId_2, 'aulasSimultaneas', projId)
+        elif aulaId_2 is not None:
+            cursor.execute("SELECT COUNT(*) FROM aulasSimultaneas WHERE aula1 = ? OR aula2 = ?", [aulaId_2, aulaId_2])
+            show_popup_simultanea = cursor.fetchone()[0] > 0
+            grupo_simultanea = obter_grupo_de_aulas(aulaId_2, 'aulasSimultaneas', projId)
+
+        if (grupo_simultanea and grupo_paralelo):
+            # se uma das aulas pertencer a um grupo em paralelo e a outra for uma aula em simultâneo
+            ambas_pertencem_a_grupos_diferentes = True
+
+        # check if it's a change between two classes of the same group
+        # if it is then it's okay to ignore and treat as a regular change
+        # else if it's a change between two classes of different groups then ambas_pertencem_a_grupos_diferentes is true
+        if (aulaId_1 is not None) and (aulaId_2 is not None):
+            grupo_paralelo_id = {aula["id"] for aula in grupo_paralelo} # grupo_paralelo but it's just a list of ids
+            grupo_simultanea_id = {aula["id"] for aula in grupo_simultanea} # grupo_simultanea but it's just a list of ids
+
+            if (aulaId_1 in grupo_paralelo_id) and (aulaId_2 in grupo_paralelo_id): 
+                # se as duas aulas estiverem no mesmo grupo de aulas em paralelo
+                show_popup_paralelo = False
+            else:
+                cursor.execute("SELECT COUNT(*) FROM turmasSimultaneas WHERE aula1 = ? OR aula2 = ?", [aulaId_1, aulaId_1])
+                aula1_paralelo = cursor.fetchone()[0] > 0
+                cursor.execute("SELECT COUNT(*) FROM turmasSimultaneas WHERE aula1 = ? OR aula2 = ?", [aulaId_2, aulaId_2])
+                aula2_paralelo = cursor.fetchone()[0] > 0
+                if (aula1_paralelo and aula2_paralelo):
+                    # se as duas aulas forem aulas em paralelo mas em grupos diferentes
+                    ambas_pertencem_a_grupos_diferentes = True
+                    segundo_grupo_paralelo = obter_grupo_de_aulas(aulaId_2, 'turmasSimultaneas', projId)
+                
+            if (aulaId_1 in grupo_simultanea_id) and (aulaId_2 in grupo_simultanea_id):
+                # se as duas aulas estiverem no mesmo grupo de aulas em simultaneo
+                show_popup_simultanea = False
+            else:
+                cursor.execute("SELECT COUNT(*) FROM aulasSimultaneas WHERE aula1 = ? OR aula2 = ?", [aulaId_1, aulaId_1])
+                aula1_simultanea = cursor.fetchone()[0] > 0
+                cursor.execute("SELECT COUNT(*) FROM aulasSimultaneas WHERE aula1 = ? OR aula2 = ?", [aulaId_2, aulaId_2])
+                aula2_simultanea = cursor.fetchone()[0] > 0
+                if (aula1_simultanea and aula2_simultanea):
+                    # se as duas aulas forem aulas em simultâneo mas em grupos diferentes
+                    ambas_pertencem_a_grupos_diferentes = True
+                    segundo_grupo_paralelo = obter_grupo_de_aulas(aulaId_2, 'turmasSimultaneas', projId)
+
+        return JsonResponse({
+            'paralelo': show_popup_paralelo,
+            'simultanea': show_popup_simultanea,
+            'grupo_paralelo': grupo_paralelo,
+            'grupo_simultanea': grupo_simultanea,
+            'ambas_pertencem_a_grupos_diferentes': ambas_pertencem_a_grupos_diferentes,
+            'aula_paralelo_e_simultanea': show_popup_aula_em_paralelo_e_simultanea,
+            'segundo_grupo_paralelo': segundo_grupo_paralelo,
+            'segundo_grupo_simultanea': segundo_grupo_simultanea
+        }, status=200)
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+def obter_grupo_de_aulas(aula_id, table, proj_id):
+    """
+    Dado o id da aula, o id do projeto e a tabela relacional (turmasSimultaneas ou aulasSimultaneas),
+    retorna uma lista das aulas do grupo com detalhes: id, curso, uc, salas, turmas, professores.
+    """
+    if table not in ('turmasSimultaneas', 'aulasSimultaneas'):
+        return f"ERRO: tabela inválida '{table}'. Tem de ser turmasSimultaneas ou aulasSimultaneas."
+
+    db_path = os.path.join(settings.BASE_DIR, "database", f"Project{proj_id}", "general_database.db")
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    try:
+        # Obter os pares de aulas ligadas
+        cursor.execute(f'SELECT aula1, aula2 FROM {table}')
+        pares = cursor.fetchall()
+
+        # Criar grafo de ligações
+        adj = defaultdict(set)
+        for row in pares:
+            a1, a2 = int(row["aula1"]), int(row["aula2"])
+            adj[a1].add(a2)
+            adj[a2].add(a1)
+
+        # Fazer BFS para encontrar todas as aulas do grupo
+        if aula_id not in adj:
+            grupo_ids = [aula_id]
+        else:
+            visitados = set()
+            fila = deque([aula_id])
+            grupo_ids = []
+
+            while fila:
+                atual = fila.popleft()
+                if atual in visitados:
+                    continue
+                visitados.add(atual)
+                grupo_ids.append(atual)
+                fila.extend(adj[atual] - visitados)
+
+        # Obter os detalhes de cada aula
+        resultados = []
+        for aid in sorted(grupo_ids):
+            # Obter UC associada à aula
+            cursor.execute("""
+                SELECT uc.codigo AS cod_uc, uc.nome AS nome_uc, uc.idCurso AS curso_abv
+                FROM aulaUC
+                LEFT JOIN uc ON uc.codigo = aulaUC.idUC
+                WHERE aulaUC.idAula = ?
+            """, (aid,))
+            uc_info = cursor.fetchone()
+
+            # Obter salas
+            cursor.execute("""
+                SELECT s.numero FROM aulaSala
+                JOIN salas s ON s.numero = aulaSala.idSala
+                WHERE aulaSala.idAula = ?
+            """, (aid,))
+            salas = [row["numero"] for row in cursor.fetchall()]
+
+            # Obter turmas
+            cursor.execute("""
+                SELECT t.codigo FROM aulaTurmas
+                JOIN turmas t ON t.codigo = aulaTurmas.idTurma
+                WHERE aulaTurmas.idAula = ?
+            """, (aid,))
+            turmas = [row["codigo"] for row in cursor.fetchall()]
+
+            # Obter docentes
+            cursor.execute("""
+                SELECT d.nome FROM aulaDocente
+                JOIN docentes d ON d.numeroMecanografico = aulaDocente.idDocente
+                WHERE aulaDocente.idAula = ?
+            """, (aid,))
+            docentes = [row["nome"] for row in cursor.fetchall()]
+
+            resultados.append({
+                "id": aid,
+                "curso": uc_info["curso_abv"] if uc_info else None,
+                "uc": uc_info["nome_uc"] if uc_info else None,
+                "sala": ", ".join(salas) if salas else None,
+                "turmas": turmas,
+                "docentes": docentes
+            })
+
+        return resultados
+
+    finally:
+        conn.close()
+
 
 # editDocentes
 #

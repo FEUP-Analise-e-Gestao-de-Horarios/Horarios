@@ -751,7 +751,7 @@ function submitToDatabase(cell) {
         // on success
         success: function (response) {
             const conflicts = response.conflicts
-            writeConflicts(conflicts)
+            writeConflicts(conflicts)            
         },
         // on error
         error: function (response, status, error) {
@@ -902,7 +902,7 @@ function swapFullCells(firstCell, secondCell) {
  * @param {HTMLElement} cell2 - A segunda célula.
  * @returns {boolean} - Retorna true se as células podem ser trocadas. False, em caso contrário.
  */
-function canSwap(cell1, cell2) {
+async function canSwap(cell1, cell2) {
     const colspanFirst = cell1.getAttribute('colspan') ? parseInt(cell1.getAttribute('colspan')) : 1;
     const originalcolspanFirst = cell1.getAttribute('data-originalcolspan') ? parseInt(cell1.getAttribute('data-originalcolspan')) : 1;
     const rowspanFirst = cell1.getAttribute('rowspan') ? parseInt(cell1.getAttribute('rowspan')) : 1;
@@ -956,6 +956,47 @@ function canSwap(cell1, cell2) {
     }
     else if (rowspanFirst < rowspanSecond && colspanFirst < colspanSecond) {
         swap = checkIfSwapPossible(cell1, cell2, colspanSecond - colspanFirst, rowspanSecond - 1);
+    }
+
+    if (swap) {
+        const aulaId_1 = cell1.getAttribute("data-aulaid");
+        const aulaId_2 = cell2.getAttribute("data-aulaid");
+        const projectNumber = $('script[data-proj-id]').data('projId');
+
+        const response = await fetch(`/getaulaparalelosimultanea?projId=${projectNumber}&aulaId_1=${aulaId_1}&aulaId_2=${aulaId_2}`);
+        const data = await response.json();
+
+        if (data.ambas_pertencem_a_grupos_diferentes) {
+            if (data.paralelo && data.simultanea){
+                // if one group is of aulas em paralelo and the other one is of aulas em simultaneo
+                if (data.grupo_paralelo){
+                    preencherPopupDoisGrupos(data.grupo_paralelo, data.grupo_simultanea, 'paralelo-simultanea');
+                }else{
+                    preencherPopupDoisGrupos(data.grupo_paralelo, data.grupo_simultanea, 'simultanea-paralelo');
+                }
+            }
+            else if (data.paralelo && !data.simultanea){
+                preencherPopupDoisGrupos(data.grupo_paralelo, data.segundo_grupo_paralelo, 'paralelo');
+            }
+            else if(!data.paralelo && data.simultanea){
+                preencherPopupDoisGrupos(data.grupo_simultanea, data.segundo_grupo_simultanea, 'simultanea');
+            }
+            const opcao = await new Promise(resolve => abrirPopupDoisGrupos(resolve));
+            if (opcao === 'cancelar')
+                swap = false;
+        }
+        else if (data.paralelo) {
+            preencherPopupGrupoAulasEmParalelo(data.grupo_paralelo);
+            const opcao = await new Promise(resolve => abrirPopupParalelo(resolve));
+            if (opcao === 'cancelar')
+                swap = false;
+        }
+        else if (data.simultanea) {
+            preencherPopupGrupoAulasEmSimultaneo(data.grupo_simultanea);
+            const opcao = await new Promise(resolve => abrirPopupSimultanea(resolve));
+            if (opcao === 'cancelar')
+                swap = false;
+        }
     }
     return swap;
 }
@@ -1016,6 +1057,122 @@ function checkIfSwapPossible(cell, cell2, cellsRight, cellsBottom) {
     return true;
 }
 
+function preencherPopupGrupoAulasEmParalelo(grupo) {
+    const ul = document.querySelector('#popup-paralelo #grupo-aulas-paralelo-list');
+    ul.innerHTML = '';
+
+    if (!Array.isArray(grupo) || grupo.length === 0) return;
+
+    grupo.forEach(aula => {
+        const turmas = aula.turmas?.join(', ') || 'Sem turmas';
+        const docentes = aula.docentes?.join(', ') || 'Sem docentes';
+        const sala = aula.sala || 'Sem sala';
+
+        const linha = `Aula com as turmas ${turmas}, professor ${docentes}, na sala ${sala}`;
+        const li = document.createElement('li');
+        li.textContent = linha;
+        ul.appendChild(li);
+    });
+}
+
+function preencherPopupGrupoAulasEmSimultaneo(grupo) {
+    const ul = document.querySelector('#popup-simultanea #grupo-aulas-simultanea-list');
+    ul.innerHTML = '';
+
+    if (!Array.isArray(grupo) || grupo.length === 0) return;
+
+    // Preencher os dados comuns - salas e professores
+    const docentesComuns = grupo[0].docentes?.join(', ') || 'Sem docentes';
+    const salaComum = grupo[0].sala || 'Sem sala';
+
+    document.getElementById('popup-simultanea-docentes').textContent = docentesComuns;
+    document.getElementById('popup-simultanea-sala').textContent = salaComum;
+
+    // Preencher a lista de aulas
+    grupo.forEach(aula => {
+        const curso = aula.curso || 'Curso desconhecido';
+        const uc = aula.uc || 'UC desconhecida';
+        const turmas = aula.turmas?.join(', ') || 'Sem turmas';
+
+        const linha = `Aula do curso ${curso}, UC ${uc}, com as turmas ${turmas}`;
+        const li = document.createElement('li');
+        li.textContent = linha;
+        ul.appendChild(li);
+    });
+}
+
+function preencherPopupDoisGrupos(grupo1, grupo2, tipoTroca){
+    if(tipoTroca == 'paralelo'){
+    }
+    else if (tipoTroca == 'simultanea'){
+        const infoComumGrupo1 = document.querySelector('#popup-dois-grupos #popup-dois-grupo-1 .info-comum p');
+        infoComumGrupo1.innerHTML = '';
+
+        if (!Array.isArray(grupo1) || grupo1.length === 0 || !Array.isArray(grupo2) || grupo2.length === 0) return;
+
+        // Preencher os dados comuns - salas e professores
+        const docentesComunsGrupo1 = grupo1[0].docentes?.join(', ') || 'Sem docentes';
+        const salaComumGrupo1 = grupo1[0].sala || 'Sem sala';
+        const linhaDocentesGrupo1 = document.createElement('span');
+        const linhaSalasGrupo1 = document.createElement('span');
+        let strongTextElement = document.createElement('strong');
+        strongTextElement.textContent = "Professores: ";
+        linhaDocentesGrupo1.appendChild(strongTextElement);
+        linhaDocentesGrupo1.appendChild(docentesComunsGrupo1);
+        infoComumGrupo1.appendChild(linhaDocentesGrupo1);
+        strongTextElement.textContent = "Sala: ";
+        linhaSalasGrupo1.appendChild(strongTextElement);
+        linhaSalasGrupo1.appendChild(salaComumGrupo1);
+        infoComumGrupo1.appendChild(linhaDocentesGrupo1);
+        
+        grupo1.forEach(aula => {
+            const curso = aula.curso || 'Curso desconhecido';
+            const uc = aula.uc || 'UC desconhecida';
+            const turmas = aula.turmas?.join(', ') || 'Sem turmas';
+    
+            const linha = `Aula do curso ${curso}, UC ${uc}, com as turmas ${turmas}`;
+            const li = document.createElement('li');
+            li.textContent = linha;
+            document.querySelector('#popup-dois-gropos-1 .grupos-aulas-list').appendChild(li);
+        });
+
+        const infoComumGrupo2 = document.querySelector('#popup-dois-grupos #popup-dois-grupo-2 .info-comum p');
+        infoComumGrupo1.innerHTML = '';
+
+        // Preencher os dados comuns - salas e professores
+        const docentesComunsGrupo2 = grupo[20].docentes?.join(', ') || 'Sem docentes';
+        const salaComumGrupo2 = grupo2[0].sala || 'Sem sala';
+        const linhaDocentesGrupo2 = document.createElement('span');
+        const linhaSalasGrupo2 = document.createElement('span');
+        strongTextElement.textContent = "Professores: ";
+        linhaDocentesGrupo2.appendChild(strongTextElement);
+        linhaDocentesGrupo2.appendChild(docentesComunsGrupo2);
+        infoComumGrupo1.appendChild(linhaDocentesGrupo2);
+        strongTextElement.textContent = "Sala: ";
+        linhaSalasGrupo2.appendChild(strongTextElement);
+        linhaSalasGrupo2.appendChild(salaComumGrupo2);
+        infoComumGrupo2.appendChild(linhaDocentesGrupo2);
+        
+        grupo2.forEach(aula => {
+            const curso = aula.curso || 'Curso desconhecido';
+            const uc = aula.uc || 'UC desconhecida';
+            const turmas = aula.turmas?.join(', ') || 'Sem turmas';
+    
+            const linha = `Aula do curso ${curso}, UC ${uc}, com as turmas ${turmas}`;
+            const li = document.createElement('li');
+            li.textContent = linha;
+            document.querySelector('#popup-dois-gropos-2 .grupos-aulas-list').appendChild(li);
+        });
+    }
+    else if (tipoTroca == 'paralelo-simultanea'){
+
+    }
+    else if (tipoTroca == 'simultanea-paralelo'){
+
+    }
+}
+
+
 // ------------------------------------------------------------------------------------------------
 // Event listeners
 // ------------------------------------------------------------------------------------------------
@@ -1030,7 +1187,7 @@ document.addEventListener('DOMContentLoaded', function () {
     myDefaultAllowList.td = [];
 });
 
-$(document).on('click', 'td:not(:first-child)', function (event) {
+$(document).on('click', 'td:not(:first-child)', async function (event) {
     const td = this;
     const targetElement = event.target;
     const turma = td.id.split('_')[1];
@@ -1064,7 +1221,7 @@ $(document).on('click', 'td:not(:first-child)', function (event) {
             const idCellBefore = $(prevCell).attr('id');
 
             try {
-                if (canSwap(prevCell, td)) {
+                if (await canSwap(prevCell, td)) {
                     swapFullCells(prevCell, td);
                     if (prevCell.querySelector("p") !== null) {
                         submitToDatabase(prevCell);
@@ -1192,7 +1349,29 @@ $(document).on('mouseleave', '#table_vistas td:not(:first-child):has(p) p.uc', f
     }
 });
 
-$(document).on('click', 'td:not(:first-child) p', function (event) {
+async function verificarTrocaAulaSimultanea(cell1, cell2) {
+    TODOOO verificar se as duas sao simultaneas
+    // verifica de alguma das aulas é simultânea - se forem verifica se é para proseguir com a troca
+    // se nenhuma for simultanea então é para proseguir com a troca
+    trocar = true;
+    const aulaId_1 = cell1.getAttribute("data-aulaid");
+    const aulaId_2 = cell2.getAttribute("data-aulaid");
+    const projectNumber = $('script[data-proj-id]').data('projId');
+
+    const response = await fetch(`/getaulaparalelosimultanea?projId=${projectNumber}&aulaId_1=${aulaId_1}&aulaId_2=${aulaId_2}`);
+    const data = await response.json();
+
+    if (data.simultanea) {
+        const opcao = await new Promise(resolve => abrirPopupSimultanea(resolve));
+        if (opcao === 'cancelar')
+            trocar = false;
+        if (opcao === 'so-esta')
+            trocar = true;
+    }
+    return trocar;
+}
+
+$(document).on('click', 'td:not(:first-child) p', async function (event) {
     // Previne que o evento se propague para o elemento td
     event.stopPropagation();
     const p = this;
@@ -1232,18 +1411,22 @@ $(document).on('click', 'td:not(:first-child) p', function (event) {
         displayBlocosVermelhosGlobal(cellClass, prevSelectedCell[0].id, false);
         showEditBarOptions(false);
 
-        if (cellClass.contains('sigla') && p.classList.contains('uc')) {
-            swapPartialCells(prevSelectedCell[0], p);
-            submitToDatabase(prevSelectedCell[0].parentNode);
-            submitToDatabase(p.parentNode);
-        } else if (cellClass.contains('docente') && p.classList.contains('docente')) {
-            swapPartialCells(prevSelectedCell[0], p);
-            submitToDatabase(prevSelectedCell[0].parentNode);
-            submitToDatabase(p.parentNode);
-        } else if (cellClass.contains('sala') && p.classList.contains('sala')) {
-            swapPartialCells(prevSelectedCell[0], p);
-            submitToDatabase(prevSelectedCell[0].parentNode);
-            submitToDatabase(p.parentNode);
+        const parent1 = prevSelectedCell[0].parentNode;
+        const parent2 = p.parentNode;
+        if (await verificarTrocaAulaSimultanea(parent1, parent2)) {
+            if (cellClass.contains('sigla') && p.classList.contains('uc')) {
+                swapPartialCells(prevSelectedCell[0], p);
+                submitToDatabase(prevSelectedCell[0].parentNode);
+                submitToDatabase(p.parentNode);
+            } else if (cellClass.contains('docente') && p.classList.contains('docente')) {
+                swapPartialCells(prevSelectedCell[0], p);
+                submitToDatabase(prevSelectedCell[0].parentNode);
+                submitToDatabase(p.parentNode);
+            } else if (cellClass.contains('sala') && p.classList.contains('sala')) {
+                swapPartialCells(prevSelectedCell[0], p);
+                submitToDatabase(prevSelectedCell[0].parentNode);
+                submitToDatabase(p.parentNode);
+            }
         }
     }
 

@@ -4,53 +4,31 @@
     <meta charset="UTF-8">
     <title>Selecionar Aulas em Paralelo</title>
     <style> 
+        button {
+            cursor: pointer;
+        }
+
+        button.disabled {
+            background-color: #ccc !important;
+            cursor: not-allowed;
+            color: #666;
+        }
+
         body {
             font-family: sans-serif;
-            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
         }
 
         .main-container {
-            flex: 0 0 1000px;
+            flex: 0 1 1000px;
+            padding-bottom: 8px;
             position: relative;
             max-width: 1000px;
-            margin: 0;
-            padding: 20px;
             margin-left: 6%;
-            background-color: white;
-            min-height: auto;
-            box-sizing: border-box;
-            inset: 0;
             z-index: 9999;
-        }
-
-
-        .grupo-box {
-            border: 1px solid #ccc;
-            padding: 15px;
-            margin-bottom: 5px;
-            border-radius: 8px;
-            background: #f9f9f9;
-        }
-
-        .grupo-box-content {
-            display: flex;
-            gap: 30px;
-            align-items: flex-start;
-            justify-content: space-between;
-            font-size: 4px;
-        }
-
-        button {
-            margin-top: 10px;
-            background: #ffc107;
-            color: black;
-            padding: 8px 16px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        #curso-selector {
-            margin-bottom: 20px;
         }
 
         .curso-btn {
@@ -61,23 +39,41 @@
             border-radius: 10px;
             color: #333;
             background-color: #ddd;
-            cursor: pointer;
             font-size: 16px;
             font-weight: bold;
         }
-
         .curso-btn.active {
             background-color: #ffc107;
         }
         .curso-wrapper {
             display: none;
-            border: 2px solid #aaa;
-            border-radius: 10px;
-            padding-left: 3%;
-            padding-right: 3%;
-            padding-bottom: 1%;
-            margin-bottom: 40px;
             background: #fff;
+        }
+        .curso-wrapper h2{
+            font-size: 27px;
+            color: #ffc107;
+        }
+
+        .uc-container {
+            margin-bottom: 5px;
+        }
+        .uc-container h4 {
+            font-size: 18px;
+            margin-top: 0px;
+            margin-bottom: 4px;
+        }
+
+        .grupo-box {
+            padding: 12px 10px 10px 15px;
+            margin-bottom: 5px;
+            border-radius: 8px;
+            background-color: #fff1c8;
+        }
+        .grupo-box-content {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            justify-content: space-between;
         }
 
         .aulas-list {
@@ -97,72 +93,22 @@
         }
 
         .aulas-simultaneas-box {
-            background-color: #f0f0f0;
-            padding: 10px;
+            border: 1px solid #ccc;
+            padding: 5px;
             border-radius: 8px;
             display: flex;
             flex-direction: column;
             justify-content: flex-start;
-            gap: 6px;
-            margin-top: 8px;
+            gap: 1px;
             font-size: 14px;
-            
         }
 
-        .aulas-simultaneas-box span {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background-color: #bbb;
-            padding-top: 0.2em;
-            padding-bottom: 0.2em;
-            padding-left: 1em;
-            padding-right: 1em;
-            border-radius: 5px;
-            margin: 0px;
-        }
-
-        .aulas-simultaneas-box span .remove {
-            cursor: pointer;
-            color: #333;
-        }
-
-        .popup-turmas-scroll {
-            max-height: 300px;
-            overflow-y: auto;
-            border: 1px solid #ccc;
-            padding: 10px;
-            background: #f9f9f9;
-        }
-
-        .curso-wrapper h3{
-            font-size: 25px;
-        }
-
-        button.disabled {
-            background-color: #ccc !important;
-            cursor: not-allowed;
-            color: #666;
-        }
         .warning-msg {
             font-size: 16px;
             margin-top: 6px;
             color: red;
             display: block;
             word-break: break-word;
-        }
-
-        .uc-container {
-            border: 1px dashed #aaa;
-            margin-bottom: 20px;
-            padding: 10px;
-            border-radius: 6px;
-            background-color: #fcfcfc;
-        }
-        .uc-container h4 {
-            font-size: 18px;
-            margin-bottom: 10px;
-            margin-top: 0px;
         }
 
         .botoes-canto {
@@ -181,19 +127,9 @@
             background: #ffc107;
             color: black;
             padding: 10px 16px;
-            border: none;
             border-radius: 6px;
-            cursor: pointer;
+            border: none;
             width: 135px;
-        }
-
-        .wrapper-total {
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            padding: 20px;
-            gap: 30px;
-            min-height: 100vh;
         }
 
         #btn-cancelar {
@@ -203,77 +139,110 @@
             background-color: #f5f5f5;
         }
 
+        .popup-warning {
+            display:none; 
+            position: fixed; 
+            top: 30%; 
+            left: 50%; 
+            transform: translate(-50%, -30%); 
+            background: #fff4db; 
+            padding: 30px; 
+            border: 3px solid #e49319; 
+            border-radius: 8px; 
+            z-index: 10000; 
+            max-width: 500px; 
+            box-shadow: 0 0 10px rgba(0,0,0,0.3); 
+            text-align: center;
+        }
+        .popup-warning button{
+            padding: 8px;
+            font-weight: bold; 
+            background: #ffc107; 
+            border-radius: 5px; 
+            border: none;
+        }
+        #lista-inconsistentes{
+            font-size: 14px; 
+            text-align: left; 
+            max-height: 200px; 
+            overflow-y: auto; 
+            margin-bottom: 15px;
+        }
 
     </style>
 </head>
 <body>
-    <div class="wrapper-total">
-        <div class="main-container">
-            <h2>Selecionar Aulas em Paralelo</h2>
-            <div id="curso-selector">
-                {% for curso in cursos %}
-                    <button class="curso-btn" data-curso="{{ curso }}" onclick="toggleCurso(this)">
-                        {{ curso }}
-                    </button>
-                {% endfor %}
-            </div>
-
-            <p>Selecione os cursos para que pretende selecionar aulas em paralelo.</p>
-            <p>Selecione as aulas que deverão ser em paralelo.</p>
-
+    <div class="main-container">
+        <h2>Selecionar Aulas em Paralelo</h2>
+        <div id="curso-selector">
             {% for curso in cursos %}
-                <div class="curso-wrapper" data-curso="{{ curso }}">
-                    <h2>Curso {{ curso }}</h2>
-                    {% regroup grupos_aulas_ao_mesmo_tempo by nomeUC as grupos_por_uc %}
-                    {% for uc in grupos_por_uc %}
-                        {% if uc.grouper and uc.list.0.curso == curso %}
-                            <div class="uc-container">
-                                <h4 onclick="toggleUC(this)" style="cursor: pointer;">
-                                    <span class="toggle-icon">▾</span> {{ uc.grouper }} &emsp; {{ uc.list.0.uc }}
-                                </h4>
-                                <div class="uc-grupos">
-                                    {% for grupo in uc.list %}
-                                        <div class="grupo-box" data-curso="{{ grupo.curso }}" id="grupo-{{ grupo.id }}">
-                                            <div class="grupo-box-content" style="display: flex; gap: 10px;">
-                                                <div class="aulas-list">
-                                                    <h4>{{ grupo.horario }}</h4>
-                                                    {% for aula, turmas in grupo.aulas %}
-                                                        Turmas: {{ turmas|join:", " }} <br>
-                                                    {% endfor %}
-                                                </div>
-                                                <div class="aulas-simultaneas-boxes">
-                                                    {% for i in "x"|rjust:grupo.num_boxes %}
-                                                        <div class="aulas-simultaneas-box" data-grupo="{{ grupo.id }}" data-box-index="{{ forloop.counter0 }}">
-                                                            <label><input type="checkbox" class="select-all-checkbox"> Selecionar todas</label>
-                                                            {% for aula, turmas in grupo.aulas %}
-                                                                <label>
-                                                                <input type="checkbox"
-                                                                        class="aula-checkbox"
-                                                                        data-grupo="{{ grupo.id }}"
-                                                                        data-aula="{{ aula }}"
-                                                                        data-turmas="{{ turmas|join:',' }}">
-                                                                {{ turmas|join:", " }}
-                                                                </label>
-                                                            {% endfor %}
-                                                        </div>
-                                                    {% endfor %}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        {% endif %}
-                    {% endfor %}
-                </div>
+                <button class="curso-btn" type="button" data-curso="{{ curso }}" onclick="toggleCurso(this)">
+                    {{ curso }}
+                </button>
             {% endfor %}
         </div>
 
-        <div class="botoes-canto">
-            <div id="aviso-uma-aula-so-selecionada" class="warning-msg" style="display: none;"></div>
-            <button type="button" id="btn-guardar" onclick="guardarTodasSelecoes()">Guardar Seleção</button>
-            <button type="button" id="btn-cancelar" onclick="cancelarMudancas()">Cancelar</button>
-        </div>
+        {% for curso in cursos %}
+            <div class="curso-wrapper" data-curso="{{ curso }}">
+                <h2>Curso {{ curso }}</h2>
+                {% regroup grupos_aulas_ao_mesmo_tempo by nomeUC as grupos_por_uc %}
+                {% for uc in grupos_por_uc %}
+                    {% if uc.grouper and uc.list.0.curso == curso %}
+                        <div class="uc-container">
+                            <h4 onclick="toggleUC(this)" style="cursor: pointer;">
+                                <span class="toggle-icon">▾</span> {{ uc.grouper }} &emsp; {{ uc.list.0.uc }}
+                            </h4>
+                            <div class="uc-grupos">
+                                {% for grupo in uc.list %}
+                                    <div class="grupo-box" data-curso="{{ grupo.curso }}" id="grupo-{{ grupo.id }}">
+                                        <div class="grupo-box-content" style="display: flex; gap: 10px;">
+                                            <div class="aulas-list">
+                                                <h4>{{ grupo.horario }}</h4>
+                                                {% for aula, turmas in grupo.aulas %}
+                                                    Aula com as turmas: {{ turmas|join:", " }} <br>
+                                                {% endfor %}
+                                            </div>
+                                            <div class="aulas-simultaneas-boxes">
+                                                {% for i in "x"|rjust:grupo.num_boxes %}
+                                                    <div class="aulas-simultaneas-box" data-grupo="{{ grupo.id }}" data-box-index="{{ forloop.counter0 }}">
+                                                        <label><input type="checkbox" class="select-all-checkbox" style="cursor: pointer;"> Selecionar todas</label>
+                                                        {% for aula, turmas in grupo.aulas %}
+                                                            <label>
+                                                                <input type="checkbox"
+                                                                        class="aula-checkbox"
+                                                                        style="cursor: pointer;"
+                                                                        data-grupo="{{ grupo.id }}"
+                                                                        data-aula="{{ aula }}"
+                                                                        data-turmas="{{ turmas|join:',' }}">
+                                                                {% with turmas.0 as primeira %}
+                                                                        {{ primeira }}{% for t in turmas|slice:"1:" %}, {{ t|slice:"-2:" }}{% endfor %}
+                                                                {% endwith %}                                                                        
+                                                            </label>
+                                                        {% endfor %}
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        {% endfor %}
+    </div>
+
+    <div class="botoes-canto">
+        <div id="aviso-uma-aula-so-selecionada" class="warning-msg" style="display: none;"></div>
+        <button type="button" id="btn-guardar" onclick="guardarTodasSelecoes()">Guardar Seleção</button>
+        <button type="button" id="btn-cancelar" onclick="cancelarMudancas()">Cancelar</button>
+    </div>
+    
+    <div id="popup-inconsistentes" class ="popup-warning">
+        <p style="font-weight: bold; margin-bottom: 15px;">Alguns dos grupos selecionados para serem aulas em paralelo estão a ter aulas em horários diferentes entre si. <br>Por favor corrija.</p>
+        <div id="lista-inconsistentes"></div>
+        <button type="button" onclick="fecharPopupInconsistentes()">OK</button>
     </div>
 
 <script>
@@ -377,11 +346,15 @@
             })
         })
         .then(async res => {
-            const text = await res.text(); // read raw text
+            const text = await res.text();
             try {
                 const data = JSON.parse(text);
                 if (data.status === "ok") {
-                    window.location.href = `/editturnos/{{ project_id }}`;
+                    if (data.inconsistentes && data.inconsistentes.length > 0) {
+                        mostrarPopupInconsistentes(data.inconsistentes);
+                    } else {
+                        window.location.href = `/editturnos/{{ project_id }}`;
+                    }
                 } else {
                     alert("Erro ao guardar.");
                 }
@@ -523,6 +496,27 @@
 
         atualizarCheckboxesDisponiveis();
         validarGrupos();
+    }
+
+    function mostrarPopupInconsistentes(cadeias) {
+        const div = document.getElementById("lista-inconsistentes");
+        div.innerHTML = "";
+
+        cadeias.forEach((grupo, i) => {
+            div.innerHTML += `<div><strong>Grupo ${i + 1}: ${grupo.nome_uc}</strong><br>`;
+            grupo.aulas.forEach(aula => {
+                div.innerHTML += `<div style="margin-left: 10px;">- ${aula}</div>`;
+            });
+            div.innerHTML += `</div><br>`;
+        });
+
+        document.getElementById("popup-inconsistentes").style.display = "block";
+    }
+
+
+    function fecharPopupInconsistentes() {
+        document.getElementById("popup-inconsistentes").style.display = "none";
+        window.location.href = `/editturnos/{{ project_id }}`;
     }
 
     document.addEventListener("DOMContentLoaded", () => {
