@@ -1,0 +1,12 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.2
+    hooks:
+      # Format code and auto-fix safe issues (unused imports, etc.)
+      - id: ruff
+        name: ruff (fix)
+        args: [--fix, --exit-non-zero-on-fix]
+
+      # Lint-only pass — fail if any violations remain after fixing
+      - id: ruff-format
+        name: ruff (format)

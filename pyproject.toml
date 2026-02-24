@@ -1,0 +1,37 @@
+[tool.ruff]
+src = ["src"]
+line-length = 88
+target-version = "py314"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes (unused imports, undefined names, etc.)
+    "I",   # isort (import sorting)
+    "UP",  # pyupgrade (modernise Python syntax)
+    "B",   # flake8-bugbear (common bugs and design issues)
+    "C4",  # flake8-comprehensions (better list/dict/set comprehensions)
+    "DJ",  # flake8-django (Django-specific checks)
+    "SIM", # flake8-simplify (simplifiable code patterns)
+    "RUF", # Ruff-specific rules
+]
+ignore = [
+    "E501",   # line too long — handled by the formatter
+    "SIM108", # ternary operator — not always more readable
+]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "FeupScheduleEditor",
+    "core",
+    "users",
+    "login",
+    "parser",
+    "database",
+    "getHorariosFromDB",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
