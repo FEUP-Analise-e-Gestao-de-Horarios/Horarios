@@ -10,10 +10,10 @@ from typing import Any
 import bleach
 from django.conf import settings
 from django.http import HttpRequest, JsonResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.views.decorators.csrf import csrf_exempt
 
-from core.models import Project
+from core.models import Person, Project
 
 from .parallel import obter_aulas_em_paralelo, verificar_aulas_em_paralelo
 from .scraper import Parser
@@ -76,7 +76,37 @@ def parse(request: HttpRequest) -> JsonResponse:
 
 
 def selecionar_aulas_em_paralelo(request: HttpRequest):
-    project_id = request.GET.get("id")
+    if not request.user.is_authenticated:
+        return redirect("signin")
+
+    project_id_raw = request.GET.get("id")
+    if project_id_raw is None:
+        return JsonResponse({"error": "Invalid project ID"}, status=400)
+    try:
+        project_id = int(project_id_raw)
+    except ValueError:
+        return JsonResponse({"error": "Invalid project ID"}, status=400)
+
+    try:
+        person = Person.objects.get(username=request.user.pk)
+    except Person.DoesNotExist:
+        return JsonResponse({"error": "Forbidden"}, status=403)
+
+    try:
+        project = Project.objects.get(id=project_id)
+    except Project.DoesNotExist:
+        return JsonResponse({"error": "Project not found"}, status=404)
+
+    user_groups = set(person.groups.values_list("id", flat=True))
+    project_groups = set(project.group.values_list("id", flat=True))
+
+    if not (
+        project.person == person
+        or request.user.is_staff
+        or project.people.filter(pk=person.pk).exists()
+        or bool(user_groups & project_groups)
+    ):
+        return JsonResponse({"error": "Forbidden"}, status=403)
 
     db_path = os.path.join(
         settings.BASE_DIR, "database", f"Project{project_id}", "initial_database.db"
@@ -176,6 +206,38 @@ def selecionar_aulas_em_paralelo(request: HttpRequest):
 
 @csrf_exempt
 def guardar_aulas_em_paralelo(request: HttpRequest):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "User is not authenticated"}, status=401)
+
+    project_id_raw = request.GET.get("id")
+    if project_id_raw is None:
+        return JsonResponse({"error": "Invalid project ID"}, status=400)
+    try:
+        project_id = int(project_id_raw)
+    except ValueError:
+        return JsonResponse({"error": "Invalid project ID"}, status=400)
+
+    try:
+        person = Person.objects.get(username=request.user.pk)
+    except Person.DoesNotExist:
+        return JsonResponse({"error": "Forbidden"}, status=403)
+
+    try:
+        project = Project.objects.get(id=project_id)
+    except Project.DoesNotExist:
+        return JsonResponse({"error": "Project not found"}, status=404)
+
+    user_groups = set(person.groups.values_list("id", flat=True))
+    project_groups = set(project.group.values_list("id", flat=True))
+
+    if not (
+        project.person == person
+        or request.user.is_staff
+        or project.people.filter(pk=person.pk).exists()
+        or bool(user_groups & project_groups)
+    ):
+        return JsonResponse({"error": "Forbidden"}, status=403)
+
     try:
         data = json.loads(request.body)
         pares: list[tuple[Any, Any, Any, Any]] = data[
@@ -185,7 +247,6 @@ def guardar_aulas_em_paralelo(request: HttpRequest):
         if len(pares) == 0:
             return JsonResponse({"status": "ignorado"})
 
-        project_id = request.GET.get("id")
         db_path = os.path.join(
             settings.BASE_DIR, "database", f"Project{project_id}", "general_database.db"
         )
@@ -206,7 +267,6 @@ def guardar_aulas_em_paralelo(request: HttpRequest):
 
             inconsistentes = verificar_aulas_em_paralelo(cursor, pares)
 
-            project = Project.objects.get(id=project_id)
             project.has_selected_aulas_em_paralelo = True
             project.save()
 
