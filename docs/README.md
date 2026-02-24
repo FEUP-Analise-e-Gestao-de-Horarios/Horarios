@@ -1,148 +1,150 @@
 # Projeto-Integrador
 
-Para uma descrição da estrutura do diretório ver [estrutura](Structure.md).
+For a description of the directory structure see [structure](Structure.md).
 
-# Preparação do Ambiente Django:
+# Django Environment Setup:
 
+## 1. Installing Dependencies:
 
-## 1. Instalação de Dependencias:
-
-Instalar git, python e pip:
+Install git, python and pip:
 
 ```
 sudo apt install git python pip
 ```
 
-*Nota: assumindo uso de Ubunto como OS. Para outras distribuições ou OSs o comando pode ser diferente*
+_Note: assuming Ubuntu as the OS. For other distributions or OSs the command may differ_
 
-**Apenas no servidor, instalar nginx e supervisor:**
+**On the server only, install nginx and supervisor:**
 
 ```
 sudo apt install nginx supervisor
 ```
 
-Instalar pipenv e django:
+Install pipenv and django:
 
 ```
 pip install pipenv django
 ```
 
+## 2. Clone the repository:
 
-## 2. Clonar o repositório:
 ```
-git clone <url ou ssh>
+git clone <url or ssh>
 ```
 
-*Nota: no servidor é recomendado usar a chave de deployment do github*
+_Note: on the server it is recommended to use the github deployment key_
 
-Mudar para o diretório:
+Change to the directory:
 
 ```
 cd Projeto-Integrador
 ```
 
-*Nota: trocar Projeto-Integrador pelo nome do diretório, se diferente*
+_Note: replace Projeto-Integrador with the directory name, if different_
 
-## 3. Criar o Ambiente:
+## 3. Create the Environment:
 
-Dentro do diretório Projeto-Integrador:
+Inside the Projeto-Integrador directory:
 
 ```
 pipenv install django
 ```
 
-Isto cria o ambiente virtual, instala as dependencias e prepara o projeto.
-Para aceder ao ambiente virtual:
+This creates the virtual environment, installs the dependencies and prepares the project.
+To enter the virtual environment:
 
 ```
 pipenv shell
 ```
 
-e para sair:
+and to exit:
 `ctrl+c`
 
-## 4. Migrações e Ficheiros Estáticos:
+## 4. Migrations and Static Files:
 
-Certificar que está dentro do ambiente virtual com:
+Make sure you are inside the virtual environment with:
 
 ```
 pipenv shell
 ```
 
-Para criar as necessárias migrações:
+To create the necessary migrations:
 
 ```
 python manage.py makemigrations
 ```
 
-Para efetuar as migrações:
+To apply the migrations:
 
 ```
 python manage.py migrate
 ```
 
-Para importar ficheiros estáticos, mais concretamente ficheiros .js e .css:
+To import static files, specifically .js and .css files:
 
 ```
 python manage.py collectstatic
 ```
 
-*Nota: isto importa todos os ficheiros estáticos no diretório static/*
+_Note: this imports all static files into the static/ directory_
 
-## 5. Correr o servidor em localhost e ver se funciona:
-Para correr o servidor, em modo de desenvolvimento:
+## 5. Run the server on localhost and check if it works:
+
+To run the server in development mode:
 
 ```
 python manage.py runserver
 ```
 
-Verificar se reporta algum erro ou migração em falta.
+Check if it reports any errors or missing migrations.
 
-Para parar: `ctrl+c`
+To stop: `ctrl+c`
 
-*Nota: se der erro de importação de um módulo, instale:*
-
-```
-pipenv install <módulo>
-```
-
-ou
+_Note: if you get a module import error, install it:_
 
 ```
-pip install <módulo>
+pipenv install <module>
 ```
 
-Para realizar o login na aplicação, basta usar o username `admin`, com a palavra-passe `passhorarios`.
+or
 
-O projeto 'Nome' na aplicação funciona apenas como placeholder, não tem uma base de dados associada, e pode ser apagado após o primeiro login.
+```
+pip install <module>
+```
+
+To log in to the application, use the username `admin` with the password `passhorarios`.
+
+The 'Name' project in the application serves only as a placeholder, it has no associated database, and can be deleted after the first login.
 
 # Deployment:
 
-## 6. Configurar settings.py
-*Apartir daqui, é apenas relevante para o deployment no servidor de produção*
+## 6. Configure settings.py
 
-Alterar o ficheiro `FeupScheduleEditor/settings.py`, colocar `DEBUG=False`
+_From here on, this is only relevant for deployment on the production server_
 
-Apartir do diretório Projeto-Integrador:
+Edit the file `FeupScheduleEditor/settings.py`, set `DEBUG=False`
+
+From the Projeto-Integrador directory:
 
 ```
 nano FeupScheduleEditor/settings.py
 ```
 
-Alterar a linha 36 para:
+Change line 36 to:
 `DEBUG = False`
 
-*Nota: o número da linha pode alterar, se o ficheiro também tiver sido alterado. Se for o caso, procurar pela entrada `DEBUG`*
+_Note: the line number may change if the file has also been modified. If so, search for the `DEBUG` entry_
 
-## 7. Configurar NGINX:
+## 7. Configure NGINX:
 
-Para criar o bloco de configuração do projeto:
+To create the project's configuration block:
 
 ```
 sudo nano /etc/nginx/sites-available/FeupScheduleEditor
 ```
 
-Colar a seguinte configuração:
+Paste the following configuration:
+
 ```
 server {
     listen 80;
@@ -156,39 +158,39 @@ server {
 }
 ```
 
-
-Criar o link simbólico com os sites-enabled:
+Create the symbolic link with sites-enabled:
 
 ```
 sudo ln -s /etc/nginx/sites-available/FeupScheduleEditor /etc/nginx/sites-enabled/
 ```
 
-Testar a configuração:
+Test the configuration:
 
 ```
 sudo nginx -t
 ```
 
-Se tudo correr bem, reiniciar o site:
+If everything goes well, restart the site:
 
 ```
 sudo service nginx restart
 ```
 
-*Nota: Se for necessário alterar o tempo necessário para timeout:*
+_Note: If you need to change the timeout duration:_
 
 ```
 sudo nano /etc/nginx/nginx.conf
 ```
 
-colar, na secção http:
+paste, in the http section:
 
 ```
     proxy_connect_timeout 3600s;
     proxy_send_timeout 3600s;
     proxy_read_timeout 3600s;
 ```
-Trocar 3600 pelo tempo desejado, em segundos e reiniciar:
+
+Replace 3600 with the desired time in seconds and restart:
 
 ```
 sudo service nginx restart
@@ -196,43 +198,43 @@ sudo service nginx restart
 
 ## 8. Daphne
 
-Antes disto, no ambiente virtual pipenv, verificar se o projeto está pronto para o deployment:
+Before this, in the pipenv virtual environment, check if the project is ready for deployment:
 
 ```
 python manage.py check --deploy
 ```
 
-e analisar bem os *warnings*, alguns destes não precisam de ser corrigidos, dependendo da implementação 
+and carefully review the _warnings_ — some of these do not need to be fixed, depending on the implementation
 
-No diretório do projeto, no ambiente virtual pipenv, correr Daphne, para ligar o servidor:
+In the project directory, in the pipenv virtual environment, run Daphne to start the server:
 
 ```
 daphne FeupScheduleEditor.asgi:application
 ```
 
-Neste ponto, o site deve estar acessível no browser, através do IP, na rede da Feup ou com o vpn.
+At this point, the site should be accessible in the browser via the IP address, on the Feup network or with a VPN.
 
-Para desligar: `ctrl+c`
+To stop: `ctrl+c`
 
-*Nota: neste momento o site só corre enquando o daphne estiver a correr em primeiro plano e a ligação ssh estiver ativa. Assim que desconectar a ligação ssh, o site ficará inacessível*
+_Note: at this point the site only runs while daphne is running in the foreground and the SSH connection is active. Once the SSH connection is disconnected, the site will become inaccessible_
 
-## 9. Configurar Supervisor
+## 9. Configure Supervisor
 
-Para garantir que o Daphne corre em segundo plano, independentemente da ligação ssh, é necessário configurar o Supervisor:
+To ensure that Daphne runs in the background, regardless of the SSH connection, you need to configure Supervisor:
 
 ```
 sudo nano /etc/supervisor/conf.d/daphne.conf
 ```
 
-*Nota: se o diretório não existir, é preciso criá-lo com:*
+_Note: if the directory does not exist, create it with:_
 
 ```
 sudo mkdir /etc/supervisor/conf.d
 ```
 
-*E voltar a correr o comando anterior.*
+_And run the previous command again._
 
-Colar a seguinte configuração:
+Paste the following configuration:
 
 ```
 [program:daphne]
@@ -245,55 +247,59 @@ redirect_stderr=true
 stdout_logfile=/var/log/daphne.log
 ```
 
-*Nota: Se o ficheiro de logs de daphne não exitir, crie:*
+_Note: If the daphne log file does not exist, create it:_
 
 ```
 sudo touch /var/log/daphne.log
 ```
 
-Alterar as entradas **command** e **directory** por:
+Replace the **command** and **directory** entries with:
 
 `command=/path/to/your/virtual/env/bin/daphne FeupScheduleEditor.asgi:application`
 
-E
+And
 
 `directory=/path/to/your/django/app`
 
-Respetivamente.
+Respectively.
 
-Recarregar as mudanças:
+Reload the changes:
+
 ```
 sudo supervisorctl reread
 sudo supervisorctl update
 ```
 
-# 10. Ligar o Servidor
+# 10. Start the Server
 
-Ativar o Daphne através do Supervisor:
+Activate Daphne through Supervisor:
 
 ```
 sudo supervisorctl start daphne
 ```
 
-Neste momento o site deve estar acessível.
+At this point the site should be accessible.
 
-Para o parar:
+To stop it:
 
 ```
 sudo supervisorctl stop daphne
 ```
 
-Se for necessário consultar os logs de supervisor fazer:
+To view the supervisor logs:
+
 ```
 sudo cat /var/log/supervisor/supervisord.log
 ```
 
-E os logs de daphne fazer:
+And the daphne logs:
+
 ```
 sudo cat /var/log/daphne.log
 ```
 
-ou, para as últimas 100 linhas:
+or, for the last 100 lines:
+
 ```
 sudo tail -100 /var/log/daphne.log
 ```

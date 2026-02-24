@@ -1,24 +1,28 @@
-O repositório contem os seguintes diretórios de aplicações:
- - FeupScheduleEditor
- - parser
- - login
- - core
- - users
+The repository contains the following application directories:
 
-Nestes destacam-se os ficheiros:
-- urls.py, onde se mapeam os urls a cada função
-- views.py, onde estão as dadas funções, que renderizam páginas ou JSON
-- models.py, onde são definidos modelos relacionais
+- FeupScheduleEditor
+- parser
+- login
+- core
+- users
 
-No caso da FeupScheduleEditor, onde é contido a maior parte do projeto, destacam-se, também, os ficheiros:
- - settings.py, que contém as configurações do projeto
- - asgi.py, que contém as configurações da aplicação ASGI
+Within these, the following files stand out:
 
-Destaca-se, também os seguintes diretórios:
-- database, que contém o ficheiro .sql das bases de dados e:
-  - diretórios ProjectX, onde X é o id do projeto, que contêm as bases de dados inicial e geral e o ficheiro de conflitos
-- getHorariosFromDB, que contém ficheiros .py auxiliares, usados pelo projeto
-- templates, que contém os ficheiros .html parciais, usados para renderizar as páginas
-- static, onde estão contidos os ficheiros estáticos .js e .css usados no projeto, são carregados em modo DEBUG=True
-- staticfiles, diretório onde o servidor carrega os ficheiros estáticos em modo DEBUG=False, são importados de /static ao usar
-  ```python manage.py collectstatic```
+- urls.py, where URLs are mapped to each function
+- views.py, where those functions are defined, rendering pages or JSON
+- models.py, where relational models are defined
+
+In the case of FeupScheduleEditor, which contains the majority of the project, the following files also stand out:
+
+- settings.py, which contains the project configuration
+- asgi.py, which contains the ASGI application configuration
+
+The following directories also stand out:
+
+- database, which contains the .sql database file and:
+    - ProjectX directories, where X is the project id, containing the initial and general databases and the conflicts file
+- getHorariosFromDB, which contains auxiliary .py files used by the project
+- templates, which contains partial .html files used to render pages
+- static, which contains the static .js and .css files used in the project, loaded in DEBUG=True mode
+- staticfiles, the directory where the server loads static files in DEBUG=False mode, imported from /static by running
+  `python manage.py collectstatic`
