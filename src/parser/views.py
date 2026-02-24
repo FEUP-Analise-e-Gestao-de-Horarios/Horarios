@@ -5,16 +5,17 @@ import sqlite3
 import threading
 import traceback
 from collections import defaultdict
-from typing import Any
 
 import bleach
 from django.conf import settings
 from django.http import HttpRequest, JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
+from pydantic import ValidationError
 
 from core.models import Project
 
+from .models import AulasSimultaneasInput
 from .parallel import obter_aulas_em_paralelo, verificar_aulas_em_paralelo
 from .scraper import Parser
 
@@ -176,9 +177,11 @@ def selecionar_aulas_em_paralelo(request: HttpRequest):
 def guardar_aulas_em_paralelo(request: HttpRequest):
     try:
         data = json.loads(request.body)
-        pares: list[tuple[Any, Any, Any, Any]] = data[
-            "pares"
-        ]  # [(aula1, aula2, turma1, turma2), ...]
+        try:
+            validated = AulasSimultaneasInput(pares=data.get("pares", []))
+        except ValidationError as e:
+            return JsonResponse({"status": "erro", "message": e.errors()}, status=400)
+        pares = [(p.aula1, p.aula2, p.turma1, p.turma2) for p in validated.pares]
 
         if len(pares) == 0:
             return JsonResponse({"status": "ignorado"})

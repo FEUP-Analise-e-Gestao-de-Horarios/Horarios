@@ -94,6 +94,9 @@ def verificar_aulas_em_paralelo(cursor: sqlite3.Cursor, pares: list) -> list:
         )
         aulas_info = cursor.fetchall()
 
+        if not aulas_info:
+            continue
+
         referencia = (
             aulas_info[0]["diaSemana"],
             aulas_info[0]["horaInicial"],
