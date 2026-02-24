@@ -13,30 +13,30 @@ def table_to_matrix(table: Any) -> list[list[Any]]:
     """
 
     # Encontra todas as linhas de uma tabela
-    rows = table.find_all('tr')
+    rows = table.find_all("tr")
     rows = rows[3:]
 
     # Determina o número de linhas e colunas na tabela
     num_rows = len(rows)
-    num_cols = max([len(row.find_all(['td', 'th'])) for row in rows])
+    num_cols = max([len(row.find_all(["td", "th"])) for row in rows])
 
     # Cria uma matriz para armazenar os dados
     matrix = [[None for _ in range(num_cols)] for _ in range(num_rows)]
     # Itera sobre cada célula na tabela
     for i, row in enumerate(rows):
-        cells = row.find_all('td')
+        cells = row.find_all("td")
         j = 0
         for cell in cells:
             # Encontra o rowspan e colspan da célula
-            rowspan = int(cell.get('rowspan', 1))
-            colspan = int(cell.get('colspan', 1))
+            rowspan = int(cell.get("rowspan", 1))
+            colspan = int(cell.get("colspan", 1))
 
             # Insere a data na matriz
             while matrix[i][j] is not None:
                 j += 1
             for k in range(rowspan):
-                for l in range(colspan):
-                    matrix[i+k][j+l] = cell
+                for m in range(colspan):
+                    matrix[i + k][j + m] = cell
 
             # Avança o índice da coluna para a próxima célula disponível
             j += colspan
@@ -56,10 +56,10 @@ def get_index(item: Any, matrix: list[list[Any]]) -> tuple[Any, list[list[Any]]]
         for j, td in enumerate(row):
             if item == td:
                 matrix[i][j] = None
-                rowspan = item.get('rowspan')
+                rowspan = item.get("rowspan")
                 if rowspan is None:
                     rowspan = "1"
-                for y in range(i+1, i+int(rowspan)):
+                for y in range(i + 1, i + int(rowspan)):
                     matrix[y][j] = None
                 return j, matrix
 
@@ -70,9 +70,9 @@ def get_dia_from_index(index: int, spanMap: dict[str, Any]) -> str:
     """
 
     if index == 1:
-        return 'Segunda'
+        return "Segunda"
     count = 0
-    for (dia, span) in spanMap.items():
+    for dia, span in spanMap.items():
         count += int(span)
         if count >= index:
             return dia
