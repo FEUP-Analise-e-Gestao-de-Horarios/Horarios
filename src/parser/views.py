@@ -1,9 +1,9 @@
 import concurrent.futures
 import json
+import logging
 import os
 import sqlite3
 import threading
-import traceback
 from collections import defaultdict
 from typing import Any
 
@@ -17,6 +17,8 @@ from core.models import Project
 
 from .parallel import obter_aulas_em_paralelo, verificar_aulas_em_paralelo
 from .scraper import Parser
+
+logger = logging.getLogger(__name__)
 
 max_workers = 4  # Estabelece o número máximo de threads permitidas
 executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
@@ -57,7 +59,7 @@ def parse(request: HttpRequest) -> JsonResponse:
         try:
             parser.run()
         except Exception:
-            print(traceback.format_exc())
+            logger.exception("Unhandled exception in background parse thread")
         finally:
             with _parse_counter_lock:
                 _parse_counter["count"] -= 1
