@@ -3,6 +3,7 @@ import shutil
 import sqlite3
 from collections import defaultdict
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -474,7 +475,7 @@ class Parser:
             if "__cf_email__" in str(content):
                 content = ["EaD"]
             sala = str(content).split("'")[1]
-            with open("parser/Salas.txt") as file:
+            with open(Path(__file__).parent / "Salas.txt") as file:
                 alreadyInserted = False
                 for line in file:
                     if sala in line:
