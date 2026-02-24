@@ -176,7 +176,17 @@ def selecionar_aulas_em_paralelo(request: HttpRequest):
 @csrf_exempt
 def guardar_aulas_em_paralelo(request: HttpRequest):
     try:
-        data = json.loads(request.body)
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse(
+                {"status": "erro", "message": "Invalid JSON body"}, status=400
+            )
+        if not isinstance(data, dict):
+            return JsonResponse(
+                {"status": "erro", "message": "Request body must be a JSON object"},
+                status=400,
+            )
         try:
             validated = AulasSimultaneasInput(pares=data.get("pares", []))
         except ValidationError as e:

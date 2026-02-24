@@ -94,7 +94,8 @@ def verificar_aulas_em_paralelo(cursor: sqlite3.Cursor, pares: list) -> list:
         )
         aulas_info = cursor.fetchall()
 
-        if not aulas_info:
+        if not aulas_info or len(aulas_info) != len(cadeia):
+            inconsistentes.append(cadeia)
             continue
 
         referencia = (
