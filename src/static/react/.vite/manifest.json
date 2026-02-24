@@ -1,0 +1,18 @@
+{
+  "src/assets/react.svg": {
+    "file": "assets/react.svg",
+    "src": "src/assets/react.svg"
+  },
+  "src/main.tsx": {
+    "file": "assets/main.js",
+    "name": "main",
+    "src": "src/main.tsx",
+    "isEntry": true,
+    "css": [
+      "assets/main.css"
+    ],
+    "assets": [
+      "assets/react.svg"
+    ]
+  }
+}

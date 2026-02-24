@@ -1780,3 +1780,6 @@ def export(request, projId):
         'is_edit_turnos': False,
         'node_counter_list': node_counter_dict  # <-- Add this line
     })
+
+def react_view(request):
+    return render(request, 'react/index.html')

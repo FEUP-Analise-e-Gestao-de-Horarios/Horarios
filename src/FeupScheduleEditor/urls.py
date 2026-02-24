@@ -47,4 +47,5 @@ urlpatterns = [
     path('editturnos/<int:projId>/swap_teachers/', views.swap_teachers, name='swap_teachers'),
     path('getaulaparalelosimultanea', views.getAulaSimultaneasParalelas, name='getaulaparalelosimultanea'),
     path('editturnos/<int:projId>/swap_aulas/', views.swap_aulas, name='swap_aulas'),
+    path('react/', views.react_view, name='react'),
 ]
