@@ -1,16 +1,10 @@
-# Projeto-Integrador
+# FEUP Análise e Gestão de Horários
 
-For a description of the directory structure see [structure](Structure.md).
+A Django web application for analyzing and managing FEUP course schedules. It allows users to view, parse, and manage timetable data, with support for conflict detection and user authentication.
 
-# Django Environment Setup:
+# Django Environment Setup
 
-## 1. Installing Dependencies:
-
-Install git, python and pip:
-
-```
-sudo apt install git python pip
-```
+## 1. Installing Dependencies
 
 _Note: assuming Ubuntu as the OS. For other distributions or OSs the command may differ_
 
@@ -20,37 +14,32 @@ _Note: assuming Ubuntu as the OS. For other distributions or OSs the command may
 sudo apt install nginx supervisor
 ```
 
-Install pipenv and django:
+Install git:
 
 ```
-pip install pipenv django
+sudo apt install git
 ```
 
-## 2. Clone the repository:
+Install Python version mentioned on the Pipfile (we suggest using [pyenv](https://github.com/pyenv/pyenv)):
 
 ```
-git clone <url or ssh>
+pyenv install 3.14.3
 ```
 
-_Note: on the server it is recommended to use the github deployment key_
-
-Change to the directory:
+Install pipenv:
 
 ```
-cd Projeto-Integrador
+pip install pipenv
 ```
 
-_Note: replace Projeto-Integrador with the directory name, if different_
+## 2. Create the Environment
 
-## 3. Create the Environment:
-
-Inside the Projeto-Integrador directory:
+Inside the dependencies:
 
 ```
-pipenv install django
+pipenv install --dev
 ```
 
-This creates the virtual environment, installs the dependencies and prepares the project.
 To enter the virtual environment:
 
 ```
@@ -58,9 +47,12 @@ pipenv shell
 ```
 
 and to exit:
-`ctrl+c`
 
-## 4. Migrations and Static Files:
+```
+exit
+```
+
+## 3. Migrations and Static Files
 
 Make sure you are inside the virtual environment with:
 
@@ -71,54 +63,42 @@ pipenv shell
 To create the necessary migrations:
 
 ```
-python manage.py makemigrations
+python src/manage.py makemigrations
 ```
 
 To apply the migrations:
 
 ```
-python manage.py migrate
+python src/manage.py migrate
 ```
 
 To import static files, specifically .js and .css files:
 
 ```
-python manage.py collectstatic
+python src/manage.py collectstatic
 ```
 
 _Note: this imports all static files into the static/ directory_
 
-## 5. Run the server on localhost and check if it works:
+## 4. Run the server on localhost and check if it works
 
 To run the server in development mode:
 
 ```
-python manage.py runserver
+python src/manage.py runserver
 ```
 
 Check if it reports any errors or missing migrations.
 
 To stop: `ctrl+c`
 
-_Note: if you get a module import error, install it:_
-
-```
-pipenv install <module>
-```
-
-or
-
-```
-pip install <module>
-```
-
 To log in to the application, use the username `admin` with the password `passhorarios`.
 
 The 'Name' project in the application serves only as a placeholder, it has no associated database, and can be deleted after the first login.
 
-# Deployment:
+# Deployment
 
-## 6. Configure settings.py
+## 5. Configure settings.py
 
 _From here on, this is only relevant for deployment on the production server_
 
@@ -135,7 +115,7 @@ Change line 36 to:
 
 _Note: the line number may change if the file has also been modified. If so, search for the `DEBUG` entry_
 
-## 7. Configure NGINX:
+## 6. Configure NGINX
 
 To create the project's configuration block:
 
@@ -196,7 +176,7 @@ Replace 3600 with the desired time in seconds and restart:
 sudo service nginx restart
 ```
 
-## 8. Daphne
+## 7. Daphne
 
 Before this, in the pipenv virtual environment, check if the project is ready for deployment:
 
@@ -218,7 +198,7 @@ To stop: `ctrl+c`
 
 _Note: at this point the site only runs while daphne is running in the foreground and the SSH connection is active. Once the SSH connection is disconnected, the site will become inaccessible_
 
-## 9. Configure Supervisor
+## 8. Configure Supervisor
 
 To ensure that Daphne runs in the background, regardless of the SSH connection, you need to configure Supervisor:
 
@@ -270,7 +250,7 @@ sudo supervisorctl reread
 sudo supervisorctl update
 ```
 
-# 10. Start the Server
+# 9. Start the Server
 
 Activate Daphne through Supervisor:
 
@@ -303,3 +283,5 @@ or, for the last 100 lines:
 ```
 sudo tail -100 /var/log/daphne.log
 ```
+
+For a description of the directory structure see [structure](Structure.md).
