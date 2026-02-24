@@ -15,9 +15,9 @@ matplotlib = "*"
 whitenoise = "*"
 daphne = "*"
 bleach = "*"
-django-livereload-server = "*"
 
 [dev-packages]
+django-livereload-server = "*"
 
 [requires]
-python_version = "3.10"
+python_version = "3.14"
