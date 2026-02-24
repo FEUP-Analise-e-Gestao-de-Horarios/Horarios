@@ -1,28 +1,36 @@
+# Project Structure
+
+## Application Directories
+
 The repository contains the following application directories:
 
-- FeupScheduleEditor
-- parser
-- login
-- core
-- users
+- `FeupScheduleEditor`
+- `parser`
+- `login`
+- `core`
+- `users`
 
 Within these, the following files stand out:
 
-- urls.py, where URLs are mapped to each function
-- views.py, where those functions are defined, rendering pages or JSON
-- models.py, where relational models are defined
+- `urls.py` — maps URLs to each function
+- `views.py` — defines those functions, rendering pages or JSON
+- `models.py` — defines relational models
 
-In the case of FeupScheduleEditor, which contains the majority of the project, the following files also stand out:
+### FeupScheduleEditor
 
-- settings.py, which contains the project configuration
-- asgi.py, which contains the ASGI application configuration
+This directory contains the majority of the project. In addition to the files above, the following also stand out:
 
-The following directories also stand out:
+- `settings.py` — project configuration
+- `asgi.py` — ASGI application configuration
 
-- database, which contains the .sql database file and:
-    - ProjectX directories, where X is the project id, containing the initial and general databases and the conflicts file
-- getHorariosFromDB, which contains auxiliary .py files used by the project
-- templates, which contains partial .html files used to render pages
-- static, which contains the static .js and .css files used in the project, loaded in DEBUG=True mode
-- staticfiles, the directory where the server loads static files in DEBUG=False mode, imported from /static by running
-  `python manage.py collectstatic`
+## Notable Directories
+
+- `database/` — contains the `.sql` database file and:
+    - `ProjectX/` directories, where `X` is the project id, each containing the initial and general databases and the conflicts file
+- `getHorariosFromDB/` — contains auxiliary `.py` files used by the project
+- `templates/` — contains partial `.html` files used to render pages
+- `static/` — contains the static `.js` and `.css` files used in the project, loaded in `DEBUG=True` mode
+- `staticfiles/` — where the server loads static files in `DEBUG=False` mode; populated from `static/` by running:
+    ```
+    python manage.py collectstatic
+    ```
