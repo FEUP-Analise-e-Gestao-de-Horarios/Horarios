@@ -9,7 +9,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.x"
+      - name: Compute changed-file refs
+        id: refs
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "extra_args=--from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            echo "extra_args=--from-ref ${{ github.event.before }} --to-ref ${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "extra_args=--all-files" >> "$GITHUB_OUTPUT"
+          fi
       - uses: pre-commit/action@v3.0.1
+        with:
+          extra_args: ${{ steps.refs.outputs.extra_args }}
