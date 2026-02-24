@@ -13,7 +13,6 @@ Nestes destacam-se os ficheiros:
 No caso da FeupScheduleEditor, onde é contido a maior parte do projeto, destacam-se, também, os ficheiros:
  - settings.py, que contém as configurações do projeto
  - asgi.py, que contém as configurações da aplicação ASGI
- - wsgi.py, que contém as configurações da aplicação WSGI
 
 Destaca-se, também os seguintes diretórios:
 - database, que contém o ficheiro .sql das bases de dados e:
