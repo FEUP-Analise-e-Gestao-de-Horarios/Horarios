@@ -99,7 +99,6 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'FeupScheduleEditor.wsgi.application'
 ASGI_APPLICATION = 'FeupScheduleEditor.asgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
