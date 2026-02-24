@@ -1,7 +1,6 @@
 from collections import defaultdict, deque
-from ctypes import sizeof
-from django.shortcuts import render, redirect
-from django.http import HttpResponse, JsonResponse
+from django.shortcuts import render
+from django.http import JsonResponse
 from bs4 import BeautifulSoup
 import requests
 import re
@@ -9,23 +8,21 @@ import sqlite3
 from datetime import datetime, timedelta
 import os
 from .directories import createDir
-import operator
-import time
 import shutil
 from core.models import Project
 import bleach
 import concurrent.futures
-import sys
-import linecache
+import threading
 import traceback
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 import json
 
 
-turnosMap = {}
 max_workers = 4  # Estabelece o número máximo de threads permitidas
 executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
+_parse_counter = {'count': 0}
+_parse_counter_lock = threading.Lock()
 
 # Algumas tipologias encontradas
 # 14 - O
@@ -181,7 +178,7 @@ def max_date(date1: str, date2: str) -> str:
 # Funções de interação com a base de dados
 # -----------------------------------------------------------------------
 
-def pre_inserir_blocos_vermelhos() -> None:
+def pre_inserir_blocos_vermelhos(cursor: sqlite3.Cursor, conn: sqlite3.Connection) -> None:
     """
     Preenche a tabela dos blocos vermelhos no arranque do parse.
 
@@ -326,7 +323,7 @@ def parse_horario_vermelhos(req: any, cursor: sqlite3.Cursor) -> list[int]:
            
     return redBlockList
 
-def parse_horario(req: requests.Response, curso_or_uc: str, parsingTurma: bool, lista_de_aulas: set[Aula]) -> None:
+def parse_horario(req: requests.Response, curso_or_uc: str, parsingTurma: bool, lista_de_aulas: set[Aula], cursor: sqlite3.Cursor, conn: sqlite3.Connection, turnosMap: dict[str, dict[int, list[str]]]) -> None:
     """
     Realiza o parse do horário completo de uma página.
 
@@ -445,7 +442,7 @@ def parse_horario(req: requests.Response, curso_or_uc: str, parsingTurma: bool, 
 
     return
 
-def parse_docentes(docentes: requests.Response) -> None:
+def parse_docentes(docentes: requests.Response, cursor: sqlite3.Cursor, conn: sqlite3.Connection, paginas: str) -> None:
     """
     Realiza o parse de todo o menu de docentes.
 
@@ -523,7 +520,7 @@ def parse_cursos(cursos: requests.Response) -> set[tuple[str, str]]:
 
     return allCursos
 
-def parse_turmas(menu_turmas: any) -> None:
+def parse_turmas(menu_turmas: any, cursor: sqlite3.Cursor, conn: sqlite3.Connection, paginas: str, turnosMap: dict[str, dict[int, list[str]]]) -> None:
     """
     Realiza o parse do menu de turmas.
 
@@ -533,12 +530,12 @@ def parse_turmas(menu_turmas: any) -> None:
     """
 
     children = menu_turmas.find('ul').findChildren(recursive=False)
-    
+
     # Parse de cursos a partir do menu lateral
     cursos = parse_cursos(children)
     # Inserir cursos na DB
     insert_cursos(cursos, cursor)
-    
+
     for child in children:
         idCurso = child.find('a').contents
         idCurso = idCurso[0].split(" - ")[0]
@@ -566,14 +563,14 @@ def parse_turmas(menu_turmas: any) -> None:
 
                 for semana in semanasLi:
                     a = semana.find('a', recursive=False)
-                
+
                     # Link para horário da semana
                     link = a['href']
                     req = requests.get(paginas + link)
 
-                    parse_horario(req, idCurso, True, lista_de_aulas)
+                    parse_horario(req, idCurso, True, lista_de_aulas, cursor, conn, turnosMap)
 
-                    # Os blocos vermelhos de uma turma só precisam de ser 
+                    # Os blocos vermelhos de uma turma só precisam de ser
                     # parsed uma vez, já que não mudam entre semanas
                     if not parsed_vermelhos:
                         vermelhos = parse_horario_vermelhos(req, cursor)
@@ -585,7 +582,7 @@ def parse_turmas(menu_turmas: any) -> None:
 
             for aula in lista_de_aulas:
                 insert_aula(aula, cursor)
-            
+
             lista_de_aulas = set()
 
     conn.commit()
@@ -612,7 +609,7 @@ def parse_ucs(req: requests.Response) -> dict[str, list[str, str, str]]:
         ucs[sigla] = [codigo, nome, numero_uc]
     return ucs
 
-def parse_salas(salas: any) -> None:
+def parse_salas(salas: any, cursor: sqlite3.Cursor, conn: sqlite3.Connection, paginas: str) -> None:
     """
     Realiza o parse das salas a partir do menu lateral.
 
@@ -670,7 +667,7 @@ def parse_salas(salas: any) -> None:
                 conn.commit()   
     return
 
-def parse_turnos() -> None:
+def parse_turnos(turnosMap: dict[str, dict[int, list[str]]], cursor: sqlite3.Cursor, conn: sqlite3.Connection) -> None:
     """
     Insere os turnos encontrados na base de dados.
 
@@ -700,7 +697,7 @@ def parse_turnos() -> None:
                         cursor.execute(stmtT, (number, turno, uc))
                         conn.commit()
 
-def fix_turmas_without_turnos() -> None:
+def fix_turmas_without_turnos(cursor: sqlite3.Cursor, conn: sqlite3.Connection) -> None:
     """
     Atribui um turno às turmas que não têm um turno associado na base de dados.
 
@@ -726,7 +723,7 @@ def fix_turmas_without_turnos() -> None:
         cursor.execute(query, (idTurma, idUC))        
     conn.commit()
 
-def aulas_simultaneas():
+def aulas_simultaneas(cursor: sqlite3.Cursor, conn: sqlite3.Connection) -> None:
     """
     Encontra aulas simultâneas no horário e insere a informação na base de dados.
 
@@ -1163,13 +1160,10 @@ def parse(request: requests.Request) -> JsonResponse:
     if request.method != "POST" and not request.is_ajax():
         return JsonResponse({"error": "Invalid request"}, status=400)
 
-    if isinstance(executor, concurrent.futures.ThreadPoolExecutor):
-        active_workers = executor._work_queue.qsize()
-    else:
-        active_workers = 0
-
-    if active_workers >=5:
-        return JsonResponse({"error": "Número máximo de parses simultâneos excedidos. Por favor espere um pouco antes de tentar novamente."}, status=423)
+    with _parse_counter_lock:
+        if _parse_counter['count'] >= 5:
+            return JsonResponse({"error": "Número máximo de parses simultâneos excedidos. Por favor espere um pouco antes de tentar novamente."}, status=423)
+        _parse_counter['count'] += 1
     
     def run_parser():
         """
@@ -1185,17 +1179,17 @@ def parse(request: requests.Request) -> JsonResponse:
         eliminada e a diretoria é eliminada.
         """
         
+        conn: sqlite3.Connection | None = None
+        proj = None
+        projId = None
         try:
-            global conn
-            global cursor
-            global paginas
-
+            turnosMap: dict[str, dict[int, list[str]]] = {}
             paginas = bleach.clean(request.POST.get("paginas"))
             name = bleach.clean(request.POST.get("name"))
-            
+
             path, projId = createDir(request.user.pk, name)
 
-            proj = Project.objects.get(project = name)
+            proj = Project.objects.get(project=name)
 
             assert path is not None
 
@@ -1208,29 +1202,29 @@ def parse(request: requests.Request) -> JsonResponse:
 
             links = soup.find('frame', {'name': 'links'})
             src = links['src']
-            
+
             req = requests.get(paginas + src)
             web_s = req.content
             soup_links = BeautifulSoup(web_s, "html.parser")
-            
+
             menu = soup_links.find('ul', {'id': 'menu'})
-            
+
             print("Project Started")
-            pre_inserir_blocos_vermelhos()
-            
-            parse_docentes(menu.findChildren(recursive=False)[0])
+            pre_inserir_blocos_vermelhos(cursor, conn)
 
-            parse_turmas(menu.findChildren(recursive=False)[1])
-            
-            parse_salas(menu.findChildren(recursive=False)[2])
+            parse_docentes(menu.findChildren(recursive=False)[0], cursor, conn, paginas)
 
-            parse_turnos()
+            parse_turmas(menu.findChildren(recursive=False)[1], cursor, conn, paginas, turnosMap)
 
-            fix_turmas_without_turnos()
+            parse_salas(menu.findChildren(recursive=False)[2], cursor, conn, paginas)
 
-            cleanup_aulas()
+            parse_turnos(turnosMap, cursor, conn)
 
-            aulas_simultaneas()
+            fix_turmas_without_turnos(cursor, conn)
+
+            cleanup_aulas(cursor, conn)
+
+            aulas_simultaneas(cursor, conn)
 
             shutil.copy2(path + '/general_database.db', path + '/initial_database.db')
 
@@ -1239,25 +1233,31 @@ def parse(request: requests.Request) -> JsonResponse:
             print("Project Parsed")
 
             conn.close()
-            
-        except Exception as e:
+
+        except Exception:
             print(traceback.format_exc())
-            proj.delete()
-            cursor.close()
-            conn.close()
-            
-            try:
-                shutil.rmtree("./database/Project"+str(projId))
-            except:
-                print(traceback.format_exc())
-                print(f"Error deleting Project{projId} directory: {e}")
+            if proj is not None:
+                proj.delete()
+            if conn is not None:
+                conn.close()
+
+            if projId is not None:
+                try:
+                    shutil.rmtree("./database/Project"+str(projId))
+                except Exception:
+                    print(traceback.format_exc())
+        finally:
+            with _parse_counter_lock:
+                _parse_counter['count'] -= 1
     try:
         executor.submit(run_parser)
         return JsonResponse({}, status=200)
-    except Exception as e:
+    except Exception:
+        with _parse_counter_lock:
+            _parse_counter['count'] -= 1
         return JsonResponse({"error": "Nao foi possivel fazer parse do site"}, status=400)
     
-def cleanup_aulas() -> None:
+def cleanup_aulas(cursor: sqlite3.Cursor, conn: sqlite3.Connection) -> None:
     # Get all unique aulas
     stmtAulas = '''SELECT DISTINCT diaSemana, horaInicial, duracao, teorico, idDocente, idUC, idTurma
                     FROM aula 
