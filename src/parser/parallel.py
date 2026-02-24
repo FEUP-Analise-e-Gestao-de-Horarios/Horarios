@@ -1,25 +1,16 @@
-import os
 import sqlite3
 from collections import defaultdict, deque
 from typing import Any
 
-from django.conf import settings
 
-
-def obter_aulas_em_paralelo(projId: str) -> list[Any]:
+def obter_aulas_em_paralelo(cursor: sqlite3.Cursor) -> list[Any]:
     """
     Devolve as aulas que atualmente estão guardadas como aulas em paralelo,
     em forma de uma lista dos grupos de aulas em paralelo (listas de IDs de aulas).
     """
 
-    db_path = os.path.join(settings.BASE_DIR, "database", f"Project{projId}", "general_database.db")
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-
-    cursor.execute('SELECT aula1, aula2 FROM turmasSimultaneas')
+    cursor.execute("SELECT aula1, aula2 FROM turmasSimultaneas")
     pares = cursor.fetchall()
-    conn.close()
 
     # Construir grafo aula -> vizinhos
     adj = defaultdict(set)
@@ -52,7 +43,7 @@ def obter_aulas_em_paralelo(projId: str) -> list[Any]:
     return cadeias
 
 
-def verificar_aulas_em_paralelo(projId: str, pares: list) -> list:
+def verificar_aulas_em_paralelo(cursor: sqlite3.Cursor, pares: list) -> list:
     """
     Verifica quais dos grupos da seleção de aulas em paralelo sofreram mudanças
     e não estão, de momento, a ser dadas ao mesmo tempo devido às trocas.
@@ -92,18 +83,14 @@ def verificar_aulas_em_paralelo(projId: str, pares: list) -> list:
     # Verificar para cada cadeia se as aulas têm o mesmo dia, hora e intervalo de semanas
     inconsistentes = []
 
-    db_path = os.path.join(settings.BASE_DIR, "database", f"Project{projId}", "general_database.db")
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-
     for cadeia in cadeias:
         cursor.execute(
-            f'''
+            f"""
             SELECT id, diaSemana, horaInicial, semanaInicial, semanaFinal
             FROM aula
-            WHERE id IN ({','.join(['?'] * len(cadeia))})
-            ''', cadeia
+            WHERE id IN ({",".join(["?"] * len(cadeia))})
+            """,
+            cadeia,
         )
         aulas_info = cursor.fetchall()
 
@@ -115,7 +102,12 @@ def verificar_aulas_em_paralelo(projId: str, pares: list) -> list:
         )
 
         for aula in aulas_info[1:]:
-            atual = (aula["diaSemana"], aula["horaInicial"], aula["semanaInicial"], aula["semanaFinal"])
+            atual = (
+                aula["diaSemana"],
+                aula["horaInicial"],
+                aula["semanaInicial"],
+                aula["semanaFinal"],
+            )
             if atual != referencia:
                 inconsistentes.append(cadeia)
                 break  # esta cadeia já está marcada como inconsistente
@@ -125,28 +117,27 @@ def verificar_aulas_em_paralelo(projId: str, pares: list) -> list:
 
         for cadeia in inconsistentes:
             cursor.execute(
-                f'''
+                f"""
                 SELECT a.id, uc.nome as nomeUC, group_concat(t.codigo, ', ') as turmas
                 FROM aula a
                 JOIN aulaUC auc ON a.id = auc.idAula
                 JOIN uc ON auc.idUC = uc.codigo
                 JOIN aulaTurmas at ON a.id = at.idAula
                 JOIN turmas t ON at.idTurma = t.codigo
-                WHERE a.id IN ({','.join(['?'] * len(cadeia))})
+                WHERE a.id IN ({",".join(["?"] * len(cadeia))})
                 GROUP BY a.id
-                ''', cadeia
+                """,
+                cadeia,
             )
             aulas = cursor.fetchall()
             if aulas:
                 nome_uc = aulas[0]["nomeUC"]
                 lista = {
                     "nome_uc": nome_uc,
-                    "aulas": [f"Aula com as turmas: {a['turmas']}" for a in aulas]
+                    "aulas": [f"Aula com as turmas: {a['turmas']}" for a in aulas],
                 }
                 grupos_inconsistentes.append(lista)
 
-        conn.close()
         return grupos_inconsistentes
 
-    conn.close()
     return []
