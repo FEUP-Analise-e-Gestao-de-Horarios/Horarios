@@ -1,11 +1,9 @@
 import concurrent.futures
-import json
 import logging
 import os
 import sqlite3
 import threading
 from collections import defaultdict
-from typing import Any
 
 import bleach
 from django.conf import settings
@@ -15,8 +13,10 @@ from django.views.decorators.csrf import csrf_exempt
 
 from core.models import Person, Project
 
-from .parallel import obter_aulas_em_paralelo, verificar_aulas_em_paralelo
+from .models import AulasSimultaneasInput
+from .parallel import check_parallel_classes, get_parallel_classes
 from .scraper import Parser
+from .utils import validate_request_body
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ def parse(request: HttpRequest) -> JsonResponse:
         if _parse_counter["count"] >= 5:
             return JsonResponse(
                 {
-                    "error": "Número máximo de parses simultâneos excedidos. Por favor espere um pouco antes de tentar novamente."
+                    "error": "Maximum number of simultaneous parses exceeded. Please wait a moment before trying again."
                 },
                 status=423,
             )
@@ -187,7 +187,7 @@ def selecionar_aulas_em_paralelo(request: HttpRequest):
     general_conn = sqlite3.connect(general_db_path)
     general_conn.row_factory = sqlite3.Row
     general_cursor = general_conn.cursor()
-    aulas_em_paralelo = obter_aulas_em_paralelo(general_cursor)
+    aulas_em_paralelo = get_parallel_classes(general_cursor)
     general_conn.close()
 
     conn.close()
@@ -205,7 +205,7 @@ def selecionar_aulas_em_paralelo(request: HttpRequest):
 
 
 @csrf_exempt
-def guardar_aulas_em_paralelo(request: HttpRequest):
+def guardar_aulas_em_paralelo(request: HttpRequest) -> JsonResponse:
     if not request.user.is_authenticated:
         return JsonResponse({"error": "User is not authenticated"}, status=401)
 
@@ -239,13 +239,10 @@ def guardar_aulas_em_paralelo(request: HttpRequest):
         return JsonResponse({"error": "Forbidden"}, status=403)
 
     try:
-        data = json.loads(request.body)
-        pares: list[tuple[Any, Any, Any, Any]] = data[
-            "pares"
-        ]  # [(aula1, aula2, turma1, turma2), ...]
-
-        if len(pares) == 0:
-            return JsonResponse({"status": "ignorado"})
+        validated, err = validate_request_body(AulasSimultaneasInput, request.body)
+        if err:
+            return err
+        assert validated is not None
 
         db_path = os.path.join(
             settings.BASE_DIR, "database", f"Project{project_id}", "general_database.db"
@@ -255,17 +252,17 @@ def guardar_aulas_em_paralelo(request: HttpRequest):
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute("DELETE FROM turmasSimultaneas")
-            for a1, a2, t1, t2 in pares:
+            for par in validated.pares:
                 cursor.execute(
                     """
                     INSERT INTO turmasSimultaneas (aula1, aula2, turma1, turma2)
                     VALUES (?, ?, ?, ?)
-                """,
-                    (a1, a2, t1, t2),
+                    """,
+                    (par.aula1, par.aula2, par.turma1, par.turma2),
                 )
             conn.commit()
 
-            inconsistentes = verificar_aulas_em_paralelo(cursor, pares)
+            inconsistentes = check_parallel_classes(cursor, validated.pares)
 
             project.has_selected_aulas_em_paralelo = True
             project.save()
