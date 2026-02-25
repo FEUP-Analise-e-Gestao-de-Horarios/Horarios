@@ -47,6 +47,7 @@ class Parser:
         self.proj = None
         self.proj_id: int | None = None
         self.path: str | None = None
+        self.session: requests.Session = requests.Session()
 
     def run(self) -> None:
         """
@@ -61,13 +62,13 @@ class Parser:
         try:
             self._setup()
 
-            req = requests.get(self.paginas)
+            req = self.session.get(self.paginas)
             soup = BeautifulSoup(req.content, "html.parser")
 
             links = soup.find("frame", {"name": "links"})
             src = links["src"]
 
-            req = requests.get(self.paginas + src)
+            req = self.session.get(self.paginas + src)
             menu = BeautifulSoup(req.content, "html.parser").find("ul", {"id": "menu"})
 
             print("Project Started")
@@ -108,6 +109,7 @@ class Parser:
         self.proj.isParsed = True
         self.proj.save()
         self.conn.close()
+        self.session.close()
 
     def _teardown_failure(self) -> None:
         if self.proj is not None:
@@ -306,7 +308,7 @@ class Parser:
             for i in content:
                 a = i.find("a", recursive=False)
                 link = a["href"]
-                req = requests.get(self.paginas + link)
+                req = self.session.get(self.paginas + link)
 
                 if k == 0:
                     web_s = req.content
@@ -414,7 +416,7 @@ class Parser:
                         a = semana.find("a", recursive=False)
 
                         link = a["href"]
-                        req = requests.get(self.paginas + link)
+                        req = self.session.get(self.paginas + link)
 
                         self._parse_horario(req, idCurso, True, lista_de_aulas)
 
@@ -528,7 +530,7 @@ class Parser:
 
             for a in a_list:
                 link = a.get("href")
-                req = requests.get(self.paginas + link)
+                req = self.session.get(self.paginas + link)
                 vermelhos = self._parse_horario_vermelhos(req)
                 for idBlocoVermelho in vermelhos:
                     stmtT = """INSERT OR IGNORE INTO salaBloco (idBloco, idSala) VALUES (?, ?)"""
