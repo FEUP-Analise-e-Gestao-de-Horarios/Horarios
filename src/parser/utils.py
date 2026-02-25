@@ -1,6 +1,19 @@
 from datetime import datetime, timedelta
 from typing import Any
 
+from django.http import JsonResponse
+from pydantic import BaseModel, ValidationError
+
+
+def validate_request_body[M: BaseModel](
+    model: type[M],
+    body: bytes,
+) -> tuple[M, None] | tuple[None, JsonResponse]:
+    try:
+        return model.model_validate_json(body), None
+    except ValidationError as e:
+        return None, JsonResponse({"status": "erro", "message": e.errors()}, status=400)
+
 
 def table_to_matrix(table: Any) -> list[list[Any]]:
     """

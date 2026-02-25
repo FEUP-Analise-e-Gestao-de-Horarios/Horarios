@@ -1,147 +1,159 @@
 import sqlite3
 from collections import defaultdict, deque
-from typing import Any
+from typing import TypedDict
+
+from parser.models import ParAulasSimultaneas
 
 
-def obter_aulas_em_paralelo(cursor: sqlite3.Cursor) -> list[Any]:
+class GrupoInconsistente(TypedDict):
+    nome_uc: str
+    aulas: list[str]
+
+
+Lesson = int
+
+
+def get_parallel_classes(cursor: sqlite3.Cursor) -> list[list[int]]:
     """
-    Devolve as aulas que atualmente estão guardadas como aulas em paralelo,
-    em forma de uma lista dos grupos de aulas em paralelo (listas de IDs de aulas).
+    Returns the lessons that are currently stored as parallel lessons,
+    in the form of a list of parallel lesson groups (lists of lesson IDs).
     """
 
     cursor.execute("SELECT aula1, aula2 FROM turmasSimultaneas")
     pares = cursor.fetchall()
 
-    # Construir grafo aula -> vizinhos
-    adj = defaultdict(set)
-    for a1, a2 in pares:
-        adj[a1].add(a2)
-        adj[a2].add(a1)
+    # Build graph lesson -> neighbors
+    adj: defaultdict[Lesson, set[Lesson]] = defaultdict(set)
+    for lessonA, lessonB in pares:
+        adj[lessonA].add(lessonB)
+        adj[lessonB].add(lessonA)
 
-    # Obter cadeias (componentes conexas via BFS)
-    visitados = set()
-    cadeias = []
+    # Get chains (connected components via BFS)
+    visited: set[Lesson] = set()
+    chains: list[list[Lesson]] = []
 
-    for aula in adj:
-        if aula in visitados:
+    for lesson in adj:
+        if lesson in visited:
             continue
 
-        fila = deque([aula])
-        cadeia = []
+        queue = deque([lesson])
+        chain: list[Lesson] = []
 
-        while fila:
-            atual = fila.popleft()
-            if atual in visitados:
+        while queue:
+            current = queue.popleft()
+            if current in visited:
                 continue
-            visitados.add(atual)
-            cadeia.append(atual)
-            fila.extend(adj[atual] - visitados)
+            visited.add(current)
+            chain.append(current)
+            queue.extend(adj[current] - visited)
 
-        cadeia.sort()
-        cadeias.append(cadeia)
+        chain.sort()
+        chains.append(chain)
 
-    return cadeias
+    return chains
 
 
-def verificar_aulas_em_paralelo(cursor: sqlite3.Cursor, pares: list) -> list:
+def check_parallel_classes(
+    cursor: sqlite3.Cursor,
+    pares: list[ParAulasSimultaneas],
+) -> list[GrupoInconsistente]:
     """
-    Verifica quais dos grupos da seleção de aulas em paralelo sofreram mudanças
-    e não estão, de momento, a ser dadas ao mesmo tempo devido às trocas.
+    Checks which groups from the parallel class selection have changed
+    and are not, at the moment, being taught at the same time due to swaps.
 
-    Destinada para casos em que o utilizador muda os grupos depois de já terem
-    sido realizadas trocas.
+    Intended for cases where the user changes the groups after swaps have already been made.
     """
 
-    # Construir grafo aula -> vizinhos
-    adj = defaultdict(set)
-    for a1, a2, _, _ in pares:
-        adj[a1].add(a2)
-        adj[a2].add(a1)
+    # Build graph lesson -> neighbors
+    adj: defaultdict[Lesson, set[Lesson]] = defaultdict(set)
+    for par in pares:
+        adj[par.aula1].add(par.aula2)
+        adj[par.aula2].add(par.aula1)
 
-    # Obter grupos de aulas simultâneas em forma de cadeia
-    visitados = set()
-    cadeias = []
+    # Get groups of simultaneous lessons as chains
+    visited_lessons: set[int] = set()
+    chain_of_lessons: list[list[Lesson]] = []
 
-    for aula in adj:
-        if aula in visitados:
+    for lesson in adj:
+        if lesson in visited_lessons:
             continue
 
-        fila = deque([aula])
-        cadeia = []
+        queue = deque([lesson])
+        chain: list[Lesson] = []
 
-        while fila:
-            atual = fila.popleft()
-            if atual in visitados:
+        while queue:
+            current = queue.popleft()
+            if current in visited_lessons:
                 continue
-            visitados.add(atual)
-            cadeia.append(atual)
-            fila.extend(adj[atual] - visitados)
+            visited_lessons.add(current)
+            chain.append(current)
+            queue.extend(adj[current] - visited_lessons)
 
-        cadeia.sort()
-        cadeias.append(cadeia)
+        chain.sort()
+        chain_of_lessons.append(chain)
 
-    # Verificar para cada cadeia se as aulas têm o mesmo dia, hora e intervalo de semanas
-    inconsistentes = []
+    # Check for each chain whether the lessons have the same day, time, and week range
+    inconsistent: list[list[Lesson]] = []
 
-    for cadeia in cadeias:
+    for chain in chain_of_lessons:
         cursor.execute(
             f"""
             SELECT id, diaSemana, horaInicial, semanaInicial, semanaFinal
             FROM aula
-            WHERE id IN ({",".join(["?"] * len(cadeia))})
+            WHERE id IN ({",".join(["?"] * len(chain))})
             """,
-            cadeia,
+            chain,
         )
         aulas_info = cursor.fetchall()
 
-        if not aulas_info or len(aulas_info) != len(cadeia):
-            inconsistentes.append(cadeia)
+        if not aulas_info or len(aulas_info) != len(chain):
+            inconsistent.append(chain)
             continue
 
-        referencia = (
+        reference = (
             aulas_info[0]["diaSemana"],
             aulas_info[0]["horaInicial"],
             aulas_info[0]["semanaInicial"],
             aulas_info[0]["semanaFinal"],
         )
 
-        for aula in aulas_info[1:]:
-            atual = (
-                aula["diaSemana"],
-                aula["horaInicial"],
-                aula["semanaInicial"],
-                aula["semanaFinal"],
+        for lesson in aulas_info[1:]:
+            current = (
+                lesson["diaSemana"],
+                lesson["horaInicial"],
+                lesson["semanaInicial"],
+                lesson["semanaFinal"],
             )
-            if atual != referencia:
-                inconsistentes.append(cadeia)
-                break  # esta cadeia já está marcada como inconsistente
+            if current != reference:
+                inconsistent.append(chain)
+                break  # This lesson is already marked as inconsistent
 
-    if inconsistentes:
-        grupos_inconsistentes = []
+    if not inconsistent:
+        return []
 
-        for cadeia in inconsistentes:
-            cursor.execute(
-                f"""
-                SELECT a.id, uc.nome as nomeUC, group_concat(t.codigo, ', ') as turmas
-                FROM aula a
-                JOIN aulaUC auc ON a.id = auc.idAula
-                JOIN uc ON auc.idUC = uc.codigo
-                JOIN aulaTurmas at ON a.id = at.idAula
-                JOIN turmas t ON at.idTurma = t.codigo
-                WHERE a.id IN ({",".join(["?"] * len(cadeia))})
-                GROUP BY a.id
-                """,
-                cadeia,
-            )
-            aulas = cursor.fetchall()
-            if aulas:
-                nome_uc = aulas[0]["nomeUC"]
-                lista = {
-                    "nome_uc": nome_uc,
-                    "aulas": [f"Aula com as turmas: {a['turmas']}" for a in aulas],
-                }
-                grupos_inconsistentes.append(lista)
+    grupos_inconsistentes: list[GrupoInconsistente] = []
 
-        return grupos_inconsistentes
+    for chain in inconsistent:
+        cursor.execute(
+            f"""
+            SELECT a.id, uc.nome as nomeUC, group_concat(t.codigo, ', ') as turmas
+            FROM aula a
+            JOIN aulaUC auc ON a.id = auc.idAula
+            JOIN uc ON auc.idUC = uc.codigo
+            JOIN aulaTurmas at ON a.id = at.idAula
+            JOIN turmas t ON at.idTurma = t.codigo
+            WHERE a.id IN ({",".join(["?"] * len(chain))})
+            GROUP BY a.id
+            """,
+            chain,
+        )
+        aulas = cursor.fetchall()
+        if aulas:
+            nome_uc: str = aulas[0]["nomeUC"]
+            lista: GrupoInconsistente = {
+                "nome_uc": nome_uc,
+                "aulas": [f"Lesson with groups: {a['turmas']}" for a in aulas],
+            }
+            grupos_inconsistentes.append(lista)
 
-    return []
+    return grupos_inconsistentes
