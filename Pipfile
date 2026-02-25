@@ -15,6 +15,7 @@ matplotlib = "*"
 whitenoise = "*"
 daphne = "*"
 bleach = "*"
+pydantic = "*"
 
 [dev-packages]
 django-livereload-server = "*"
