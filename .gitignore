@@ -35,6 +35,7 @@ venv.bak/
 .history
 
 # Database #
-databases/*
+database/*
+!database/criar.sql
 *.sqlite3
 *.db
