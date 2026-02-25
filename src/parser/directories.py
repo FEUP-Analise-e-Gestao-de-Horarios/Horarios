@@ -1,36 +1,43 @@
 import os
 import sqlite3
-import shutil
-from core.models import Project, Person
+
+from django.core.exceptions import BadRequest
+from django.http import Http404
+
+from core.models import Person, Project
 
 PLACEHOLDER_ID = 0
 
-def createDir(id: str, name: str) -> tuple[str, int]:
-    '''
-    Cria um novo diretório e uma nova base de dados SQLite para um projeto.
 
-    A função cria um novo diretório chamado "Project" seguido do ID do projeto, dentro
-    do diretório "database". Também cria duas bases de dados SQLite no novo diretório:
-    `general_database.db` e `initial_database.db`. Executa um script SQL em ambas para
-    criar a sua estrutura.
-    
+def createDir(id: str, name: str) -> tuple[str, int]:
+    """
+    Creates a new directory and a new SQLite database for a project.
+
+    Creates a directory named "Project" followed by the project ID inside the
+    "database" directory. Also creates two SQLite databases in the new directory:
+    `general_database.db` and `initial_database.db`, and runs a SQL script on both
+    to set up their schema.
+
     Parameters:
-    id (str): Username do owner do projeto
-    name (str): O nome do projeto
+    id (str): Username of the project owner
+    name (str): The project name
 
     Returns:
-    tuple[str, int]: Um tuplo contendo o path do novo diretório o ID do projeto
+    tuple[str, int]: A tuple containing the path of the new directory and the project ID
 
     Raises:
-    Exception: Se o diretório já existir ou ocorrer um erro durante a criação
-    do diretório ou das bases de dados. Devolve (None, None) nesse caso.
+    Http404: If the user is not found.
+    BadRequest: If a project with the same name already exists.
+    FileNotFoundError: If the SQL script is not found.
+    PermissionError: If there are no permissions to create the directory or files.
+    sqlite3.DatabaseError: If a database error occurs.
 
-    '''
-    
+    """
+
     try:
-        Project(project = name, person = Person.objects.get(username = id)).save()
+        Project(project=name, person=Person.objects.get(username=id)).save()
 
-        lastId = Project.objects.values("id").get(project = name)["id"]
+        lastId = Project.objects.values("id").get(project=name)["id"]
 
         myPath = "database/Project" + str(lastId)
 
@@ -39,45 +46,58 @@ def createDir(id: str, name: str) -> tuple[str, int]:
         db_path = os.path.join(myPath, path_name)
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
-        
+
         original_name = "initial_database.db"
         db_path_original = os.path.join(myPath, original_name)
         connOriginal = sqlite3.connect(db_path_original)
         cursorOriginal = connOriginal.cursor()
 
-        # Corre o script SQL
-        script_path = "database/criar.sql" 
-        with open(script_path, 'r') as f:
+        # Run the SQL script
+        script_path = "database/criar.sql"
+        with open(script_path) as f:
             script = f.read()
             cursor.executescript(script)
             cursorOriginal.executescript(script)
 
-        # Fecha a ligação à base de dados
+        # Close the database connection
         conn.commit()
         conn.close()
 
         return myPath, lastId
-    except:
-        print("Diretório já existe")
-        return None, None
+
+    except Person.DoesNotExist as err:
+        raise Http404(f"User '{id}' not found") from err
+
+    except FileExistsError as err:
+        raise BadRequest(f"A project with the name '{name}' already exists") from err
+
+    except FileNotFoundError as err:
+        raise FileNotFoundError(f"File not found: {err.filename}") from err
+
+    except PermissionError as err:
+        raise PermissionError(
+            f"Permission denied when accessing '{err.filename}'"
+        ) from err
+
+    except sqlite3.DatabaseError as e:
+        raise sqlite3.DatabaseError(f"Database error: {e}") from e
 
 
-def get_directories(path: str)-> list[str]:
-    '''
-    Obtém uma lista de todos os diretórios dentro do path fornecido.
+def get_directories(path: str) -> list[str]:
+    """
+    Returns a list of all directories found under the given path.
 
-    Esta função percorre a árvore de diretórios do path fornecido e junta o path
-    de cada diretório que encontra a uma lista.
+    Walks the directory tree rooted at the given path and collects the path
+    of every directory found.
 
     Parameters:
-    path (str): O path onde encontrar diretórios
+    path (str): The root path to search for directories
 
     Returns:
-    list[str]: Uma lista de paths para cada diretório encontrado.
-    Caso nenhum diretório seja encontrado, devolve uma lista vazia.
-    '''
-    directories = []
-    for root, dirs, files in os.walk(path):
-        for dir in dirs:
-            directories.append(os.path.join(root, dir))
-    return directories
+    list[str]: A list of paths for each directory found.
+    Returns an empty list if no directories are found.
+    """
+
+    return [
+        os.path.join(root, dir) for root, dirs, _files in os.walk(path) for dir in dirs
+    ]
