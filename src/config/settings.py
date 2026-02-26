@@ -29,18 +29,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-(^3h)-+7$@#_8qh$i!wc6y80z)a-9x6t$u%$0prz%&#v*-6gi0"
+SECRET_KEY = os.environ.get("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get("DEBUG", "True") == "True"
 
-ALLOWED_HOSTS = [
-    "endor.fe.up.pt",
-    "10.227.107.115",
-    "localhost",
-    "127.0.1.1",
-    "127.0.0.1",
-]
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
 
 # Application definition
@@ -80,7 +74,7 @@ MIDDLEWARE = [
     "livereload.middleware.LiveReloadScript",
 ]
 
-ROOT_URLCONF = "FeupScheduleEditor.urls"
+ROOT_URLCONF = "config.urls"
 
 TEMPLATES = [
     {
@@ -98,7 +92,7 @@ TEMPLATES = [
     },
 ]
 
-ASGI_APPLICATION = "FeupScheduleEditor.asgi.application"
+ASGI_APPLICATION = "config.asgi.application"
 # Database
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
 
