@@ -1,4 +1,4 @@
-from FeupScheduleEditor.models import AulaChange, AulaInfo
+from src.FeupScheduleEditor.models import AulaChange, AulaInfo
 from .auxiliar_functions import *
 
 #A node represents an change of an class info

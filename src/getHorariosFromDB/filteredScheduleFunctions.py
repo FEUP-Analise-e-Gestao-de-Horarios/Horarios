@@ -1,5 +1,4 @@
-import sqlite3
-import getHorariosFromDB.auxiliaryScheduleFunctions as sch
+import src.getHorariosFromDB.auxiliaryScheduleFunctions as sch
 #import auxiliaryScheduleFunctions as sch
 
 

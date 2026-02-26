@@ -1,6 +1,6 @@
 import sqlite3, json, os
-import getHorariosFromDB.graph as graph_controller
-import getHorariosFromDB.auxiliaryScheduleFunctions as aux
+import src.getHorariosFromDB.graph as graph_controller
+import src.getHorariosFromDB.auxiliaryScheduleFunctions as aux
 import sqlite3
 
 def converter_horario(num):

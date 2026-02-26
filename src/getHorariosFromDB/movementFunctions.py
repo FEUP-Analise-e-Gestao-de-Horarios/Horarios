@@ -1,6 +1,6 @@
 import sqlite3
-import getHorariosFromDB.conflictFunctions as conf
-import getHorariosFromDB.auxiliaryScheduleFunctions as aux
+import src.getHorariosFromDB.conflictFunctions as conf
+import src.getHorariosFromDB.auxiliaryScheduleFunctions as aux
 
 def addDocente(ProjectNumber, idAula, novoDocente):
     path = "Project"+str(ProjectNumber)

@@ -1,11 +1,11 @@
-from getHorariosFromDB.auxiliaryScheduleFunctions import getInformationFromAula
-from getHorariosFromDB.auxiliaryScheduleFunctions import getAbreviacaoFromMecanografico
+from src.getHorariosFromDB.auxiliaryScheduleFunctions import getInformationFromAula
+from src.getHorariosFromDB.auxiliaryScheduleFunctions import getAbreviacaoFromMecanografico
 import sqlite3
 import shutil
 import networkx as nx
 from networkx import dfs_tree
-from getHorariosFromDB.conflictFunctionsDup import organizeInformation, findAnyConflicts
-import getHorariosFromDB.graphDup as graph_controller
+from src.getHorariosFromDB.conflictFunctionsDup import organizeInformation, findAnyConflicts
+import src.getHorariosFromDB.graphDup as graph_controller
 
 changeOrder = 1
 

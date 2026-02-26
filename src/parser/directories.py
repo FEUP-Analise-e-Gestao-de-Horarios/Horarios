@@ -4,7 +4,7 @@ import sqlite3
 from django.core.exceptions import BadRequest
 from django.http import Http404
 
-from core.models import Person, Project
+from src.core.models import Person, Project
 
 PLACEHOLDER_ID = 0
 

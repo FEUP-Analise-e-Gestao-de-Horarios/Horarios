@@ -2,7 +2,7 @@ import sqlite3
 from collections import defaultdict, deque
 from typing import TypedDict
 
-from parser.models import ParAulasSimultaneas
+from src.parser.models import ParAulasSimultaneas
 
 
 class GrupoInconsistente(TypedDict):

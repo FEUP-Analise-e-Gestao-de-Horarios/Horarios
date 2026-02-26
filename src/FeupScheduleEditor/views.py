@@ -6,22 +6,22 @@ from .models import Curso, Ano, Docente, UC, Aula, Sala, Bloco, AulaInfo, AulaCh
 import sqlite3
 import os
 import shutil
-import getHorariosFromDB.filteredScheduleFunctions as func
-import getHorariosFromDB.auxiliaryScheduleFunctions as auxfunc
+import src.getHorariosFromDB.filteredScheduleFunctions as func
+import src.getHorariosFromDB.auxiliaryScheduleFunctions as auxfunc
 import json
 import bleach
 import re
 from datetime import datetime
-from users.models import CustomUser
-from core.models import Group, Person, Project
+from src.users.models import CustomUser
+from src.core.models import Group, Person, Project
 from django.contrib import messages
-from getHorariosFromDB.movementFunctions import addDocente, removeDocente, addSala, removeSala, moveAula, changeUC, updateAulaDuration, addTurma, removeTurma
-from getHorariosFromDB.conflictFunctions import organizeInformation, findAnyConflicts
-from getHorariosFromDB.comparingDatabases import getDifferencesFromDatabases
-from getHorariosFromDB.utils import organize_changes, append_aula_data
-from getHorariosFromDB.models import Node, GraphManager, Graph, Edge, Conflict_Manager
-import getHorariosFromDB.graph as graph_controller
-from FeupScheduleEditor.utils import reverse_time_span_conversion, switch_number_to_day
+from src.getHorariosFromDB.movementFunctions import addDocente, removeDocente, addSala, removeSala, moveAula, changeUC, updateAulaDuration, addTurma, removeTurma
+from src.getHorariosFromDB.conflictFunctions import organizeInformation, findAnyConflicts
+from src.getHorariosFromDB.comparingDatabases import getDifferencesFromDatabases
+from src.getHorariosFromDB.utils import organize_changes, append_aula_data
+from src.getHorariosFromDB.models import Node, GraphManager, Graph, Edge, Conflict_Manager
+import src.getHorariosFromDB.graph as graph_controller
+from src.FeupScheduleEditor.utils import reverse_time_span_conversion, switch_number_to_day
 
 # Configure basic logging
 logging.basicConfig(

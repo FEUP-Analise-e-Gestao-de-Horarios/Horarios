@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from core.models import Person, Group, Project
+from src.core.models import Person, Group, Project
 
 @admin.register(Person)
 class PersonAdmin(admin.ModelAdmin):

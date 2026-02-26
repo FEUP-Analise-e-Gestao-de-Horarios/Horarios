@@ -1,5 +1,5 @@
 from django.db import models
-from users.models import CustomUser
+from src.users.models import CustomUser
 from django.utils import timezone
 
 # Person atributes
