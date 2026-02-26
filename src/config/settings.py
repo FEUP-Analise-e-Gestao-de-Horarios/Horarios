@@ -39,8 +39,8 @@ ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(","
 
 # Application definition
 INSTALLED_APPS = [
-    "FeupScheduleEditor",
-    "FeupScheduleEditor.templatetags.my_filters",
+    "src.FeupScheduleEditor",
+    "src.FeupScheduleEditor.templatetags.my_filters",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -49,15 +49,15 @@ INSTALLED_APPS = [
     "daphne",
     "django.contrib.staticfiles",
     "livereload",
-    "parser",
-    "login",
+    "src.parser",
+    "src.login",
     "bs4",
     "requests",
     "django.contrib.sites",
     "django.contrib.sessions",
-    "core",
-    "users",
-    "getHorariosFromDB",
+    "src.core",
+    "src.users",
+    "src.getHorariosFromDB",
 ]
 
 SITE_ID = 1
@@ -74,7 +74,7 @@ MIDDLEWARE = [
     "livereload.middleware.LiveReloadScript",
 ]
 
-ROOT_URLCONF = "config.urls"
+ROOT_URLCONF = "src.config.urls"
 
 TEMPLATES = [
     {
@@ -92,7 +92,7 @@ TEMPLATES = [
     },
 ]
 
-ASGI_APPLICATION = "config.asgi.application"
+ASGI_APPLICATION = "src.config.asgi.application"
 # Database
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
 

@@ -17,15 +17,17 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 
-from FeupScheduleEditor import views
+from src.FeupScheduleEditor import views
 
 urlpatterns = [
     path("admin/", admin.site.urls),  # redirects to urls.py in admin module
-    path("parser/", include("parser.urls")),  # redirects to urls.py in parser module
+    path(
+        "parser/", include("src.parser.urls")
+    ),  # redirects to urls.py in parser module
     path("", views.starter),
     path("groups", views.groups),
     path("deleteProject", views.deleteProject),
-    path("login/", include("login.urls")),  # redirects to urls.py from login module
+    path("login/", include("src.login.urls")),  # redirects to urls.py from login module
     path("editturnos/<int:projId>", views.editTurnos),  # projId extracted from uri
     path("emptytable/", views.createEmptyTable, name="emptytable"),
     path("getucs/", views.get_uc_list, name="get_uc_list"),
