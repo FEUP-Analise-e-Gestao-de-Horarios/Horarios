@@ -45,9 +45,15 @@ class Scraper:
     # Internal request helper
     # -------------------------------------------------------------------
 
+    _DEFAULT_TIMEOUT: int = 30
+
     def _request(self, path: str) -> requests.Response:
         """Makes an internal HTTP GET request to base_url + path."""
-        return self._session.get(self.base_url + path)
+        response = self._session.get(
+            self.base_url + path, timeout=self._DEFAULT_TIMEOUT
+        )
+        response.raise_for_status()
+        return response
 
     # -------------------------------------------------------------------
     # Internal HTML extraction helpers
@@ -443,6 +449,8 @@ class Parser:
             self.proj.delete()
         if self.conn is not None:
             self.conn.close()
+        if self.scraper is not None:
+            self.scraper.close()
         if self.proj_id is not None:
             shutil.rmtree("./database/Project" + str(self.proj_id), ignore_errors=True)
 
@@ -484,7 +492,7 @@ class Parser:
             if result:
                 stmtT = """INSERT OR IGNORE INTO blocoDocente (idBloco, idDocente) VALUES (?, ?)"""
                 self.cursor.execute(stmtT, (result[0], codigo))
-                self.conn.commit()
+        self.conn.commit()
 
     def _parse_turmas(self, turmas_menu: Any) -> None:
         """
@@ -538,7 +546,7 @@ class Parser:
                                 if result:
                                     stmtB = """INSERT OR IGNORE INTO blocoTurma (idBloco, idTurma) VALUES (?, ?)"""
                                     self.cursor.execute(stmtB, (result[0], codigo))
-                                    self.conn.commit()
+                            self.conn.commit()
                             parsed_vermelhos = True
 
                 for aula in lista_de_aulas:
@@ -590,7 +598,7 @@ class Parser:
                     if result:
                         stmtT = """INSERT OR IGNORE INTO salaBloco (idBloco, idSala) VALUES (?, ?)"""
                         self.cursor.execute(stmtT, (result[0], sala))
-                        self.conn.commit()
+            self.conn.commit()
 
     def _parse_turnos(self) -> None:
         """
