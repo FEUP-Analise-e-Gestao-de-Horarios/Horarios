@@ -36,6 +36,24 @@ from .utils import (
 tipologias = ["td_tipologia_" + str(id) for id in range(1, 22)]
 
 
+class Scraper:
+    def __init__(self) -> None:
+        self.session: requests.Session = requests.Session()
+
+    def get(self, url: str) -> requests.Response:
+        """Makes an HTTP GET request and returns the response."""
+        return self.session.get(url)
+
+    def get_soup(self, url: str) -> BeautifulSoup:
+        """Makes an HTTP GET request and returns a parsed BeautifulSoup object."""
+        response = self.session.get(url)
+        return BeautifulSoup(response.content, "html.parser")
+
+    def close(self) -> None:
+        """Closes the HTTP session."""
+        self.session.close()
+
+
 class Parser:
     def __init__(self, paginas: str, user_pk: str, name: str):
         self.paginas = paginas
@@ -47,7 +65,7 @@ class Parser:
         self.proj = None
         self.proj_id: int | None = None
         self.path: str | None = None
-        self.session: requests.Session = requests.Session()
+        self.scraper: Scraper = Scraper()
 
     def run(self) -> None:
         """
@@ -62,14 +80,12 @@ class Parser:
         try:
             self._setup()
 
-            req = self.session.get(self.paginas)
-            soup = BeautifulSoup(req.content, "html.parser")
+            soup = self.scraper.get_soup(self.paginas)
 
             links = soup.find("frame", {"name": "links"})
             src = links["src"]
 
-            req = self.session.get(self.paginas + src)
-            menu = BeautifulSoup(req.content, "html.parser").find("ul", {"id": "menu"})
+            menu = self.scraper.get_soup(self.paginas + src).find("ul", {"id": "menu"})
 
             print("Project Started")
             pre_inserir_blocos_vermelhos(self.cursor, self.conn)
@@ -109,7 +125,7 @@ class Parser:
         self.proj.isParsed = True
         self.proj.save()
         self.conn.close()
-        self.session.close()
+        self.scraper.close()
 
     def _teardown_failure(self) -> None:
         if self.proj is not None:
@@ -308,7 +324,7 @@ class Parser:
             for i in content:
                 a = i.find("a", recursive=False)
                 link = a["href"]
-                req = self.session.get(self.paginas + link)
+                req = self.scraper.get(self.paginas + link)
 
                 if k == 0:
                     web_s = req.content
@@ -416,7 +432,7 @@ class Parser:
                         a = semana.find("a", recursive=False)
 
                         link = a["href"]
-                        req = self.session.get(self.paginas + link)
+                        req = self.scraper.get(self.paginas + link)
 
                         self._parse_horario(req, idCurso, True, lista_de_aulas)
 
@@ -530,7 +546,7 @@ class Parser:
 
             for a in a_list:
                 link = a.get("href")
-                req = self.session.get(self.paginas + link)
+                req = self.scraper.get(self.paginas + link)
                 vermelhos = self._parse_horario_vermelhos(req)
                 for idBlocoVermelho in vermelhos:
                     stmtT = """INSERT OR IGNORE INTO salaBloco (idBloco, idSala) VALUES (?, ?)"""
