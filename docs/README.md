@@ -63,19 +63,19 @@ pipenv shell
 To create the necessary migrations:
 
 ```
-python src/manage.py makemigrations
+python manage.py makemigrations
 ```
 
 To apply the migrations:
 
 ```
-python src/manage.py migrate
+python manage.py migrate
 ```
 
 To import static files, specifically .js and .css files:
 
 ```
-python src/manage.py collectstatic
+python manage.py collectstatic
 ```
 
 _Note: this imports all static files into the static/ directory_
@@ -85,7 +85,7 @@ _Note: this imports all static files into the static/ directory_
 To run the server in development mode:
 
 ```
-python src/manage.py runserver
+python manage.py runserver
 ```
 
 Check if it reports any errors or missing migrations.
