@@ -1,0 +1,4 @@
+* text=auto eol=lf
+
+*.min.js linguist-vendored
+docs/**  linguist-documentation
