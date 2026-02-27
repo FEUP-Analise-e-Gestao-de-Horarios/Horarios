@@ -178,7 +178,7 @@ def selecionar_aulas_em_paralelo(request: HttpRequest):
 
         grupos_list.append(grupo_dict)
 
-    cursos_unicos = sorted(grupo["curso"] for grupo in grupos_list)
+    cursos_unicos = set(grupo["curso"] for grupo in grupos_list)
     grupos_list.sort(key=lambda g: (g["curso"], g["nomeUC"]))
 
     general_db_path = os.path.join(
