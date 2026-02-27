@@ -13,31 +13,25 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 import os
 from pathlib import Path
 
-EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True") == "True"
-EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.gmail.com")
-EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
-EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
-
-AUTH_USER_MODEL = "users.CustomUser"
-
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+# ── Python ──────────────────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parent.parent
+SRC_DIR = Path(__file__).resolve().parent
+DB_DIR = BASE_DIR / "databases"
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
+# ── Networking ──────────────────────────────────────────────────────────────────
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ASGI_APPLICATION = "src.config.asgi.application"
 
+
+# ── Django ──────────────────────────────────────────────────────────────────────
 # SECURITY WARNING: keep the secret key used in production secret!
+# Used by Django for cryptographic services
 SECRET_KEY = os.environ.get("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get("DEBUG", "True") == "True"
+DEBUG = os.environ.get("DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
-
-
-# Application definition
 INSTALLED_APPS = [
     "src.FeupScheduleEditor",
     "src.FeupScheduleEditor.templatetags.my_filters",
@@ -48,19 +42,16 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "daphne",
     "django.contrib.staticfiles",
-    "livereload",
     "src.parser",
     "src.login",
-    "bs4",
-    "requests",
-    "django.contrib.sites",
     "django.contrib.sessions",
     "src.core",
     "src.users",
     "src.getHorariosFromDB",
 ]
 
-SITE_ID = 1
+if DEBUG:
+    INSTALLED_APPS.append("livereload")
 
 MIDDLEWARE = [
     "whitenoise.middleware.WhiteNoiseMiddleware",
@@ -71,15 +62,19 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "livereload.middleware.LiveReloadScript",
 ]
 
+if DEBUG:
+    MIDDLEWARE.append("livereload.middleware.LiveReloadScript")
+
+
+# ── Pages ───────────────────────────────────────────────────────────────────────
 ROOT_URLCONF = "src.config.urls"
 
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [os.path.join(BASE_DIR, "templates")],
+        "DIRS": [SRC_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -92,20 +87,27 @@ TEMPLATES = [
     },
 ]
 
-ASGI_APPLICATION = "src.config.asgi.application"
-# Database
-# https://docs.djangoproject.com/en/4.1/ref/settings/#databases
+
+# ── Database ────────────────────────────────────────────────────────────────────
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "NAME": DB_DIR / "db.sqlite3",
     }
 }
 
 
-# Password validation
-# https://docs.djangoproject.com/en/4.1/ref/settings/#auth-password-validators
+# ── Internationalization ────────────────────────────────────────────────────────
+LANGUAGE_CODE = "en-us"
+TIME_ZONE = "UTC"
+USE_I18N = True
+USE_TZ = True
+
+
+# ── Users ───────────────────────────────────────────────────────────────────────
+AUTH_USER_MODEL = "users.models.CustomUser"
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -123,29 +125,16 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-# Internationalization
-# https://docs.djangoproject.com/en/4.1/topics/i18n/
-
-LANGUAGE_CODE = "en-us"
-
-TIME_ZONE = "UTC"
-
-USE_I18N = True
-
-USE_TZ = True
-
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/4.1/howto/static-files/
-
+# ── Static files (CSS, JavaScript, Images) ──────────────────────────────────────
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles/"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
+STATICFILES_DIRS = (BASE_DIR / "static",)
 
-STATICFILES_DIRS = (os.path.join(BASE_DIR, "static"),)
 
-
-# Default primary key field type
-# https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
-
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+# ── Email ───────────────────────────────────────────────────────────────────────
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True") == "True"
