@@ -1,5 +1,14 @@
+/* lastClikecAula
+
+saves the DOM element of the last selected cell with a class
+*/
 let lastClickedAula = null 
 
+/* updateSidebarSelection
+
+selects the options on the sidebar
+selects the options corresponding the ids passed as argument
+*/
 function updateSidebarSelection(idAula, idUc, initTime, timeSpan, day, 
     docentesIdList, salasIdList, turmasIdList){
     const sidebarId = document.querySelector("#editSideBarForm #selectedID")
@@ -25,11 +34,22 @@ function updateSidebarSelection(idAula, idUc, initTime, timeSpan, day,
     if(turmasIdList!==null && turmasIdList.length>0) updateSidebarMultiple(turmasIdList, '.turmasDropDown')
 }
 
+/* updateSidebarSingle
+
+receives and id and an elementId
+updates the select on the elementId
+with the option with the id passed as argument
+*/
 function updateSidebarSingle(id, elementId){
     let dropdown = document.getElementById(elementId);
     dropdown.value = id;
 }
 
+/* updateSideBarEmpty
+
+updates the sidebar with the time, duration and date of the selected empty cell
+CURRENTLY UNUSED
+*/
 function updateSideBarEmpty(initTime, timeSpan, day){
     const sidebarId = document.querySelector("#editSideBarForm #selectedID")
     sidebarId.value= "-1"
@@ -49,6 +69,11 @@ function updateSideBarEmpty(initTime, timeSpan, day){
     cadeiras.selectedIndex=-1
 }
 
+/* updateSidebarMultiple
+
+updates the dropdown select element with the corresponding element class
+receives a list of ids of options to select on the dropdown select 
+*/
 function updateSidebarMultiple(ids, element){
     let options
     if(element === '.docentesDropDown'){
@@ -73,7 +98,11 @@ function updateSidebarMultiple(ids, element){
     });
 }
 
+/* setSidebarUCs
 
+called whenever the displayed schedule is updated
+updates the UCs options on the UCs select on the sidebar to represent the present UCs
+*/
 function setSidebarUCs(ucSet){
     const selectElement = document.getElementById("cadeiraEdit")
     while (selectElement.firstChild) {
@@ -88,6 +117,11 @@ function setSidebarUCs(ucSet){
     });
 }
 
+/* setSidebarTurmas
+
+called whenever the displayed schedule is updated
+updates the Turmas options on the Turmas dropdown select on the sidebar to represent the present Turmas
+*/
 function setSidebarTurmas(turmasSet){
     const turmasList = Array.from(turmasSet)
     turmasList.sort()
@@ -107,6 +141,12 @@ function setSidebarTurmas(turmasSet){
     }).data("dropdown").update(list, true)
 }
 
+/* showEditBarOptions
+
+receives a showBool
+if true displays the sidebar edit form
+if false hides it and displays a "selecione uma aula" message
+*/
 function showEditBarOptions(showBool){
     const formDiv = document.getElementById("edit-form-div")
     const hiddenDiv = document.getElementById("edit-form-hidden-div")
@@ -120,6 +160,12 @@ function showEditBarOptions(showBool){
     formDiv.classList.add("hidden")
 }
 
+/* event listener
+
+event: ctrl+e
+
+toggles the sidebar modal
+*/
 $(document).ready(function () {
     document.addEventListener('keydown', function(event) {
         if (event.ctrlKey && event.key === 'e') {
@@ -135,6 +181,13 @@ $(document).ready(function () {
     })
 })
 
+/* selectedCellSelectSideBar
+
+receives the selected element, and whether or not it is an empty cell
+if isEmpty, updates the sidebar to display empty options CURRENTLY UNUSED
+else gets the top <td> element selected, collects its attributes, selects them in the sidebar
+and unhides the sidebar, if needed
+*/
 function selectedCellSelectSideBar(element, isEmpty){
     //obter o element correto
     while(element.tagName !=="TD"){
@@ -185,6 +238,11 @@ function selectedCellSelectSideBar(element, isEmpty){
     updateSidebarSelection(idAula, idUc, initTime, timeSpan, day, docentesIdList, salasIdList, turmasIdList)
 }
 
+/*switchDaytoNumber 
+
+auxiliary function
+receives a weekday string and returns the corresponding week day number
+*/
 function switchDaytoNumber(numberString){
     switch (numberString) {
         case "segunda":
@@ -204,12 +262,28 @@ function switchDaytoNumber(numberString){
     }
 }
 
+/* writeConflicts
+
+receives a list of strings containing conflicts
+removes currently displayed conflicts
+shows the conflicts passed as argument 
+*/
 function writeConflicts(arrayOfConflicts){
     $('#conflictsList').empty()
     $.each(arrayOfConflicts, function(key, value){
         $('#conflictsList').append('<li>' + value + '</li>')
     })
 }
+
+/* editSideBarForm submit
+
+event: sidebar submit button pressed
+
+retrieves the selected options
+in the case of turmas, also retrieves the other turmas with the same aula not displayed in the sidebar
+sends a Post Ajax Request that makes the necessary changes and returns a list of conflicts
+retrieves the update curso JSON, displays it and displays the received conflicts
+*/ 
 $(document).ready(function () {
     $('#editSideBarForm').submit(function () {
         event.preventDefault()
@@ -240,7 +314,6 @@ $(document).ready(function () {
 
         if(lastClickedAula.getAttribute('data-teorica') == 0){
             const aulaId = lastClickedAula.getAttribute('data-aulaid')
-            const elementId = lastClickedAula.id
             let aulas = Array.from(document.querySelectorAll('[data-aulaid="' + aulaId + '"]'))
             const index = aulas.indexOf(lastClickedAula)
             if(index !== -1){
@@ -248,8 +321,13 @@ $(document).ready(function () {
             }
 
             aulas.forEach(element => {
-                const id = element.id
-                turmasIds.push(id.split('_')[1])
+                const colspan = parseInt(element.getAttribute('colspan') )
+                const childDivs = Array.from(element.getElementsByTagName('div')).slice(0, colspan);
+
+                childDivs.forEach(child =>{
+                    const id = child.id
+                    turmasIds.push(id.split('_')[1])
+                })
             });
         }
 
@@ -279,8 +357,7 @@ $(document).ready(function () {
             // on success
             success: function (response) {
                 //mudar no horario
-                console.log("handling")
-                handleCursoBtn(0);
+                handleCursoBtn(0, true, ano, true);
 
                 //conflitos
                 const conflicts = response.conflicts
@@ -296,6 +373,14 @@ $(document).ready(function () {
     });
 })
 
+/* newDocenteForm submit
+
+event: submit button in new Docente modal clicked
+retrieves the inputed attributes
+sends them in a Post Ajax request that verifies if the new id is taken
+if it is taken, a error message is diplayed under the id input
+otherwise the docente is created and selected in the dropdown
+*/
 $(document).ready(function () {
     $('#newDocenteForm').submit(function () {
         event.preventDefault()
@@ -333,7 +418,11 @@ $(document).ready(function () {
                     let dataId = $(this).data('id');
                     docentesIds.push(dataId);
                 });
-                
+
+                idDocente = response.idDocente
+                nomeDocente = response.nomeDocente
+                siglaDocente = response.siglaDocente
+
                 dropdown.update([{ name: siglaDocente+' - '+nomeDocente, id: idDocente}], false)
                 dropdown.reset()
                 docentesIds.forEach(element => {
