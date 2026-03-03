@@ -1,3 +1,9 @@
+/* setDocentesEditFormValues
+
+called when a docente is selected
+updates the initial values of the form to correspond with the selected docente
+displays the form if it is hidden
+*/
 function setDocentesEditFormValues(button){
     const docenteId = button.id;
     const buttonText = button.textContent;
@@ -23,6 +29,16 @@ function setDocentesEditFormValues(button){
     $('#abreviacao').val(abreviacao)
 }
 
+/* editDocenteForm submit
+
+event: submit button pressed
+
+retrieves the pre-changes id of the docente
+retrieves the values inputed for the new id, name and abreviation
+sends a Post Ajax request that checks if the new id is taken, if it is altered that is
+if it is taken, an error message will be displayed under the id input
+otherwise the changes are made and the page updated to reflect it
+*/
 $(document).ready(function () {
     $('#editDocenteForm').submit(function () {
         event.preventDefault()
@@ -34,11 +50,10 @@ $(document).ready(function () {
 
         const url = window.location.pathname;
         const id = url.match(/\/(\d+)\//)[1];
-        console.log('id:', id)
 
-        const idDocente = $('#numeroMecanografico').val()
-        const nomeDocente = $('#nome').val().replace(/\s+$/, "")
-        const siglaDocente = $('#abreviacao').val()
+        let idDocente = $('#numeroMecanografico').val()
+        let nomeDocente = $('#nome').val().replace(/\s+$/, "")
+        let siglaDocente = $('#abreviacao').val()
         const title = $('#title').text()
         const oldId = title.split('->')[0]
 
@@ -50,7 +65,6 @@ $(document).ready(function () {
             oldId: parseInt(oldId, 10)
         };
 
-        console.log(formData)
 
         // create an AJAX call
         $.ajax({
@@ -64,8 +78,12 @@ $(document).ready(function () {
 
             // on success
             success: function (response) {
+                idDocente = response.idDocente
+                nomeDocente = response.nomeDocente
+                siglaDocente = response.siglaDocente
+
+
                 let button = document.getElementById(parseInt(oldId, 10))
-                console.log(button)
                 button.id = idDocente
                 button.textContent = siglaDocente+' -- '+nomeDocente
                 const newbutton = document.getElementById(parseInt(idDocente, 10))
@@ -85,8 +103,4 @@ $(document).ready(function () {
         return false;
     });
 })
-
-function returnToPrevious(){
-    window.history.back();
-}
 
