@@ -11,7 +11,7 @@ from django.http import HttpRequest, JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.csrf import csrf_exempt
 
-from core.models import Person, Project
+from src.core.models import Person, Project
 
 from .models import AulasSimultaneasInput
 from .parallel import check_parallel_classes, get_parallel_classes

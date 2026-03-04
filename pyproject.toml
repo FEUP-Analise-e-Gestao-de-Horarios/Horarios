@@ -1,5 +1,5 @@
 [tool.ruff]
-src = ["src"]
+src = ["."]
 line-length = 88
 target-version = "py314"
 
@@ -22,15 +22,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = [
-    "FeupScheduleEditor",
-    "core",
-    "users",
-    "login",
-    "parser",
-    "database",
-    "getHorariosFromDB",
-]
+known-first-party = ["src"]
 
 [tool.ruff.format]
 quote-style = "double"

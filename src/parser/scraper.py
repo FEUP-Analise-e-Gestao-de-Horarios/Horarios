@@ -9,7 +9,7 @@ from typing import Any
 import requests
 from bs4 import BeautifulSoup
 
-from core.models import Project
+from src.core.models import Project
 
 from .db import (
     insert_aula,

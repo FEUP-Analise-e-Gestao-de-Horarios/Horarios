@@ -1,4 +1,4 @@
-from FeupScheduleEditor.models import AulaChange, AulaInfo
+from src.FeupScheduleEditor.models import AulaChange, AulaInfo
 import sqlite3
 from pathlib import Path
 

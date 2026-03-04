@@ -1,7 +1,6 @@
-import sqlite3, json, os
-import getHorariosFromDB.graphDup as graph_controller
-import getHorariosFromDB.auxiliaryScheduleFunctions as aux
 import sqlite3
+import src.getHorariosFromDB.graphDup as graph_controller
+import src.getHorariosFromDB.auxiliaryScheduleFunctions as aux
 
 def converter_horario(num):
     hora, minuto = divmod(num, 100)
@@ -258,4 +257,3 @@ def findAnyConflicts(ProjectNumber, day, hour, idAula):
     graph_controller.clean_graph(ProjectNumber)
     conflicts = graph_controller.get_organized_conflicts(ProjectNumber)
     return organizeInformation(ProjectNumber, conflicts)
-
