@@ -119,16 +119,16 @@ class CursoEncoder(json.JSONEncoder):
 # Auxiliary function that retrieves the list of projects that the user can see
 # Used in the starter page project cards and in the header, in most pages
 def getProjetosListAux(request, userId):
-    projects = Project.objects.values_list("person", "group", "people", "pk", "name", "finished_ingestion_at")
+    projects = Project.objects.values_list("creator", "group", "people", "pk", "name", "finished_ingestion_at")
     related = []
 
-    courses = User.objects.values("core_groups").filter(pk=userId)
+    courses = User.objects.values("member_groups").filter(pk=userId)
 
     merge_courses = []
 
     for i in courses:
-        if not i["core_groups"] in merge_courses:
-            merge_courses.append(i["core_groups"])
+        if not i["member_groups"] in merge_courses:
+            merge_courses.append(i["member_groups"])
 
     person = userId
     ids = []
@@ -192,7 +192,7 @@ def manageProjects(request: HttpRequest, projId: int) -> HttpResponse:
         for i in a.getlist('RemoveP'):
             project.people.remove(User.objects.get(username=i))
 
-    courses = User.objects.filter(pk=request.user.pk).values("core_groups")
+    courses = User.objects.filter(pk=request.user.pk).values("member_groups")
 
     projCourses = Project.objects.values("group").filter(pk = projId)
 
@@ -200,7 +200,7 @@ def manageProjects(request: HttpRequest, projId: int) -> HttpResponse:
     for x in courses:
         check = True
         for i in projCourses:
-            if x['core_groups'] == i['group']:
+            if x['member_groups'] == i['group']:
                 check = False
         if check:
             temp.append(x)
@@ -212,7 +212,7 @@ def manageProjects(request: HttpRequest, projId: int) -> HttpResponse:
     temp = []
     if (courses):
         for i in courses:
-            temp.append(Group.objects.values_list("name", "abreviation").get(pk = i["core_groups"]))
+            temp.append(Group.objects.values_list("name", "abreviation").get(pk = i["member_groups"]))
 
     group.append(temp)
 
@@ -264,7 +264,7 @@ def groups(request):
 
     group = Group.objects.values_list("name", "pk", "abreviation")
     groups = []
-    people = User.objects.values_list("pk", "core_groups")
+    people = User.objects.values_list("pk", "member_groups")
     user_groups = []
     user_in_group = []
     user_not_in_group = []
