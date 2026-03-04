@@ -10,8 +10,8 @@ class GroupAdmin(admin.ModelAdmin):
 
 @admin.register(Project)
 class GradeAdmin(admin.ModelAdmin):
-    search_fields = ("project__startswith",)
-    list_display = ("project",)
+    search_fields = ("name__startswith",)
+    list_display = ("name",)
     list_filter = (
         "creator",
         "group",

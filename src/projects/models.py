@@ -1,22 +1,19 @@
-from datetime import date
-
 from django.db import models
 from django.db.models import (
     BooleanField,
-    DateField,
+    DateTimeField,
     ForeignKey,
     ManyToManyField,
     TextField,
 )
 from django.db.models.expressions import Combinable
-from django.utils import timezone
 
 from src.users.models import User
 
 
 class Group(models.Model):
     # Data
-    abreviation: TextField[str | Combinable, str] = TextField(unique=True)
+    abbreviation: TextField[str | Combinable, str] = TextField(unique=True)
     name: TextField[str | Combinable, str] = TextField()
 
     # Relationships
@@ -27,16 +24,25 @@ class Group(models.Model):
     )
 
     def __str__(self) -> str:
-        return f"[{self.abreviation}] {self.name}"
+        return f"[{self.abbreviation}] {self.name}"
 
 
 class Project(models.Model):
     # Data
-    project: TextField[str | Combinable, str] = TextField(unique=True)
-    isParsed: BooleanField[bool | Combinable, bool] = BooleanField(default=False)
-    data: DateField[str | date | Combinable, date] = DateField(default=timezone.now)
+    name: TextField[str | Combinable, str] = TextField(unique=True)
+    url: TextField[str | Combinable, str] = TextField()
     has_selected_aulas_em_paralelo: BooleanField[bool | Combinable, bool] = (
         BooleanField(default=False)
+    )
+
+    # Timestamps
+    started_ingestion_at: DateTimeField[str | Combinable, str] = DateTimeField(
+        null=True,
+        blank=True,
+    )
+    finished_ingestion_at: DateTimeField[str | Combinable, str] = DateTimeField(
+        null=True,
+        blank=True,
     )
 
     # Relationships
@@ -56,4 +62,4 @@ class Project(models.Model):
     )
 
     def __str__(self) -> str:
-        return f"Project({self.project}) by {self.creator}"
+        return f"Project({self.name}) by {self.creator}"

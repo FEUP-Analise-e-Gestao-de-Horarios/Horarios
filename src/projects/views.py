@@ -32,14 +32,14 @@ class ProjectsView(View):
         project_url = validated.url
 
         # -- Check if Project already exists -----------------------------------
-        if Project.objects.filter(project=project_name).exists():
+        if Project.objects.filter(name=project_name).exists():
             return JsonResponse(
                 {"error": f"A project with the name '{project_name}' already exists"},
                 status=400,
             )
 
         # -- Create Project's entry and DB -------------------------------------
-        proj = Project(project=project_name, creator=request.user)
+        proj = Project(name=project_name, creator=request.user)
         proj.save()
         proj_id: int = proj.pk
 

@@ -119,7 +119,7 @@ class CursoEncoder(json.JSONEncoder):
 # Auxiliary function that retrieves the list of projects that the user can see
 # Used in the starter page project cards and in the header, in most pages
 def getProjetosListAux(request, userId):
-    projects = Project.objects.values_list("person", "group", "people", "pk", "project", "isParsed")
+    projects = Project.objects.values_list("person", "group", "people", "pk", "name", "finished_ingestion_at")
     related = []
 
     courses = User.objects.values("core_groups").filter(pk=userId)
@@ -137,7 +137,7 @@ def getProjetosListAux(request, userId):
             continue
         elif person == project[0] or person == project[2] or (project[1] in merge_courses and project[1] != None and merge_courses != None) or request.user.is_staff:
             ids.append(project[3])
-            related.append({'id':project[3], 'nome': project[4], 'isParsed':project[5]})
+            related.append({'id':project[3], 'nome': project[4], 'finished_ingestion_at':project[5]})
     related.reverse()
     return related
 

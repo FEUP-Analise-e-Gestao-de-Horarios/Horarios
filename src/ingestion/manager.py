@@ -3,6 +3,8 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+from django.utils import timezone
+
 from src.parser.db import (
     insert_aula,
     insert_cursos,
@@ -69,6 +71,8 @@ class IngestionManager:
     # -----------------------------------------------------------------------
 
     def _setup(self) -> None:
+        self.proj.started_ingestion_at = timezone.now()
+        self.proj.save()
         self.conn = sqlite3.connect(
             self.path / "general_database.db", check_same_thread=False
         )
@@ -78,7 +82,7 @@ class IngestionManager:
         shutil.copy2(
             self.path / "general_database.db", self.path / "initial_database.db"
         )
-        self.proj.isParsed = True
+        self.proj.finished_ingestion_at = timezone.now()
         self.proj.save()
         self.conn.close()
         self.scraper.close()
