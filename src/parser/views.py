@@ -12,10 +12,10 @@ from django.shortcuts import redirect, render
 from django.views.decorators.csrf import csrf_exempt
 
 from src.core.models import Person, Project
+from src.ingestion.manager import IngestionManager
 
 from .models import AulasSimultaneasInput
 from .parallel import check_parallel_classes, get_parallel_classes
-from .scraper import Parser
 from .utils import validate_request_body
 
 logger = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ def parse(request: HttpRequest) -> JsonResponse:
 
     paginas = bleach.clean(request.POST.get("paginas"))
     name = bleach.clean(request.POST.get("name"))
-    parser = Parser(paginas=paginas, user_pk=request.user.pk, name=name)
+    parser = IngestionManager(paginas=paginas, user_pk=request.user.pk, name=name)
 
     def run():
         try:
