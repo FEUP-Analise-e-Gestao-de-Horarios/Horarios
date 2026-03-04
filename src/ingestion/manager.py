@@ -3,6 +3,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+from django.conf import settings
 from django.utils import timezone
 
 from src.parser.db import (
@@ -24,14 +25,18 @@ from .scraper import Scraper
 
 
 class IngestionManager:
-    def __init__(self, project_url: str, path: Path, proj_id: int, proj: Project):
-        self.proj = proj
+    def __init__(self, proj_id: int):
         self.proj_id = proj_id
-        self.path = path
+        self.proj = Project.objects.get(pk=proj_id)
+
+        self.path = Path(settings.PROJECTS_DB_PATH) / str(proj_id)
+        self.conn = sqlite3.connect(
+            self.path / "general_database.db", check_same_thread=False
+        )
+        self.cursor: sqlite3.Cursor = self.conn.cursor()
+
+        self.scraper = Scraper(self.proj.url)
         self.turnosMap: dict[str, dict[int, list[str]]] = {}
-        self.conn: sqlite3.Connection | None = None
-        self.cursor: sqlite3.Cursor | None = None
-        self.scraper: Scraper = Scraper(project_url)
 
     def run(self) -> None:
         """
@@ -73,10 +78,6 @@ class IngestionManager:
     def _setup(self) -> None:
         self.proj.started_ingestion_at = timezone.now()
         self.proj.save()
-        self.conn = sqlite3.connect(
-            self.path / "general_database.db", check_same_thread=False
-        )
-        self.cursor = self.conn.cursor()
 
     def _teardown_success(self) -> None:
         shutil.copy2(
@@ -89,8 +90,7 @@ class IngestionManager:
 
     def _teardown_failure(self) -> None:
         self.proj.delete()
-        if self.conn is not None:
-            self.conn.close()
+        self.conn.close()
         self.scraper.close()
         shutil.rmtree(self.path, ignore_errors=True)
 
