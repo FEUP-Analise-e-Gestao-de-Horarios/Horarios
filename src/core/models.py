@@ -1,33 +1,54 @@
+from datetime import date
+
 from django.db import models
-from src.users.models import CustomUser
+from django.db.models import (
+    BooleanField,
+    DateField,
+    ForeignKey,
+    ManyToManyField,
+    TextField,
+)
+from django.db.models.expressions import Combinable
 from django.utils import timezone
+from users.models import User
 
-# Person atributes
-class Person(models.Model):
-    username = models.ForeignKey(CustomUser, db_column="user", on_delete=models.CASCADE)
-    groups = models.ManyToManyField("Group", blank=True)
 
-    def __str__(self):
-        return f"{self.username}"
-
-# Group atributes
 class Group(models.Model):
-    abreviation = models.TextField(unique=True)
-    name = models.TextField()
+    # Data
+    abreviation: TextField[str | Combinable, str] = TextField(unique=True)
+    name: TextField[str | Combinable, str] = TextField()
 
-    def __str__(self):
-        return f"{self.abreviation}, {self.name}"
+    # Relationships
+    members: ManyToManyField[User, User] = ManyToManyField(
+        User,
+        blank=True,
+        related_name="core_groups",
+    )
 
-# Project atributes
+    def __str__(self) -> str:
+        return f"[{self.abreviation}] {self.name}"
+
+
 class Project(models.Model):
-    person = models.ForeignKey(Person, on_delete=models.CASCADE)
-    project = models.TextField(unique=True)
-    group = models.ManyToManyField("Group", blank=True)
-    people = models.ManyToManyField("Person", related_name="People", blank=True)
-    isParsed = models.BooleanField(default=False)
-    data = models.DateField(default=timezone.now)
-    has_selected_aulas_em_paralelo = models.BooleanField(default=False)
-    
-    def __str__(self):
-        return f"{self.project}, {self.person}, {self.group}"
-    
+    # Data
+    project: TextField[str | Combinable, str] = TextField(unique=True)
+    isParsed: BooleanField[bool | Combinable, bool] = BooleanField(default=False)
+    data: DateField[str | date | Combinable, date] = DateField(default=timezone.now)
+    has_selected_aulas_em_paralelo: BooleanField[bool | Combinable, bool] = (
+        BooleanField(default=False)
+    )
+
+    # Relationships
+    person: ForeignKey[User | Combinable, User] = ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+    )
+    group: ManyToManyField[Group, Group] = ManyToManyField("Group", blank=True)
+    people: ManyToManyField[User, User] = ManyToManyField(
+        User,
+        related_name="People",
+        blank=True,
+    )
+
+    def __str__(self) -> str:
+        return f"Project({self.project}) by {self.person}"

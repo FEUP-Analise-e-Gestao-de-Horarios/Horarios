@@ -107,7 +107,7 @@ USE_TZ = True
 
 
 # ── Users ───────────────────────────────────────────────────────────────────────
-AUTH_USER_MODEL = "users.CustomUser"
+AUTH_USER_MODEL = "users.User"
 
 AUTH_PASSWORD_VALIDATORS = [
     {

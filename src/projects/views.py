@@ -6,7 +6,7 @@ import threading
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views import View
 
-from src.core.models import Person, Project
+from src.core.models import Project
 from src.ingestion.manager import IngestionManager
 from src.parser.utils import validate_request_body
 from src.projects.schemas import ParseProjectInput
@@ -32,11 +32,8 @@ class ProjectsView(View):
         project_name = validated.name
         project_url = validated.url
 
-        user_pk = str(request.user.pk)
         try:
-            Project(
-                project=project_name, person=Person.objects.get(username=user_pk)
-            ).save()
+            Project(project=project_name, person=request.user).save()
             proj_id = Project.objects.values("id").get(project=project_name)["id"]
             path = "database/Project" + str(proj_id)
             os.mkdir(path)
@@ -48,8 +45,6 @@ class ProjectsView(View):
                 conn_original.cursor().executescript(script)
             conn.commit()
             conn.close()
-        except Person.DoesNotExist:
-            return JsonResponse({"error": "User not found"}, status=404)
         except FileExistsError:
             return JsonResponse(
                 {"error": f"A project with the name '{project_name}' already exists"},

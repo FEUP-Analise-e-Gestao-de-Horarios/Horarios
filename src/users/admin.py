@@ -15,7 +15,7 @@ from src.config import settings
 from src.login.tokens import generate_token
 
 from .forms import CustomUserChangeForm, CustomUserCreationForm
-from .models import CustomUser
+from .models import User
 
 admin.site.unregister(Group)
 
@@ -23,7 +23,7 @@ admin.site.unregister(Group)
 class CustomUserAdmin(UserAdmin):
     add_form = CustomUserCreationForm
     form = CustomUserChangeForm
-    model = CustomUser
+    model = User
     list_display = ("username", "is_staff", "is_active", "sent_email", "is_superuser")
     list_filter = ("username", "is_staff", "is_active", "sent_email", "is_superuser")
     fieldsets = (
@@ -106,4 +106,4 @@ class CustomUserAdmin(UserAdmin):
     send_confirmation_email.short_description = "Send confirmation email"
 
 
-admin.site.register(CustomUser, CustomUserAdmin)
+admin.site.register(User, CustomUserAdmin)

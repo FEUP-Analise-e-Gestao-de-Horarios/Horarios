@@ -8,7 +8,7 @@ from django.http import HttpRequest, JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.csrf import csrf_exempt
 
-from src.core.models import Person, Project
+from src.core.models import Project
 
 from .models import AulasSimultaneasInput
 from .parallel import check_parallel_classes, get_parallel_classes
@@ -30,16 +30,12 @@ def selecionar_aulas_em_paralelo(request: HttpRequest):
         return JsonResponse({"error": "Invalid project ID"}, status=400)
 
     try:
-        person = Person.objects.get(username=request.user.pk)
-    except Person.DoesNotExist:
-        return JsonResponse({"error": "Forbidden"}, status=403)
-
-    try:
         project = Project.objects.get(id=project_id)
     except Project.DoesNotExist:
         return JsonResponse({"error": "Project not found"}, status=404)
 
-    user_groups = set(person.groups.values_list("id", flat=True))
+    person = request.user
+    user_groups = set(person.core_groups.values_list("id", flat=True))
     project_groups = set(project.group.values_list("id", flat=True))
 
     if not (
@@ -160,16 +156,12 @@ def guardar_aulas_em_paralelo(request: HttpRequest) -> JsonResponse:
         return JsonResponse({"error": "Invalid project ID"}, status=400)
 
     try:
-        person = Person.objects.get(username=request.user.pk)
-    except Person.DoesNotExist:
-        return JsonResponse({"error": "Forbidden"}, status=403)
-
-    try:
         project = Project.objects.get(id=project_id)
     except Project.DoesNotExist:
         return JsonResponse({"error": "Project not found"}, status=404)
 
-    user_groups = set(person.groups.values_list("id", flat=True))
+    person = request.user
+    user_groups = set(person.core_groups.values_list("id", flat=True))
     project_groups = set(project.group.values_list("id", flat=True))
 
     if not (
