@@ -12,69 +12,13 @@ def validate_request_body[M: BaseModel](
     try:
         return model.model_validate_json(body), None
     except ValidationError as e:
-        return None, JsonResponse({"status": "erro", "message": e.errors()}, status=400)
-
-
-def table_to_matrix(table: Any) -> list[list[Any]]:
-    """
-    Transforma uma tabela HTML numa matriz.
-
-    Recebe um elemento table HTML composto por elementos <td> e converte-o
-    numa matriz, repetindo os elementos para que ocupem o mesmo número de
-    linhas e colunas que os seus rowspans e colspans. Facilita o processo
-    de mapear datas e durações de aulas.
-    """
-
-    # Encontra todas as linhas de uma tabela
-    rows = table.find_all("tr")
-    rows = rows[3:]
-
-    # Determina o número de linhas e colunas na tabela
-    num_rows = len(rows)
-    num_cols = max([len(row.find_all(["td", "th"])) for row in rows])
-
-    # Cria uma matriz para armazenar os dados
-    matrix = [[None for _ in range(num_cols)] for _ in range(num_rows)]
-    # Itera sobre cada célula na tabela
-    for i, row in enumerate(rows):
-        cells = row.find_all("td")
-        j = 0
-        for cell in cells:
-            # Encontra o rowspan e colspan da célula
-            rowspan = int(cell.get("rowspan", 1))
-            colspan = int(cell.get("colspan", 1))
-
-            # Insere a data na matriz
-            while matrix[i][j] is not None:
-                j += 1
-            for k in range(rowspan):
-                for m in range(colspan):
-                    matrix[i + k][j + m] = cell
-
-            # Avança o índice da coluna para a próxima célula disponível
-            j += colspan
-    return matrix
-
-
-def get_index(item: Any, matrix: list[list[Any]]) -> tuple[Any, list[list[Any]]]:
-    """
-    Encontra a coluna de um item numa matriz.
-
-    Recebe um elemento <td> HTML e uma matriz. Procura pelo elemento na
-    matriz, e guarda a sua coluna. A todas as posições da matriz é
-    atribuído o valor None, e é devolvido um tuplo da coluna e a nova matriz.
-    """
-
-    for i, row in enumerate(matrix):
-        for j, td in enumerate(row):
-            if item == td:
-                matrix[i][j] = None
-                rowspan = item.get("rowspan")
-                if rowspan is None:
-                    rowspan = "1"
-                for y in range(i + 1, i + int(rowspan)):
-                    matrix[y][j] = None
-                return j, matrix
+        return None, JsonResponse(
+            {
+                "status": "erro",
+                "message": e.errors(include_input=False, include_url=False),
+            },
+            status=400,
+        )
 
 
 def get_dia_from_index(index: int, spanMap: dict[str, Any]) -> str:

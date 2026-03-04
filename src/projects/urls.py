@@ -5,5 +5,5 @@ from src.projects.views import ProjectsView
 app_name = "projects"
 
 urlpatterns = [
-    path("projects/", ProjectsView.as_view()),
+    path("", ProjectsView.as_view()),
 ]

@@ -1,14 +1,19 @@
 import re
-from typing import Any
+from datetime import datetime
+from typing import Any, cast
 
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
-from src.parser.utils import (
-    get_dia_from_index,
-    get_index,
-    table_to_matrix,
+from src.ingestion.schemas import (
+    ClassPages,
+    CourseInfo,
+    RedBlock,
+    TeacherPage,
+    YearInfo,
 )
+from src.ingestion.utils import get_cell_column, matrix_from_html_table
+from src.parser.utils import get_dia_from_index
 
 # Algumas tipologias encontradas
 # 14 - O, 15 - OT, 16 - Pratica, 17 - PL, 18 - S
@@ -20,7 +25,7 @@ tipologias = ["td_tipologia_" + str(id) for id in range(1, 22)]
 class Scraper:
     def __init__(self, base_url: str) -> None:
         self.base_url = base_url
-        self._session: requests.Session = requests.Session()
+        self._session = requests.Session()
 
     # -------------------------------------------------------------------
     # Internal request helper
@@ -28,59 +33,224 @@ class Scraper:
 
     _DEFAULT_TIMEOUT: int = 30
 
-    def _request(self, path: str) -> requests.Response:
+    def _request(self, path: str) -> BeautifulSoup:
         """Makes an internal HTTP GET request to base_url + path."""
         response = self._session.get(
-            self.base_url + path, timeout=self._DEFAULT_TIMEOUT
+            self.base_url + path,
+            timeout=self._DEFAULT_TIMEOUT,
         )
         response.raise_for_status()
-        return response
+        return BeautifulSoup(response.content, "html.parser")
 
     # -------------------------------------------------------------------
     # Internal HTML extraction helpers
     # -------------------------------------------------------------------
 
-    def _extract_red_blocks(self, soup: BeautifulSoup) -> list[tuple[int, str]]:
-        """Extracts (time, day) pairs for red blocks from a parsed schedule page."""
-        vermelhos = soup.find_all("td", {"class": "td_vermelha"})
-        if not vermelhos:
+    @staticmethod
+    def _extract_teacher_links(docentes_menu: Tag) -> list[str]:
+        """Extract all teacher schedule page URLs from the docentes menu.
+
+        Navigates the two-level nested ``<ul>`` structure of the menu,
+        collecting the ``href`` of every teacher link.
+
+        Args:
+            docentes_menu: The ``<li>`` tag for the "Docentes" menu entry.
+
+        Returns:
+            A list of relative URL paths, one per teacher.
+
+        Raises:
+            ValueError: If expected structural elements are missing from the menu.
+        """
+        ul = docentes_menu.find("ul")
+        if ul is None:
+            raise ValueError("Could not find <ul> in docentes menu")
+
+        children = ul.find_all(recursive=False)
+        result: list[str] = []
+
+        for child in children:
+            inner_ul = child.find("ul")
+            if inner_ul is None:
+                raise ValueError("Could not find <ul> in child menu item")
+
+            content = inner_ul.find_all("li", recursive=False)
+            for i in content:
+                a = i.find("a", recursive=False)
+                if a is None:
+                    raise ValueError("Could not find <a> in <li>")
+
+                href = a["href"]
+                if not isinstance(href, str):
+                    raise ValueError(f"Expected href to be a str, got {type(href)}")
+
+                result.append(href)
+
+        return result
+
+    @staticmethod
+    def _extract_classes_links(turmas_menu: Tag) -> list[CourseInfo]:
+        ul = turmas_menu.find("ul")
+        if ul is None:
+            raise ValueError("Could not find <ul> in turmas menu")
+
+        result: list[CourseInfo] = []
+        for child in ul.find_all(recursive=False):
+            child_a = child.find("a")
+            if child_a is None:
+                raise ValueError("Could not find <a> in turmas menu child")
+
+            course_info = child_a.contents
+            if not course_info:
+                raise ValueError("Empty <a> contents in curso menu item")
+
+            course_id, course_name = str(course_info[0]).split(" - ")
+
+            child_ul = child.find("ul")
+            if child_ul is None:
+                raise ValueError(f"Could not find <ul> for curso '{course_id}'")
+
+            years: list[YearInfo] = []
+            for year in child_ul.find_all(recursive=False):
+                year_a = year.find("a")
+                if year_a is None:
+                    raise ValueError(
+                        f"Could not find <a> in ano item for curso '{course_id}'"
+                    )
+
+                year_number = int(str(year_a.contents[0]).split(" ")[1])
+
+                plan_ul = year.find("ul")
+                if plan_ul is None:
+                    raise ValueError(
+                        f"Could not find plano <ul> for ano '{year_number}'"
+                    )
+
+                plan_li = plan_ul.find("li")
+                if plan_li is None:
+                    raise ValueError(
+                        f"Could not find <li> in plano for ano '{year_number}'"
+                    )
+
+                class_ul = plan_li.find("ul")
+                if class_ul is None:
+                    raise ValueError(
+                        f"Could not find turmas <ul> for ano '{year_number}'"
+                    )
+
+                classes: list[ClassPages] = []
+                for class_ in class_ul.find_all(recursive=False):
+                    class_a = class_.find("a")
+                    if class_a is None:
+                        raise ValueError(
+                            f"Could not find <a> in turma item for ano '{year_number}'"
+                        )
+
+                    class_code = str(class_a.contents[0])
+
+                    weeks_ul = class_.find("ul")
+                    if weeks_ul is None:
+                        raise ValueError(
+                            f"Could not find semanas <ul> for turma '{class_code}'"
+                        )
+
+                    links: list[str] = []
+                    for week in weeks_ul.find_all("li"):
+                        week_a = week.find("a", recursive=False)
+                        if week_a is None:
+                            raise ValueError(
+                                f"Could not find <a> in semana item for turma '{class_code}'"
+                            )
+
+                        week_href = week_a["href"]
+                        if not isinstance(week_href, str):
+                            raise ValueError(
+                                f"Expected href to be str, got {type(week_href)}"
+                            )
+
+                        links.append(week_href)
+                    classes.append({"code": class_code, "links": links})
+                years.append({"number": year_number, "classes": classes})
+            result.append(
+                {"abbreviation": course_id, "name": course_name, "years": years}
+            )
+        return result
+
+    @staticmethod
+    def _extract_red_blocks(soup: BeautifulSoup) -> list[RedBlock]:
+        """Extract unavailable time slots from a schedule page.
+
+        Red blocks (``td_vermelha``) represent time slots where a teacher or
+        room is unavailable. The method reads the day-span header to map column
+        positions to weekday names, then builds a matrix of the main schedule
+        table to locate each red cell's column and derive its weekday.
+
+        Args:
+            soup: Parsed HTML of a schedule page.
+
+        Returns:
+            A list of ``(time, day)`` tuples, e.g. ``(900, "Segunda")``,
+            one entry per red block. Returns an empty list if none are found.
+
+        Raises:
+            ValueError: If expected structural elements are missing from the page.
+        """
+        # -- Build week day <-> table width dict--------------------------------
+        red_cells = soup.find_all("td", {"class": "td_vermelha"})
+        if not red_cells:
             return []
 
-        table = soup.find("center").find("table", {"class": "tabela_principal"})
-        matrix = table_to_matrix(table)
+        row = red_cells[0].parent
+        if row is None:
+            raise ValueError("Red block <td> has no parent row")
 
-        days = vermelhos[0].parent.parent.findChildren(recursive=False)[3]
-        daySpans: dict[str, Any] = {}
+        header_row = row.parent
+        if header_row is None:
+            raise ValueError("Red block row has no parent")
+
+        header_children = header_row.find_all(recursive=False)
+        if len(header_children) < 4:
+            raise ValueError(
+                f"Expected at least 4 children in header row, got {len(header_children)}"
+            )
+
+        days = header_children[3]
+        daySpans: dict[str, int] = {}
         for i, day in enumerate(days.findChildren()):
             if i == 0:
                 continue
-            daySpans[day.text] = day.get("colspan")
+            daySpans[day.text] = int(str(day.get("colspan") or 1))
 
-        result = []
-        for item in vermelhos:
-            parent = item.parent
-            index, matrix = get_index(item, matrix)
-            time = int(parent.findChild().text.replace(":", ""))
+        # -- Build table matrix ------------------------------------------------
+        center = soup.find("center")
+        if center is None:
+            raise ValueError("Could not find <center> in schedule page")
+
+        table = center.find("table", {"class": "tabela_principal"})
+        if table is None:
+            raise ValueError("Could not find <table class='tabela_principal'>")
+
+        matrix = matrix_from_html_table(table)
+        result: list[RedBlock] = []
+
+        for item in red_cells:
+            table_row = item.parent
+            if table_row is None:
+                raise ValueError("Red block <td> has no parent")
+
+            index = get_cell_column(item, matrix)
+            first_child = table_row.find()
+            if first_child is None:
+                raise ValueError("Red block row has no children")
+
+            time = int(first_child.text.replace(":", ""))
             day = get_dia_from_index(index, daySpans)
             result.append((time, day))
 
         return result
 
-    def _extract_ucs(self, soup: BeautifulSoup) -> dict[str, list]:
-        """Extracts UC data from a parsed turma schedule page."""
-        table = [str(row) for row in soup.findAll("table")[4].findAll("tr")[2:]]
-        ucs = {}
-        for row in table:
-            row_items = row.split('<td align="left" valign="middle">')[1:]
-            (codigo_nome, sigla, numero_uc) = (
-                item.split("</td>")[0] for item in row_items
-            )
-            (codigo, nome) = codigo_nome.split(" - ", 1)
-            ucs[sigla] = [codigo, nome, numero_uc]
-        return ucs
-
     def _extract_aulas(
-        self, soup: BeautifulSoup, semanaIni: str, semanaFim: str
+        self, soup: BeautifulSoup, semanaIni: datetime, semanaFim: datetime
     ) -> list[dict[str, Any]]:
         """Extracts raw aula data from a parsed schedule page."""
         from collections import defaultdict
@@ -89,15 +259,15 @@ class Scraper:
         if not aulaBlocks:
             return []
 
-        # Build docente abbreviation → code list mapping
-        docentes_table = soup.findAll("table")[3].findAll("tr")[2:]
-        docentes_table = list(map(str, docentes_table))
-        docentes_temp: defaultdict[str, list[str]] = defaultdict(list)
-        for item in docentes_table:
+        # Build teacher abbreviation → code list mapping
+        teachers_table = cast(Tag, soup.findAll("table")[3])
+        teachers_rows: list[str] = list(map(str, teachers_table.find_all("tr")[2:]))
+        teachers_temp: defaultdict[str, list[str]] = defaultdict(list)
+        for item in teachers_rows:
             parts = item.split('<td align="left" valign="middle">')
             abrevs = parts[2].split("</td>")[0]
             codes = parts[3].split("</td>")[0]
-            docentes_temp[abrevs].append(codes)
+            teachers_temp[abrevs].append(codes)
 
         # Build day-span mapping
         dias = aulaBlocks[0].parent.parent.findChildren(recursive=False)[3]
@@ -108,7 +278,7 @@ class Scraper:
             diaSpans[dia.text] = dia.get("colspan")
 
         table = soup.find("center").find("table", {"class": "tabela_principal"})
-        matrix = table_to_matrix(table)
+        matrix = matrix_from_html_table(table)
 
         aulas = []
         for aulaBlock in aulaBlocks:
@@ -121,26 +291,24 @@ class Scraper:
             aula["salas"] = matches[2] if len(matches) > 2 else "Online"
             aula["turmas"] = matches[0].split("; ")
 
-            docentes_aulaBlock = (
-                matches[1].replace("(", "").replace(")", "").split("; ")
-            )
+            aula_teachers = matches[1].replace("(", "").replace(")", "").split("; ")
 
             aula["semanaIni"] = semanaIni
             aula["semanaFim"] = semanaFim
 
-            lista_docentes = []
-            for i in docentes_aulaBlock:
-                if len(docentes_temp[i]) == 1:
-                    lista_docentes.append(docentes_temp[i][0])
+            teachers = []
+            for i in aula_teachers:
+                if len(teachers_temp[i]) == 1:
+                    teachers.append(teachers_temp[i][0])
                 else:
-                    lista_docentes.append(docentes_temp[i][count])
+                    teachers.append(teachers_temp[i][count])
                     count += 1
-            aula["docentes"] = lista_docentes
+            aula["docentes"] = teachers
 
             aula["sigla"] = aulaBlock.contents[0]
             pai = aulaBlock.parent
             aula["hora"] = int(pai.findChild().text.replace(":", ""))
-            index, matrix = get_index(aulaBlock, matrix)
+            index, matrix = get_cell_column(aulaBlock, matrix)
             aula["dia"] = get_dia_from_index(index, diaSpans)
             aulas.append(aula)
 
@@ -150,67 +318,87 @@ class Scraper:
     # Public page-navigation methods
     # -------------------------------------------------------------------
 
-    def get_menu(self) -> tuple[Any, Any, Any]:
-        """
-        Fetches the main page and navigation menu.
+    def read_menu(self) -> tuple[list[str], list[CourseInfo], Tag]:
+        soup = self._request("")
 
-        Returns a tuple of (docentes_menu, turmas_menu, salas_menu) BeautifulSoup
-        submenu elements that can be passed to the other Scraper methods.
-        """
-        response = self._session.get(self.base_url)
-        soup = BeautifulSoup(response.content, "html.parser")
         links = soup.find("frame", {"name": "links"})
+        if links is None:
+            raise ValueError("Could not find frame with name 'links'")
+
         src = links["src"]
-        menu_soup = BeautifulSoup(self._request(src).content, "html.parser")
+        if not isinstance(src, str):
+            raise ValueError(f"Expected 'src' to be a str, got {type(src)}")
+
+        menu_soup = self._request(src)
+
         menu = menu_soup.find("ul", {"id": "menu"})
-        children = menu.findChildren(recursive=False)
-        return children[0], children[1], children[2]
+        if menu is None:
+            raise ValueError("Could not find ul with id 'menu'")
 
-    def get_docentes_links(self, docentes_menu: Any) -> list[list[str]]:
-        """
-        Extracts groups of schedule page paths for each docente from the menu.
+        def find_li(label: str):
+            for c in menu.find_all("li", recursive=False):
+                a = c.find("a")
+                if a and a.get_text(strip=True) == label:
+                    return c
+            raise ValueError(f"Could not find <li> with <a> text '{label}'")
 
-        Returns a list of path groups — one list per docente, where each element
-        is a relative URL path for a schedule page belonging to that docente.
-        """
-        children = docentes_menu.find("ul").findChildren(recursive=False)
-        result = []
-        for child in children:
-            content = child.find("ul").find_all("li", recursive=False)
-            paths = [i.find("a", recursive=False)["href"] for i in content]
-            result.append(paths)
-        return result
+        teachers_li = find_li("Docentes")
+        classes_li = find_li("Turmas")
+        rooms_li = find_li("Salas")
 
-    def get_docente_page(self, path: str) -> dict[str, Any]:
-        """
-        Extracts docente info and red blocks from a schedule page.
+        return (
+            self._extract_teacher_links(teachers_li),
+            self._extract_classes_links(classes_li),
+            rooms_li,
+        )
 
-        Returns a dict with keys: sigla, nome, codigo, red_blocks.
-        red_blocks is a list of (time, day) tuples.
+    def get_teacher_page(self, path: str) -> TeacherPage:
+        """Fetch and parse a teacher's schedule page.
+
+        Extracts the teacher's abbreviation (sigla), full name, and code from
+        the page header, then collects any red blocks (unavailable time slots).
+
+        Args:
+            path: Relative URL path to the teacher's schedule page.
+
+        Returns:
+            A ``DocentePage`` dict with keys ``sigla``, ``nome``, ``codigo``,
+            and ``red_blocks``.
+
+        Raises:
+            ValueError: If the page header element is missing.
         """
-        response = self._request(path)
-        soup = BeautifulSoup(response.content, "html.parser")
-        content = soup.find("td", {"class": "cabtitulo"}).contents
-        content = str(content)
+        soup = self._request(path)
+        td = soup.find("td", {"class": "cabtitulo"})
+        if td is None:
+            raise ValueError("Could not find <td class='cabtitulo'>")
+
+        content = str(td.contents)
         if '"' in content:
             first = content.split('"')[1]
-            sigla = content.split("<br/>, '")[1].split("'")[0]
-            nome = first[len(sigla) :] if sigla in first else ""
-            codigo = content.split("<br/>, '")[2].split("'")[0]
+            abbreviation = content.split("<br/>, '")[1].split("'")[0]
+            teachers_name = first[len(abbreviation) :] if abbreviation in first else ""
+            teachers_code = content.split("<br/>, '")[2].split("'")[0]
         else:
             content = content.split("', <br/>, '")
-            sigla = content[1].split("'")[0]
-            nome = content[0][len(sigla) + 2 :] if sigla in content[0] else ""
-            codigo = content[2].split("'")[0]
-        if " - " in nome:
-            nome = nome[3:]
-        if nome == "":
-            nome = sigla
-        nome = re.sub(r"[^\w\s]", "", nome)
+            abbreviation = content[1].split("'")[0]
+            teachers_name = (
+                content[0][len(abbreviation) + 2 :]
+                if abbreviation in content[0]
+                else ""
+            )
+            teachers_code = content[2].split("'")[0]
+
+        if " - " in teachers_name:
+            teachers_name = teachers_name[3:]
+        if teachers_name == "":
+            teachers_name = abbreviation
+        teachers_name = re.sub(r"[^\w\s]", "", teachers_name)
+
         return {
-            "sigla": sigla,
-            "nome": nome,
-            "codigo": codigo,
+            "abbreviation": abbreviation,
+            "name": teachers_name,
+            "code": teachers_code,
             "red_blocks": self._extract_red_blocks(soup),
         }
 
@@ -218,56 +406,10 @@ class Scraper:
         """
         Extracts red block (time, day) pairs from a schedule page.
         """
-        response = self._request(path)
-        soup = BeautifulSoup(response.content, "html.parser")
+        soup = self._request(path)
         return self._extract_red_blocks(soup)
 
-    def get_cursos(self, turmas_menu: Any) -> set[tuple[str, str]]:
-        """
-        Extracts (nome, abreviatura) course pairs from the turmas menu.
-        """
-        children = turmas_menu.find("ul").findChildren(recursive=False)
-        allCursos: set[tuple[str, str]] = set()
-        for curso in children:
-            info = curso.find("a").contents
-            abreviatura = info[0].split(" - ")[0]
-            nome = info[0].split(" - ", 1)[1]
-            allCursos.add((nome, abreviatura))
-        return allCursos
-
-    def get_turmas_structure(self, turmas_menu: Any) -> list[dict[str, Any]]:
-        """
-        Extracts the hierarchical structure of courses, years, and turmas.
-
-        Returns a list of dicts, each with keys:
-          idCurso, anos — where anos is a list of dicts with keys:
-            numeroStr, turmas — where turmas is a list of dicts with keys:
-              codigo, links (list of relative URL paths for each schedule week).
-        """
-        children = turmas_menu.find("ul").findChildren(recursive=False)
-        result = []
-        for child in children:
-            idCurso = child.find("a").contents[0].split(" - ")[0]
-            anos_items = child.find("ul").findChildren(recursive=False)
-            anos = []
-            for ano in anos_items:
-                numeroStr = ano.find("a").contents[0].split(" ")[1]
-                plano_turmas = ano.find("ul").find("li")
-                turmas_list = plano_turmas.find("ul").findChildren(recursive=False)
-                turmas = []
-                for turma in turmas_list:
-                    codigo = str(turma.find("a").contents).split("'")[1]
-                    semanasLi = turma.find("ul").find_all("li")
-                    links = [
-                        semana.find("a", recursive=False)["href"]
-                        for semana in semanasLi
-                    ]
-                    turmas.append({"codigo": codigo, "links": links})
-                anos.append({"numeroStr": numeroStr, "turmas": turmas})
-            result.append({"idCurso": idCurso, "anos": anos})
-        return result
-
-    def get_turma_schedule(self, path: str) -> dict[str, Any]:
+    def get_class_page(self, path: str) -> dict[str, Any]:
         """
         Extracts all data from a turma schedule page.
 
@@ -277,28 +419,37 @@ class Scraper:
         salas, hora, dia, semanaIni, semanaFim).
         red_blocks is a list of (time, day) tuples.
         """
-        from datetime import datetime
+        soup = self._request(path)
 
-        response = self._request(path)
-        soup = BeautifulSoup(response.content, "html.parser")
+        # -- Get date (week) information ---------------------------------------
+        weeks_tag = soup.find("td", {"class": "cabtitulo"})
+        if weeks_tag is None:
+            raise ValueError("Could not find 'cabtitulo' cell in schedule page")
 
-        semanas = soup.find("td", {"class": "cabtitulo"}).contents
-        semanas = str(semanas[-1])
-        semanaIniEFim = semanas.split("Semanas: ")[1]
-        semanaIni, _, semanaFim = semanaIniEFim.partition(" - ")
-        if not semanaFim:
-            semanaFim = semanaIni
+        weeks = str(weeks_tag.contents[-1])
+        dates = re.findall(r"\d{2}/\d{2}/\d{4}", weeks)
+        if not dates:
+            raise ValueError(f"Could not find dates in weeks string: {weeks!r}")
 
-        si_obj = datetime.strptime(semanaIni, "%d/%m/%Y")
-        sf_obj = datetime.strptime(semanaFim, "%d/%m/%Y")
-        semanaIni = si_obj.strftime("%Y-%m-%d")
-        semanaFim = sf_obj.strftime("%Y-%m-%d")
+        start_date = datetime.strptime(dates[0], "%d/%m/%Y")
+        end_date = datetime.strptime(dates[-1], "%d/%m/%Y")
+
+        # -- Insert courses ----------------------------------------------------
+        table = [str(row) for row in soup.find_all("table")[4].find_all("tr")[2:]]
+        ucs = {}
+        for row in table:
+            row_items = row.split('<td align="left" valign="middle">')[1:]
+            (codigo_nome, sigla, numero_uc) = (
+                item.split("</td>")[0] for item in row_items
+            )
+            (codigo, nome) = codigo_nome.split(" - ", 1)
+            ucs[sigla] = [codigo, nome, numero_uc]
 
         return {
-            "semanaIni": semanaIni,
-            "semanaFim": semanaFim,
-            "ucs": self._extract_ucs(soup),
-            "aulas": self._extract_aulas(soup, semanaIni, semanaFim),
+            "start_date": start_date,
+            "end_date": end_date,
+            "ucs": ucs,
+            "aulas": self._extract_aulas(soup, start_date, end_date),
             "red_blocks": self._extract_red_blocks(soup),
         }
 

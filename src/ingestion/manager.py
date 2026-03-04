@@ -6,12 +6,10 @@ from typing import Any
 from django.conf import settings
 from django.utils import timezone
 
+from src.ingestion.schemas import CourseInfo
+from src.ingestion.utils import pre_insert_red_blocks
 from src.parser.db import (
     insert_aula,
-    insert_cursos,
-    insert_turma,
-    insert_ucs,
-    pre_inserir_blocos_vermelhos,
 )
 from src.parser.models import Aula
 from src.parser.utils import (
@@ -30,42 +28,29 @@ class IngestionManager:
         self.proj = Project.objects.get(pk=proj_id)
 
         self.path = Path(settings.PROJECTS_DB_PATH) / str(proj_id)
-        self.conn = sqlite3.connect(
-            self.path / "general_database.db", check_same_thread=False
-        )
+        self.conn = sqlite3.connect(self.path / "general_database.db")
         self.cursor: sqlite3.Cursor = self.conn.cursor()
 
         self.scraper = Scraper(self.proj.url)
         self.turnosMap: dict[str, dict[int, list[str]]] = {}
 
     def run(self) -> None:
-        """
-        Função executora do parse.
-
-        Cria a entrada do projeto na base de dados, a diretoria do projeto,
-        e a ligação à base de dados. Chama as funções de parse para preencher
-        a base de dados. No final, copia o conteúdo da general_database para
-        a initial_database, e marca o projeto como parsed. Em caso de falha,
-        a base de dados é eliminada e a diretoria é removida.
-        """
         try:
             self._setup()
 
-            docentes_menu, turmas_menu, salas_menu = self.scraper.get_menu()
+            pre_insert_red_blocks(self.cursor, self.conn)
 
-            print("Project Started")
-            pre_inserir_blocos_vermelhos(self.cursor, self.conn)
+            teacher_links, classes_menu, salas_menu = self.scraper.read_menu()
+            self._ingest_teachers(teacher_links)
+            self._ingest_classes(classes_menu)
+            self._ingest_rooms(salas_menu)
 
-            self._parse_docentes(docentes_menu)
-            self._parse_turmas(turmas_menu)
-            self._parse_salas(salas_menu)
             self._parse_turnos()
             self._fix_turmas_without_turnos()
             self._cleanup_aulas()
             self._aulas_simultaneas()
 
             self._teardown_success()
-            print("Project Parsed")
 
         except Exception:
             self._teardown_failure()
@@ -77,11 +62,14 @@ class IngestionManager:
 
     def _setup(self) -> None:
         self.proj.started_ingestion_at = timezone.now()
+        self.proj.finished_ingestion_at = None
+        self.proj.failed_ingestion_at = None
         self.proj.save()
 
     def _teardown_success(self) -> None:
         shutil.copy2(
-            self.path / "general_database.db", self.path / "initial_database.db"
+            self.path / "general_database.db",
+            self.path / "initial_database.db",
         )
         self.proj.finished_ingestion_at = timezone.now()
         self.proj.save()
@@ -89,80 +77,94 @@ class IngestionManager:
         self.scraper.close()
 
     def _teardown_failure(self) -> None:
-        self.proj.delete()
+        self.proj.failed_ingestion_at = timezone.now()
+        self.proj.save()
         self.conn.close()
         self.scraper.close()
-        shutil.rmtree(self.path, ignore_errors=True)
 
     # -----------------------------------------------------------------------
-    # Funções de parse
+    # Ingest functions
     # -----------------------------------------------------------------------
 
-    def _parse_docentes(self, docentes_menu: Any) -> None:
+    def _ingest_teachers(self, teacher_links: list[str]) -> None:
+        """Ingest teacher records and their unavailability blocks into the DB.
+
+        For each teacher link, fetches the schedule page, inserts the teacher
+        into the ``docentes`` table (skipping duplicates), then maps each red
+        block to its ``blocosVermelhos`` row and records it in ``blocoDocente``.
+
+        Args:
+            teacher_links: Relative URL paths to each teacher's schedule page.
+
+        Raises:
+            ValueError: If a red block's (time, day) pair has no matching row
+                in the ``blocosVermelhos`` table.
         """
-        Realiza o parse de todo o menu de docentes.
+        for link in teacher_links:
+            teacher_info = self.scraper.get_teacher_page(link)
 
-        Para cada docente, usa o Scraper para obter a informação do docente e os
-        blocos vermelhos de cada página de horário. Insere os dados na base de dados.
-        """
-        for paths in self.scraper.get_docentes_links(docentes_menu):
-            first_page = self.scraper.get_docente_page(paths[0])
-            sigla = first_page["sigla"]
-            nome = first_page["nome"]
-            codigo = first_page["codigo"]
-
-            self._insert_red_blocks_docente(first_page["red_blocks"], codigo)
-
-            for path in paths[1:]:
-                self._insert_red_blocks_docente(
-                    self.scraper.get_red_blocks(path), codigo
-                )
-
-            stmt = """INSERT INTO docentes (numeroMecanografico, nome, abreviacao) VALUES (?, ?, ?)"""
-            self.cursor.execute(stmt, (codigo, nome, sigla))
+            # -- Insert teacher's info ---------------------------------------------
+            stmt = """INSERT OR IGNORE INTO docentes (numeroMecanografico, nome, abreviacao) VALUES (?, ?, ?)"""
+            self.cursor.execute(
+                stmt,
+                (
+                    teacher_info["code"],
+                    teacher_info["name"],
+                    teacher_info["abbreviation"],
+                ),
+            )
             self.conn.commit()
 
-    def _insert_red_blocks_docente(
-        self, red_blocks: list[tuple[int, str]], codigo: str
-    ) -> None:
-        """Translates (time, day) pairs to DB IDs and inserts into blocoDocente."""
-        for time, day in red_blocks:
-            stmt = """SELECT id FROM blocosVermelhos WHERE hora=? AND diaSemana=?"""
-            result = self.cursor.execute(stmt, (time, day)).fetchone()
-            if result:
-                stmtT = """INSERT OR IGNORE INTO blocoDocente (idBloco, idDocente) VALUES (?, ?)"""
-                self.cursor.execute(stmtT, (result[0], codigo))
+            # -- Insert teacher's red blocks ---------------------------------------
+            for time, day in teacher_info["red_blocks"]:
+                stmt = """SELECT id FROM blocosVermelhos WHERE hora=? AND diaSemana=?"""
+                result = self.cursor.execute(stmt, (time, day)).fetchone()
+                if not result:
+                    raise ValueError(
+                        f"Red block not found in DB: hora={time}, diaSemana={day}"
+                    )
+
+                stmt = """INSERT OR IGNORE INTO blocoDocente (idBloco, idDocente) VALUES (?, ?)"""
+                self.cursor.execute(stmt, (result[0], teacher_info["code"]))
+            self.conn.commit()
+
+    def _ingest_classes(self, courses_info: list[CourseInfo]) -> None:
+        # -- Insert courses ----------------------------------------------------
+        for course in courses_info:
+            stmt = """INSERT INTO curso(designacao, abreviacao) VALUES(?, ?)"""
+            self.cursor.execute(stmt, (course["abbreviation"], course["name"]))
         self.conn.commit()
 
-    def _parse_turmas(self, turmas_menu: Any) -> None:
-        """
-        Realiza o parse do menu de turmas.
-
-        Usa o Scraper para obter a estrutura de cursos, anos e turmas, visitando
-        cada horário individual. Obtém todas as aulas de cada horário, inserindo
-        a informação relevante na base de dados.
-        """
-        cursos = self.scraper.get_cursos(turmas_menu)
-        insert_cursos(cursos, self.cursor)
-
-        for curso_data in self.scraper.get_turmas_structure(turmas_menu):
-            idCurso = curso_data["idCurso"]
-            for ano_data in curso_data["anos"]:
-                numeroStr = ano_data["numeroStr"]
+        for course in courses_info:
+            for year_info in course["years"]:
                 lista_de_aulas: set[Aula] = set()
 
-                for turma_data in ano_data["turmas"]:
-                    codigo = turma_data["codigo"]
-                    links = turma_data["links"]
-
-                    insert_turma(idCurso, numeroStr, codigo, self.cursor)
+                for class_info in year_info["classes"]:
+                    # -- Insert class ------------------------------------------------------
+                    stmt = (
+                        """INSERT INTO turmas (idCurso, ano, codigo) VALUES (?, ?, ?)"""
+                    )
+                    self.cursor.execute(
+                        stmt,
+                        (
+                            course["abbreviation"],
+                            year_info["number"],
+                            class_info["code"],
+                        ),
+                    )
                     self.conn.commit()
 
                     parsed_vermelhos = False
 
-                    for link in links:
-                        schedule = self.scraper.get_turma_schedule(link)
-                        insert_ucs(schedule["ucs"], idCurso, self.cursor)
+                    for link in class_info["links"]:
+                        schedule = self.scraper.get_class_page(link)
+                        for sigla, (codigo, nome, numero) in schedule["ucs"].items():
+                            stmt = """INSERT OR IGNORE INTO uc (codigo, idCurso, nome, sigla, codOcorrencia) VALUES (?, ?, ?, ?, ?)"""
+                            self.cursor.execute(
+                                stmt,
+                                (codigo, course["abbreviation"], nome, sigla, numero),
+                            )
+
                         self.conn.commit()
 
                         for aula_data in schedule["aulas"]:
@@ -175,8 +177,8 @@ class IngestionManager:
                             aula_obj = Aula({**aula_data, "cod_uc": cod_uc})
                             lista_de_aulas.add(aula_obj)
 
-                        # Os blocos vermelhos de uma turma só precisam de ser
-                        # parsed uma vez, já que não mudam entre semanas
+                        # A class's red blocks only need to be
+                        # parsed once, since they don't change between weeks
                         if not parsed_vermelhos:
                             for time, day in schedule["red_blocks"]:
                                 stmt = """SELECT id FROM blocosVermelhos WHERE hora=? AND diaSemana=?"""
@@ -215,12 +217,12 @@ class IngestionManager:
         else:
             self.turnosMap[cod_uc] = {1: turnos}
 
-    def _parse_salas(self, salas_menu: Any) -> None:
+    def _ingest_rooms(self, salas_menu: Any) -> None:
         """
-        Realiza o parse das salas a partir do menu lateral.
+        Parses rooms from the side menu.
 
-        Usa o Scraper para obter a informação de cada sala e os blocos vermelhos
-        de cada horário. Insere os dados relevantes na base de dados.
+        Uses the Scraper to retrieve each room's information and the red blocks
+        from each schedule. Inserts the relevant data into the database.
         """
         for sala_info in self.scraper.get_salas_info(salas_menu):
             sala = sala_info["sala"]
@@ -247,10 +249,10 @@ class IngestionManager:
 
     def _parse_turnos(self) -> None:
         """
-        Insere os turnos encontrados na base de dados.
+        Inserts the found shifts into the database.
 
-        Usa a informação na estrutura turnosMap para preencher a tabela
-        correspondente aos turnos na base de dados.
+        Uses the information in the turnosMap structure to populate the
+        corresponding shifts table in the database.
         """
 
         for uc in self.turnosMap:
@@ -276,7 +278,7 @@ class IngestionManager:
 
     def _fix_turmas_without_turnos(self) -> None:
         """
-        Atribui um turno às turmas que não têm um turno associado na base de dados.
+        Assigns a shift to classes that have no associated shift in the database.
         """
 
         query = """
@@ -299,7 +301,7 @@ class IngestionManager:
 
     def _cleanup_aulas(self) -> None:
         """
-        Deduplica e funde aulas sobrepostas na base de dados.
+        Deduplicates and merges overlapping lessons in the database.
         """
         stmtAulas = """SELECT DISTINCT diaSemana, horaInicial, duracao, teorico, idDocente, idUC, idTurma
                         FROM aula
@@ -354,13 +356,13 @@ class IngestionManager:
 
     def _aulas_simultaneas(self) -> None:
         """
-        Encontra aulas simultâneas no horário e insere a informação na base de dados.
+        Finds simultaneous lessons in the schedule and inserts the information into the database.
 
-        Realiza uma query à base de dados para encontrar aulas simultâneas de
-        cursos diferentes. Aulas simultâneas têm os mesmos: docente, sala, dia, e
-        hora. Há também uma sobreposição nas semanas em que ocorrem. No entanto,
-        o curso e a UC têm de ser diferentes. Depois de encontradas as aulas, são
-        inseridas numa tabela apropriada na base de dados.
+        Queries the database to find simultaneous lessons from different courses.
+        Simultaneous lessons share the same: lecturer, room, day, and time. There is
+        also an overlap in the weeks they occur. However, the course and the UC must
+        be different. Once found, the lessons are inserted into an appropriate table
+        in the database.
         """
 
         query = """

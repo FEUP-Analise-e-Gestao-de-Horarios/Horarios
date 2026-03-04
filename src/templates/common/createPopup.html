@@ -83,7 +83,9 @@
             $("#submitBtn").html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Creating...');
 
             $.ajax({
-                data: $(this).serialize(),
+                data: JSON.stringify({ name: projectName, url: scheduleUrl }),
+                contentType: "application/json",
+                headers: { "X-CSRFToken": $("[name=csrfmiddlewaretoken]").val() },
                 type: $(this).attr("method"),
                 url: "/projects/",
                 success: function () {
