@@ -14,8 +14,8 @@ import os
 from pathlib import Path
 
 # ── Python ──────────────────────────────────────────────────────────────────────
-BASE_DIR = Path(__file__).resolve().parent.parent
-SRC_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+SRC_DIR = Path(__file__).resolve().parent.parent
 DB_DIR = BASE_DIR / "databases"
 
 
@@ -107,7 +107,7 @@ USE_TZ = True
 
 
 # ── Users ───────────────────────────────────────────────────────────────────────
-AUTH_USER_MODEL = "users.models.CustomUser"
+AUTH_USER_MODEL = "users.CustomUser"
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -127,9 +127,9 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # ── Static files (CSS, JavaScript, Images) ──────────────────────────────────────
 STATIC_URL = "static/"
-STATIC_ROOT = BASE_DIR / "staticfiles/"
+STATIC_ROOT = SRC_DIR / "staticfiles/"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
-STATICFILES_DIRS = (BASE_DIR / "static",)
+STATICFILES_DIRS = (SRC_DIR / "static",)
 
 
 # ── Email ───────────────────────────────────────────────────────────────────────

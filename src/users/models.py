@@ -19,7 +19,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     sent_email = models.BooleanField(default=False)
     date_joined = models.DateTimeField(default=timezone.now)
 
-    USERNAME_FIELD = "username"
+    USERNAME_FIELD: ClassVar = "username"
     REQUIRED_FIELDS: ClassVar = ["email"]
 
     objects = CustomUserManager()

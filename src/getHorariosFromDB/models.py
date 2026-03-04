@@ -1,4 +1,4 @@
-from src.FeupScheduleEditor.models import AulaChange, AulaInfo
+from src.FeupScheduleEditor.models import AulaChange
 from .auxiliar_functions import *
 
 #A node represents an change of an class info
@@ -353,4 +353,3 @@ class GraphManager:
     def print_turmas(self):
         for id in self.turmas:
             print(self.turmas[id])
-
