@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from django.db import models
 from django.db.models import (
     BooleanField,
@@ -36,11 +38,24 @@ class Project(models.Model):
     )
 
     # Timestamps
-    started_ingestion_at: DateTimeField[str | Combinable, str] = DateTimeField(
+    started_ingestion_at: DateTimeField[
+        datetime | str | Combinable | None,
+        datetime | None,
+    ] = DateTimeField(
         null=True,
         blank=True,
     )
-    finished_ingestion_at: DateTimeField[str | Combinable, str] = DateTimeField(
+    finished_ingestion_at: DateTimeField[
+        datetime | str | Combinable | None,
+        datetime | None,
+    ] = DateTimeField(
+        null=True,
+        blank=True,
+    )
+    failed_ingestion_at: DateTimeField[
+        datetime | str | Combinable | None,
+        datetime | None,
+    ] = DateTimeField(
         null=True,
         blank=True,
     )
