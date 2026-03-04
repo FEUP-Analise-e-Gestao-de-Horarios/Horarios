@@ -1,78 +1,20 @@
-import concurrent.futures
 import logging
 import os
 import sqlite3
-import threading
 from collections import defaultdict
 
-import bleach
 from django.conf import settings
 from django.http import HttpRequest, JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.csrf import csrf_exempt
 
 from src.core.models import Person, Project
-from src.ingestion.manager import IngestionManager
 
 from .models import AulasSimultaneasInput
 from .parallel import check_parallel_classes, get_parallel_classes
 from .utils import validate_request_body
 
 logger = logging.getLogger(__name__)
-
-max_workers = 4  # Estabelece o número máximo de threads permitidas
-executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
-_parse_counter = {"count": 0}
-_parse_counter_lock = threading.Lock()
-
-
-def parse(request: HttpRequest) -> JsonResponse:
-    """
-    Inicia o parse de um novo projeto.
-
-    Prepara as variáveis e realiza as verificações necessárias para realizar
-    o parse da página de horários. Cria um objeto Parser e submete-o a uma
-    nova thread, enquanto houver threads disponíveis.
-    """
-
-    if not request.user.is_authenticated:
-        return JsonResponse({"error": "User is not authenticated"}, status=401)
-
-    if request.method != "POST":
-        return JsonResponse({"error": "Invalid request"}, status=400)
-
-    with _parse_counter_lock:
-        if _parse_counter["count"] >= 5:
-            return JsonResponse(
-                {
-                    "error": "Maximum number of simultaneous parses exceeded. Please wait a moment before trying again."
-                },
-                status=423,
-            )
-        _parse_counter["count"] += 1
-
-    paginas = bleach.clean(request.POST.get("paginas"))
-    name = bleach.clean(request.POST.get("name"))
-    parser = IngestionManager(paginas=paginas, user_pk=request.user.pk, name=name)
-
-    def run():
-        try:
-            parser.run()
-        except Exception:
-            logger.exception("Unhandled exception in background parse thread")
-        finally:
-            with _parse_counter_lock:
-                _parse_counter["count"] -= 1
-
-    try:
-        executor.submit(run)
-        return JsonResponse({}, status=200)
-    except Exception:
-        with _parse_counter_lock:
-            _parse_counter["count"] -= 1
-        return JsonResponse(
-            {"error": "Nao foi possivel fazer parse do site"}, status=400
-        )
 
 
 def selecionar_aulas_em_paralelo(request: HttpRequest):

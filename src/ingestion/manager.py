@@ -10,7 +10,6 @@ from src.parser.db import (
     insert_ucs,
     pre_inserir_blocos_vermelhos,
 )
-from src.parser.directories import createDir
 from src.parser.models import Aula
 from src.parser.utils import (
     are_weeks_overlapped,
@@ -22,16 +21,14 @@ from .scraper import Scraper
 
 
 class IngestionManager:
-    def __init__(self, paginas: str, user_pk: str, name: str):
-        self.user_pk = user_pk
-        self.name = name
+    def __init__(self, project_url: str, path: str, proj_id: int, proj: Project):
+        self.proj = proj
+        self.proj_id = proj_id
+        self.path = path
         self.turnosMap: dict[str, dict[int, list[str]]] = {}
         self.conn: sqlite3.Connection | None = None
         self.cursor: sqlite3.Cursor | None = None
-        self.proj = None
-        self.proj_id: int | None = None
-        self.path: str | None = None
-        self.scraper: Scraper = Scraper(paginas)
+        self.scraper: Scraper = Scraper(project_url)
 
     def run(self) -> None:
         """
@@ -71,9 +68,6 @@ class IngestionManager:
     # -----------------------------------------------------------------------
 
     def _setup(self) -> None:
-        self.path, self.proj_id = createDir(self.user_pk, self.name)
-        assert self.path is not None
-        self.proj = Project.objects.get(project=self.name)
         self.conn = sqlite3.connect(
             self.path + "/general_database.db", check_same_thread=False
         )
@@ -89,14 +83,11 @@ class IngestionManager:
         self.scraper.close()
 
     def _teardown_failure(self) -> None:
-        if self.proj is not None:
-            self.proj.delete()
+        self.proj.delete()
         if self.conn is not None:
             self.conn.close()
-        if self.scraper is not None:
-            self.scraper.close()
-        if self.proj_id is not None:
-            shutil.rmtree("./database/Project" + str(self.proj_id), ignore_errors=True)
+        self.scraper.close()
+        shutil.rmtree("./database/Project" + str(self.proj_id), ignore_errors=True)
 
     # -----------------------------------------------------------------------
     # Funções de parse
