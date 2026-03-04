@@ -17,6 +17,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 SRC_DIR = Path(__file__).resolve().parent.parent
 DB_DIR = BASE_DIR / "databases"
+PROJECTS_DB_PATH = DB_DIR / "projects"
 
 
 # ── Networking ──────────────────────────────────────────────────────────────────

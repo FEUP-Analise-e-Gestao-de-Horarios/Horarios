@@ -1,5 +1,6 @@
 import shutil
 import sqlite3
+from pathlib import Path
 from typing import Any
 
 from src.parser.db import (
@@ -21,7 +22,7 @@ from .scraper import Scraper
 
 
 class IngestionManager:
-    def __init__(self, project_url: str, path: str, proj_id: int, proj: Project):
+    def __init__(self, project_url: str, path: Path, proj_id: int, proj: Project):
         self.proj = proj
         self.proj_id = proj_id
         self.path = path
@@ -69,13 +70,13 @@ class IngestionManager:
 
     def _setup(self) -> None:
         self.conn = sqlite3.connect(
-            self.path + "/general_database.db", check_same_thread=False
+            self.path / "general_database.db", check_same_thread=False
         )
         self.cursor = self.conn.cursor()
 
     def _teardown_success(self) -> None:
         shutil.copy2(
-            self.path + "/general_database.db", self.path + "/initial_database.db"
+            self.path / "general_database.db", self.path / "initial_database.db"
         )
         self.proj.isParsed = True
         self.proj.save()
@@ -87,7 +88,7 @@ class IngestionManager:
         if self.conn is not None:
             self.conn.close()
         self.scraper.close()
-        shutil.rmtree("./database/Project" + str(self.proj_id), ignore_errors=True)
+        shutil.rmtree(self.path, ignore_errors=True)
 
     # -----------------------------------------------------------------------
     # Funções de parse

@@ -1,6 +1,4 @@
 import logging
-import os
-import sqlite3
 import threading
 
 from django.http import HttpRequest, HttpResponse, JsonResponse
@@ -10,6 +8,7 @@ from src.ingestion.manager import IngestionManager
 from src.parser.utils import validate_request_body
 from src.projects.models import Project
 from src.projects.schemas import ParseProjectInput
+from src.projects.utils import create_project_db
 
 logger = logging.getLogger(__name__)
 
@@ -32,28 +31,23 @@ class ProjectsView(View):
         project_name = validated.name
         project_url = validated.url
 
-        try:
-            Project(project=project_name, creator=request.user).save()
-            proj_id = Project.objects.values("id").get(project=project_name)["id"]
-            path = "database/Project" + str(proj_id)
-            os.mkdir(path)
-            conn = sqlite3.connect(os.path.join(path, "general_database.db"))
-            conn_original = sqlite3.connect(os.path.join(path, "initial_database.db"))
-            with open("database/criar.sql") as f:
-                script = f.read()
-                conn.cursor().executescript(script)
-                conn_original.cursor().executescript(script)
-            conn.commit()
-            conn.close()
-        except FileExistsError:
+        # -- Check if Project already exists -----------------------------------
+        if Project.objects.filter(project=project_name).exists():
             return JsonResponse(
                 {"error": f"A project with the name '{project_name}' already exists"},
                 status=400,
             )
+
+        # -- Create Project's entry and DB -------------------------------------
+        proj = Project(project=project_name, creator=request.user)
+        proj.save()
+        proj_id: int = proj.pk
+
+        try:
+            path = create_project_db(proj_id)
         except Exception:
             return JsonResponse({"error": "Failed to create project"}, status=500)
 
-        proj = Project.objects.get(project=project_name)
         manager = IngestionManager(
             project_url=project_url, path=path, proj_id=proj_id, proj=proj
         )
