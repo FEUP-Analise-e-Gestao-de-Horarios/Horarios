@@ -33,21 +33,21 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 DEBUG = os.environ.get("DEBUG", "False") == "True"
 
 INSTALLED_APPS = [
-    "src.FeupScheduleEditor",
-    "src.FeupScheduleEditor.templatetags.my_filters",
-    "django.contrib.admin",
-    "django.contrib.auth",
-    "django.contrib.contenttypes",
-    #'django.contrib.sessions',
-    "django.contrib.messages",
     "daphne",
-    "django.contrib.staticfiles",
-    "src.parser",
-    "src.login",
+    "django.contrib.auth",
+    "django.contrib.admin",
     "django.contrib.sessions",
+    "django.contrib.contenttypes",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
     "src.core",
     "src.users",
+    "src.login",
     "src.getHorariosFromDB",
+    "src.projects",
+    "src.parser",
+    "src.FeupScheduleEditor",
+    "src.FeupScheduleEditor.templatetags.my_filters",
 ]
 
 if DEBUG:

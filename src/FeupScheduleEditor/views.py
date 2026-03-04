@@ -13,7 +13,7 @@ import bleach
 import re
 from datetime import datetime
 from src.users.models import User
-from src.core.models import Group, Project
+from src.projects.models import Group, Project
 from django.contrib import messages
 from src.getHorariosFromDB.movementFunctions import addDocente, removeDocente, addSala, removeSala, moveAula, changeUC, updateAulaDuration, addTurma, removeTurma
 from src.getHorariosFromDB.conflictFunctions import organizeInformation, findAnyConflicts

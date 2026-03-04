@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from src.core.models import Group, Project
+from src.projects.models import Group, Project
 
 
 @admin.register(Group)
@@ -13,6 +13,6 @@ class GradeAdmin(admin.ModelAdmin):
     search_fields = ("project__startswith",)
     list_display = ("project",)
     list_filter = (
-        "person",
+        "creator",
         "group",
     )

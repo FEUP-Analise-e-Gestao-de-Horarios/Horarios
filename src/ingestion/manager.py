@@ -2,7 +2,6 @@ import shutil
 import sqlite3
 from typing import Any
 
-from src.core.models import Project
 from src.parser.db import (
     insert_aula,
     insert_cursos,
@@ -16,6 +15,7 @@ from src.parser.utils import (
     max_date,
     min_date,
 )
+from src.projects.models import Project
 
 from .scraper import Scraper
 

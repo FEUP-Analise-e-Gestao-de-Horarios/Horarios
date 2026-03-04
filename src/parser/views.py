@@ -8,7 +8,7 @@ from django.http import HttpRequest, JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.csrf import csrf_exempt
 
-from src.core.models import Project
+from src.projects.models import Project
 
 from .models import AulasSimultaneasInput
 from .parallel import check_parallel_classes, get_parallel_classes
@@ -39,7 +39,7 @@ def selecionar_aulas_em_paralelo(request: HttpRequest):
     project_groups = set(project.group.values_list("id", flat=True))
 
     if not (
-        project.person == person
+        project.creator == person
         or request.user.is_staff
         or project.people.filter(pk=person.pk).exists()
         or bool(user_groups & project_groups)
@@ -165,7 +165,7 @@ def guardar_aulas_em_paralelo(request: HttpRequest) -> JsonResponse:
     project_groups = set(project.group.values_list("id", flat=True))
 
     if not (
-        project.person == person
+        project.creator == person
         or request.user.is_staff
         or project.people.filter(pk=person.pk).exists()
         or bool(user_groups & project_groups)

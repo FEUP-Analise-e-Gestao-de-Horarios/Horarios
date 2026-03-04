@@ -10,7 +10,8 @@ from django.db.models import (
 )
 from django.db.models.expressions import Combinable
 from django.utils import timezone
-from users.models import User
+
+from src.users.models import User
 
 
 class Group(models.Model):
@@ -22,7 +23,7 @@ class Group(models.Model):
     members: ManyToManyField[User, User] = ManyToManyField(
         User,
         blank=True,
-        related_name="core_groups",
+        related_name="member_groups",
     )
 
     def __str__(self) -> str:
@@ -39,16 +40,20 @@ class Project(models.Model):
     )
 
     # Relationships
-    person: ForeignKey[User | Combinable, User] = ForeignKey(
+    creator: ForeignKey[User | Combinable, User] = ForeignKey(
         User,
         on_delete=models.CASCADE,
     )
-    group: ManyToManyField[Group, Group] = ManyToManyField("Group", blank=True)
+    group: ManyToManyField[Group, Group] = ManyToManyField(
+        "Group",
+        blank=True,
+        related_name="project_groups",
+    )
     people: ManyToManyField[User, User] = ManyToManyField(
         User,
-        related_name="People",
+        related_name="projects",
         blank=True,
     )
 
     def __str__(self) -> str:
-        return f"Project({self.project}) by {self.person}"
+        return f"Project({self.project}) by {self.creator}"

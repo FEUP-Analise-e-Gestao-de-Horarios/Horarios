@@ -6,9 +6,9 @@ import threading
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views import View
 
-from src.core.models import Project
 from src.ingestion.manager import IngestionManager
 from src.parser.utils import validate_request_body
+from src.projects.models import Project
 from src.projects.schemas import ParseProjectInput
 
 logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ class ProjectsView(View):
         project_url = validated.url
 
         try:
-            Project(project=project_name, person=request.user).save()
+            Project(project=project_name, creator=request.user).save()
             proj_id = Project.objects.values("id").get(project=project_name)["id"]
             path = "database/Project" + str(proj_id)
             os.mkdir(path)
