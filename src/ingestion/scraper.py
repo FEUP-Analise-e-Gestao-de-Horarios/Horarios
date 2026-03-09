@@ -73,6 +73,56 @@ class Scraper:
             rooms_li,
         )
 
+    def get_teacher_page(self, path: str) -> TeacherLinks:
+        """Fetch and parse a teacher's schedule page.
+
+        Extracts the teacher's abbreviation (sigla), full name, and code from
+        the page header, then collects any red blocks (unavailable time slots).
+
+        Args:
+            path: Relative URL path to the teacher's schedule page.
+
+        Returns:
+            A ``DocentePage`` dict with keys ``sigla``, ``nome``, ``codigo``,
+            and ``red_blocks``.
+
+        Raises:
+            ValueError: If the page header element is missing.
+        """
+        soup = self._request(path)
+        td = soup.find("td", {"class": "cabtitulo"})
+        if td is None:
+            raise ValueError("Could not find <td class='cabtitulo'>")
+
+        content = str(td.contents)
+        if '"' in content:
+            first = content.split('"')[1]
+            abbreviation = content.split("<br/>, '")[1].split("'")[0]
+            teachers_name = first[len(abbreviation) :] if abbreviation in first else ""
+            teachers_code = content.split("<br/>, '")[2].split("'")[0]
+        else:
+            content = content.split("', <br/>, '")
+            abbreviation = content[1].split("'")[0]
+            teachers_name = (
+                content[0][len(abbreviation) + 2 :]
+                if abbreviation in content[0]
+                else ""
+            )
+            teachers_code = content[2].split("'")[0]
+
+        if " - " in teachers_name:
+            teachers_name = teachers_name[3:]
+        if teachers_name == "":
+            teachers_name = abbreviation
+        teachers_name = re.sub(r"[^\w\s]", "", teachers_name)
+
+        return {
+            "abbreviation": abbreviation,
+            "name": teachers_name,
+            "code": teachers_code,
+            "red_blocks": self._extract_red_blocks(soup),
+        }
+
     # -------------------------------------------------------------------
     # Internal request helper
     # -------------------------------------------------------------------
@@ -147,6 +197,36 @@ class Scraper:
 
     @staticmethod
     def _extract_classes_links(turmas_menu: Tag) -> list[CourseLinks]:
+        """Extract course, year, class, and weekly schedule links from the classes menu.
+
+        Parses a nested ``<li>`` menu structure with the shape:
+        course > year > curriculum plan > class > weeks.
+
+        Each top-level item represents a course identified by an abbreviation and
+        name (e.g. ``"LEI - Licenciatura em Engenharia Informática"``). Under each
+        course there are year items (``"Ano 1"``, ``"Ano 2"``, …), each containing
+        a single curriculum-plan ``<li>`` whose children are individual class entries
+        each with a code like ``"1LEI1T"``. Each class entry then holds a list of per-week URLs.
+
+        Args:
+            turmas_menu: The ``<li>`` Tag for the "Turmas" menu item, as returned
+                by BeautifulSoup. It must contain a ``<ul>`` with one ``<li>``
+                per course.
+
+        Returns:
+            A list of ``CourseLinks`` dicts, each with:
+            - ``abbreviation``: short course code parsed before the `` - `` separator.
+            - ``name``: full course name parsed after the `` - `` separator.
+            - ``years``: list of ``YearLinks`` dicts, each with:
+              - ``number``: academic year as an integer.
+              - ``classes``: list of ``ClassLinks`` dicts, each with:
+                - ``code``: class identifier string.
+                - ``links``: list of relative URL strings, one per week.
+
+        Raises:
+            ValueError: If any expected HTML element is missing or has unexpected
+                content at any level of the hierarchy.
+        """
         ul = turmas_menu.find("ul")
         if ul is None:
             raise ValueError("Could not find <ul> in turmas menu")
@@ -372,56 +452,6 @@ class Scraper:
             aulas.append(aula)
 
         return aulas
-
-    def get_teacher_page(self, path: str) -> TeacherLinks:
-        """Fetch and parse a teacher's schedule page.
-
-        Extracts the teacher's abbreviation (sigla), full name, and code from
-        the page header, then collects any red blocks (unavailable time slots).
-
-        Args:
-            path: Relative URL path to the teacher's schedule page.
-
-        Returns:
-            A ``DocentePage`` dict with keys ``sigla``, ``nome``, ``codigo``,
-            and ``red_blocks``.
-
-        Raises:
-            ValueError: If the page header element is missing.
-        """
-        soup = self._request(path)
-        td = soup.find("td", {"class": "cabtitulo"})
-        if td is None:
-            raise ValueError("Could not find <td class='cabtitulo'>")
-
-        content = str(td.contents)
-        if '"' in content:
-            first = content.split('"')[1]
-            abbreviation = content.split("<br/>, '")[1].split("'")[0]
-            teachers_name = first[len(abbreviation) :] if abbreviation in first else ""
-            teachers_code = content.split("<br/>, '")[2].split("'")[0]
-        else:
-            content = content.split("', <br/>, '")
-            abbreviation = content[1].split("'")[0]
-            teachers_name = (
-                content[0][len(abbreviation) + 2 :]
-                if abbreviation in content[0]
-                else ""
-            )
-            teachers_code = content[2].split("'")[0]
-
-        if " - " in teachers_name:
-            teachers_name = teachers_name[3:]
-        if teachers_name == "":
-            teachers_name = abbreviation
-        teachers_name = re.sub(r"[^\w\s]", "", teachers_name)
-
-        return {
-            "abbreviation": abbreviation,
-            "name": teachers_name,
-            "code": teachers_code,
-            "red_blocks": self._extract_red_blocks(soup),
-        }
 
     def get_red_blocks(self, path: str) -> list[tuple[int, str]]:
         """
