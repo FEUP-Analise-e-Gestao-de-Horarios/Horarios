@@ -24,6 +24,12 @@ tipologias = ["td_tipologia_" + str(id) for id in range(1, 22)]
 
 class Scraper:
     def __init__(self, base_url: str) -> None:
+        """Initialise the scraper with a base URL.
+
+        Args:
+            base_url: Root URL of the schedule website. All relative paths
+                returned by other methods are resolved against this URL.
+        """
         self.base_url = base_url
         self._session = requests.Session()
 
@@ -34,7 +40,20 @@ class Scraper:
     _DEFAULT_TIMEOUT: int = 30
 
     def _request(self, path: str) -> BeautifulSoup:
-        """Makes an internal HTTP GET request to base_url + path."""
+        """Make an HTTP GET request and return the parsed response.
+
+        Appends *path* to :attr:`base_url`, sends the request using the
+        shared session, and raises on non-2xx status codes.
+
+        Args:
+            path: Relative URL path to append to the base URL.
+
+        Returns:
+            A ``BeautifulSoup`` object parsed from the response body.
+
+        Raises:
+            requests.HTTPError: If the server returns a non-2xx status code.
+        """
         response = self._session.get(
             self.base_url + path,
             timeout=self._DEFAULT_TIMEOUT,
