@@ -10,28 +10,42 @@ Time = int
 WeekDay = str
 RedBlock = tuple[Time, WeekDay]
 
+# -------------------------------------------------------------------
+# Link Extraction - Teachers
+# -------------------------------------------------------------------
 
-class TeacherPage(TypedDict):
+
+class TeacherLinks(TypedDict):
     abbreviation: str
     name: str
     code: str
     red_blocks: list[RedBlock]
 
 
-class ClassPages(TypedDict):
+# -------------------------------------------------------------------
+# Link Extraction - Courses
+# -------------------------------------------------------------------
+
+
+class ClassLinks(TypedDict):
     code: str
     links: list[str]
 
 
-class YearInfo(TypedDict):
+class YearLinks(TypedDict):
     number: int
-    classes: list[ClassPages]
+    classes: list[ClassLinks]
 
 
-class CourseInfo(TypedDict):
+class CourseLinks(TypedDict):
     abbreviation: str
     name: str
-    years: list[YearInfo]
+    years: list[YearLinks]
+
+
+# -------------------------------------------------------------------
+# Link Extraction - Classes
+# -------------------------------------------------------------------
 
 
 class ClassSchedule(TypedDict):

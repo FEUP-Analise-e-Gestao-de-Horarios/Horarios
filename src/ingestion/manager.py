@@ -6,7 +6,7 @@ from typing import Any
 from django.conf import settings
 from django.utils import timezone
 
-from src.ingestion.schemas import CourseInfo
+from src.ingestion.schemas import CourseLinks
 from src.ingestion.utils import pre_insert_red_blocks
 from src.parser.db import (
     insert_aula,
@@ -128,7 +128,7 @@ class IngestionManager:
                 self.cursor.execute(stmt, (result[0], teacher_info["code"]))
             self.conn.commit()
 
-    def _ingest_classes(self, courses_info: list[CourseInfo]) -> None:
+    def _ingest_classes(self, courses_info: list[CourseLinks]) -> None:
         # -- Insert courses ----------------------------------------------------
         for course in courses_info:
             stmt = """INSERT INTO curso(designacao, abreviacao) VALUES(?, ?)"""

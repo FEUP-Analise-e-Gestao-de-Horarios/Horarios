@@ -6,11 +6,11 @@ import requests
 from bs4 import BeautifulSoup, Tag
 
 from src.ingestion.schemas import (
-    ClassPages,
-    CourseInfo,
+    ClassLinks,
+    CourseLinks,
     RedBlock,
-    TeacherPage,
-    YearInfo,
+    TeacherLinks,
+    YearLinks,
 )
 from src.ingestion.utils import get_cell_column, matrix_from_html_table
 from src.parser.utils import get_dia_from_index
@@ -23,6 +23,8 @@ tipologias = ["td_tipologia_" + str(id) for id in range(1, 22)]
 
 
 class Scraper:
+    _DEFAULT_TIMEOUT: int = 30
+
     def __init__(self, base_url: str) -> None:
         """Initialise the scraper with a base URL.
 
@@ -34,10 +36,46 @@ class Scraper:
         self._session = requests.Session()
 
     # -------------------------------------------------------------------
-    # Internal request helper
+    # Public page-navigation methods
     # -------------------------------------------------------------------
 
-    _DEFAULT_TIMEOUT: int = 30
+    def read_menu(self) -> tuple[list[str], list[CourseLinks], Tag]:
+        soup = self._request("")
+
+        links = soup.find("frame", {"name": "links"})
+        if links is None:
+            raise ValueError("Could not find frame with name 'links'")
+
+        src = links["src"]
+        if not isinstance(src, str):
+            raise ValueError(f"Expected 'src' to be a str, got {type(src)}")
+
+        menu_soup = self._request(src)
+
+        menu = menu_soup.find("ul", {"id": "menu"})
+        if menu is None:
+            raise ValueError("Could not find ul with id 'menu'")
+
+        def find_li(label: str):
+            for c in menu.find_all("li", recursive=False):
+                a = c.find("a")
+                if a and a.get_text(strip=True) == label:
+                    return c
+            raise ValueError(f"Could not find <li> with <a> text '{label}'")
+
+        teachers_li = find_li("Docentes")
+        classes_li = find_li("Turmas")
+        rooms_li = find_li("Salas")
+
+        return (
+            self._extract_teacher_links(teachers_li),
+            self._extract_classes_links(classes_li),
+            rooms_li,
+        )
+
+    # -------------------------------------------------------------------
+    # Internal request helper
+    # -------------------------------------------------------------------
 
     def _request(self, path: str) -> BeautifulSoup:
         """Make an HTTP GET request and return the parsed response.
@@ -107,13 +145,15 @@ class Scraper:
 
         return result
 
+    # TODO CHECK --------------------------------------------------------
+
     @staticmethod
-    def _extract_classes_links(turmas_menu: Tag) -> list[CourseInfo]:
+    def _extract_classes_links(turmas_menu: Tag) -> list[CourseLinks]:
         ul = turmas_menu.find("ul")
         if ul is None:
             raise ValueError("Could not find <ul> in turmas menu")
 
-        result: list[CourseInfo] = []
+        result: list[CourseLinks] = []
         for child in ul.find_all(recursive=False):
             child_a = child.find("a")
             if child_a is None:
@@ -129,7 +169,7 @@ class Scraper:
             if child_ul is None:
                 raise ValueError(f"Could not find <ul> for curso '{course_id}'")
 
-            years: list[YearInfo] = []
+            years: list[YearLinks] = []
             for year in child_ul.find_all(recursive=False):
                 year_a = year.find("a")
                 if year_a is None:
@@ -157,7 +197,7 @@ class Scraper:
                         f"Could not find turmas <ul> for ano '{year_number}'"
                     )
 
-                classes: list[ClassPages] = []
+                classes: list[ClassLinks] = []
                 for class_ in class_ul.find_all(recursive=False):
                     class_a = class_.find("a")
                     if class_a is None:
@@ -333,45 +373,7 @@ class Scraper:
 
         return aulas
 
-    # -------------------------------------------------------------------
-    # Public page-navigation methods
-    # -------------------------------------------------------------------
-
-    def read_menu(self) -> tuple[list[str], list[CourseInfo], Tag]:
-        soup = self._request("")
-
-        links = soup.find("frame", {"name": "links"})
-        if links is None:
-            raise ValueError("Could not find frame with name 'links'")
-
-        src = links["src"]
-        if not isinstance(src, str):
-            raise ValueError(f"Expected 'src' to be a str, got {type(src)}")
-
-        menu_soup = self._request(src)
-
-        menu = menu_soup.find("ul", {"id": "menu"})
-        if menu is None:
-            raise ValueError("Could not find ul with id 'menu'")
-
-        def find_li(label: str):
-            for c in menu.find_all("li", recursive=False):
-                a = c.find("a")
-                if a and a.get_text(strip=True) == label:
-                    return c
-            raise ValueError(f"Could not find <li> with <a> text '{label}'")
-
-        teachers_li = find_li("Docentes")
-        classes_li = find_li("Turmas")
-        rooms_li = find_li("Salas")
-
-        return (
-            self._extract_teacher_links(teachers_li),
-            self._extract_classes_links(classes_li),
-            rooms_li,
-        )
-
-    def get_teacher_page(self, path: str) -> TeacherPage:
+    def get_teacher_page(self, path: str) -> TeacherLinks:
         """Fetch and parse a teacher's schedule page.
 
         Extracts the teacher's abbreviation (sigla), full name, and code from
