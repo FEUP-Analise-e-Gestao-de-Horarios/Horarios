@@ -145,8 +145,6 @@ class Scraper:
 
         return result
 
-    # TODO CHECK --------------------------------------------------------
-
     @staticmethod
     def _extract_classes_links(turmas_menu: Tag) -> list[CourseLinks]:
         ul = turmas_menu.find("ul")
@@ -234,6 +232,8 @@ class Scraper:
                 {"abbreviation": course_id, "name": course_name, "years": years}
             )
         return result
+
+    # TODO CHECK --------------------------------------------------------
 
     @staticmethod
     def _extract_red_blocks(soup: BeautifulSoup) -> list[RedBlock]:
