@@ -226,7 +226,7 @@ def extract_sessions(soup: BeautifulSoup) -> list[Session]:
         raw_turmas, raw_teachers, *rest = matches
 
         session_teachers: list[int] = []
-        session_teacher_acronyms = re.sub(r"[()]", "", raw_teachers).split("; ")
+        session_teacher_acronyms = re.split(r";\s*", re.sub(r"[()]", "", raw_teachers))
         for acronym in session_teacher_acronyms:
             if acronym not in teachers_map:
                 raise ValueError(
@@ -235,7 +235,7 @@ def extract_sessions(soup: BeautifulSoup) -> list[Session]:
             session_teachers.append(teachers_map[acronym])
 
         # -- Sections and Room -------------------------------------------------
-        session_sections = raw_turmas.split("; ")
+        session_sections = re.split(r";\s*", raw_turmas)
         session_room = str(rest[0]).split(";") if rest else ["Online"]
 
         # -- Is Theoretical ----------------------------------------------------
