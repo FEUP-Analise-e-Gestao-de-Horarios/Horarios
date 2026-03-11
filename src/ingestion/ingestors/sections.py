@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime
+from datetime import date
 
 from src.ingestion.schemas.misc import Time, WeekDay
 from src.ingestion.schemas.sections import Course, Program, Session
@@ -65,8 +65,8 @@ def ingest_session(
     cursor: sqlite3.Cursor,
     course_code: str,
     session: Session,
-    start_date: datetime,
-    end_date: datetime,
+    start_date: date,
+    end_date: date,
 ) -> None:
     cursor.execute(
         "INSERT INTO aula (horaInicial, duracao, diaSemana, teorico, semanaInicial, semanaFinal) VALUES (?, ?, ?, ?, ?, ?)",

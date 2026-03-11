@@ -1,6 +1,7 @@
 import shutil
 import sqlite3
 from collections import defaultdict
+from datetime import date
 from pathlib import Path
 
 from django.conf import settings
@@ -19,12 +20,7 @@ from src.ingestion.schemas.misc import TurnosMap
 from src.ingestion.schemas.rooms import RoomLinks
 from src.ingestion.schemas.sections import Program
 from src.ingestion.scraper import Scraper
-from src.ingestion.utils import pre_insert_red_blocks
-from src.parser.utils import (
-    are_weeks_overlapped,
-    max_date,
-    min_date,
-)
+from src.ingestion.utils import check_date_range_overlap, pre_insert_red_blocks
 from src.projects.models import Project
 
 
@@ -82,7 +78,7 @@ class IngestionManager:
             self._ingest_course_shifts()
 
             self._fix_sections_without_shifts()
-            self._cleanup_aulas()
+            self._cleanup_sessions()
             self._aulas_simultaneas()
 
             self._teardown_success()
@@ -325,7 +321,6 @@ class IngestionManager:
         missing_sections = self.cursor.fetchall()
 
         for section in missing_sections:
-            print(section)
             section_id, course_id = section
             stmt = """
                 INSERT INTO turno (numero, idTurma, idUC)
@@ -334,67 +329,96 @@ class IngestionManager:
             self.cursor.execute(stmt, (section_id, course_id))
         self.conn.commit()
 
-    # -----------------------------------------------------------------------
-    # TODO Check functions bellow
-    # -----------------------------------------------------------------------
+    def _cleanup_sessions(self) -> None:
+        """Merge duplicate session records that share the same schedule and overlap in date range.
 
-    def _cleanup_aulas(self) -> None:
-        """
-        Deduplicates and merges overlapping lessons in the database.
-        """
-        stmtAulas = """SELECT DISTINCT diaSemana, horaInicial, duracao, teorico, idDocente, idUC, idTurma
-                        FROM aula
-                        JOIN aulaDocente ON aula.id = aulaDocente.idAula
-                        JOIN aulaUC ON aula.id = aulaUC.idAula
-                        JOIN aulaTurmas ON aula.id = aulaTurmas.idAula"""
-        self.cursor.execute(stmtAulas)
-        aulas = self.cursor.fetchall()
+        Sessions are considered duplicates if they have identical schedule attributes
+        (day, time, duration, type, teacher, course unit, and class group). When
+        duplicates with overlapping week ranges are found, they are merged into a single
+        record spanning the union of their date ranges, and the redundant record is deleted
+        (along with its associated rows in aulaDocente, aulaUC, aulaSala, and aulaTurmas).
 
-        for aula in aulas:
-            dia, hora, duracao, isTeorica, docente, uc, turma = aula
-            stmtTest = """SELECT * FROM aula
-                          JOIN aulaDocente ON aula.id = aulaDocente.idAula
-                          JOIN aulaUC ON aula.id = aulaUC.idAula
-                          JOIN aulaTurmas ON aula.id = aulaTurmas.idAula
-                          WHERE diaSemana=? AND horaInicial=? AND duracao=? AND teorico=? AND idDocente=? AND idUC=? AND idTurma=?"""
+        The loop processes pairs in ascending date order and repeats until no overlapping
+        duplicates remain for a given session signature.
+        """
+        stmt = """
+            SELECT DISTINCT diaSemana, horaInicial, duracao, teorico, idDocente, idUC, idTurma
+            FROM aula
+            JOIN aulaDocente ON aula.id = aulaDocente.idAula
+            JOIN aulaUC ON aula.id = aulaUC.idAula
+            JOIN aulaTurmas ON aula.id = aulaTurmas.idAula
+        """
+        self.cursor.execute(stmt)
+        sessions = self.cursor.fetchall()
+
+        for session in sessions:
+            dia, hora, duracao, isTeorica, docente, uc, turma = session
+            stmt = """
+                SELECT * FROM aula
+                JOIN aulaDocente ON aula.id = aulaDocente.idAula
+                JOIN aulaUC ON aula.id = aulaUC.idAula
+                JOIN aulaTurmas ON aula.id = aulaTurmas.idAula
+                WHERE diaSemana=? AND horaInicial=? AND duracao=? AND teorico=? AND idDocente=? AND idUC=? AND idTurma=?
+            """
             self.cursor.execute(
-                stmtTest,
+                stmt,
                 (dia, hora, duracao, isTeorica, docente, uc, turma),
             )
             results = self.cursor.fetchall()
 
             while len(results) > 1 and any(
-                are_weeks_overlapped(
-                    results[i][5],
-                    results[i][6],
-                    results[j][5],
-                    results[j][6],
+                check_date_range_overlap(
+                    (
+                        date.strptime(results[i][5], "%Y-%m-%d"),
+                        date.strptime(results[i][6], "%Y-%m-%d"),
+                    ),
+                    (
+                        date.strptime(results[j][5], "%Y-%m-%d"),
+                        date.strptime(results[j][6], "%Y-%m-%d"),
+                    ),
                 )
                 for i in range(len(results))
                 for j in range(i + 1, len(results))
             ):
                 results.sort(key=lambda x: x[5])
-                idAula1, si1, sf1 = results[0][0], results[0][5], results[0][6]
-                idAula2, si2, sf2 = results[1][0], results[1][5], results[1][6]
-                if are_weeks_overlapped(si1, sf1, si2, sf2):
-                    ssi = min_date(si1, si2)
-                    ssf = max_date(sf1, sf2)
+                session_id_1, range_start_1, range_end_1 = (
+                    results[0][0],
+                    date.strptime(results[0][5], "%Y-%m-%d"),
+                    date.strptime(results[0][6], "%Y-%m-%d"),
+                )
+                session_id_2, range_start_2, range_end_2 = (
+                    results[1][0],
+                    date.strptime(results[1][5], "%Y-%m-%d"),
+                    date.strptime(results[1][5], "%Y-%m-%d"),
+                )
+                if check_date_range_overlap(
+                    (range_start_1, range_end_1),
+                    (range_start_2, range_end_2),
+                ):
+                    min_range_start = min(range_start_1, range_start_2)
+                    max_range_end = max(range_end_1, range_end_2)
                     results_list = list(results[0])
-                    results_list[5] = ssi
-                    results_list[6] = ssf
+                    results_list[5] = min_range_start
+                    results_list[6] = max_range_end
                     results[0] = tuple(results_list)
-                    stmtUpdate = """UPDATE aula SET semanaInicial=?, semanaFinal=? WHERE id=?"""
-                    self.cursor.execute(stmtUpdate, (ssi, ssf, idAula1))
+                    self.cursor.execute(
+                        "UPDATE aula SET semanaInicial=?, semanaFinal=? WHERE id=?",
+                        (min_range_start, max_range_end, session_id_1),
+                    )
                     for table in ["aulaDocente", "aulaUC", "aulaSala", "aulaTurmas"]:
                         self.cursor.execute(
                             f"DELETE FROM {table} WHERE idAula=?",
-                            (idAula2,),
+                            (session_id_2,),
                         )
-                    self.cursor.execute("DELETE FROM aula WHERE id=?", (idAula2,))
+                    self.cursor.execute("DELETE FROM aula WHERE id=?", (session_id_2,))
                     results.pop(1)
                     continue
                 results.pop(0)
         self.conn.commit()
+
+    # -----------------------------------------------------------------------
+    # TODO Check functions bellow
+    # -----------------------------------------------------------------------
 
     def _aulas_simultaneas(self) -> None:
         """

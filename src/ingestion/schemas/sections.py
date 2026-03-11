@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date
 from typing import TypedDict
 
 from src.ingestion.schemas.misc import RedBlock, WeekDay
@@ -54,8 +54,8 @@ class SectionPage(TypedDict):
         red_blocks: Unavailable time slots marked on the timetable.
     """
 
-    start_date: datetime
-    end_date: datetime
+    start_date: date
+    end_date: date
     courses: list[Course]
     sessions: list[Session]
     red_blocks: list[RedBlock]

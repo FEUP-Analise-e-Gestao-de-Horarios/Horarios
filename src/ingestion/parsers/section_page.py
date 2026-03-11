@@ -1,5 +1,5 @@
 import re
-from datetime import datetime
+from datetime import date
 
 from bs4 import BeautifulSoup
 
@@ -14,7 +14,7 @@ from src.ingestion.schemas.sections import Course, Session
 THEORETICAL_SESSION = "td_tipologia_19"
 
 
-def extract_week_dates(soup: BeautifulSoup) -> tuple[datetime, datetime]:
+def extract_week_dates(soup: BeautifulSoup) -> tuple[date, date]:
     """Extract the start and end dates of the schedule week from a section page.
 
     Locates the ``cabtitulo`` cell, reads its last text node, and extracts the
@@ -24,7 +24,7 @@ def extract_week_dates(soup: BeautifulSoup) -> tuple[datetime, datetime]:
         soup: Parsed HTML of a section schedule page.
 
     Returns:
-        A ``(start_date, end_date)`` tuple of ``datetime`` objects.
+        A ``(start_date, end_date)`` tuple of ``date`` objects.
 
     Raises:
         ValueError: If the ``cabtitulo`` cell is not found or no dates can be
@@ -39,8 +39,8 @@ def extract_week_dates(soup: BeautifulSoup) -> tuple[datetime, datetime]:
     if not dates:
         raise ValueError(f"Could not find dates in weeks string: {weeks!r}")
 
-    start_date = datetime.strptime(dates[0], "%d/%m/%Y")
-    end_date = datetime.strptime(dates[-1], "%d/%m/%Y")
+    start_date = date.strptime(dates[0], "%d/%m/%Y")
+    end_date = date.strptime(dates[-1], "%d/%m/%Y")
     return start_date, end_date
 
 
