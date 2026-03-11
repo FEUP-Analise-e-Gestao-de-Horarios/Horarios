@@ -83,7 +83,7 @@ def extract_courses(soup: BeautifulSoup) -> list[Course]:
         code, name = code_and_name.split(" - ", 1)
         number = int(number)
 
-        acronym_match = re.fullmatch(r"(.+)\((\d{4}) - (\d+)\)", raw_acronym)
+        acronym_match = re.fullmatch(r"(.+)\((\d{4}) ?- ?(\d+)\)", raw_acronym)
         if not acronym_match:
             raise ValueError(f"Unexpected acronym format: {raw_acronym!r}")
         acronym = acronym_match.group(1).strip()
@@ -184,7 +184,7 @@ def extract_sessions(soup: BeautifulSoup) -> list[Session]:
     for session_block in session_blocks:
         # -- Course Acronym ----------------------------------------------------
         raw_acronym = str(session_block.contents[0]).strip()
-        acronym_match = re.fullmatch(r"(.+)\((\d{4}) - (\d+)\)", raw_acronym)
+        acronym_match = re.fullmatch(r"(.+)\((\d{4}) ?- ?(\d+)\)", raw_acronym)
         if not acronym_match:
             raise ValueError(f"Unexpected acronym format: {raw_acronym!r}")
 
