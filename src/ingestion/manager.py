@@ -364,18 +364,15 @@ class IngestionManager:
                 stmt,
                 (dia, hora, duracao, isTeorica, docente, uc, turma),
             )
-            results = self.cursor.fetchall()
+            results = [
+                (*r[:5], date.fromisoformat(r[5]), date.fromisoformat(r[6]), *r[7:])
+                for r in self.cursor.fetchall()
+            ]
 
             while len(results) > 1 and any(
                 check_date_range_overlap(
-                    (
-                        date.strptime(results[i][5], "%Y-%m-%d"),
-                        date.strptime(results[i][6], "%Y-%m-%d"),
-                    ),
-                    (
-                        date.strptime(results[j][5], "%Y-%m-%d"),
-                        date.strptime(results[j][6], "%Y-%m-%d"),
-                    ),
+                    (results[i][5], results[i][6]),
+                    (results[j][5], results[j][6]),
                 )
                 for i in range(len(results))
                 for j in range(i + 1, len(results))
@@ -383,13 +380,13 @@ class IngestionManager:
                 results.sort(key=lambda x: x[5])
                 session_id_1, range_start_1, range_end_1 = (
                     results[0][0],
-                    date.strptime(results[0][5], "%Y-%m-%d"),
-                    date.strptime(results[0][6], "%Y-%m-%d"),
+                    results[0][5],
+                    results[0][6],
                 )
                 session_id_2, range_start_2, range_end_2 = (
                     results[1][0],
-                    date.strptime(results[1][5], "%Y-%m-%d"),
-                    date.strptime(results[1][5], "%Y-%m-%d"),
+                    results[1][5],
+                    results[1][6],
                 )
                 if check_date_range_overlap(
                     (range_start_1, range_end_1),
