@@ -277,7 +277,7 @@ class IngestionManager:
         self.conn.commit()
 
     # -----------------------------------------------------------------------
-    # Course shift management
+    # Course <-> shift management
     # -----------------------------------------------------------------------
 
     def _update_course_shifts_map(
@@ -309,6 +309,10 @@ class IngestionManager:
             course_map.clear()
             for i, sections in enumerate(all_sections, 1):
                 course_map[i] = sections
+
+    # -----------------------------------------------------------------------
+    # Post processing
+    # -----------------------------------------------------------------------
 
     def _fix_sections_without_shifts(self) -> None:
         stmt = """
