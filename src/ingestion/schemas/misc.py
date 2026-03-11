@@ -97,3 +97,35 @@ See Also:
     :func:`src.ingestion.parsers.red_blocks.extract_red_blocks` — the function
     that produces this type.
 """
+
+
+TurnosMap = dict[str, dict[int, dict[str, dict[int, list[str]]]]]
+"""Maps each program and year to its courses, each with an ordered, sorted collection of shifts.
+
+Structure::
+
+    TurnosMap[program_acronym][year][course_code][turno_number] = [section1, section2, ...]
+
+- ``program_acronym`` (:class:`str`): Program acronym (e.g. ``"LEI"``).
+- ``year`` (:class:`int`): Academic year number (e.g. ``1``, ``2``, ``3``).
+- ``course_code`` (:class:`str`): Institutional course code (e.g. ``"L.EM009"``).
+- ``turno_number`` (:class:`int`): 1-based shift index, assigned in sorted order.
+- The list value holds the section codes belonging to that shift.
+
+Example::
+
+    {
+        "LEI": {
+            1: {
+                "L.EM009": {
+                    1: ["1LEM01", "1LEM02", "1LEM03"],
+                    2: ["1LEM06", "1LEM07", "1LEM08"],
+                }
+            }
+        }
+    }
+
+See Also:
+    :meth:`src.ingestion.manager.Manager._update_turnos_map` — builds this structure.
+    :meth:`src.ingestion.manager.Manager._parse_turnos` — flushes it to the database.
+"""

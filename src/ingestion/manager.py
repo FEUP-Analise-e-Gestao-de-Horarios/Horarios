@@ -1,5 +1,7 @@
+import json
 import shutil
 import sqlite3
+from collections import defaultdict
 from pathlib import Path
 
 from django.conf import settings
@@ -14,6 +16,7 @@ from src.ingestion.ingestors.sections import (
     ingest_session,
 )
 from src.ingestion.ingestors.teachers import ingest_teacher, ingest_teacher_red_blocks
+from src.ingestion.schemas.misc import TurnosMap
 from src.ingestion.schemas.rooms import RoomLinks
 from src.ingestion.schemas.sections import Program
 from src.ingestion.scraper import Scraper
@@ -56,7 +59,9 @@ class IngestionManager:
         self.cursor: sqlite3.Cursor = self.conn.cursor()
 
         self.scraper = Scraper(self.proj.url)
-        self.turnosMap: dict[str, dict[int, list[str]]] = {}
+        self.course_shifts_map: TurnosMap = defaultdict(
+            lambda: defaultdict(lambda: defaultdict(dict)),
+        )
 
     def run(self) -> None:
         """Execute the full ingestion pipeline.
@@ -76,7 +81,10 @@ class IngestionManager:
             self._ingest_sections(programs)
             self._ingest_rooms(rooms)
 
-            self._parse_turnos()
+            with open("output.json", "w") as file:
+                file.write(json.dumps(self.course_shifts_map, indent=4, ensure_ascii=False))
+
+            self._ingest_course_shifts()
             self._fix_turmas_without_turnos()
             self._cleanup_aulas()
             self._aulas_simultaneas()
@@ -221,7 +229,9 @@ class IngestionManager:
                             )
 
                             if session["is_theoretical"]:
-                                self._update_turnos_map(
+                                self._update_course_shifts_map(
+                                    program["acronym"],
+                                    year["number"],
                                     course_code,
                                     session["sections"],
                                 )
@@ -246,60 +256,63 @@ class IngestionManager:
                     ingest_room_red_blocks(self.cursor, room["name"], time, day)
             self.conn.commit()
 
+    def _update_course_shifts_map(
+        self,
+        program: str,
+        year: int,
+        course_code: str,
+        sections: list[str],
+    ) -> None:
+        """Records a new shift for a course, keeping shifts sorted by their smallest section code.
+
+        If ``sections`` is already registered for this course, this is a no-op.
+        Otherwise, adds it and re-numbers all shifts from 1 in ascending order
+        of each shift's minimum section code.
+
+        Args:
+            program: Acronym of the program the course belongs to.
+            year: Academic year number within the program.
+            course_code: Institutional code of the course.
+            sections: Section codes that form the new shift.
+        """
+        course_map = self.course_shifts_map[program][year][course_code]
+
+        if sections not in course_map.values():
+            all_sections = sorted(
+                [*course_map.values(), sections],
+                key=min,
+            )
+            course_map.clear()
+            for i, sections in enumerate(all_sections, 1):
+                course_map[i] = sections
+
+    def _ingest_course_shifts(self) -> None:
+        """Inserts all recorded course shifts into the ``turno`` table.
+
+        Iterates over :attr:`course_shifts_map` and inserts each
+        (shift number, section, course) triple, skipping entries that already
+        exist. A single commit is issued at the end.
+        """
+        for program in self.course_shifts_map:
+            for year in self.course_shifts_map[program]:
+                for course in self.course_shifts_map[program][year]:
+                    for turno_number in self.course_shifts_map[program][year][course]:
+                        for section in self.course_shifts_map[program][year][course][turno_number]:
+                            self.cursor.execute(
+                                "SELECT * FROM turno WHERE idTurma=? AND idUC=?",
+                                (section, course),
+                            )
+                            result = self.cursor.fetchall()
+                            if len(result) == 0:
+                                self.cursor.execute(
+                                    "INSERT INTO turno (numero, idTurma, idUC) VALUES (?, ?, ?)",
+                                    (turno_number, section, course),
+                                )
+        self.conn.commit()
+
     # -----------------------------------------------------------------------
     # TODO Check functions bellow
     # -----------------------------------------------------------------------
-
-    def _update_turnos_map(self, cod_uc: str, turnos: list[str]) -> None:
-        """Adds or updates the turno entry for a teorica aula in the turnosMap."""
-        if cod_uc in self.turnosMap:
-            if turnos not in self.turnosMap[cod_uc].values():
-                numeroTurno = max(self.turnosMap[cod_uc].keys())
-                self.turnosMap[cod_uc][numeroTurno + 1] = turnos
-                dicionario = self.turnosMap[cod_uc]
-                chaves_ordenadas = sorted(
-                    dicionario,
-                    key=lambda chave: dicionario[chave],
-                )
-                del self.turnosMap[cod_uc]
-                self.turnosMap[cod_uc] = {}
-                aux = 1
-                for chave in chaves_ordenadas:
-                    self.turnosMap[cod_uc][aux] = dicionario[chave]
-                    aux += 1
-        else:
-            self.turnosMap[cod_uc] = {1: turnos}
-
-    def _parse_turnos(self) -> None:
-        """
-        Inserts the found shifts into the database.
-
-        Uses the information in the turnosMap structure to populate the
-        corresponding shifts table in the database.
-        """
-
-        for uc in self.turnosMap:
-            for number in self.turnosMap[uc]:
-                for turno in self.turnosMap[uc][number]:
-                    if isinstance(turno, list):
-                        for turma in turno:
-                            stmtS = """SELECT * FROM turno WHERE idTurma=? AND idUC=?"""
-                            self.cursor.execute(stmtS, (turma, uc))
-                            result = self.cursor.fetchall()
-                            if len(result) == 0:
-                                stmtT = (
-                                    """INSERT INTO turno (numero, idTurma, idUC) VALUES (?, ?, ?)"""
-                                )
-                                self.cursor.execute(stmtT, (number, turma, uc))
-                                self.conn.commit()
-                    else:
-                        stmtS = """SELECT * FROM turno WHERE idTurma=? AND idUC=?"""
-                        self.cursor.execute(stmtS, (turno, uc))
-                        result = self.cursor.fetchall()
-                        if len(result) == 0:
-                            stmtT = """INSERT INTO turno (numero, idTurma, idUC) VALUES (?, ?, ?)"""
-                            self.cursor.execute(stmtT, (number, turno, uc))
-                            self.conn.commit()
 
     def _fix_turmas_without_turnos(self) -> None:
         """
