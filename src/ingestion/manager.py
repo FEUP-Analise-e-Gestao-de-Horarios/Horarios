@@ -81,7 +81,7 @@ class IngestionManager:
             self._ingest_rooms(rooms)
             self._ingest_course_shifts()
 
-            self._fix_turmas_without_turnos()
+            self._fix_sections_without_shifts()
             self._cleanup_aulas()
             self._aulas_simultaneas()
 
@@ -310,33 +310,29 @@ class IngestionManager:
             for i, sections in enumerate(all_sections, 1):
                 course_map[i] = sections
 
-    # -----------------------------------------------------------------------
-    # TODO Check functions bellow
-    # -----------------------------------------------------------------------
-
-    def _fix_turmas_without_turnos(self) -> None:
-        """
-        Assigns a shift to classes that have no associated shift in the database.
-        """
-
-        query = """
+    def _fix_sections_without_shifts(self) -> None:
+        stmt = """
             SELECT tu.idTurma, tu.idUC
             FROM turmaUC tu
             LEFT JOIN turno tn ON tu.idTurma = tn.idTurma
             WHERE tn.idTurma IS NULL
         """
-        self.cursor.execute(query)
-        missing_turmas = self.cursor.fetchall()
+        self.cursor.execute(stmt)
+        missing_sections = self.cursor.fetchall()
 
-        for turma in missing_turmas:
-            print(turma)
-            idTurma, idUC = turma
-            query = """
+        for section in missing_sections:
+            print(section)
+            section_id, course_id = section
+            stmt = """
                 INSERT INTO turno (numero, idTurma, idUC)
                 VALUES (0, ?, ?)
             """
-            self.cursor.execute(query, (idTurma, idUC))
+            self.cursor.execute(stmt, (section_id, course_id))
         self.conn.commit()
+
+    # -----------------------------------------------------------------------
+    # TODO Check functions bellow
+    # -----------------------------------------------------------------------
 
     def _cleanup_aulas(self) -> None:
         """
