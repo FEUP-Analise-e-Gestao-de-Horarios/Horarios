@@ -79,7 +79,7 @@ class IngestionManager:
 
             self._fix_sections_without_shifts()
             self._cleanup_sessions()
-            self._aulas_simultaneas()
+            self._find_simultaneous_classes()
 
             self._teardown_success()
 
@@ -413,21 +413,15 @@ class IngestionManager:
                 results.pop(0)
         self.conn.commit()
 
-    # -----------------------------------------------------------------------
-    # TODO Check functions bellow
-    # -----------------------------------------------------------------------
-
-    def _aulas_simultaneas(self) -> None:
+    def _find_simultaneous_classes(self) -> None:
         """
-        Finds simultaneous lessons in the schedule and inserts the information into the database.
+        Finds simultaneous lessons across different courses and records them in the database.
 
-        Queries the database to find simultaneous lessons from different courses.
-        Simultaneous lessons share the same: lecturer, room, day, and time. There is
-        also an overlap in the weeks they occur. However, the course and the UC must
-        be different. Once found, the lessons are inserted into an appropriate table
-        in the database.
+        Queries for pairs of lessons that share the same lecturer, room, day, start time,
+        and overlapping week ranges, but belong to different courses. Each such pair is
+        inserted into the `aulasSimultaneas` table. Pairs are deduplicated so (A, B) and
+        (B, A) are never stored as separate entries.
         """
-
         query = """
             SELECT DISTINCT
                 CASE WHEN a1.id < a2.id THEN a1.id ELSE a2.id END AS id_aula1,
@@ -459,9 +453,9 @@ class IngestionManager:
                 AND uc1.idCurso <> uc2.idCurso;
         """
         self.cursor.execute(query)
-        aulas_sim = self.cursor.fetchall()
+        simultaneous_sessions = self.cursor.fetchall()
 
-        for entry in aulas_sim:
+        for entry in simultaneous_sessions:
             idAula1, idAula2, idCurso1, idCurso2 = entry
             query = """
                 INSERT into aulasSimultaneas (aula1, aula2, curso1, curso2)
