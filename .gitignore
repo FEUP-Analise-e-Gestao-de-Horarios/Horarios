@@ -37,3 +37,6 @@ database/*
 !database/criar.sql
 *.sqlite3
 *.db
+
+# Site mirror
+./site-mirror
