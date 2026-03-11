@@ -11,7 +11,7 @@ def ingest_teacher(cursor: sqlite3.Cursor, teacher: TeacherPage) -> None:
     )
 
 
-def ingest_teacher_red_block(
+def ingest_teacher_red_blocks(
     cursor: sqlite3.Cursor,
     teacher_code: str,
     time: Time,

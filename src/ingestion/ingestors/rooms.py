@@ -11,7 +11,7 @@ def ingest_room(cursor: sqlite3.Cursor, room: RoomLinks) -> None:
     )
 
 
-def ingest_room_red_block(
+def ingest_room_red_blocks(
     cursor: sqlite3.Cursor,
     room_name: str,
     time: Time,

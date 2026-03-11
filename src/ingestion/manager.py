@@ -5,15 +5,15 @@ from pathlib import Path
 from django.conf import settings
 from django.utils import timezone
 
-from src.ingestion.ingestors.rooms import ingest_room, ingest_room_red_block
+from src.ingestion.ingestors.rooms import ingest_room, ingest_room_red_blocks
 from src.ingestion.ingestors.sections import (
     ingest_course,
     ingest_program,
     ingest_section,
-    ingest_section_red_block,
+    ingest_section_red_blocks,
     ingest_session,
 )
-from src.ingestion.ingestors.teachers import ingest_teacher, ingest_teacher_red_block
+from src.ingestion.ingestors.teachers import ingest_teacher, ingest_teacher_red_blocks
 from src.ingestion.schemas.programs import Program
 from src.ingestion.schemas.rooms import RoomLinks
 from src.ingestion.scraper import Scraper
@@ -111,7 +111,7 @@ class IngestionManager:
             self.conn.commit()
 
             for time, day in teacher_page["red_blocks"]:
-                ingest_teacher_red_block(self.cursor, teacher_page["code"], time, day)
+                ingest_teacher_red_blocks(self.cursor, teacher_page["code"], time, day)
             self.conn.commit()
 
     def _ingest_sections(self, programs: list[Program]) -> None:
@@ -141,7 +141,7 @@ class IngestionManager:
                     # A class's red blocks only need to be parsed once,
                     # since they don't change between weeks
                     for time, day in section_pages[0]["red_blocks"]:
-                        ingest_section_red_block(
+                        ingest_section_red_blocks(
                             self.cursor,
                             section["code"],
                             time,
@@ -181,7 +181,7 @@ class IngestionManager:
 
             for link in room["links"]:
                 for time, day in self.scraper.get_room_page(link):
-                    ingest_room_red_block(self.cursor, room["name"], time, day)
+                    ingest_room_red_blocks(self.cursor, room["name"], time, day)
             self.conn.commit()
 
     # -----------------------------------------------------------------------

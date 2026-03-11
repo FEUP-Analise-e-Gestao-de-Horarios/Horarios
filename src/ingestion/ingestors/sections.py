@@ -25,7 +25,7 @@ def ingest_section(
     )
 
 
-def ingest_section_red_block(
+def ingest_section_red_blocks(
     cursor: sqlite3.Cursor,
     section_code: str,
     time: Time,
