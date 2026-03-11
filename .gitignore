@@ -39,4 +39,4 @@ database/*
 *.db
 
 # Site mirror
-./site-mirror
+site-mirror/
