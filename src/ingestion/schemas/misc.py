@@ -14,8 +14,8 @@ directly yields the tag responsible for that slot — no span arithmetic needed.
 The first three rows of the source table (treated as headers) are excluded.
 
 See Also:
-    :func:`src.parser.utils.table_to_matrix` — the function that produces
-    this type.
+    :func:`src.ingestion.parsers.utils.matrix_from_html_table` — the function
+    that produces this type.
 """
 
 

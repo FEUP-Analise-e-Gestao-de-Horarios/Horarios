@@ -15,6 +15,21 @@ THEORETICAL_SESSION = "td_tipologia_19"
 
 
 def extract_week_dates(soup: BeautifulSoup) -> tuple[datetime, datetime]:
+    """Extract the start and end dates of the schedule week from a section page.
+
+    Locates the ``cabtitulo`` cell, reads its last text node, and extracts the
+    two dates using the pattern ``DD/MM/YYYY``.
+
+    Args:
+        soup: Parsed HTML of a section schedule page.
+
+    Returns:
+        A ``(start_date, end_date)`` tuple of ``datetime`` objects.
+
+    Raises:
+        ValueError: If the ``cabtitulo`` cell is not found or no dates can be
+            extracted from its text content.
+    """
     weeks_tag = soup.find("td", {"class": "cabtitulo"})
     if weeks_tag is None:
         raise ValueError("Could not find 'cabtitulo' cell in schedule page")
@@ -30,6 +45,24 @@ def extract_week_dates(soup: BeautifulSoup) -> tuple[datetime, datetime]:
 
 
 def extract_courses(soup: BeautifulSoup) -> list[Course]:
+    """Extract the list of courses associated with a section from a section page.
+
+    Reads the fifth table on the page (index 4), skipping the first two header
+    rows. Each data row must contain exactly three cells formatted as:
+    ``{code} - {name}``, ``{acronym}({year} - {number})``, and a student count.
+
+    Args:
+        soup: Parsed HTML of a section schedule page.
+
+    Returns:
+        A list of ``Course`` objects with ``code``, ``name``, ``acronym``, and
+        ``number`` (student count) fields.
+
+    Raises:
+        ValueError: If fewer than 5 tables are found, no data rows exist, a row
+            does not have exactly 3 cells, or the acronym cell does not match
+            the expected format.
+    """
     all_tables = soup.find_all("table")
     if len(all_tables) < 5:
         raise ValueError(f"Expected at least 5 tables, found {len(all_tables)}")
@@ -68,6 +101,27 @@ def extract_courses(soup: BeautifulSoup) -> list[Course]:
 
 
 def extract_sessions(soup: BeautifulSoup) -> list[Session]:
+    """Extract all scheduled sessions from a section page.
+
+    Locates every ``td_tipologia_*`` cell in the main timetable, builds a cell
+    position matrix to derive each session's weekday, and reads the teachers
+    table (index 3) to resolve teacher acronyms to numeric codes. For each
+    session block the function extracts: course acronym, weekday, start time,
+    duration (rowspan), teacher codes, section codes, room, and whether it is a
+    theoretical session (CSS class ``td_tipologia_19``).
+
+    Args:
+        soup: Parsed HTML of a section schedule page.
+
+    Returns:
+        A list of ``Session`` objects. Returns an empty list if no session
+        blocks are found on the page.
+
+    Raises:
+        ValueError: If required structural elements are missing (``<center>``,
+            ``tabela_principal``, teacher rows), a session block has an
+            unexpected format, or a teacher acronym is unknown or duplicated.
+    """
     center_element = soup.find("center")
     if center_element is None:
         raise ValueError("Could not find <center> element in section page")
@@ -148,7 +202,7 @@ def extract_sessions(soup: BeautifulSoup) -> list[Session]:
         session_column = get_cell_column(session_block, matrix)
         session_weekday = get_weekday_at_column(session_column, weekday_colspan)
 
-        # -- Acronym -----------------------------------------------------------
+        # -- Start time --------------------------------------------------------
         session_row = session_block.parent
         if session_row is None:
             raise ValueError(f"Session block has no parent row: {session_block}")
@@ -157,7 +211,6 @@ def extract_sessions(soup: BeautifulSoup) -> list[Session]:
         if time_cell is None:
             raise ValueError(f"Could not find time cell in session row: {session_row}")
 
-        # -- Start time --------------------------------------------------------
         session_start_time = int(time_cell.text.replace(":", ""))
 
         # -- Duration ----------------------------------------------------------

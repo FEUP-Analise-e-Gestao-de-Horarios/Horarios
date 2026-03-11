@@ -14,8 +14,8 @@ from src.ingestion.ingestors.sections import (
     ingest_session,
 )
 from src.ingestion.ingestors.teachers import ingest_teacher, ingest_teacher_red_blocks
-from src.ingestion.schemas.programs import Program
 from src.ingestion.schemas.rooms import RoomLinks
+from src.ingestion.schemas.sections import Program
 from src.ingestion.scraper import Scraper
 from src.ingestion.utils import pre_insert_red_blocks
 from src.parser.utils import (
@@ -27,7 +27,27 @@ from src.projects.models import Project
 
 
 class IngestionManager:
+    """Orchestrates the full ingestion pipeline for a project.
+
+    Connects to the project's SQLite database, drives the ``Scraper`` to
+    fetch all schedule data, and delegates persistence to the individual
+    ingestion functions. Manages project lifecycle timestamps and ensures the
+    database and HTTP session are always closed, even on failure.
+    """
+
     def __init__(self, proj_id: int):
+        """Initialise the manager for the given project.
+
+        Opens the project's SQLite database, creates a ``Scraper`` pointed at
+        the project's URL, and initializes an empty shift map used during
+        ingestion.
+
+        Args:
+            proj_id: Primary key of the ``Project`` to ingest.
+
+        Raises:
+            Project.DoesNotExist: If no project with ``proj_id`` exists.
+        """
         self.proj_id = proj_id
         self.proj = Project.objects.get(pk=proj_id)
 
@@ -39,6 +59,13 @@ class IngestionManager:
         self.turnosMap: dict[str, dict[int, list[str]]] = {}
 
     def run(self) -> None:
+        """Execute the full ingestion pipeline.
+
+        Runs setup, pre-populates the red-blocks table, scrapes and ingests
+        teachers, sections, and rooms, then runs post-processing steps. On
+        success, calls ``_teardown_success``; on any exception, calls
+        ``_teardown_failure`` and re-raises.
+        """
         try:
             self._setup()
 
@@ -65,12 +92,19 @@ class IngestionManager:
     # -----------------------------------------------------------------------
 
     def _setup(self) -> None:
+        """Record ingestion start on the project and clear previous outcome timestamps."""
         self.proj.started_ingestion_at = timezone.now()
         self.proj.finished_ingestion_at = None
         self.proj.failed_ingestion_at = None
         self.proj.save()
 
     def _teardown_success(self) -> None:
+        """Finalize a successful ingestion run.
+
+        Copies ``general_database.db`` to ``initial_database.db`` as a
+        baseline snapshot, records the completion timestamp, and closes the
+        database connection and HTTP session.
+        """
         shutil.copy2(
             self.path / "general_database.db",
             self.path / "initial_database.db",
@@ -81,6 +115,11 @@ class IngestionManager:
         self.scraper.close()
 
     def _teardown_failure(self) -> None:
+        """Record a failed ingestion run and release resources.
+
+        Sets the failure timestamp on the project and closes the database
+        connection and HTTP session.
+        """
         self.proj.failed_ingestion_at = timezone.now()
         self.proj.save()
         self.conn.close()
@@ -115,6 +154,21 @@ class IngestionManager:
             self.conn.commit()
 
     def _ingest_sections(self, programs: list[Program]) -> None:
+        """Ingest programs, sections, courses, and sessions into the database.
+
+        First inserts all programs, then for each section fetches all weekly
+        schedule pages, inserts red blocks (from the first page only, as they
+        are week-invariant), and inserts courses and sessions from every page.
+        Theoretical sessions are also recorded in the internal shift map for
+        later processing.
+
+        Args:
+            programs: Structured program hierarchy as returned by
+                ``Scraper.read_menu``.
+
+        Raises:
+            ValueError: If a section has no schedule pages.
+        """
         for program in programs:
             ingest_program(self.cursor, program)
         self.conn.commit()
@@ -175,6 +229,14 @@ class IngestionManager:
                     self.conn.commit()
 
     def _ingest_rooms(self, rooms: list[RoomLinks]) -> None:
+        """Ingest room metadata and unavailability blocks into the database.
+
+        For each room, inserts its record and then fetches every timetable
+        page to collect and store its red blocks.
+
+        Args:
+            rooms: Room entries as returned by ``Scraper.read_menu``.
+        """
         for room in rooms:
             ingest_room(self.cursor, room)
             self.conn.commit()

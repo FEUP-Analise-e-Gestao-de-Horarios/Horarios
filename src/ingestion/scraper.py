@@ -16,13 +16,18 @@ from src.ingestion.parsers.section_page import (
 )
 from src.ingestion.parsers.teacher_page import extract_teacher_info
 from src.ingestion.schemas.misc import RedBlock
-from src.ingestion.schemas.programs import Program
 from src.ingestion.schemas.rooms import RoomLinks
-from src.ingestion.schemas.sections import SectionPage
+from src.ingestion.schemas.sections import Program, SectionPage
 from src.ingestion.schemas.teachers import TeacherPage
 
 
 class Scraper:
+    """HTTP client that fetches and parses schedule pages from the institution's website.
+
+    Uses a shared ``requests.Session`` for connection reuse across requests.
+    All public methods raise ``requests.HTTPError`` on non-2xx responses.
+    """
+
     _DEFAULT_TIMEOUT: int = 30
 
     def __init__(self, base_url: str) -> None:
@@ -66,6 +71,22 @@ class Scraper:
     # -------------------------------------------------------------------
 
     def read_menu(self) -> tuple[list[str], list[Program], list[RoomLinks]]:
+        """Fetch and parse the main navigation menu.
+
+        Requests the root page, extracts the navigation frame URL, then fetches
+        that frame and parses all three menu sections.
+
+        Returns:
+            A tuple of ``(teacher_links, programs, rooms)`` where:
+
+            - ``teacher_links``: Relative URLs to individual teacher pages.
+            - ``programs``: Structured program/section hierarchy from the Turmas menu.
+            - ``rooms``: Room metadata and timetable links from the Salas menu.
+
+        Raises:
+            requests.HTTPError: If any HTTP request fails.
+            ValueError: If expected menu elements are missing from the fetched pages.
+        """
         soup = self._request("")
         menu_link = extract_menu_link(soup)
 
@@ -79,6 +100,20 @@ class Scraper:
         )
 
     def get_teacher_page(self, path: str) -> TeacherPage:
+        """Fetch and parse a teacher's schedule page.
+
+        Args:
+            path: Relative URL to the teacher's page, as returned by
+                :meth:`read_menu`.
+
+        Returns:
+            A ``TeacherPage`` with the teacher's acronym, name, code, and
+            unavailable time slots.
+
+        Raises:
+            requests.HTTPError: If the HTTP request fails.
+            ValueError: If expected page elements are missing.
+        """
         soup = self._request(path)
         acronym, name, code = extract_teacher_info(soup)
         red_blocks = extract_red_blocks(soup)
@@ -91,6 +126,20 @@ class Scraper:
         }
 
     def get_section_page(self, path: str) -> SectionPage:
+        """Fetch and parse a section's weekly schedule page.
+
+        Args:
+            path: Relative URL to the section's schedule page, as found in
+                a ``SectionLinks.links`` list.
+
+        Returns:
+            A ``SectionPage`` with the week's date range, associated courses,
+            scheduled sessions, and unavailable time slots.
+
+        Raises:
+            requests.HTTPError: If the HTTP request fails.
+            ValueError: If expected page elements are missing.
+        """
         soup = self._request(path)
 
         start_date, end_date = extract_week_dates(soup)
@@ -107,6 +156,20 @@ class Scraper:
         }
 
     def get_room_page(self, path: str) -> list[RedBlock]:
+        """Fetch and parse a room's timetable page.
+
+        Args:
+            path: Relative URL to the room's timetable page, as found in a
+                ``RoomLinks.links`` list.
+
+        Returns:
+            A list of unavailable time slots for the room. Empty if none are
+            marked on the page.
+
+        Raises:
+            requests.HTTPError: If the HTTP request fails.
+            ValueError: If expected page elements are missing.
+        """
         soup = self._request(path)
         return extract_red_blocks(soup)
 

@@ -12,7 +12,7 @@ def extract_red_blocks(soup: BeautifulSoup) -> list[RedBlock]:
     """Extract unavailable time slots from a schedule page.
 
     Red blocks (``td_vermelha``) represent time slots where a teacher or
-    room is unavailable. The method reads the day-span header to map column
+    room is unavailable. The function reads the day-span header to map column
     positions to weekday names, then builds a matrix of the main schedule
     table to locate each red cell's column and derive its weekday.
 

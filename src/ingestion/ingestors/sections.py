@@ -2,8 +2,7 @@ import sqlite3
 from datetime import datetime
 
 from src.ingestion.schemas.misc import Time, WeekDay
-from src.ingestion.schemas.programs import Program
-from src.ingestion.schemas.sections import Course, Session
+from src.ingestion.schemas.sections import Course, Program, Session
 
 
 def ingest_program(cursor: sqlite3.Cursor, program: Program) -> None:

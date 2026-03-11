@@ -2,8 +2,8 @@ from bs4 import BeautifulSoup
 from bs4.element import Tag
 
 from src.ingestion.rooms import ROOMS
-from src.ingestion.schemas.programs import Program, SectionLinks, Year
 from src.ingestion.schemas.rooms import RoomLinks
+from src.ingestion.schemas.sections import Program, SectionLinks, Year
 
 
 def extract_menu_link(soup: BeautifulSoup) -> str:
@@ -72,7 +72,7 @@ def extract_teacher_links(teachers_menu: Tag) -> list[str]:
     The expected structure is: `<li>` > `<ul>` > `<li>` (department) > `<ul>` > `<li>` (teacher) > `<a href="...">`.
 
     Args:
-        docentes_menu: The `<li>` tag for the "Docentes" menu section,
+        teachers_menu: The `<li>` tag for the "Docentes" menu section,
             as returned by `extract_menu_tags`.
 
     Returns:
@@ -120,7 +120,7 @@ def extract_sessions_info(sections_menu: Tag) -> list[Program]:
           - Week page URLs
 
     Args:
-        turmas_menu: The `<li>` tag for the "Turmas" menu section,
+        sections_menu: The `<li>` tag for the "Turmas" menu section,
             as returned by `extract_menu_tags`.
 
     Returns:
@@ -213,6 +213,25 @@ def extract_sessions_info(sections_menu: Tag) -> list[Program]:
 
 
 def extract_rooms_info(rooms_menu: Tag) -> list[RoomLinks]:
+    """Parse the Salas menu section into a structured list of room links.
+
+    Traverses the room list items inside the Salas `<li>` tag. For each room,
+    resolves the room name (handling Cloudflare-obfuscated email anchors as
+    "EaD"), looks up static metadata from the `ROOMS` registry, and collects
+    all timetable page URLs.
+
+    Args:
+        rooms_menu: The `<li>` tag for the "Salas" menu section,
+            as returned by `extract_menu_tags`.
+
+    Returns:
+        A list of `RoomLinks` objects, each containing the room name, type,
+        size, seat count, and a list of timetable href URLs. Returns an empty
+        list if no `<ul>` is found inside `rooms_menu`.
+
+    Raises:
+        ValueError: If a room entry contains no timetable links.
+    """
     ul = rooms_menu.find("ul")
     if ul is None:
         return []

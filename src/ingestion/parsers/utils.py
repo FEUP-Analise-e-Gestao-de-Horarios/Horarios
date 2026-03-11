@@ -20,6 +20,10 @@ def matrix_from_html_table(table: Tag) -> Matrix:
     Returns:
         A 2D list where each entry is the <td> Tag that visually occupies
         that (row, col) position, accounting for rowspan and colspan.
+
+    Raises:
+        ValueError: If any cell in rows after the first is unfilled, indicating
+            a malformed table structure.
     """
     rows = table.find_all("tr")[3:]
 
@@ -78,7 +82,8 @@ def get_weekday_at_column(column: int, span_map: dict[WeekDay, int]) -> WeekDay:
     which weekday owns the given column index.
 
     Args:
-        column: 1-based column index of the cell in the schedule table.
+        column: 0-based column index in the schedule matrix, where index 0
+            is the time-label column and weekday columns start at index 1.
         span_map: Ordered mapping of each weekday to its colspan width,
             as built from the day-header row.
 
