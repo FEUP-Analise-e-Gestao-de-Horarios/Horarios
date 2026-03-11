@@ -1,4 +1,3 @@
-import json
 import shutil
 import sqlite3
 from collections import defaultdict
@@ -80,11 +79,8 @@ class IngestionManager:
             self._ingest_teachers(teacher_links)
             self._ingest_sections(programs)
             self._ingest_rooms(rooms)
-
-            with open("output.json", "w") as file:
-                file.write(json.dumps(self.course_shifts_map, indent=4, ensure_ascii=False))
-
             self._ingest_course_shifts()
+
             self._fix_turmas_without_turnos()
             self._cleanup_aulas()
             self._aulas_simultaneas()
@@ -333,6 +329,7 @@ class IngestionManager:
         missing_turmas = self.cursor.fetchall()
 
         for turma in missing_turmas:
+            print(turma)
             idTurma, idUC = turma
             query = """
                 INSERT INTO turno (numero, idTurma, idUC)
