@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta
-from typing import Any
 
 from django.http import JsonResponse
 from pydantic import BaseModel, ValidationError
@@ -19,20 +18,6 @@ def validate_request_body[M: BaseModel](
             },
             status=400,
         )
-
-
-def get_dia_from_index(index: int, spanMap: dict[str, Any]) -> str:
-    """
-    Recebe um índice e um mapa de spans HTML, devolvendo o dia da semana.
-    """
-
-    if index == 1:
-        return "Segunda"
-    count = 0
-    for dia, span in spanMap.items():
-        count += int(span)
-        if count >= index:
-            return dia
 
 
 def are_weeks_overlapped(si1: str, sf1: str, si2: str, sf2: str) -> bool:

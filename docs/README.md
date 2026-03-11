@@ -284,4 +284,6 @@ or, for the last 100 lines:
 sudo tail -100 /var/log/daphne.log
 ```
 
-For a description of the directory structure see [structure](Structure.md).
+For a description of the directory structure see [Structure](Structure.md).
+
+For canonical naming of domain concepts (Program, Section, Course, Session, etc.) see [Glossary](Glossary.md).

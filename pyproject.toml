@@ -12,6 +12,7 @@ select = [
     "UP",  # pyupgrade (modernise Python syntax)
     "B",   # flake8-bugbear (common bugs and design issues)
     "C4",  # flake8-comprehensions (better list/dict/set comprehensions)
+    "COM", # flake8-commas (enforce trailing commas)
     "DJ",  # flake8-django (Django-specific checks)
     "SIM", # flake8-simplify (simplifiable code patterns)
     "RUF", # Ruff-specific rules

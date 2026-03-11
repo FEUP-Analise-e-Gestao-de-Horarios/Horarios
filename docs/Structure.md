@@ -1,5 +1,7 @@
 # Project Structure
 
+For canonical naming of domain concepts (Program, Section, Course, Session, etc.) see [Glossary](Glossary.md).
+
 ## Application Directories
 
 The repository contains the following application directories:

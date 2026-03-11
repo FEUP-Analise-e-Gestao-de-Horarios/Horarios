@@ -6,20 +6,23 @@ from typing import Any
 from django.conf import settings
 from django.utils import timezone
 
-from src.ingestion.schemas import CourseLinks
-from src.ingestion.utils import pre_insert_red_blocks
-from src.parser.db import (
-    insert_aula,
+from src.ingestion.ingestors.sections import (
+    ingest_course,
+    ingest_program,
+    ingest_section,
+    ingest_section_red_block,
+    ingest_session,
 )
-from src.parser.models import Aula
+from src.ingestion.ingestors.teachers import ingest_teacher, ingest_teacher_red_block
+from src.ingestion.schemas.programs import Program
+from src.ingestion.scraper import Scraper
+from src.ingestion.utils import pre_insert_red_blocks
 from src.parser.utils import (
     are_weeks_overlapped,
     max_date,
     min_date,
 )
 from src.projects.models import Project
-
-from .scraper import Scraper
 
 
 class IngestionManager:
@@ -40,9 +43,9 @@ class IngestionManager:
 
             pre_insert_red_blocks(self.cursor, self.conn)
 
-            teacher_links, classes_menu, salas_menu = self.scraper.read_menu()
+            teacher_links, programs, salas_menu = self.scraper.read_menu()
             self._ingest_teachers(teacher_links)
-            self._ingest_classes(classes_menu)
+            self._ingest_sections(programs)
             self._ingest_rooms(salas_menu)
 
             self._parse_turnos()
@@ -101,102 +104,82 @@ class IngestionManager:
                 in the ``blocosVermelhos`` table.
         """
         for link in teacher_links:
-            teacher_info = self.scraper.get_teacher_page(link)
+            teacher_page = self.scraper.get_teacher_page(link)
 
-            # -- Insert teacher's info ---------------------------------------------
-            stmt = """INSERT OR IGNORE INTO docentes (numeroMecanografico, nome, abreviacao) VALUES (?, ?, ?)"""
-            self.cursor.execute(
-                stmt,
-                (
-                    teacher_info["code"],
-                    teacher_info["name"],
-                    teacher_info["abbreviation"],
-                ),
-            )
+            ingest_teacher(self.cursor, teacher_page)
             self.conn.commit()
 
-            # -- Insert teacher's red blocks ---------------------------------------
-            for time, day in teacher_info["red_blocks"]:
-                stmt = """SELECT id FROM blocosVermelhos WHERE hora=? AND diaSemana=?"""
-                result = self.cursor.execute(stmt, (time, day)).fetchone()
-                if not result:
-                    raise ValueError(
-                        f"Red block not found in DB: hora={time}, diaSemana={day}"
-                    )
-
-                stmt = """INSERT OR IGNORE INTO blocoDocente (idBloco, idDocente) VALUES (?, ?)"""
-                self.cursor.execute(stmt, (result[0], teacher_info["code"]))
+            for time, day in teacher_page["red_blocks"]:
+                ingest_teacher_red_block(self.cursor, teacher_page["code"], time, day)
             self.conn.commit()
 
-    def _ingest_classes(self, courses_info: list[CourseLinks]) -> None:
-        # -- Insert courses ----------------------------------------------------
-        for course in courses_info:
-            stmt = """INSERT INTO curso(designacao, abreviacao) VALUES(?, ?)"""
-            self.cursor.execute(stmt, (course["abbreviation"], course["name"]))
+    def _ingest_sections(self, programs: list[Program]) -> None:
+        for program in programs:
+            ingest_program(self.cursor, program)
         self.conn.commit()
 
-        for course in courses_info:
-            for year_info in course["years"]:
-                lista_de_aulas: set[Aula] = set()
-
-                for class_info in year_info["classes"]:
-                    # -- Insert class ------------------------------------------------------
-                    stmt = (
-                        """INSERT INTO turmas (idCurso, ano, codigo) VALUES (?, ?, ?)"""
-                    )
-                    self.cursor.execute(
-                        stmt,
-                        (
-                            course["abbreviation"],
-                            year_info["number"],
-                            class_info["code"],
-                        ),
+        for program in programs:
+            for year in program["years"]:
+                for section in year["sections"]:
+                    ingest_section(
+                        self.cursor,
+                        program["acronym"],
+                        year["number"],
+                        section["code"],
                     )
                     self.conn.commit()
 
-                    parsed_vermelhos = False
+                    section_pages = [
+                        self.scraper.get_section_page(link) for link in section["links"]
+                    ]
+                    if not section_pages:
+                        raise ValueError(
+                            f"No pages found for section {section['code']}",
+                        )
 
-                    for link in class_info["links"]:
-                        schedule = self.scraper.get_class_page(link)
-                        for sigla, (codigo, nome, numero) in schedule["ucs"].items():
-                            stmt = """INSERT OR IGNORE INTO uc (codigo, idCurso, nome, sigla, codOcorrencia) VALUES (?, ?, ?, ?, ?)"""
-                            self.cursor.execute(
-                                stmt,
-                                (codigo, course["abbreviation"], nome, sigla, numero),
-                            )
+                    # A class's red blocks only need to be parsed once,
+                    # since they don't change between weeks
+                    for time, day in section_pages[0]["red_blocks"]:
+                        ingest_section_red_block(
+                            self.cursor,
+                            section["code"],
+                            time,
+                            day,
+                        )
+                    self.conn.commit()
 
+                    for section_page in section_pages:
+                        for course in section_page["courses"]:
+                            ingest_course(self.cursor, course, program["acronym"])
                         self.conn.commit()
 
-                        for aula_data in schedule["aulas"]:
-                            sigla = aula_data["sigla"]
-                            cod_uc = schedule["ucs"][sigla][0]
+                        courses_by_acronym = {
+                            s["acronym"]: s for s in section_page["courses"]
+                        }
+                        for session in section_page["sessions"]:
+                            course_code = courses_by_acronym[session["course_acronym"]][
+                                "code"
+                            ]
 
-                            if aula_data["isTeorica"]:
-                                self._update_turnos_map(cod_uc, aula_data["turmas"])
+                            ingest_session(
+                                self.cursor,
+                                course_code,
+                                session,
+                                section_page["start_date"],
+                                section_page["end_date"],
+                            )
 
-                            aula_obj = Aula({**aula_data, "cod_uc": cod_uc})
-                            lista_de_aulas.add(aula_obj)
+                            if session["is_theoretical"]:
+                                self._update_turnos_map(
+                                    course_code,
+                                    session["sections"],
+                                )
 
-                        # A class's red blocks only need to be
-                        # parsed once, since they don't change between weeks
-                        if not parsed_vermelhos:
-                            for time, day in schedule["red_blocks"]:
-                                stmt = """SELECT id FROM blocosVermelhos WHERE hora=? AND diaSemana=?"""
-                                result = self.cursor.execute(
-                                    stmt, (time, day)
-                                ).fetchone()
-                                if result:
-                                    stmtB = """INSERT OR IGNORE INTO blocoTurma (idBloco, idTurma) VALUES (?, ?)"""
-                                    self.cursor.execute(stmtB, (result[0], codigo))
-                            self.conn.commit()
-                            parsed_vermelhos = True
+                    self.conn.commit()
 
-                for aula in lista_de_aulas:
-                    insert_aula(aula, self.cursor)
-
-                lista_de_aulas = set()
-
-        self.conn.commit()
+    # -----------------------------------------------------------------------
+    # TODO Check functions bellow
+    # -----------------------------------------------------------------------
 
     def _update_turnos_map(self, cod_uc: str, turnos: list[str]) -> None:
         """Adds or updates the turno entry for a teorica aula in the turnosMap."""
@@ -206,7 +189,8 @@ class IngestionManager:
                 self.turnosMap[cod_uc][numeroTurno + 1] = turnos
                 dicionario = self.turnosMap[cod_uc]
                 chaves_ordenadas = sorted(
-                    dicionario, key=lambda chave: dicionario[chave]
+                    dicionario,
+                    key=lambda chave: dicionario[chave],
                 )
                 del self.turnosMap[cod_uc]
                 self.turnosMap[cod_uc] = {}
@@ -319,13 +303,17 @@ class IngestionManager:
                           JOIN aulaTurmas ON aula.id = aulaTurmas.idAula
                           WHERE diaSemana=? AND horaInicial=? AND duracao=? AND teorico=? AND idDocente=? AND idUC=? AND idTurma=?"""
             self.cursor.execute(
-                stmtTest, (dia, hora, duracao, isTeorica, docente, uc, turma)
+                stmtTest,
+                (dia, hora, duracao, isTeorica, docente, uc, turma),
             )
             results = self.cursor.fetchall()
 
             while len(results) > 1 and any(
                 are_weeks_overlapped(
-                    results[i][5], results[i][6], results[j][5], results[j][6]
+                    results[i][5],
+                    results[i][6],
+                    results[j][5],
+                    results[j][6],
                 )
                 for i in range(len(results))
                 for j in range(i + 1, len(results))
@@ -346,7 +334,8 @@ class IngestionManager:
                     self.cursor.execute(stmtUpdate, (ssi, ssf, idAula1))
                     for table in ["aulaDocente", "aulaUC", "aulaSala", "aulaTurmas"]:
                         self.cursor.execute(
-                            f"DELETE FROM {table} WHERE idAula=?", (idAula2,)
+                            f"DELETE FROM {table} WHERE idAula=?",
+                            (idAula2,),
                         )
                     self.cursor.execute("DELETE FROM aula WHERE id=?", (idAula2,))
                     results.pop(1)
