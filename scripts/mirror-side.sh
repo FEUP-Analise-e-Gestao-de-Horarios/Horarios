@@ -6,4 +6,4 @@ wget --mirror --convert-links --adjust-extension --page-requisites --no-parent \
 
 # Commands to format html in case you need
 # find site-mirror/ -type f -name "*.html" -exec sed -i 's|</br>|<br>|g' {} +
-# npx prettier --write "site-mirror/**/*"
+# npx prettier --write --tab-width 4 "site-mirror/**/*"
