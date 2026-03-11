@@ -311,6 +311,13 @@ class IngestionManager:
     # -----------------------------------------------------------------------
 
     def _fix_sections_without_shifts(self) -> None:
+        """Insert a placeholder shift (number 0) for sections that have no shift assigned.
+
+        Queries for all (section, course) pairs in ``turmaUC`` that have no
+        corresponding row in ``turno``, then inserts a row with shift number 0
+        for each. This ensures every section-course association has at least one
+        shift record, preventing referential gaps in downstream queries.
+        """
         stmt = """
             SELECT tu.idTurma, tu.idUC
             FROM turmaUC tu

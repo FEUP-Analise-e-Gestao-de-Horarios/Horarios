@@ -12,6 +12,7 @@ from src.ingestion.schemas.misc import WeekDay
 from src.ingestion.schemas.sections import Course, Session
 
 THEORETICAL_SESSION = "td_tipologia_19"
+"""CSS class used by the institution's schedule pages to mark theoretical sessions."""
 
 
 def extract_week_dates(soup: BeautifulSoup) -> tuple[date, date]:

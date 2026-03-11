@@ -1,4 +1,3 @@
-# Each entry: type, size (category), seats (count/label)
 ROOMS: dict[str, dict[str, str]] = {
     # Anfiteatros - Queijo
     "B001": {"type": "Anf", "size": "Queijo", "seats": "N/A"},
@@ -112,3 +111,16 @@ ROOMS: dict[str, dict[str, str]] = {
     "I330": {"type": "Redes", "size": "Redes", "seats": "N/A"},
     "I331": {"type": "Redes", "size": "Redes", "seats": "N/A"},
 }
+"""Static registry mapping room codes to their metadata.
+
+Each key is a room code (e.g. ``"B001"``). Each value is a dict with three
+fields:
+
+- ``type``: Room category (``"Anf"``, ``"PCs"``, ``"TPs"``, ``"Redes"``).
+- ``size``: Capacity tier within the category (e.g. ``"Grandes"``, ``"Medios"``, ``"Pequenos"``).
+- ``seats``: Seat count as a string (exact number, range such as ``"> 21"``, or ``"N/A"``).
+
+Rooms not present in this registry default to ``"Desconhecido"`` for all
+three fields when parsed by
+:func:`src.ingestion.parsers.menu.extract_rooms_info`.
+"""

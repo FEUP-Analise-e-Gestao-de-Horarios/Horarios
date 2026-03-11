@@ -6,6 +6,12 @@ from src.ingestion.schemas.sections import Course, Program, Session
 
 
 def ingest_program(cursor: sqlite3.Cursor, program: Program) -> None:
+    """Insert a program record into the ``curso`` table.
+
+    Args:
+        cursor: Active SQLite cursor used to execute the INSERT statement.
+        program: Program data to persist.
+    """
     cursor.execute(
         "INSERT INTO curso(designacao, abreviacao) VALUES(?, ?)",
         (program["acronym"], program["name"]),
@@ -18,6 +24,14 @@ def ingest_section(
     year_number: int,
     section_code: str,
 ) -> None:
+    """Insert a section record into the ``turmas`` table.
+
+    Args:
+        cursor: Active SQLite cursor used to execute the INSERT statement.
+        program_acronym: Acronym of the program the section belongs to.
+        year_number: Academic year number within the program.
+        section_code: Unique identifier code of the section.
+    """
     cursor.execute(
         "INSERT INTO turmas (idCurso, ano, codigo) VALUES (?, ?, ?)",
         (program_acronym, year_number, section_code),
@@ -30,6 +44,22 @@ def ingest_section_red_blocks(
     time: Time,
     day: WeekDay,
 ) -> None:
+    """Link an unavailability block to a section in the ``blocoTurma`` table.
+
+    Looks up the ``blocosVermelhos`` row for the given time and day, then
+    inserts a ``(block_id, section_code)`` pair into ``blocoTurma``,
+    ignoring duplicates.
+
+    Args:
+        cursor: Active SQLite cursor used to execute the queries.
+        section_code: Identifier of the section to associate with the block.
+        time: Time slot encoded as ``HHMM`` (e.g. ``900`` for 09:00).
+        day: Day of the week for the unavailability block.
+
+    Raises:
+        ValueError: If no matching row exists in ``blocosVermelhos`` for the
+            given ``time`` and ``day``.
+    """
     result = cursor.execute(
         """SELECT id FROM blocosVermelhos WHERE hora=? AND diaSemana=?""",
         (time, day),
@@ -49,6 +79,13 @@ def ingest_course(
     course: Course,
     program_acronym: str,
 ) -> None:
+    """Insert a course record into the ``uc`` table, ignoring duplicates.
+
+    Args:
+        cursor: Active SQLite cursor used to execute the INSERT statement.
+        course: Course data to persist.
+        program_acronym: Acronym of the program the course belongs to.
+    """
     cursor.execute(
         "INSERT OR IGNORE INTO uc (codigo, idCurso, nome, sigla, codOcorrencia) VALUES (?, ?, ?, ?, ?)",
         (
@@ -68,6 +105,20 @@ def ingest_session(
     start_date: date,
     end_date: date,
 ) -> None:
+    """Insert a session and all its associations into the database.
+
+    Inserts a row into ``aula``, then links it to its course (``aulaUC``),
+    each teacher (``aulaDocente``), each section (``aulaTurmas``), and
+    each room (``aulaSala``). Also records each (section, course) pair in
+    ``turmaUC``. All inserts use ``INSERT OR IGNORE`` to avoid duplicates.
+
+    Args:
+        cursor: Active SQLite cursor used to execute the INSERT statements.
+        course_code: Institutional code of the course this session belongs to.
+        session: Session data to persist.
+        start_date: First day of the week range covered by this session.
+        end_date: Last day of the week range covered by this session.
+    """
     cursor.execute(
         "INSERT INTO aula (horaInicial, duracao, diaSemana, teorico, semanaInicial, semanaFinal) VALUES (?, ?, ?, ?, ?, ?)",
         (

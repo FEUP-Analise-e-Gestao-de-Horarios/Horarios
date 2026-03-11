@@ -126,6 +126,6 @@ Example::
     }
 
 See Also:
-    :meth:`src.ingestion.manager.Manager._update_turnos_map` — builds this structure.
-    :meth:`src.ingestion.manager.Manager._parse_turnos` — flushes it to the database.
+    :meth:`src.ingestion.manager.IngestionManager._update_course_shifts_map` — builds this structure.
+    :meth:`src.ingestion.manager.IngestionManager._ingest_course_shifts` — flushes it to the database.
 """
