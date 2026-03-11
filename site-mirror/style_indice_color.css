@@ -1,0 +1,29 @@
+﻿body.body1, body.body2 { background-color: #F6F6F6 !important; } body.body2, p a:hover, ul a:hover, a:hover, p a.timetable-link-active, ul a.timetable-link-active, a.timetable-link-active { background: #B5C77F !important; } body.body1, body.body2, ul a, a, a:link, a:visited { color: #222222 !important;} p a:hover, ul a:hover, a:hover, .a1, a.a1:link, a.a1:visited, p a.timetable-link-active, ul a.timetable-link-active, a.timetable-link-active, a.timetable-link-active:link, a.timetable-link-active:visited { color: #FFFFFF !important; } p a, ul a { border-color: #DAE3BF !important; } p a.a1:hover, ul a.a1:hover, a.a1:hover { background: #FFFFFF !important; } p a.a1:hover, ul a.a1:hover, a.a1:hover { color: #B5C77F !important; } body { font-family: Arial, Helvetica, sans-serif; }
+body.body1, body.body2 { background-color: #f6f6f6; margin: 15px; font-size:11px; line-height: 20px; color: #222;}
+body.body2 { background-color: #B5C77F;}
+.home-container { text-align: center; margin: 60px; }
+h1 { color: black; font-size: 22px; text-align: center; }
+h2 { color: black; font-size: 18px; text-align: center; }
+h3 { color: black; font-size: 14px; text-align: center; }
+p { margin: 0; padding:0; display: block; }
+ul { margin: 0; padding: 0; }
+ul li { margin: 0; padding: 0; list-style-type: none; min-height: 30px; height: auto; line-height: 0; }
+ul li a { font-size: 12px; font-weight: 500; border-bottom: 1px #DAE3BF solid; padding: 10px; display: block; text-transform: none; font-size: 11px; color: #222; line-height: 15px; }
+a.title { text-transform: uppercase; font-size: 12px; font-weight: 600; }
+ul ul li { text-indent: 15px; }
+ul ul ul li { text-indent: 30px; }
+ul ul ul ul li { text-indent: 45px; }
+ul ul ul ul ul li { text-indent: 60px; }
+ul ul ul ul ul ul li { text-indent: 75px; }
+ul ul ul ul ul ul ul li { text-indent: 90px; }
+a, a:link, a:visited { text-decoration: none; cursor: pointer; color: #222; display: block; }
+p a:hover, ul a:hover, a:hover, p a.timetable-link-active, ul a.timetable-link-active, a.timetable-link-active, a.timetable-link-active:link, a.timetable-link-active:visited { background: #B5C77F; color: #fff; }
+a.a1, a.a1:link, a.a1:visited { color: #fff; }
+p a.a1:hover, ul a.a1:hover, a.a1:hover { background: #fff; color: #B5C77F; }
+td {border: 1px solid #222; border-collapse: collapse;}
+div.toolbar { margin: 0; padding: 0; width: 100%; text-align: right; margin-bottom: 10px; }
+div.toolbar-toggle-index { position: absolute; left: 0; top: 15px; width: 15px; height: 20px; font-size: 14px; }
+div.toolbar a.toolbar-link, div.toolbar-toggle-index a.toolbar-link { text-transform: lowercase; border: 0; font-weight: 500; display: inline; padding: 0 5px; background-color: transparent !important; color: #222 !important; }
+div.toolbar a.toolbar-link:hover { font-weight: 500; text-decoration: underline; }
+:focus { -moz-outline-style: none; }
+
