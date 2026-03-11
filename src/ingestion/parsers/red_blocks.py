@@ -42,7 +42,7 @@ def extract_red_blocks(soup: BeautifulSoup) -> list[RedBlock]:
     matrix = matrix_from_html_table(main_table)
 
     # -- Build week day <-> table width dict -------------------------------
-    table_rows = main_table.find_all("tr")
+    table_rows = main_table.find_all("tr", recursive=False)
     if len(table_rows) < 4:
         raise ValueError(
             f"Expected at least 4 rows in 'tabela_principal', found {len(table_rows)}",

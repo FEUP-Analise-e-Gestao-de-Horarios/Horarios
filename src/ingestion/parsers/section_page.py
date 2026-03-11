@@ -143,7 +143,7 @@ def extract_sessions(soup: BeautifulSoup) -> list[Session]:
     matrix = matrix_from_html_table(main_table)
 
     # -- Build day-span mapping --------------------------------------------
-    table_rows = main_table.find_all("tr")
+    table_rows = main_table.find_all("tr", recursive=False)
     if len(table_rows) < 4:
         raise ValueError(
             f"Expected at least 4 rows in 'tabela_principal', found {len(table_rows)}",
