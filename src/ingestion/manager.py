@@ -1,11 +1,11 @@
 import shutil
 import sqlite3
 from pathlib import Path
-from typing import Any
 
 from django.conf import settings
 from django.utils import timezone
 
+from src.ingestion.ingestors.rooms import ingest_room, ingest_room_red_block
 from src.ingestion.ingestors.sections import (
     ingest_course,
     ingest_program,
@@ -15,6 +15,7 @@ from src.ingestion.ingestors.sections import (
 )
 from src.ingestion.ingestors.teachers import ingest_teacher, ingest_teacher_red_block
 from src.ingestion.schemas.programs import Program
+from src.ingestion.schemas.rooms import RoomLinks
 from src.ingestion.scraper import Scraper
 from src.ingestion.utils import pre_insert_red_blocks
 from src.parser.utils import (
@@ -43,10 +44,10 @@ class IngestionManager:
 
             pre_insert_red_blocks(self.cursor, self.conn)
 
-            teacher_links, programs, salas_menu = self.scraper.read_menu()
+            teacher_links, programs, rooms = self.scraper.read_menu()
             self._ingest_teachers(teacher_links)
             self._ingest_sections(programs)
-            self._ingest_rooms(salas_menu)
+            self._ingest_rooms(rooms)
 
             self._parse_turnos()
             self._fix_turmas_without_turnos()
@@ -153,13 +154,9 @@ class IngestionManager:
                             ingest_course(self.cursor, course, program["acronym"])
                         self.conn.commit()
 
-                        courses_by_acronym = {
-                            s["acronym"]: s for s in section_page["courses"]
-                        }
+                        courses_by_acronym = {s["acronym"]: s for s in section_page["courses"]}
                         for session in section_page["sessions"]:
-                            course_code = courses_by_acronym[session["course_acronym"]][
-                                "code"
-                            ]
+                            course_code = courses_by_acronym[session["course_acronym"]]["code"]
 
                             ingest_session(
                                 self.cursor,
@@ -176,6 +173,16 @@ class IngestionManager:
                                 )
 
                     self.conn.commit()
+
+    def _ingest_rooms(self, rooms: list[RoomLinks]) -> None:
+        for room in rooms:
+            ingest_room(self.cursor, room)
+            self.conn.commit()
+
+            for link in room["links"]:
+                for time, day in self.scraper.get_room_page(link):
+                    ingest_room_red_block(self.cursor, room["name"], time, day)
+            self.conn.commit()
 
     # -----------------------------------------------------------------------
     # TODO Check functions bellow
@@ -201,36 +208,6 @@ class IngestionManager:
         else:
             self.turnosMap[cod_uc] = {1: turnos}
 
-    def _ingest_rooms(self, salas_menu: Any) -> None:
-        """
-        Parses rooms from the side menu.
-
-        Uses the Scraper to retrieve each room's information and the red blocks
-        from each schedule. Inserts the relevant data into the database.
-        """
-        for sala_info in self.scraper.get_salas_info(salas_menu):
-            sala = sala_info["sala"]
-            stmt = """INSERT INTO salas(numero, tipo, capacidade, tamanhoComp) VALUES (?, ?, ?, ?)"""
-            self.cursor.execute(
-                stmt,
-                (
-                    sala,
-                    sala_info["tipo"],
-                    sala_info["capacidade"],
-                    sala_info["tamanhoComp"],
-                ),
-            )
-            self.conn.commit()
-
-            for link in sala_info["links"]:
-                for time, day in self.scraper.get_red_blocks(link):
-                    stmtRB = """SELECT id FROM blocosVermelhos WHERE hora=? AND diaSemana=?"""
-                    result = self.cursor.execute(stmtRB, (time, day)).fetchone()
-                    if result:
-                        stmtT = """INSERT OR IGNORE INTO salaBloco (idBloco, idSala) VALUES (?, ?)"""
-                        self.cursor.execute(stmtT, (result[0], sala))
-            self.conn.commit()
-
     def _parse_turnos(self) -> None:
         """
         Inserts the found shifts into the database.
@@ -248,7 +225,9 @@ class IngestionManager:
                             self.cursor.execute(stmtS, (turma, uc))
                             result = self.cursor.fetchall()
                             if len(result) == 0:
-                                stmtT = """INSERT INTO turno (numero, idTurma, idUC) VALUES (?, ?, ?)"""
+                                stmtT = (
+                                    """INSERT INTO turno (numero, idTurma, idUC) VALUES (?, ?, ?)"""
+                                )
                                 self.cursor.execute(stmtT, (number, turma, uc))
                                 self.conn.commit()
                     else:
@@ -328,9 +307,7 @@ class IngestionManager:
                     results_list[5] = ssi
                     results_list[6] = ssf
                     results[0] = tuple(results_list)
-                    stmtUpdate = (
-                        """UPDATE aula SET semanaInicial=?, semanaFinal=? WHERE id=?"""
-                    )
+                    stmtUpdate = """UPDATE aula SET semanaInicial=?, semanaFinal=? WHERE id=?"""
                     self.cursor.execute(stmtUpdate, (ssi, ssf, idAula1))
                     for table in ["aulaDocente", "aulaUC", "aulaSala", "aulaTurmas"]:
                         self.cursor.execute(

@@ -1,7 +1,9 @@
 from bs4 import BeautifulSoup
 from bs4.element import Tag
 
+from src.ingestion.rooms import ROOMS
 from src.ingestion.schemas.programs import Program, SectionLinks, Year
+from src.ingestion.schemas.rooms import RoomLinks
 
 
 def extract_menu_link(soup: BeautifulSoup) -> str:
@@ -63,7 +65,7 @@ def extract_menu_tags(menu_soup: BeautifulSoup) -> tuple[Tag, Tag, Tag]:
     return teachers_li, classes_li, rooms_li
 
 
-def extract_teacher_links(docentes_menu: Tag) -> list[str]:
+def extract_teacher_links(teachers_menu: Tag) -> list[str]:
     """Extract all teacher page URLs from the Docentes menu section.
 
     Traverses the nested list structure inside the Docentes `<li>` tag.
@@ -80,7 +82,7 @@ def extract_teacher_links(docentes_menu: Tag) -> list[str]:
         ValueError: If any expected nested element (`<ul>`, `<li>`, `<a>`) is
             missing, or if an href attribute is not a string.
     """
-    ul = docentes_menu.find("ul")
+    ul = teachers_menu.find("ul")
     if ul is None:
         raise ValueError("Could not find <ul> in docentes menu")
 
@@ -107,7 +109,7 @@ def extract_teacher_links(docentes_menu: Tag) -> list[str]:
     return result
 
 
-def extract_sessions_links(turmas_menu: Tag) -> list[Program]:
+def extract_sessions_info(sections_menu: Tag) -> list[Program]:
     """Parse the Turmas menu section into a structured list of programs.
 
     Traverses the deeply nested menu structure to build a list of `Program`
@@ -129,7 +131,7 @@ def extract_sessions_links(turmas_menu: Tag) -> list[Program]:
         ValueError: If any expected element in the menu hierarchy is missing,
             a text node cannot be parsed, or an href is not a string.
     """
-    ul = turmas_menu.find("ul")
+    ul = sections_menu.find("ul")
     if ul is None:
         raise ValueError("Could not find <ul> in turmas menu")
 
@@ -207,4 +209,49 @@ def extract_sessions_links(turmas_menu: Tag) -> list[Program]:
                 sections.append({"code": section_code, "links": links})
             years.append({"number": year_number, "sections": sections})
         result.append({"acronym": course_id, "name": course_name, "years": years})
+    return result
+
+
+def extract_rooms_info(rooms_menu: Tag) -> list[RoomLinks]:
+    ul = rooms_menu.find("ul")
+    if ul is None:
+        return []
+
+    children = ul.find_all(recursive=False)
+    result: list[RoomLinks] = []
+    for child in children:
+        a_list = child.find_all("a", {"class": "timetable-link"})
+        anchor = child.find("a")
+        if anchor is None:
+            continue
+
+        if anchor.find(class_="__cf_email__"):
+            room_name = "EaD"
+        else:
+            room_name = anchor.get_text(strip=True)
+        if not room_name:
+            continue
+
+        room_type = "Desconhecido"
+        room_size = "Desconhecido"
+        number_of_seats = "Desconhecido"
+        sala_info = ROOMS.get(room_name)
+        if sala_info:
+            room_type = sala_info["type"]
+            room_size = sala_info["size"]
+            number_of_seats = sala_info["seats"]
+
+        links = [str(a.get("href")) for a in a_list if a.get("href") is not None]
+        if not links:
+            raise ValueError(f"No links found for sala: {room_name}")
+
+        result.append(
+            {
+                "name": room_name,
+                "type_": room_type,
+                "size": room_size,
+                "seats": number_of_seats,
+                "links": links,
+            },
+        )
     return result
