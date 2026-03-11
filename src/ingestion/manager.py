@@ -256,6 +256,34 @@ class IngestionManager:
                     ingest_room_red_blocks(self.cursor, room["name"], time, day)
             self.conn.commit()
 
+    def _ingest_course_shifts(self) -> None:
+        """Inserts all recorded course shifts into the ``turno`` table.
+
+        Iterates over :attr:`course_shifts_map` and inserts each
+        (shift number, section, course) triple, skipping entries that already
+        exist. A single commit is issued at the end.
+        """
+        for program in self.course_shifts_map:
+            for year in self.course_shifts_map[program]:
+                for course in self.course_shifts_map[program][year]:
+                    for turno_number in self.course_shifts_map[program][year][course]:
+                        for section in self.course_shifts_map[program][year][course][turno_number]:
+                            self.cursor.execute(
+                                "SELECT * FROM turno WHERE idTurma=? AND idUC=?",
+                                (section, course),
+                            )
+                            result = self.cursor.fetchall()
+                            if len(result) == 0:
+                                self.cursor.execute(
+                                    "INSERT INTO turno (numero, idTurma, idUC) VALUES (?, ?, ?)",
+                                    (turno_number, section, course),
+                                )
+        self.conn.commit()
+
+    # -----------------------------------------------------------------------
+    # Course shift management
+    # -----------------------------------------------------------------------
+
     def _update_course_shifts_map(
         self,
         program: str,
@@ -285,30 +313,6 @@ class IngestionManager:
             course_map.clear()
             for i, sections in enumerate(all_sections, 1):
                 course_map[i] = sections
-
-    def _ingest_course_shifts(self) -> None:
-        """Inserts all recorded course shifts into the ``turno`` table.
-
-        Iterates over :attr:`course_shifts_map` and inserts each
-        (shift number, section, course) triple, skipping entries that already
-        exist. A single commit is issued at the end.
-        """
-        for program in self.course_shifts_map:
-            for year in self.course_shifts_map[program]:
-                for course in self.course_shifts_map[program][year]:
-                    for turno_number in self.course_shifts_map[program][year][course]:
-                        for section in self.course_shifts_map[program][year][course][turno_number]:
-                            self.cursor.execute(
-                                "SELECT * FROM turno WHERE idTurma=? AND idUC=?",
-                                (section, course),
-                            )
-                            result = self.cursor.fetchall()
-                            if len(result) == 0:
-                                self.cursor.execute(
-                                    "INSERT INTO turno (numero, idTurma, idUC) VALUES (?, ?, ?)",
-                                    (turno_number, section, course),
-                                )
-        self.conn.commit()
 
     # -----------------------------------------------------------------------
     # TODO Check functions bellow
