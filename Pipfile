@@ -21,6 +21,7 @@ pydantic = "*"
 django-livereload-server = "*"
 ruff = "*"
 pre-commit = "*"
+django-stubs = "*"
 
 [requires]
 python_version = "3.14"

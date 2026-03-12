@@ -1,28 +1,36 @@
-from typing import ClassVar
+from datetime import date, datetime
 
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
-from django.db import models
+from django.db.models import BooleanField, DateTimeField, EmailField, TextField
+from django.db.models.expressions import Combinable
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from .managers import CustomUserManager
+from .managers import UserManager
 
 
-class CustomUser(AbstractBaseUser, PermissionsMixin):
-    username = models.TextField(unique=True)
-    first_name = models.TextField(blank=True)
-    last_name = models.TextField(blank=True)
-    email = models.EmailField(_("email address"), unique=True)
-    is_superuser = models.BooleanField(default=False)
-    is_staff = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=False)
-    sent_email = models.BooleanField(default=False)
-    date_joined = models.DateTimeField(default=timezone.now)
+class User(AbstractBaseUser, PermissionsMixin):
+    username: TextField[str | Combinable, str] = TextField(unique=True)
+    email: EmailField[str, str] = EmailField(_("email address"), unique=True)
 
-    USERNAME_FIELD: ClassVar = "username"
-    REQUIRED_FIELDS: ClassVar = ["email"]
+    first_name: TextField[str | Combinable, str] = TextField(blank=True)
+    last_name: TextField[str | Combinable, str] = TextField(blank=True)
 
-    objects = CustomUserManager()
+    is_staff: bool | BooleanField[bool | Combinable, bool] = BooleanField(default=False)
+    is_active: bool | BooleanField[bool | Combinable, bool] = BooleanField(
+        default=False
+    )
 
-    def __str__(self):
-        return self.username
+    sent_email: BooleanField[bool | Combinable, bool] = BooleanField(default=False)
+    date_joined: DateTimeField[str | datetime | date | Combinable, datetime] = (
+        DateTimeField(default=timezone.now)
+    )
+
+    USERNAME_FIELD = "username"
+    REQUIRED_FIELDS = ["email"]
+
+    objects = UserManager()
+
+    def __str__(self) -> str:
+        full_name = f"{self.first_name} {self.last_name}".strip()
+        return f"{full_name} ({self.username})" if full_name else self.username

@@ -1,0 +1,126 @@
+ROOMS: dict[str, dict[str, str]] = {
+    # Anfiteatros - Queijo
+    "B001": {"type": "Anf", "size": "Queijo", "seats": "N/A"},
+    "B002": {"type": "Anf", "size": "Queijo", "seats": "N/A"},
+    "B003": {"type": "Anf", "size": "Queijo", "seats": "N/A"},
+    # Anfiteatros - Grandes (99)
+    "B004": {"type": "Anf", "size": "Grandes", "seats": "99"},
+    "B005": {"type": "Anf", "size": "Grandes", "seats": "99"},
+    "B006": {"type": "Anf", "size": "Grandes", "seats": "99"},
+    "B007": {"type": "Anf", "size": "Grandes", "seats": "99"},
+    "B010": {"type": "Anf", "size": "Grandes", "seats": "99"},
+    "B013": {"type": "Anf", "size": "Grandes", "seats": "99"},
+    "B014": {"type": "Anf", "size": "Grandes", "seats": "99"},
+    "B015": {"type": "Anf", "size": "Grandes", "seats": "99"},
+    "B017": {"type": "Anf", "size": "Grandes", "seats": "99"},
+    "B020": {"type": "Anf", "size": "Grandes", "seats": "99"},
+    "B023": {"type": "Anf", "size": "Grandes", "seats": "99"},
+    "B026": {"type": "Anf", "size": "Grandes", "seats": "99"},
+    "B029": {"type": "Anf", "size": "Grandes", "seats": "99"},
+    "B035": {"type": "Anf", "size": "Grandes", "seats": "99"},
+    # Anfiteatros - Medios (60)
+    "B008": {"type": "Anf", "size": "Medios", "seats": "60"},
+    "B009": {"type": "Anf", "size": "Medios", "seats": "60"},
+    "B018": {"type": "Anf", "size": "Medios", "seats": "60"},
+    "B019": {"type": "Anf", "size": "Medios", "seats": "60"},
+    "B024": {"type": "Anf", "size": "Medios", "seats": "60"},
+    "B025": {"type": "Anf", "size": "Medios", "seats": "60"},
+    "B030": {"type": "Anf", "size": "Medios", "seats": "60"},
+    "B031": {"type": "Anf", "size": "Medios", "seats": "60"},
+    # Anfiteatros - Pequenos (53)
+    "B011": {"type": "Anf", "size": "Pequenos", "seats": "53"},
+    "B012": {"type": "Anf", "size": "Pequenos", "seats": "53"},
+    "B016": {"type": "Anf", "size": "Pequenos", "seats": "53"},
+    "B021": {"type": "Anf", "size": "Pequenos", "seats": "53"},
+    "B022": {"type": "Anf", "size": "Pequenos", "seats": "53"},
+    "B027": {"type": "Anf", "size": "Pequenos", "seats": "53"},
+    "B028": {"type": "Anf", "size": "Pequenos", "seats": "53"},
+    "B033": {"type": "Anf", "size": "Pequenos", "seats": "53"},
+    "B034": {"type": "Anf", "size": "Pequenos", "seats": "53"},
+    # PCs - Grandes
+    "B201": {"type": "PCs", "size": "Grandes", "seats": "> 21"},
+    "B207": {"type": "PCs", "size": "Grandes", "seats": "> 21"},
+    "B301": {"type": "PCs", "size": "Grandes", "seats": "> 21"},
+    # PCs - Media 20
+    "B105": {"type": "PCs", "size": "Media", "seats": "20"},
+    "B203": {"type": "PCs", "size": "Media", "seats": "20"},
+    # PCs - Media 16
+    "B101": {"type": "PCs", "size": "Media", "seats": "16"},
+    "B102": {"type": "PCs", "size": "Media", "seats": "16"},
+    "B103": {"type": "PCs", "size": "Media", "seats": "16"},
+    "B107": {"type": "PCs", "size": "Media", "seats": "16"},
+    "B109": {"type": "PCs", "size": "Media", "seats": "16"},
+    "B110": {"type": "PCs", "size": "Media", "seats": "16"},
+    "B111": {"type": "PCs", "size": "Media", "seats": "16"},
+    "B303": {"type": "PCs", "size": "Media", "seats": "16"},
+    "B304": {"type": "PCs", "size": "Media", "seats": "16"},
+    "B305": {"type": "PCs", "size": "Media", "seats": "16"},
+    "B307": {"type": "PCs", "size": "Media", "seats": "16"},
+    "B308": {"type": "PCs", "size": "Media", "seats": "16"},
+    "B313": {"type": "PCs", "size": "Media", "seats": "16"},
+    "B314": {"type": "PCs", "size": "Media", "seats": "16"},
+    # PCs - Pequena
+    "B202": {"type": "PCs", "size": "Pequena", "seats": "< 15"},
+    "B204": {"type": "PCs", "size": "Pequena", "seats": "< 15"},
+    "B205": {"type": "PCs", "size": "Pequena", "seats": "< 15"},
+    "B206": {"type": "PCs", "size": "Pequena", "seats": "< 15"},
+    "B302": {"type": "PCs", "size": "Pequena", "seats": "< 15"},
+    "B306": {"type": "PCs", "size": "Pequena", "seats": "< 15"},
+    "B309": {"type": "PCs", "size": "Pequena", "seats": "< 15"},
+    "B310": {"type": "PCs", "size": "Pequena", "seats": "< 15"},
+    "B312": {"type": "PCs", "size": "Pequena", "seats": "< 15"},
+    # TPs - Grande
+    "B113": {"type": "TPs", "size": "Grande", "seats": "N/A"},
+    "B115": {"type": "TPs", "size": "Grande", "seats": "N/A"},
+    "B117": {"type": "TPs", "size": "Grande", "seats": "N/A"},
+    "B119": {"type": "TPs", "size": "Grande", "seats": "N/A"},
+    "B217": {"type": "TPs", "size": "Grande", "seats": "N/A"},
+    "B223": {"type": "TPs", "size": "Grande", "seats": "N/A"},
+    "B229": {"type": "TPs", "size": "Grande", "seats": "N/A"},
+    "B318": {"type": "TPs", "size": "Grande", "seats": "N/A"},
+    "B326": {"type": "TPs", "size": "Grande", "seats": "N/A"},
+    "B330": {"type": "TPs", "size": "Grande", "seats": "N/A"},
+    "B331": {"type": "TPs", "size": "Grande", "seats": "N/A"},
+    "B332": {"type": "TPs", "size": "Grande", "seats": "N/A"},
+    "B334": {"type": "TPs", "size": "Grande", "seats": "N/A"},
+    "B336": {"type": "TPs", "size": "Grande", "seats": "N/A"},
+    "B341": {"type": "TPs", "size": "Grande", "seats": "N/A"},
+    "B344": {"type": "TPs", "size": "Grande", "seats": "N/A"},
+    # TPs - Medias
+    "B214": {"type": "TPs", "size": "Medias", "seats": "N/A"},
+    "B216": {"type": "TPs", "size": "Medias", "seats": "N/A"},
+    "B219": {"type": "TPs", "size": "Medias", "seats": "N/A"},
+    "B220": {"type": "TPs", "size": "Medias", "seats": "N/A"},
+    "B222": {"type": "TPs", "size": "Medias", "seats": "N/A"},
+    "B225": {"type": "TPs", "size": "Medias", "seats": "N/A"},
+    "B319": {"type": "TPs", "size": "Medias", "seats": "N/A"},
+    "B322": {"type": "TPs", "size": "Medias", "seats": "N/A"},
+    "B323": {"type": "TPs", "size": "Medias", "seats": "N/A"},
+    "B327": {"type": "TPs", "size": "Medias", "seats": "N/A"},
+    "B329": {"type": "TPs", "size": "Medias", "seats": "N/A"},
+    "B335": {"type": "TPs", "size": "Medias", "seats": "N/A"},
+    "B339": {"type": "TPs", "size": "Medias", "seats": "N/A"},
+    "B340": {"type": "TPs", "size": "Medias", "seats": "N/A"},
+    "B342": {"type": "TPs", "size": "Medias", "seats": "N/A"},
+    "B343": {"type": "TPs", "size": "Medias", "seats": "N/A"},
+    # TPs - Erasmus
+    "B324": {"type": "TPs", "size": "Erasmus", "seats": "N/A"},
+    "B325": {"type": "TPs", "size": "Erasmus", "seats": "N/A"},
+    "B328": {"type": "TPs", "size": "Erasmus", "seats": "N/A"},
+    # Redes
+    "I330": {"type": "Redes", "size": "Redes", "seats": "N/A"},
+    "I331": {"type": "Redes", "size": "Redes", "seats": "N/A"},
+}
+"""Static registry mapping room codes to their metadata.
+
+Each key is a room code (e.g. ``"B001"``). Each value is a dict with three
+fields:
+
+- ``type``: Room category (``"Anf"``, ``"PCs"``, ``"TPs"``, ``"Redes"``).
+- ``size``: Capacity tier within the category (e.g. ``"Grandes"``, ``"Medios"``, ``"Pequenos"``).
+- ``seats``: Seat count as a string (exact number, range such as ``"> 21"``, or ``"N/A"``).
+
+Rooms not present in this registry default to ``"Desconhecido"`` for all
+three fields when parsed by
+:func:`src.ingestion.parsers.menu.extract_rooms_info`.
+"""
