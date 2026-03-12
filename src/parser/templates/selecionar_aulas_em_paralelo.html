@@ -1,666 +1,120 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt">
-<head>
-    <meta charset="UTF-8">
-    <title>Selecionar Aulas em Paralelo</title>
-    <style> 
-        button {
-            cursor: pointer;
-        }
-
-        button.disabled {
-            background-color: #ccc !important;
-            cursor: not-allowed;
-            color: #666;
-        }
-
-        button {
-            cursor: pointer;
-        }
-
-        button.disabled {
-            background-color: #ccc !important;
-            cursor: not-allowed;
-            color: #666;
-        }
-
-        body {
-            font-family: sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            min-height: 100vh;
-        }
-
-        .main-container {
-            flex: 0 1 1000px;
-            padding-bottom: 8px;
-            flex: 0 1 1000px;
-            padding-bottom: 8px;
-            position: relative;
-            max-width: 1000px;
-            margin-left: 6%;
-            z-index: 9999;
-        }
-
-        .curso-btn {
-            padding: 10px 20px;
-            margin-right: 10px;
-            margin-bottom: 10px;
-            border: none;
-            border-radius: 10px;
-            color: #333;
-            background-color: #ddd;
-            font-size: 16px;
-            font-weight: bold;
-        }
-        .curso-btn.active {
-            background-color: #ffc107;
-        }
-        .curso-wrapper {
-            display: none;
-            background: #fff;
-        }
-        .curso-wrapper h2{
-            font-size: 27px;
-            color: #ffc107;
-        }
-
-        .uc-container {
-            margin-bottom: 5px;
-        }
-        .uc-container h4 {
-            font-size: 18px;
-            margin-top: 0px;
-            margin-bottom: 4px;
-        }
-
-        .grupo-box {
-            padding: 12px 10px 10px 15px;
-            margin-bottom: 5px;
-            border-radius: 8px;
-            background-color: #fff1c8;
-        }
-        .grupo-box-content {
-            display: flex;
-            gap: 10px;
-            align-items: flex-start;
-            justify-content: space-between;
-        }
-        .curso-wrapper h2{
-            font-size: 27px;
-            color: #ffc107;
-        }
-
-        .uc-container {
-            margin-bottom: 5px;
-        }
-        .uc-container h4 {
-            font-size: 18px;
-            margin-top: 0px;
-            margin-bottom: 4px;
-        }
-
-        .grupo-box {
-            padding: 12px 10px 10px 15px;
-            margin-bottom: 5px;
-            border-radius: 8px;
-            background-color: #fff1c8;
-        }
-        .grupo-box-content {
-            display: flex;
-            gap: 10px;
-            align-items: flex-start;
-            justify-content: space-between;
-        }
-
-        .aulas-list {
-            flex: 0 1 auto;
-            max-width: 100%;
-            font-size: 16px;
-        }
-
-        .aulas-simultaneas-boxes {
-            flex: 1 1 0;
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-            align-items: flex-start;
-            min-width: 0;
-        }
-
-        .aulas-simultaneas-box {
-            border: 1px solid #ccc;
-            padding: 5px;
-            border: 1px solid #ccc;
-            padding: 5px;
-            border-radius: 8px;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
-            gap: 1px;
-            gap: 1px;
-            font-size: 14px;
-        }
-
-        .warning-msg {
-            font-size: 16px;
-            margin-top: 6px;
-            color: red;
-            display: block;
-            word-break: break-word;
-        }
-
-        .botoes-canto {
-            position: sticky;
-            flex-direction: column;
-            display: flex;
-            gap: 10px;
-            margin-top: auto;
-            margin-left: auto;
-            bottom: 20px;
-            align-items: flex-end;
-            max-width: 270px;
-        }
-
-        .botoes-canto button {
-            background: #ffc107;
-            color: black;
-            padding: 10px 16px;
-            border-radius: 6px;
-            border: none;
-            border: none;
-            width: 135px;
-        }
-
-        #btn-cancelar {
-            border-style: solid;
-            border-width: 2px;
-            border-color: #ffc107;
-            background-color: #f5f5f5;
-        }
-
-        .popup-warning {
-            display:none; 
-            position: fixed; 
-            top: 30%; 
-            left: 50%; 
-            transform: translate(-50%, -30%); 
-            background: #ffdbdb; 
-            padding: 30px; 
-            border: 3px solid red; 
-            border-radius: 8px; 
-            z-index: 10000; 
-            max-width: 500px; 
-            box-shadow: 0 0 10px rgba(0,0,0,0.3); 
-            text-align: center;
-        }
-        .popup-warning button{
-            padding: 8px;
-            font-weight: bold; 
-            background: #ffc107; 
-            border-radius: 5px; 
-            border: none;
-        }
-        #lista-inconsistentes{
-            font-size: 14px; 
-            text-align: left; 
-            max-height: 200px; 
-            overflow-y: auto; 
-            margin-bottom: 15px;
-        }
-
-    </style>
-</head>
-<body>
-    <div class="main-container">
-        <h2>Selecionar Aulas em Paralelo</h2>
-        <div id="curso-selector">
-            {% for curso in cursos %}
-                <button class="curso-btn" type="button" data-curso="{{ curso }}" onclick="toggleCurso(this)">
-                    {{ curso }}
-                </button>
-            {% endfor %}
-        </div>
-    <div class="main-container">
-        <h2>Selecionar Aulas em Paralelo</h2>
-        <div id="curso-selector">
-            {% for curso in cursos %}
-                <button class="curso-btn" type="button" data-curso="{{ curso }}" onclick="toggleCurso(this)">
-                    {{ curso }}
-                </button>
-            {% endfor %}
-        </div>
-
-        {% for curso in cursos %}
-            <div class="curso-wrapper" data-curso="{{ curso }}">
-                <h2>Curso {{ curso }}</h2>
-                {% regroup grupos_aulas_ao_mesmo_tempo by nomeUC as grupos_por_uc %}
-                {% for uc in grupos_por_uc %}
-                    {% if uc.grouper and uc.list.0.curso == curso %}
-                        <div class="uc-container">
-                            <h4 onclick="toggleUC(this)" style="cursor: pointer;">
-                                <span class="toggle-icon">▾</span> {{ uc.grouper }} &emsp; {{ uc.list.0.uc }}
-                            </h4>
-                            <div class="uc-grupos">
-                                {% for grupo in uc.list %}
-                                    <div class="grupo-box" data-curso="{{ grupo.curso }}" id="grupo-{{ grupo.id }}">
-                                        <div class="grupo-box-content" style="display: flex; gap: 10px;">
-                                            <div class="aulas-list">
-                                                <h4>{{ grupo.horario }}</h4>
-                                                {% for aula, turmas in grupo.aulas %}
-                                                    Aula com as turmas: {{ turmas|join:", " }} <br>
-                                                {% endfor %}
-                                            </div>
-                                            <div class="aulas-simultaneas-boxes">
-                                                {% for i in "x"|rjust:grupo.num_boxes %}
-                                                    <div class="aulas-simultaneas-box" data-grupo="{{ grupo.id }}" data-box-index="{{ forloop.counter0 }}">
-                                                        <label><input type="checkbox" class="select-all-checkbox" style="cursor: pointer;"> Selecionar todas</label>
-                                                        {% for aula, turmas in grupo.aulas %}
-                                                            <label>
-        {% for curso in cursos %}
-            <div class="curso-wrapper" data-curso="{{ curso }}">
-                <h2>Curso {{ curso }}</h2>
-                {% regroup grupos_aulas_ao_mesmo_tempo by nomeUC as grupos_por_uc %}
-                {% for uc in grupos_por_uc %}
-                    {% if uc.grouper and uc.list.0.curso == curso %}
-                        <div class="uc-container">
-                            <h4 onclick="toggleUC(this)" style="cursor: pointer;">
-                                <span class="toggle-icon">▾</span> {{ uc.grouper }} &emsp; {{ uc.list.0.uc }}
-                            </h4>
-                            <div class="uc-grupos">
-                                {% for grupo in uc.list %}
-                                    <div class="grupo-box" data-curso="{{ grupo.curso }}" id="grupo-{{ grupo.id }}">
-                                        <div class="grupo-box-content" style="display: flex; gap: 10px;">
-                                            <div class="aulas-list">
-                                                <h4>{{ grupo.horario }}</h4>
-                                                {% for aula, turmas in grupo.aulas %}
-                                                    Aula com as turmas: {{ turmas|join:", " }} <br>
-                                                {% endfor %}
-                                            </div>
-                                            <div class="aulas-simultaneas-boxes">
-                                                {% for i in "x"|rjust:grupo.num_boxes %}
-                                                    <div class="aulas-simultaneas-box" data-grupo="{{ grupo.id }}" data-box-index="{{ forloop.counter0 }}">
-                                                        <label><input type="checkbox" class="select-all-checkbox" style="cursor: pointer;"> Selecionar todas</label>
-                                                        {% for aula, turmas in grupo.aulas %}
-                                                            <label>
-                                                                <input type="checkbox"
-                                                                        class="aula-checkbox"
-                                                                        style="cursor: pointer;"
-                                                                        style="cursor: pointer;"
-                                                                        data-grupo="{{ grupo.id }}"
-                                                                        data-aula="{{ aula }}"
-                                                                        data-turmas="{{ turmas|join:',' }}">
-                                                                {% with turmas.0 as primeira %}
-                                                                        {{ primeira }}{% for t in turmas|slice:"1:" %}, {{ t|slice:"-2:" }}{% endfor %}
-                                                                {% endwith %}                                                                        
-                                                            </label>
-                                                        {% endfor %}
-                                                    </div>
-                                                {% endfor %}
-                                            </div>
-                                        </div>
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    {% endif %}
-                {% endfor %}
-            </div>
-        {% endfor %}
-    </div>
-                                                                {% with turmas.0 as primeira %}
-                                                                        {{ primeira }}{% for t in turmas|slice:"1:" %}, {{ t|slice:"-2:" }}{% endfor %}
-                                                                {% endwith %}                                                                        
-                                                            </label>
-                                                        {% endfor %}
-                                                    </div>
-                                                {% endfor %}
-                                            </div>
-                                        </div>
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    {% endif %}
-                {% endfor %}
-            </div>
-        {% endfor %}
-    </div>
-
-    <div class="botoes-canto">
-        <div id="aviso-uma-aula-so-selecionada" class="warning-msg" style="display: none;"></div>
-        <button type="button" id="btn-guardar" onclick="guardarTodasSelecoes()">Guardar Seleção</button>
-        <button type="button" id="btn-cancelar" onclick="cancelarMudancas()">Cancelar</button>
-    </div>
-    
-    <div id="popup-inconsistentes" class ="popup-warning">
-        <p style="font-weight: bold; margin-bottom: 15px;">Alguns dos grupos selecionados para serem aulas em paralelo estão a ter aulas em horários diferentes entre si. <br>Por favor corrija.</p>
-        <div id="lista-inconsistentes"></div>
-        <button type="button" onclick="fecharPopupInconsistentes()">OK</button>
-    <div class="botoes-canto">
-        <div id="aviso-uma-aula-so-selecionada" class="warning-msg" style="display: none;"></div>
-        <button type="button" id="btn-guardar" onclick="guardarTodasSelecoes()">Guardar Seleção</button>
-        <button type="button" id="btn-cancelar" onclick="cancelarMudancas()">Cancelar</button>
-    </div>
-    
-    <div id="popup-inconsistentes" class ="popup-warning">
-        <p style="font-weight: bold; margin-bottom: 15px;">Alguns dos grupos selecionados para serem aulas em paralelo estão a ter aulas em horários diferentes entre si. <br>Por favor corrija.</p>
-        <div id="lista-inconsistentes"></div>
-        <button type="button" onclick="fecharPopupInconsistentes()">OK</button>
-    </div>
-
-<script>
-    function toggleCurso(button) {
-        const curso = button.dataset.curso;
-        const isActive = button.classList.toggle('active');
-
-        document.querySelectorAll(`.curso-wrapper[data-curso="${curso}"]`).forEach(el => {
-            el.style.display = isActive ? 'block' : 'none';
-        });
-    }
-
-    function toggleUC(header) {
-        const container = header.nextElementSibling;
-        const icon = header.querySelector(".toggle-icon");
-        const isHidden = window.getComputedStyle(container).display === "none";
-        container.style.display = isHidden ? "block" : "none";
-        icon.textContent = isHidden ? "▾" : "▸";
-    }
-
-    // dentro dos grupos de aulas ao mesmo tempo, se uma aula tiver sido selecionada numa checkbox então desativa essa opção nas outras checkboxes
-    function atualizarCheckboxesDisponiveis() {
-        const checkboxesPorGrupo = {};
-
-        document.querySelectorAll('.aula-checkbox').forEach(cb => {
-            const grupo = cb.dataset.grupo;
-            if (!checkboxesPorGrupo[grupo]) {
-                checkboxesPorGrupo[grupo] = [];
-            }
-            checkboxesPorGrupo[grupo].push(cb);
-        });
-
-        Object.entries(checkboxesPorGrupo).forEach(([grupoId, checkboxes]) => {
-            const aulasSelecionadas = new Set();
-
-            // Recolhe os aulaIds selecionados
-            checkboxes.forEach(cb => {
-                if (cb.checked) {
-                    aulasSelecionadas.add(cb.dataset.aula);
-                }
-            });
-
-            // Atualiza o estado de todas as checkboxes
-            checkboxes.forEach(cb => {
-                const aulaId = cb.dataset.aula;
-                const deveDesativar = aulasSelecionadas.has(aulaId) && !cb.checked;
-
-                cb.disabled = deveDesativar;
-                cb.parentElement.style.color = deveDesativar ? 'gray' : '';
-            });
-        });
-
-        // atualiza o estado da checkbox Select All (fica desativada tb se todas estiverem desativadas)
-        document.querySelectorAll('.aulas-simultaneas-box').forEach(box => {
-            const checkboxes = box.querySelectorAll('.aula-checkbox');
-            const selectAll = box.querySelector('.select-all-checkbox');
-
-            const checkboxesAtivos = Array.from(checkboxes).filter(cb => !cb.disabled);
-            const todosDesativados = Array.from(checkboxes).every(cb => cb.disabled);
-            selectAll.disabled = todosDesativados;
-            selectAll.parentElement.style.color = todosDesativados ? 'gray' : '';
-
-            if (!todosDesativados) {
-                const todosSelecionados = checkboxesAtivos.every(cb => cb.checked);
-                const algumSelecionado = checkboxesAtivos.some(cb => cb.checked);
-
-                selectAll.checked = todosSelecionados;
-            } else {
-                selectAll.checked = false;
-            }
-        });
-    }
-
-
-    function getCSRFToken() {
-        const name = 'csrftoken';
-        const cookies = document.cookie.split(';');
-        for (let cookie of cookies) {
-            if (cookie.trim().startsWith(name + '=')) {
-                return decodeURIComponent(cookie.trim().substring(name.length + 1));
-            }
-        }
-        return '';
-    }
-
-    let popupGrupoId = null;
-    let popupBoxIndex = null;
-
-    function guardarTodasSelecoes() {
-        console.log("Payload:", getAllSelectedAulas());
-
-        // collect data, then call save
-        fetch("/parser/guardar_aulas_em_paralelo/?id={{ project_id }}", {
-            method: "POST",
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCSRFToken()
-            },
-            body: JSON.stringify({
-                pares: getAllSelectedAulas()
-            })
-        })
-        .then(async res => {
-            const text = await res.text();
-            const text = await res.text();
-            try {
-                const data = JSON.parse(text);
-                if (data.status === "ok") {
-                    if (data.inconsistentes && data.inconsistentes.length > 0) {
-                        mostrarPopupInconsistentes(data.inconsistentes);
-                    } else {
-                        window.location.href = `/editturnos/{{ project_id }}`;
-                    }
-                    if (data.inconsistentes && data.inconsistentes.length > 0) {
-                        mostrarPopupInconsistentes(data.inconsistentes);
-                    } else {
-                        window.location.href = `/editturnos/{{ project_id }}`;
-                    }
-                } else {
-                    alert("Erro ao guardar.");
-                }
-            } catch (e) {
-                console.error("Not JSON!", text);
-                alert("Erro do servidor: resposta inesperada.");
-            }
-        })
-        .catch(err => {
-            console.error("Fetch failed:", err);
-            alert("Erro na comunicação com o servidor.");
-        });
-    }
-
-    function getAllSelectedAulas() {
-        const pares = [];
-
-        // Para cada caixa .aulas-simultaneas-box
-        document.querySelectorAll('.aulas-simultaneas-box').forEach(box => {
-            const aulasSelecionadas = [];
-
-            // Recolhe checkboxes marcadas dentro da caixa
-            box.querySelectorAll('.aula-checkbox:checked').forEach(cb => {
-                const aulaId = cb.dataset.aula;
-                const turmas = cb.dataset.turmas.split(',');
-                const primeiraTurma = turmas[0].trim();
-                aulasSelecionadas.push({ aulaId, turma: primeiraTurma });
-            });
-
-            // Formar a "cadeia" de aulas correspondente à caixa      exemplo do que estou a referir com "cadeia" -> (Aula1, Aula2), (Aula2, Aula3),...
-            for (let i = 0; i < aulasSelecionadas.length - 1; i++) {
-                const a1 = aulasSelecionadas[i];
-                const a2 = aulasSelecionadas[i + 1];
-                pares.push([a1.aulaId, a2.aulaId, a1.turma, a2.turma]);
-            }
-        });
-
-        return pares;
-    }
-
-
-
-
-    // verificar se há grupos com apenas uma turma selecionada
-    // se sim desativar o botão de 'Guardar Seleção' e pôr aviso
-    function validarGrupos() {
-        let algumInvalido = false;
-
-        document.querySelectorAll('.aulas-simultaneas-box').forEach(box => {
-            const checkboxes = box.querySelectorAll('.aula-checkbox');
-            const selecionadas = Array.from(checkboxes).filter(cb => cb.checked);
-
-            if (selecionadas.length === 1) {
-                algumInvalido = true;
-            }
-        });
-
-        const btn = document.getElementById("btn-guardar");
-        btn.disabled = algumInvalido;
-        btn.classList.toggle('disabled', algumInvalido);
-
-        const avisoFinal = document.getElementById("aviso-uma-aula-so-selecionada");
-        if (algumInvalido) {
-            avisoFinal.style.display = "block";
-            avisoFinal.innerHTML = "Um grupo de aulas em paralelo não de ser formado por apenas uma aula.";
-        } else {
-            avisoFinal.style.display = "none";
-            avisoFinal.innerHTML = "";
-        }
-    }
-
-    function aplicarSelectAllListeners() {
-        document.querySelectorAll('.select-all-checkbox').forEach(selectAll => {
-            const turmasList = selectAll.closest('.aulas-simultaneas-box');
-            const checkboxes = turmasList.querySelectorAll('.aula-checkbox');
-
-            // Evento: clicar em "Selecionar todas"
-            selectAll.addEventListener('change', function () {
-                checkboxes.forEach(cb => {
-                    if (!cb.disabled) {
-                        cb.checked = this.checked;
-                    }
-                });
+    <head>
+        <meta charset="UTF-8" />
+        <title>Selecionar Aulas em Paralelo</title>
+        {% load static %}
+        <script>
+            document.addEventListener("DOMContentLoaded", () => {
+                aplicarSelectAllListeners();
                 atualizarCheckboxesDisponiveis();
-                validarGrupos();
+                preencherCheckboxesComAulasEmParalelo({{ aulas_em_paralelo|safe }});
             });
+            const PROJECT_ID = {{ project_id }};
+        </script>
+        <script src="{% static 'parallel_lessons.js' %}" defer></script>
+        <link rel="stylesheet" href="{% static 'parallel_lessons.css' %}" />
+    </head>
+    <body>
+        <div class="main-container">
+            <h2>Selecionar Aulas em Paralelo</h2>
+            <div id="curso-selector">
+                {% for curso in cursos %}
+                <button class="curso-btn" type="button" data-curso="{{ curso }}" onclick="toggleCurso(this)">
+                    {{ curso }}
+                </button>
+                {% endfor %}
+            </div>
 
-            // Evento: clicar em qualquer aula individual
-            checkboxes.forEach(cb => {
-                cb.addEventListener('change', function () {
-                    const allEnabled = Array.from(checkboxes).filter(cb => !cb.disabled);
-                    const allChecked = allEnabled.every(cb => cb.checked);
-                    const someChecked = allEnabled.some(cb => cb.checked);
+            {% for curso in cursos %}
+            <div class="curso-wrapper" data-curso="{{ curso }}">
+                <h2>Curso {{ curso }}</h2>
+                {% regroup grupos_aulas_ao_mesmo_tempo by nomeUC as grupos_por_uc %}
+                {% for uc in grupos_por_uc %}
+                {% if uc.grouper and uc.list.0.curso == curso %}
+                <div class="uc-container">
+                    <h4 onclick="toggleUC(this)" style="cursor: pointer">
+                        <span class="toggle-icon">▾</span> {{ uc.grouper }} &emsp; {{ uc.list.0.uc }}
+                    </h4>
+                    <div class="uc-grupos">
+                        {% for grupo in uc.list %}
+                        <div class="grupo-box" data-curso="{{ grupo.curso }}" id="grupo-{{ grupo.id }}">
+                            <div class="grupo-box-content" style="display: flex; gap: 10px">
+                                <div class="aulas-list">
+                                    <h4>{{ grupo.horario }}</h4>
+                                    {% for aula, turmas in grupo.aulas %} Aula com as turmas: {{ turmas|join:", " }}
+                                    <br />
+                                    {% endfor %}
+                                </div>
+                                <div class="aulas-simultaneas-boxes">
+                                    {% for i in "x"|rjust:grupo.num_boxes %}
+                                    <div
+                                        class="aulas-simultaneas-box"
+                                        data-grupo="{{ grupo.id }}"
+                                        data-box-index="{{ forloop.counter0 }}"
+                                    >
+                                        <label
+                                            ><input
+                                                type="checkbox"
+                                                class="select-all-checkbox"
+                                                style="cursor: pointer"
+                                            />
+                                            Selecionar todas</label
+                                        >
+                                        {% for aula, turmas in grupo.aulas %}
+                                        <label>
+                                            <input
+                                                type="checkbox"
+                                                class="aula-checkbox"
+                                                style="cursor: pointer"
+                                                style="cursor: pointer"
+                                                data-grupo="{{ grupo.id }}"
+                                                data-aula="{{ aula }}"
+                                                data-turmas="{{ turmas|join:',' }}"
+                                            />
+                                            {% with turmas.0 as primeira %}{{ primeira }}{% for t in turmas|slice:"1:" %}, {{ t|slice:"-2:" }}{% endfor %}{% endwith %}
+                                        </label>
+                                        {% endfor %}
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %} {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
 
-                    if (allChecked) {
-                        selectAll.checked = true;
-                    } else {
-                        selectAll.checked = false;
-                    }
-                    atualizarCheckboxesDisponiveis();
-                    validarGrupos();
-                });
-            });
-        });
-    }
+        <div class="botoes-canto">
+            <div id="aviso-uma-aula-so-selecionada" class="warning-msg" style="display: none"></div>
+            <button type="button" id="btn-guardar" onclick="guardarTodasSelecoes()">Guardar Seleção</button>
+            <button type="button" id="btn-cancelar" onclick="cancelarMudancas()">Cancelar</button>
+        </div>
 
-    function cancelarMudancas() {
-        window.location.href = "/editturnos/{{ project_id }}";
-    }
+        <div id="popup-inconsistentes" class="popup-warning">
+            <p style="font-weight: bold; margin-bottom: 15px">
+                Alguns dos grupos selecionados para serem aulas em paralelo estão a ter aulas em horários diferentes
+                entre si. <br />Por favor corrija.
+            </p>
+            <div id="lista-inconsistentes"></div>
+            <button type="button" onclick="fecharPopupInconsistentes()">OK</button>
+            <div class="botoes-canto">
+                <div id="aviso-uma-aula-so-selecionada" class="warning-msg" style="display: none"></div>
+                <button type="button" id="btn-guardar" onclick="guardarTodasSelecoes()">Guardar Seleção</button>
+                <button type="button" id="btn-cancelar" onclick="cancelarMudancas()">Cancelar</button>
+            </div>
 
-    const AULAS_EM_PARALELO = {{ aulas_em_paralelo|safe }};
-
-    function preencherCheckboxesComAulasEmParalelo() {
-        const boxes = document.querySelectorAll('.aulas-simultaneas-box');
-
-        let usadas = new Set();
-
-        AULAS_EM_PARALELO.forEach(cadeia => {
-            for (let box of boxes) {
-                const boxId = box.dataset.grupo + "__" + box.dataset.boxIndex;
-                if (usadas.has(boxId)) continue;
-
-                const checkboxes = Array.from(box.querySelectorAll('.aula-checkbox'));
-                const aulaIdsNaBox = new Set(checkboxes.map(cb => cb.dataset.aula));
-
-                if (cadeia.every(aulaId => aulaIdsNaBox.has(String(aulaId)))) {
-                    console.log("Preenchida cadeia:", cadeia, "na box:", boxId);
-                    checkboxes.forEach(cb => {
-                        if (cadeia.map(String).includes(cb.dataset.aula)) {
-                            cb.checked = true;
-                        }
-                    });
-
-                    usadas.add(boxId);
-                    break;
-                }
-            }
-        });
-
-        atualizarCheckboxesDisponiveis();
-        validarGrupos();
-    }
-
-    function mostrarPopupInconsistentes(cadeias) {
-        const div = document.getElementById("lista-inconsistentes");
-        div.innerHTML = "";
-
-        cadeias.forEach((grupo, i) => {
-            div.innerHTML += `<div><strong>Grupo ${i + 1}: ${grupo.nome_uc}</strong><br>`;
-            grupo.aulas.forEach(aula => {
-                div.innerHTML += `<div style="margin-left: 10px;">- ${aula}</div>`;
-            });
-            div.innerHTML += `</div><br>`;
-        });
-
-        document.getElementById("popup-inconsistentes").style.display = "block";
-    }
-
-
-    function fecharPopupInconsistentes() {
-        document.getElementById("popup-inconsistentes").style.display = "none";
-        window.location.href = `/editturnos/{{ project_id }}`;
-    }
-
-    function mostrarPopupInconsistentes(cadeias) {
-        const div = document.getElementById("lista-inconsistentes");
-        div.innerHTML = "";
-
-        cadeias.forEach((grupo, i) => {
-            div.innerHTML += `<div><strong>Grupo ${i + 1}: ${grupo.nome_uc}</strong><br>`;
-            grupo.aulas.forEach(aula => {
-                div.innerHTML += `<div style="margin-left: 10px;">- ${aula}</div>`;
-            });
-            div.innerHTML += `</div><br>`;
-        });
-
-        document.getElementById("popup-inconsistentes").style.display = "block";
-    }
-
-
-    function fecharPopupInconsistentes() {
-        document.getElementById("popup-inconsistentes").style.display = "none";
-        window.location.href = `/editturnos/{{ project_id }}`;
-    }
-
-    document.addEventListener("DOMContentLoaded", () => {
-        aplicarSelectAllListeners();
-        atualizarCheckboxesDisponiveis();
-        preencherCheckboxesComAulasEmParalelo();
-    });
-</script>
-</body>
+            <div id="popup-inconsistentes" class="popup-warning">
+                <p style="font-weight: bold; margin-bottom: 15px">
+                    Alguns dos grupos selecionados para serem aulas em paralelo estão a ter aulas em horários diferentes
+                    entre si. <br />Por favor corrija.
+                </p>
+                <div id="lista-inconsistentes"></div>
+                <button type="button" onclick="fecharPopupInconsistentes()">OK</button>
+            </div>
+        </div>
+    </body>
 </html>

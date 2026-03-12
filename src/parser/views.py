@@ -1,7 +1,7 @@
 import logging
-import os
 import sqlite3
 from collections import defaultdict
+from pathlib import Path
 
 from django.conf import settings
 from django.http import HttpRequest, JsonResponse
@@ -35,7 +35,7 @@ def selecionar_aulas_em_paralelo(request: HttpRequest):
         return JsonResponse({"error": "Project not found"}, status=404)
 
     person = request.user
-    user_groups = set(person.core_groups.values_list("id", flat=True))
+    user_groups = set(person.member_groups.values_list("id", flat=True))
     project_groups = set(project.group.values_list("id", flat=True))
 
     if not (
@@ -46,9 +46,7 @@ def selecionar_aulas_em_paralelo(request: HttpRequest):
     ):
         return JsonResponse({"error": "Forbidden"}, status=403)
 
-    db_path = os.path.join(
-        settings.BASE_DIR, "database", f"Project{project_id}", "initial_database.db"
-    )
+    db_path = Path(settings.PROJECTS_DB_PATH) / str(project_id) / "initial_database.db"
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -116,12 +114,10 @@ def selecionar_aulas_em_paralelo(request: HttpRequest):
 
         grupos_list.append(grupo_dict)
 
-    cursos_unicos = sorted(grupo["curso"] for grupo in grupos_list)
+    cursos_unicos = {grupo["curso"] for grupo in grupos_list}
     grupos_list.sort(key=lambda g: (g["curso"], g["nomeUC"]))
 
-    general_db_path = os.path.join(
-        settings.BASE_DIR, "database", f"Project{project_id}", "general_database.db"
-    )
+    general_db_path = Path(settings.PROJECTS_DB_PATH) / str(project_id) / "general_database.db"
     general_conn = sqlite3.connect(general_db_path)
     general_conn.row_factory = sqlite3.Row
     general_cursor = general_conn.cursor()
@@ -161,7 +157,7 @@ def guardar_aulas_em_paralelo(request: HttpRequest) -> JsonResponse:
         return JsonResponse({"error": "Project not found"}, status=404)
 
     person = request.user
-    user_groups = set(person.core_groups.values_list("id", flat=True))
+    user_groups = set(person.member_groups.values_list("id", flat=True))
     project_groups = set(project.group.values_list("id", flat=True))
 
     if not (
@@ -178,9 +174,7 @@ def guardar_aulas_em_paralelo(request: HttpRequest) -> JsonResponse:
             return err
         assert validated is not None
 
-        db_path = os.path.join(
-            settings.BASE_DIR, "database", f"Project{project_id}", "general_database.db"
-        )
+        db_path = Path(settings.PROJECTS_DB_PATH) / str(project_id) / "general_database.db"
 
         with sqlite3.connect(db_path, timeout=10) as conn:
             conn.row_factory = sqlite3.Row
