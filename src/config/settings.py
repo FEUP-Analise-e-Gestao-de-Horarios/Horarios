@@ -17,6 +17,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 SRC_DIR = Path(__file__).resolve().parent.parent
 DB_DIR = BASE_DIR / "databases"
+PROJECTS_DB_PATH = DB_DIR / "projects"
 
 
 # ── Networking ──────────────────────────────────────────────────────────────────
@@ -33,21 +34,21 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 DEBUG = os.environ.get("DEBUG", "False") == "True"
 
 INSTALLED_APPS = [
-    "src.FeupScheduleEditor",
-    "src.FeupScheduleEditor.templatetags.my_filters",
-    "django.contrib.admin",
-    "django.contrib.auth",
-    "django.contrib.contenttypes",
-    #'django.contrib.sessions',
-    "django.contrib.messages",
     "daphne",
-    "django.contrib.staticfiles",
-    "src.parser",
-    "src.login",
+    "django.contrib.auth",
+    "django.contrib.admin",
     "django.contrib.sessions",
+    "django.contrib.contenttypes",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
     "src.core",
     "src.users",
+    "src.login",
     "src.getHorariosFromDB",
+    "src.projects",
+    "src.parser",
+    "src.FeupScheduleEditor",
+    "src.FeupScheduleEditor.templatetags.my_filters",
 ]
 
 if DEBUG:
@@ -107,7 +108,7 @@ USE_TZ = True
 
 
 # ── Users ───────────────────────────────────────────────────────────────────────
-AUTH_USER_MODEL = "users.CustomUser"
+AUTH_USER_MODEL = "users.User"
 
 AUTH_PASSWORD_VALIDATORS = [
     {

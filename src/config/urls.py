@@ -21,6 +21,8 @@ from src.FeupScheduleEditor import views
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("projects/", include("src.projects.urls")),
+    # TODO: Check URLs bellow
     path("parser/", include("src.parser.urls")),
     path("", views.starter),
     path("groups", views.groups),
