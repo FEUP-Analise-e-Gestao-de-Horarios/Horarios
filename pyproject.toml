@@ -1,6 +1,6 @@
 [tool.ruff]
-src = ["src"]
-line-length = 88
+src = ["."]
+line-length = 100
 target-version = "py314"
 
 [tool.ruff.lint]
@@ -12,6 +12,7 @@ select = [
     "UP",  # pyupgrade (modernise Python syntax)
     "B",   # flake8-bugbear (common bugs and design issues)
     "C4",  # flake8-comprehensions (better list/dict/set comprehensions)
+    "COM", # flake8-commas (enforce trailing commas)
     "DJ",  # flake8-django (Django-specific checks)
     "SIM", # flake8-simplify (simplifiable code patterns)
     "RUF", # Ruff-specific rules
@@ -22,16 +23,12 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = [
-    "FeupScheduleEditor",
-    "core",
-    "users",
-    "login",
-    "parser",
-    "database",
-    "getHorariosFromDB",
-]
+known-first-party = ["src"]
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+
+[tool.pyright]
+djangoSettings = "src.config.settings"
+typeCheckingMode = "strict"

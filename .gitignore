@@ -1,16 +1,13 @@
-# Django #
-*.log
-*.pot
-*.pyc
-__pycache__
-media
-src/staticfiles/*
+# Visual Studio Code # 
+.vscode/* 
+.vscode/settings.json 
+.vscode/tasks.json 
+.vscode/launch.json 
+.vscode/extensions.json 
+.history
 
 # Backup files # 
 *.bak 
-
-# pyenv 
-.python-version 
 
 # Environments 
 .env 
@@ -21,22 +18,25 @@ ENV/
 env.bak/ 
 venv.bak/ 
 
-# mkdocs documentation 
-/site 
+# Django #
+*.log
+*.pot
+*.pyc
+__pycache__
+media
+staticfiles/
+
+# pyenv 
+.python-version 
 
 # mypy 
 .mypy_cache/ 
 
-# Visual Studio Code # 
-.vscode/* 
-.vscode/settings.json 
-.vscode/tasks.json 
-.vscode/launch.json 
-.vscode/extensions.json 
-.history
-
 # Database #
 database/*
-!database/criar.sql
+!database/init_project_db.sql
 *.sqlite3
 *.db
+
+# Site mirror
+site-mirror/

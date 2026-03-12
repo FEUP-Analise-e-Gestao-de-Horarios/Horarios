@@ -6,22 +6,22 @@ from .models import Curso, Ano, Docente, UC, Aula, Sala, Bloco, AulaInfo, AulaCh
 import sqlite3
 import os
 import shutil
-import getHorariosFromDB.filteredScheduleFunctions as func
-import getHorariosFromDB.auxiliaryScheduleFunctions as auxfunc
+import src.getHorariosFromDB.filteredScheduleFunctions as func
+import src.getHorariosFromDB.auxiliaryScheduleFunctions as auxfunc
 import json
 import bleach
 import re
 from datetime import datetime
-from users.models import CustomUser
-from core.models import Group, Person, Project
+from src.users.models import User
+from src.projects.models import Group, Project
 from django.contrib import messages
-from getHorariosFromDB.movementFunctions import addDocente, removeDocente, addSala, removeSala, moveAula, changeUC, updateAulaDuration, addTurma, removeTurma
-from getHorariosFromDB.conflictFunctions import organizeInformation, findAnyConflicts
-from getHorariosFromDB.comparingDatabases import getDifferencesFromDatabases
-from getHorariosFromDB.utils import organize_changes, append_aula_data
-from getHorariosFromDB.models import Node, GraphManager, Graph, Edge, Conflict_Manager
-import getHorariosFromDB.graph as graph_controller
-from FeupScheduleEditor.utils import reverse_time_span_conversion, switch_number_to_day
+from src.getHorariosFromDB.movementFunctions import addDocente, removeDocente, addSala, removeSala, moveAula, changeUC, updateAulaDuration, addTurma, removeTurma
+from src.getHorariosFromDB.conflictFunctions import organizeInformation, findAnyConflicts
+from src.getHorariosFromDB.comparingDatabases import getDifferencesFromDatabases
+from src.getHorariosFromDB.utils import organize_changes, append_aula_data
+from src.getHorariosFromDB.models import Node, GraphManager, Graph, Edge, Conflict_Manager
+import src.getHorariosFromDB.graph as graph_controller
+from src.FeupScheduleEditor.utils import reverse_time_span_conversion, switch_number_to_day
 
 # Configure basic logging
 logging.basicConfig(
@@ -119,25 +119,25 @@ class CursoEncoder(json.JSONEncoder):
 # Auxiliary function that retrieves the list of projects that the user can see
 # Used in the starter page project cards and in the header, in most pages
 def getProjetosListAux(request, userId):
-    projects = Project.objects.values_list("person", "group", "people", "pk", "project", "isParsed")
+    projects = Project.objects.values_list("creator", "group", "people", "pk", "name", "finished_ingestion_at")
     related = []
 
-    courses = Person.objects.values("groups").filter(username = userId)
+    courses = User.objects.values("member_groups").filter(pk=userId)
 
     merge_courses = []
 
     for i in courses:
-        if not i["groups"] in merge_courses:
-            merge_courses.append(i["groups"])
+        if not i["member_groups"] in merge_courses:
+            merge_courses.append(i["member_groups"])
 
-    person = Person.objects.values("id").get(username = userId)["id"]
+    person = userId
     ids = []
     for project in projects:
         if project[3] in ids:
             continue
         elif person == project[0] or person == project[2] or (project[1] in merge_courses and project[1] != None and merge_courses != None) or request.user.is_staff:
             ids.append(project[3])
-            related.append({'id':project[3], 'nome': project[4], 'isParsed':project[5]})
+            related.append({'id':project[3], 'nome': project[4], 'finished_ingestion_at':project[5]})
     related.reverse()
     return related
 
@@ -188,11 +188,11 @@ def manageProjects(request: HttpRequest, projId: int) -> HttpResponse:
         for i in a.getlist('Remove'):
             project.group.remove(Group.objects.get(name = i))            
         for i in a.getlist('JoinP'):
-            project.people.add(Person.objects.get(username = CustomUser.objects.get(username = i)))
+            project.people.add(User.objects.get(username=i))
         for i in a.getlist('RemoveP'):
-            project.people.remove(Person.objects.get(username = CustomUser.objects.get(username = i)))
+            project.people.remove(User.objects.get(username=i))
 
-    courses = Person.objects.filter(username = request.user.pk).values("groups")
+    courses = User.objects.filter(pk=request.user.pk).values("member_groups")
 
     projCourses = Project.objects.values("group").filter(pk = projId)
 
@@ -200,7 +200,7 @@ def manageProjects(request: HttpRequest, projId: int) -> HttpResponse:
     for x in courses:
         check = True
         for i in projCourses:
-            if x['groups'] == i['group']:
+            if x['member_groups'] == i['group']:
                 check = False
         if check:
             temp.append(x)
@@ -212,7 +212,7 @@ def manageProjects(request: HttpRequest, projId: int) -> HttpResponse:
     temp = []
     if (courses):
         for i in courses:
-            temp.append(Group.objects.values_list("name", "abreviation").get(pk = i["groups"]))
+            temp.append(Group.objects.values_list("name", "abreviation").get(pk = i["member_groups"]))
 
     group.append(temp)
 
@@ -224,7 +224,7 @@ def manageProjects(request: HttpRequest, projId: int) -> HttpResponse:
 
     group.append(temp)
 
-    people = Person.objects.all().values("pk")
+    people = User.objects.all().values("pk")
 
     peopleProj = Project.objects.filter(pk = projId).values("people")
     
@@ -244,14 +244,14 @@ def manageProjects(request: HttpRequest, projId: int) -> HttpResponse:
     temp = []
     if (people):
         for i in people:
-            temp.append(Person.objects.get(pk = i['pk']))
+            temp.append(User.objects.get(pk=i['pk']))
 
     humans.append(temp)
 
     temp = []
     for i in peopleProj:
         if i["people"] != None:
-            temp.append(Person.objects.get(pk = i['people']))
+            temp.append(User.objects.get(pk=i['people']))
 
     humans.append(temp)
 
@@ -264,7 +264,7 @@ def groups(request):
 
     group = Group.objects.values_list("name", "pk", "abreviation")
     groups = []
-    people = Person.objects.values_list("username", "groups")
+    people = User.objects.values_list("pk", "member_groups")
     user_groups = []
     user_in_group = []
     user_not_in_group = []
@@ -295,16 +295,14 @@ def groups(request):
             if check:
                 b = Group(name = name, abreviation = oupt)
                 b.save()
-                person = Person.objects.get(username=request.user.pk)
-                person.groups.add(b)
+                b.members.add(request.user)
                 messages.info(request, "Grupo criado")
 
         elif "Out" in a:
             pk = request.user.pk
             if Group.objects.filter(abreviation = a.get('Out')).exists():
                 group_id = Group.objects.get(abreviation = a.get('Out'))
-                person = Person.objects.get(username=pk)
-                person.groups.remove(group_id)
+                group_id.members.remove(request.user)
 
                 check = True
                 for k in people:
@@ -318,13 +316,9 @@ def groups(request):
         else:
             group_id = Group.objects.get(abreviation = a.get('Group'))
             for i in a.getlist('Join'):
-                pk = CustomUser.objects.get(username=i)
-                person = Person.objects.get(username=pk)
-                person.groups.add(group_id)
+                group_id.members.add(User.objects.get(username=i))
             for i in a.getlist('Remove'):
-                pk = CustomUser.objects.get(username=i)
-                person = Person.objects.get(username=pk)
-                person.groups.remove(group_id) 
+                group_id.members.remove(User.objects.get(username=i))
 
     for i in people:
         if i[0] == request.user.pk:
@@ -337,12 +331,12 @@ def groups(request):
             for k in people:
                 if k[0] != request.user.pk:
                     if k[1] == i[1] or request.user.is_staff:
-                        if CustomUser.objects.get(pk=k[0]) in temp1:
-                            temp1.remove(CustomUser.objects.get(pk=k[0]))
-                        temp.append(CustomUser.objects.get(pk=k[0]))
+                        if User.objects.get(pk=k[0]) in temp1:
+                            temp1.remove(User.objects.get(pk=k[0]))
+                        temp.append(User.objects.get(pk=k[0]))
                     else:
-                        if not (CustomUser.objects.get(pk=k[0]) in temp1 or CustomUser.objects.get(pk=k[0]) in temp):
-                            temp1.append(CustomUser.objects.get(pk=k[0]))
+                        if not (User.objects.get(pk=k[0]) in temp1 or User.objects.get(pk=k[0]) in temp):
+                            temp1.append(User.objects.get(pk=k[0]))
             user_in_group.append(temp)
             user_not_in_group.append(temp1)
 

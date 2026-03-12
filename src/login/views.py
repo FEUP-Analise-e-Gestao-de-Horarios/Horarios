@@ -1,20 +1,19 @@
 from django.shortcuts import render, redirect
-from users.models import CustomUser
+from src.users.models import User
 from django.contrib import messages
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_str
 from django.contrib.auth import authenticate, login, logout
 from . tokens import generate_token
-from core.models import Person
 from django.contrib.auth.forms import PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import update_session_auth_hash
 
-from FeupScheduleEditor import settings
+from src.config import settings
 from django.core.mail import EmailMessage
 from django.template.loader import render_to_string
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
-from login.tokens import generate_token
+from src.login.tokens import generate_token
 
 
 # signin page
@@ -50,8 +49,8 @@ def signout(request):
 def activate(request,uidb64,token):
     try:
         uid = force_str(urlsafe_base64_decode(uidb64))
-        myuser = CustomUser.objects.get(pk=uid)
-    except (TypeError,ValueError,OverflowError,CustomUser.DoesNotExist):
+        myuser = User.objects.get(pk=uid)
+    except (TypeError,ValueError,OverflowError,User.DoesNotExist):
         myuser = None
 
     if myuser is not None and generate_token.check_token(myuser,token):
@@ -59,8 +58,6 @@ def activate(request,uidb64,token):
         # user.profile.signup_confirmation = True
         myuser.save()
         login(request,myuser)
-        custom = Person.objects.create(username = myuser)
-        custom.save()
         #messages.success(request, "Your Account has been activated!!")
         return redirect('password_change')
     else:
@@ -88,8 +85,8 @@ def forgot_password(request):
         return redirect('/')
     
     if request.method == 'POST':
-        if CustomUser.objects.filter(email=request.POST['email']).exists():
-            user = CustomUser.objects.get(email__exact=request.POST['email'])
+        if User.objects.filter(email=request.POST['email']).exists():
+            user = User.objects.get(email__exact=request.POST['email'])
             email_subject = "Forgot password"
             email_message = render_to_string('login/email_forgot_password.html',{
                 'name' : user.username,
@@ -136,8 +133,8 @@ def password_change_no_old_pass(request):
 def forgot_password_change(request,uidb64,token):
     try:
         uid = force_str(urlsafe_base64_decode(uidb64))
-        myuser = CustomUser.objects.get(pk=uid)
-    except (TypeError,ValueError,OverflowError,CustomUser.DoesNotExist):
+        myuser = User.objects.get(pk=uid)
+    except (TypeError,ValueError,OverflowError,User.DoesNotExist):
         myuser = None
 
     if myuser is not None and generate_token.check_token(myuser,token):
