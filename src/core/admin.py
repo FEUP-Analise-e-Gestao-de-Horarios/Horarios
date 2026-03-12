@@ -5,7 +5,7 @@ from src.projects.models import Group, Project
 
 @admin.register(Group)
 class GroupAdmin(admin.ModelAdmin):
-    search_fields = ("abreviation__startswith",)
+    search_fields = ("abbreviation__startswith",)
 
 
 @admin.register(Project)
