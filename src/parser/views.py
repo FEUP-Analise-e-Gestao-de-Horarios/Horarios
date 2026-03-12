@@ -1,8 +1,7 @@
 import logging
-import os
-from pathlib import Path
 import sqlite3
 from collections import defaultdict
+from pathlib import Path
 
 from django.conf import settings
 from django.http import HttpRequest, JsonResponse
