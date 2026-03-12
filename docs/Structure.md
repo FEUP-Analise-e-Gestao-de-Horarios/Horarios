@@ -1,6 +1,6 @@
 # Project Structure
 
-For canonical naming of domain concepts (Program, Section, Course, Session, etc.) see [Glossary](Glossary.md).
+For canonical naming of domain concepts (Degree, Section, Subject, Session, etc.) see [Glossary](Glossary.md).
 
 ## Repository Layout
 

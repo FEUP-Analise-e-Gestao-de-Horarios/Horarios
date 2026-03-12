@@ -3,7 +3,7 @@ from bs4.element import Tag
 
 from src.ingestion.rooms import ROOMS
 from src.ingestion.schemas.rooms import RoomLinks
-from src.ingestion.schemas.sections import Program, SectionLinks, Year
+from src.ingestion.schemas.sections import Degree, SectionLinks, Year
 
 
 def extract_menu_link(soup: BeautifulSoup) -> str:
@@ -109,12 +109,12 @@ def extract_teacher_links(teachers_menu: Tag) -> list[str]:
     return result
 
 
-def extract_sessions_info(sections_menu: Tag) -> list[Program]:
-    """Parse the Turmas menu section into a structured list of programs.
+def extract_sessions_info(sections_menu: Tag) -> list[Degree]:
+    """Parse the Turmas menu section into a structured list of degrees.
 
-    Traverses the deeply nested menu structure to build a list of `Program`
+    Traverses the deeply nested menu structure to build a list of `Degree`
     objects. The expected hierarchy is:
-    - Program (course acronym + name)
+    - Degree (degree acronym + name)
       - Year (year number)
         - Section/class (section code)
           - Week page URLs
@@ -124,7 +124,7 @@ def extract_sessions_info(sections_menu: Tag) -> list[Program]:
             as returned by `extract_menu_tags`.
 
     Returns:
-        A list of `Program` objects, each containing the course acronym, name,
+        A list of `Degree` objects, each containing the degree acronym, name,
         and a list of `Year` objects with their associated `SectionLinks`.
 
     Raises:
@@ -135,28 +135,28 @@ def extract_sessions_info(sections_menu: Tag) -> list[Program]:
     if ul is None:
         raise ValueError("Could not find <ul> in turmas menu")
 
-    result: list[Program] = []
+    result: list[Degree] = []
     for child in ul.find_all(recursive=False):
         child_a = child.find("a")
         if child_a is None:
             raise ValueError("Could not find <a> in turmas menu child")
 
-        course_info = child_a.contents
-        if not course_info:
+        degree_info = child_a.contents
+        if not degree_info:
             raise ValueError("Empty <a> contents in curso menu item")
 
-        course_id, course_name = str(course_info[0]).split(" - ")
+        degree_id, degree_name = str(degree_info[0]).split(" - ")
 
         child_ul = child.find("ul")
         if child_ul is None:
-            raise ValueError(f"Could not find <ul> for curso '{course_id}'")
+            raise ValueError(f"Could not find <ul> for curso '{degree_id}'")
 
         years: list[Year] = []
         for year in child_ul.find_all(recursive=False):
             year_a = year.find("a")
             if year_a is None:
                 raise ValueError(
-                    f"Could not find <a> in ano item for curso '{course_id}'",
+                    f"Could not find <a> in ano item for curso '{degree_id}'",
                 )
 
             year_number = int(str(year_a.contents[0]).split(" ")[1])
@@ -208,7 +208,7 @@ def extract_sessions_info(sections_menu: Tag) -> list[Program]:
                     links.append(week_href)
                 sections.append({"code": section_code, "links": links})
             years.append({"number": year_number, "sections": sections})
-        result.append({"acronym": course_id, "name": course_name, "years": years})
+        result.append({"acronym": degree_id, "name": degree_name, "years": years})
     return result
 
 

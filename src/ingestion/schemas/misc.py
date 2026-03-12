@@ -100,15 +100,15 @@ See Also:
 
 
 TurnosMap = dict[str, dict[int, dict[str, dict[int, list[str]]]]]
-"""Maps each program and year to its courses, each with an ordered, sorted collection of shifts.
+"""Maps each degree and year to its subjects, each with an ordered, sorted collection of shifts.
 
 Structure::
 
-    TurnosMap[program_acronym][year][course_code][turno_number] = [section1, section2, ...]
+    TurnosMap[degree_acronym][year][subject_code][turno_number] = [section1, section2, ...]
 
-- ``program_acronym`` (:class:`str`): Program acronym (e.g. ``"LEI"``).
+- ``degree_acronym`` (:class:`str`): Degree acronym (e.g. ``"LEI"``).
 - ``year`` (:class:`int`): Academic year number (e.g. ``1``, ``2``, ``3``).
-- ``course_code`` (:class:`str`): Institutional course code (e.g. ``"L.EM009"``).
+- ``subject_code`` (:class:`str`): Institutional subject code (e.g. ``"L.EM009"``).
 - ``turno_number`` (:class:`int`): 1-based shift index, assigned in sorted order.
 - The list value holds the section codes belonging to that shift.
 
@@ -126,6 +126,6 @@ Example::
     }
 
 See Also:
-    :meth:`src.ingestion.manager.IngestionManager._update_course_shifts_map` — builds this structure.
-    :meth:`src.ingestion.manager.IngestionManager._ingest_course_shifts` — flushes it to the database.
+    :meth:`src.ingestion.manager.IngestionManager._update_subject_shifts_map` — builds this structure.
+    :meth:`src.ingestion.manager.IngestionManager._ingest_subject_shifts` — flushes it to the database.
 """

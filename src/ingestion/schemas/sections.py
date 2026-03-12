@@ -4,13 +4,13 @@ from typing import TypedDict
 from src.ingestion.schemas.misc import RedBlock, WeekDay
 
 
-class Program(TypedDict):
-    """A program entry parsed from the menu.
+class Degree(TypedDict):
+    """A degree entry parsed from the menu.
 
     Attributes:
-        acronym: The program's acronym or abbreviation.
-        name: The program's full name.
-        years: The academic years belonging to this program, each containing their section links.
+        acronym: The degree's acronym or abbreviation.
+        name: The degree's full name.
+        years: The academic years belonging to this degree, each containing their section links.
     """
 
     acronym: str
@@ -19,7 +19,7 @@ class Program(TypedDict):
 
 
 class Year(TypedDict):
-    """An academic year belonging to a program, parsed from the menu.
+    """An academic year belonging to a degree, parsed from the menu.
 
     Attributes:
         number: The year number (e.g. 1, 2, 3).
@@ -49,26 +49,26 @@ class SectionPage(TypedDict):
     Attributes:
         start_date: First day of the schedule week covered by the page.
         end_date: Last day of the schedule week covered by the page.
-        courses: Courses associated with the section for this week.
+        subjects: Subjects associated with the section for this week.
         sessions: Scheduled sessions parsed from the timetable.
         red_blocks: Unavailable time slots marked on the timetable.
     """
 
     start_date: date
     end_date: date
-    courses: list[Course]
+    subjects: list[Subject]
     sessions: list[Session]
     red_blocks: list[RedBlock]
 
 
-class Course(TypedDict):
-    """A course associated with a section, parsed from a section schedule page.
+class Subject(TypedDict):
+    """A subject associated with a section, parsed from a section schedule page.
 
     Attributes:
-        code: The course's institutional code.
-        name: The course's full name.
-        acronym: The course's short abbreviation.
-        number: Number of students enrolled in this section for the course.
+        code: The subject's institutional code.
+        name: The subject's full name.
+        acronym: The subject's short abbreviation.
+        number: Number of students enrolled in this section for the subject.
     """
 
     code: str
@@ -81,7 +81,7 @@ class Session(TypedDict):
     """A single scheduled session parsed from a section timetable.
 
     Attributes:
-        course_acronym: Acronym of the course this session belongs to.
+        course_acronym: Acronym of the subject this session belongs to.
         weekday: Day of the week on which the session takes place.
         start_time: Start time encoded as ``HHMM`` (see :data:`~src.ingestion.schemas.misc.Time`).
         duration: Duration in timetable row slots (the cell's ``rowspan`` value).

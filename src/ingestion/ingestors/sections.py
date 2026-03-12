@@ -2,25 +2,25 @@ import sqlite3
 from datetime import date
 
 from src.ingestion.schemas.misc import Time, WeekDay
-from src.ingestion.schemas.sections import Course, Program, Session
+from src.ingestion.schemas.sections import Subject, Degree, Session
 
 
-def ingest_program(cursor: sqlite3.Cursor, program: Program) -> None:
-    """Insert a program record into the ``curso`` table.
+def ingest_degree(cursor: sqlite3.Cursor, degree: Degree) -> None:
+    """Insert a degree record into the ``curso`` table.
 
     Args:
         cursor: Active SQLite cursor used to execute the INSERT statement.
-        program: Program data to persist.
+        degree: Degree data to persist.
     """
     cursor.execute(
         "INSERT INTO curso(designacao, abreviacao) VALUES(?, ?)",
-        (program["acronym"], program["name"]),
+        (degree["acronym"], degree["name"]),
     )
 
 
 def ingest_section(
     cursor: sqlite3.Cursor,
-    program_acronym: str,
+    degree_acronym: str,
     year_number: int,
     section_code: str,
 ) -> None:
@@ -28,13 +28,13 @@ def ingest_section(
 
     Args:
         cursor: Active SQLite cursor used to execute the INSERT statement.
-        program_acronym: Acronym of the program the section belongs to.
-        year_number: Academic year number within the program.
+        degree_acronym: Acronym of the degree the section belongs to.
+        year_number: Academic year number within the degree.
         section_code: Unique identifier code of the section.
     """
     cursor.execute(
         "INSERT INTO turmas (idCurso, ano, codigo) VALUES (?, ?, ?)",
-        (program_acronym, year_number, section_code),
+        (degree_acronym, year_number, section_code),
     )
 
 
@@ -74,47 +74,47 @@ def ingest_section_red_blocks(
     )
 
 
-def ingest_course(
+def ingest_subject(
     cursor: sqlite3.Cursor,
-    course: Course,
-    program_acronym: str,
+    subject: Subject,
+    degree_acronym: str,
 ) -> None:
-    """Insert a course record into the ``uc`` table, ignoring duplicates.
+    """Insert a subject record into the ``uc`` table, ignoring duplicates.
 
     Args:
         cursor: Active SQLite cursor used to execute the INSERT statement.
-        course: Course data to persist.
-        program_acronym: Acronym of the program the course belongs to.
+        subject: Subject data to persist.
+        degree_acronym: Acronym of the degree the subject belongs to.
     """
     cursor.execute(
         "INSERT OR IGNORE INTO uc (codigo, idCurso, nome, sigla, codOcorrencia) VALUES (?, ?, ?, ?, ?)",
         (
-            course["code"],
-            program_acronym,
-            course["name"],
-            course["acronym"],
-            course["number"],
+            subject["code"],
+            degree_acronym,
+            subject["name"],
+            subject["acronym"],
+            subject["number"],
         ),
     )
 
 
 def ingest_session(
     cursor: sqlite3.Cursor,
-    course_code: str,
+    subject_code: str,
     session: Session,
     start_date: date,
     end_date: date,
 ) -> None:
     """Insert a session and all its associations into the database.
 
-    Inserts a row into ``aula``, then links it to its course (``aulaUC``),
+    Inserts a row into ``aula``, then links it to its subject (``aulaUC``),
     each teacher (``aulaDocente``), each section (``aulaTurmas``), and
-    each room (``aulaSala``). Also records each (section, course) pair in
+    each room (``aulaSala``). Also records each (section, subject) pair in
     ``turmaUC``. All inserts use ``INSERT OR IGNORE`` to avoid duplicates.
 
     Args:
         cursor: Active SQLite cursor used to execute the INSERT statements.
-        course_code: Institutional code of the course this session belongs to.
+        subject_code: Institutional code of the subject this session belongs to.
         session: Session data to persist.
         start_date: First day of the week range covered by this session.
         end_date: Last day of the week range covered by this session.
@@ -134,7 +134,7 @@ def ingest_session(
     id_aula = cursor.lastrowid
     cursor.execute(
         "INSERT OR IGNORE INTO aulaUC (idAula, idUC) VALUES (?, ?)",
-        (id_aula, course_code),
+        (id_aula, subject_code),
     )
 
     for teacher in session["teachers"]:
@@ -150,7 +150,7 @@ def ingest_session(
         )
         cursor.execute(
             "INSERT OR IGNORE INTO turmaUC (idTurma, idUC) VALUES (?, ?)",
-            (section, course_code),
+            (section, subject_code),
         )
 
     for room in session["room"]:

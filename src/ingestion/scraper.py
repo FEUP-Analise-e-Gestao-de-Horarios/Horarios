@@ -10,14 +10,14 @@ from src.ingestion.parsers.menu import (
 )
 from src.ingestion.parsers.red_blocks import extract_red_blocks
 from src.ingestion.parsers.section_page import (
-    extract_courses,
+    extract_subjects,
     extract_sessions,
     extract_week_dates,
 )
 from src.ingestion.parsers.teacher_page import extract_teacher_info
 from src.ingestion.schemas.misc import RedBlock
 from src.ingestion.schemas.rooms import RoomLinks
-from src.ingestion.schemas.sections import Program, SectionPage
+from src.ingestion.schemas.sections import Degree, SectionPage
 from src.ingestion.schemas.teachers import TeacherPage
 
 
@@ -70,17 +70,17 @@ class Scraper:
     # Public page-navigation methods
     # -------------------------------------------------------------------
 
-    def read_menu(self) -> tuple[list[str], list[Program], list[RoomLinks]]:
+    def read_menu(self) -> tuple[list[str], list[Degree], list[RoomLinks]]:
         """Fetch and parse the main navigation menu.
 
         Requests the root page, extracts the navigation frame URL, then fetches
         that frame and parses all three menu sections.
 
         Returns:
-            A tuple of ``(teacher_links, programs, rooms)`` where:
+            A tuple of ``(teacher_links, degrees, rooms)`` where:
 
             - ``teacher_links``: Relative URLs to individual teacher pages.
-            - ``programs``: Structured program/section hierarchy from the Turmas menu.
+            - ``degrees``: Structured degree/section hierarchy from the Turmas menu.
             - ``rooms``: Room metadata and timetable links from the Salas menu.
 
         Raises:
@@ -133,7 +133,7 @@ class Scraper:
                 a ``SectionLinks.links`` list.
 
         Returns:
-            A ``SectionPage`` with the week's date range, associated courses,
+            A ``SectionPage`` with the week's date range, associated subjects,
             scheduled sessions, and unavailable time slots.
 
         Raises:
@@ -143,14 +143,14 @@ class Scraper:
         soup = self._request(path)
 
         start_date, end_date = extract_week_dates(soup)
-        courses = extract_courses(soup)
+        subjects = extract_subjects(soup)
         sessions = extract_sessions(soup)
         red_blocks = extract_red_blocks(soup)
 
         return {
             "start_date": start_date,
             "end_date": end_date,
-            "courses": courses,
+            "subjects": subjects,
             "sessions": sessions,
             "red_blocks": red_blocks,
         }

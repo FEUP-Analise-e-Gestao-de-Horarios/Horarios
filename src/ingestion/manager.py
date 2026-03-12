@@ -9,8 +9,8 @@ from django.utils import timezone
 
 from src.ingestion.ingestors.rooms import ingest_room, ingest_room_red_blocks
 from src.ingestion.ingestors.sections import (
-    ingest_course,
-    ingest_program,
+    ingest_subject,
+    ingest_degree,
     ingest_section,
     ingest_section_red_blocks,
     ingest_session,
@@ -18,7 +18,7 @@ from src.ingestion.ingestors.sections import (
 from src.ingestion.ingestors.teachers import ingest_teacher, ingest_teacher_red_blocks
 from src.ingestion.schemas.misc import TurnosMap
 from src.ingestion.schemas.rooms import RoomLinks
-from src.ingestion.schemas.sections import Program
+from src.ingestion.schemas.sections import Degree
 from src.ingestion.scraper import Scraper
 from src.ingestion.utils import check_date_range_overlap, pre_insert_red_blocks
 from src.projects.models import Project
@@ -37,7 +37,7 @@ class IngestionManager:
         """Initialise the manager for the given project.
 
         Opens the project's SQLite database, creates a ``Scraper`` pointed at
-        the project's URL, and initializes an empty shift map used during
+        the project's URL, and initializes an empty degree shift map used during
         ingestion.
 
         Args:
@@ -54,7 +54,7 @@ class IngestionManager:
         self.cursor: sqlite3.Cursor = self.conn.cursor()
 
         self.scraper = Scraper(self.proj.url)
-        self.course_shifts_map: TurnosMap = defaultdict(
+        self.subject_shifts_map: TurnosMap = defaultdict(
             lambda: defaultdict(lambda: defaultdict(dict)),
         )
 
@@ -71,11 +71,11 @@ class IngestionManager:
 
             pre_insert_red_blocks(self.cursor, self.conn)
 
-            teacher_links, programs, rooms = self.scraper.read_menu()
+            teacher_links, degrees, rooms = self.scraper.read_menu()
             self._ingest_teachers(teacher_links)
-            self._ingest_sections(programs)
+            self._ingest_sections(degrees)
             self._ingest_rooms(rooms)
-            self._ingest_course_shifts()
+            self._ingest_subject_shifts()
 
             self._fix_sections_without_shifts()
             self._cleanup_sessions()
@@ -153,32 +153,32 @@ class IngestionManager:
                 ingest_teacher_red_blocks(self.cursor, teacher_page["code"], time, day)
             self.conn.commit()
 
-    def _ingest_sections(self, programs: list[Program]) -> None:
-        """Ingest programs, sections, courses, and sessions into the database.
+    def _ingest_sections(self, degrees: list[Degree]) -> None:
+        """Ingest degrees, sections, subjects, and sessions into the database.
 
-        First inserts all programs, then for each section fetches all weekly
+        First inserts all degrees, then for each section fetches all weekly
         schedule pages, inserts red blocks (from the first page only, as they
-        are week-invariant), and inserts courses and sessions from every page.
+        are week-invariant), and inserts subjects and sessions from every page.
         Theoretical sessions are also recorded in the internal shift map for
         later processing.
 
         Args:
-            programs: Structured program hierarchy as returned by
+            degrees: Structured degree hierarchy as returned by
                 ``Scraper.read_menu``.
 
         Raises:
             ValueError: If a section has no schedule pages.
         """
-        for program in programs:
-            ingest_program(self.cursor, program)
+        for degree in degrees:
+            ingest_degree(self.cursor, degree)
         self.conn.commit()
 
-        for program in programs:
-            for year in program["years"]:
+        for degree in degrees:
+            for year in degree["years"]:
                 for section in year["sections"]:
                     ingest_section(
                         self.cursor,
-                        program["acronym"],
+                        degree["acronym"],
                         year["number"],
                         section["code"],
                     )
@@ -204,27 +204,27 @@ class IngestionManager:
                     self.conn.commit()
 
                     for section_page in section_pages:
-                        for course in section_page["courses"]:
-                            ingest_course(self.cursor, course, program["acronym"])
+                        for subject in section_page["subjects"]:
+                            ingest_subject(self.cursor, subject, degree["acronym"])
                         self.conn.commit()
 
-                        courses_by_acronym = {s["acronym"]: s for s in section_page["courses"]}
+                        subjects_by_acronym = {s["acronym"]: s for s in section_page["subjects"]}
                         for session in section_page["sessions"]:
-                            course_code = courses_by_acronym[session["course_acronym"]]["code"]
+                            subject_code = subjects_by_acronym[session["course_acronym"]]["code"]
 
                             ingest_session(
                                 self.cursor,
-                                course_code,
+                                subject_code,
                                 session,
                                 section_page["start_date"],
                                 section_page["end_date"],
                             )
 
                             if session["is_theoretical"]:
-                                self._update_course_shifts_map(
-                                    program["acronym"],
+                                self._update_subject_shifts_map(
+                                    degree["acronym"],
                                     year["number"],
-                                    course_code,
+                                    subject_code,
                                     session["sections"],
                                 )
 
@@ -248,63 +248,63 @@ class IngestionManager:
                     ingest_room_red_blocks(self.cursor, room["name"], time, day)
             self.conn.commit()
 
-    def _ingest_course_shifts(self) -> None:
-        """Inserts all recorded course shifts into the ``turno`` table.
+    def _ingest_subject_shifts(self) -> None:
+        """Inserts all recorded subject shifts into the ``turno`` table.
 
-        Iterates over :attr:`course_shifts_map` and inserts each
-        (shift number, section, course) triple, skipping entries that already
+        Iterates over :attr:`subject_shifts_map` and inserts each
+        (shift number, section, subject) triple, skipping entries that already
         exist. A single commit is issued at the end.
         """
-        for program in self.course_shifts_map:
-            for year in self.course_shifts_map[program]:
-                for course in self.course_shifts_map[program][year]:
-                    for turno_number in self.course_shifts_map[program][year][course]:
-                        for section in self.course_shifts_map[program][year][course][turno_number]:
+        for degree in self.subject_shifts_map:
+            for year in self.subject_shifts_map[degree]:
+                for subject in self.subject_shifts_map[degree][year]:
+                    for turno_number in self.subject_shifts_map[degree][year][subject]:
+                        for section in self.subject_shifts_map[degree][year][subject][turno_number]:
                             self.cursor.execute(
                                 "SELECT * FROM turno WHERE idTurma=? AND idUC=?",
-                                (section, course),
+                                (section, subject),
                             )
                             result = self.cursor.fetchall()
                             if len(result) == 0:
                                 self.cursor.execute(
                                     "INSERT INTO turno (numero, idTurma, idUC) VALUES (?, ?, ?)",
-                                    (turno_number, section, course),
+                                    (turno_number, section, subject),
                                 )
         self.conn.commit()
 
     # -----------------------------------------------------------------------
-    # Course <-> shift management
+    # Subject <-> shift management
     # -----------------------------------------------------------------------
 
-    def _update_course_shifts_map(
+    def _update_subject_shifts_map(
         self,
-        program: str,
+        degree: str,
         year: int,
-        course_code: str,
+        subject_code: str,
         sections: list[str],
     ) -> None:
-        """Records a new shift for a course, keeping shifts sorted by their smallest section code.
+        """Records a new shift for a subject, keeping shifts sorted by their smallest section code.
 
-        If ``sections`` is already registered for this course, this is a no-op.
+        If ``sections`` is already registered for this subject, this is a no-op.
         Otherwise, adds it and re-numbers all shifts from 1 in ascending order
         of each shift's minimum section code.
 
         Args:
-            program: Acronym of the program the course belongs to.
-            year: Academic year number within the program.
-            course_code: Institutional code of the course.
+            degree: Acronym of the degree the subject belongs to.
+            year: Academic year number within the degree.
+            subject_code: Institutional code of the subject.
             sections: Section codes that form the new shift.
         """
-        course_map = self.course_shifts_map[program][year][course_code]
+        subject_map = self.subject_shifts_map[degree][year][subject_code]
 
-        if sections not in course_map.values():
+        if sections not in subject_map.values():
             all_sections = sorted(
-                [*course_map.values(), sections],
+                [*subject_map.values(), sections],
                 key=min,
             )
-            course_map.clear()
+            subject_map.clear()
             for i, sections in enumerate(all_sections, 1):
-                course_map[i] = sections
+                subject_map[i] = sections
 
     # -----------------------------------------------------------------------
     # Post processing
@@ -313,9 +313,9 @@ class IngestionManager:
     def _fix_sections_without_shifts(self) -> None:
         """Insert a placeholder shift (number 0) for sections that have no shift assigned.
 
-        Queries for all (section, course) pairs in ``turmaUC`` that have no
+        Queries for all (section, subject) pairs in ``turmaUC`` that have no
         corresponding row in ``turno``, then inserts a row with shift number 0
-        for each. This ensures every section-course association has at least one
+        for each. This ensures every section-subject association has at least one
         shift record, preventing referential gaps in downstream queries.
         """
         stmt = """
@@ -340,7 +340,7 @@ class IngestionManager:
         """Merge duplicate session records that share the same schedule and overlap in date range.
 
         Sessions are considered duplicates if they have identical schedule attributes
-        (day, time, duration, type, teacher, course unit, and class group). When
+        (day, time, duration, type, teacher, subject unit, and class group). When
         duplicates with overlapping week ranges are found, they are merged into a single
         record spanning the union of their date ranges, and the redundant record is deleted
         (along with its associated rows in aulaDocente, aulaUC, aulaSala, and aulaTurmas).
@@ -422,10 +422,10 @@ class IngestionManager:
 
     def _find_simultaneous_classes(self) -> None:
         """
-        Finds simultaneous lessons across different courses and records them in the database.
+        Finds simultaneous lessons across different subjects and records them in the database.
 
         Queries for pairs of lessons that share the same lecturer, room, day, start time,
-        and overlapping week ranges, but belong to different courses. Each such pair is
+        and overlapping week ranges, but belong to different subjects. Each such pair is
         inserted into the `aulasSimultaneas` table. Pairs are deduplicated so (A, B) and
         (B, A) are never stored as separate entries.
         """

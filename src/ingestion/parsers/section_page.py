@@ -9,7 +9,7 @@ from src.ingestion.parsers.utils import (
     matrix_from_html_table,
 )
 from src.ingestion.schemas.misc import WeekDay
-from src.ingestion.schemas.sections import Course, Session
+from src.ingestion.schemas.sections import Subject, Session
 
 THEORETICAL_SESSION = "td_tipologia_19"
 """CSS class used by the institution's schedule pages to mark theoretical sessions."""
@@ -45,8 +45,8 @@ def extract_week_dates(soup: BeautifulSoup) -> tuple[date, date]:
     return start_date, end_date
 
 
-def extract_courses(soup: BeautifulSoup) -> list[Course]:
-    """Extract the list of courses associated with a section from a section page.
+def extract_subjects(soup: BeautifulSoup) -> list[Subject]:
+    """Extract the list of subjects associated with a section from a section page.
 
     Reads the fifth table on the page (index 4), skipping the first two header
     rows. Each data row must contain exactly three cells formatted as:
@@ -56,7 +56,7 @@ def extract_courses(soup: BeautifulSoup) -> list[Course]:
         soup: Parsed HTML of a section schedule page.
 
     Returns:
-        A list of ``Course`` objects with ``code``, ``name``, ``acronym``, and
+        A list of ``Subject`` objects with ``code``, ``name``, ``acronym``, and
         ``number`` (student count) fields.
 
     Raises:
@@ -68,12 +68,12 @@ def extract_courses(soup: BeautifulSoup) -> list[Course]:
     if len(all_tables) < 5:
         raise ValueError(f"Expected at least 5 tables, found {len(all_tables)}")
 
-    courses_rows = all_tables[4].find_all("tr")[2:]
-    if not courses_rows:
-        raise ValueError("No courses rows found in the courses table")
+    subjects_rows = all_tables[4].find_all("tr")[2:]
+    if not subjects_rows:
+        raise ValueError("No subjects rows found in the subjects table")
 
-    courses: list[Course] = []
-    for row in courses_rows:
+    subjects: list[Subject] = []
+    for row in subjects_rows:
         cells = [td.get_text(strip=True) for td in row.find_all("td")]
         if len(cells) != 3:
             raise ValueError(
@@ -89,7 +89,7 @@ def extract_courses(soup: BeautifulSoup) -> list[Course]:
             raise ValueError(f"Unexpected acronym format: {raw_acronym!r}")
         acronym = acronym_match.group(1).strip()
 
-        courses.append(
+        subjects.append(
             {
                 "code": code,
                 "name": name,
@@ -98,7 +98,7 @@ def extract_courses(soup: BeautifulSoup) -> list[Course]:
             },
         )
 
-    return courses
+    return subjects
 
 
 def extract_sessions(soup: BeautifulSoup) -> list[Session]:
@@ -107,7 +107,7 @@ def extract_sessions(soup: BeautifulSoup) -> list[Session]:
     Locates every ``td_tipologia_*`` cell in the main timetable, builds a cell
     position matrix to derive each session's weekday, and reads the teachers
     table (index 3) to resolve teacher acronyms to numeric codes. For each
-    session block the function extracts: course acronym, weekday, start time,
+    session block the function extracts: subject acronym, weekday, start time,
     duration (rowspan), teacher codes, section codes, room, and whether it is a
     theoretical session (CSS class ``td_tipologia_19``).
 
@@ -183,7 +183,7 @@ def extract_sessions(soup: BeautifulSoup) -> list[Session]:
     # -- Parse sessions ----------------------------------------------------
     sessions: list[Session] = []
     for session_block in session_blocks:
-        # -- Course Acronym ----------------------------------------------------
+        # -- Subject Acronym ---------------------------------------------------
         raw_acronym = str(session_block.contents[0]).strip()
         acronym_match = re.fullmatch(r"(.+)\((\d{4}) ?- ?(\d+)\)", raw_acronym)
         if not acronym_match:
@@ -192,12 +192,12 @@ def extract_sessions(soup: BeautifulSoup) -> list[Session]:
         course_acronym_raw = acronym_match.group(1)
         if not isinstance(course_acronym_raw, str):
             raise ValueError(
-                f"Expected string for course acronym, got {type(course_acronym_raw)}: {course_acronym_raw!r}",
+                f"Expected string for subject acronym, got {type(course_acronym_raw)}: {course_acronym_raw!r}",
             )
 
         course_acronym = course_acronym_raw.strip()
         if not course_acronym:
-            raise ValueError(f"Empty course acronym in: {raw_acronym!r}")
+            raise ValueError(f"Empty subject acronym in: {raw_acronym!r}")
 
         # -- Weekday -----------------------------------------------------------
         session_column = get_cell_column(session_block, matrix)

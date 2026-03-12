@@ -2,7 +2,7 @@
 
 This document describes how schedule data is fetched from the institution's website and persisted into a project's SQLite database.
 
-For domain terminology (Program, Section, Course, Session, Red Block, etc.) see [Glossary](Glossary.md).
+For domain terminology (Degree, Section, Subject, Session, Red Block, etc.) see [Glossary](Glossary.md).
 
 ---
 
@@ -53,7 +53,7 @@ This creates a fixed reference table so that later red-block links from teachers
 1. Fetches the root URL and extracts the `<frame name="links">` src to find the navigation menu page.
 2. Fetches the menu page and locates three `<li>` sections — **Docentes**, **Turmas**, **Salas** — producing:
     - A flat list of teacher page URLs.
-    - A structured `Program → Year → Section → week URLs` hierarchy.
+    - A structured `Degree → Year → Section → week URLs` hierarchy.
     - A list of room metadata + timetable URLs.
 
 The three results are passed directly into Phases 4–6.
@@ -74,9 +74,9 @@ For each teacher URL:
 
 ### Phase 5 — Ingest Sections
 
-**5a — Programs and sections**
+**5a — Degrees and sections**
 
-All programs are inserted into `curso` first. Then, for each program → year → section:
+All degrees are inserted into `curso` first. Then, for each degree → year → section:
 
 - The section is inserted into `turmas`.
 - All weekly schedule pages are fetched (`Scraper.get_section_page`), one URL per week range.
@@ -85,19 +85,19 @@ All programs are inserted into `curso` first. Then, for each program → year �
 
 Red blocks are the same across all weeks for a given section, so only the first page is parsed for them. Each block is linked via `blocoTurma`.
 
-**5c — Courses and sessions** (for every page)
+**5c — Subjects and sessions** (for every page)
 
-- Courses are parsed from table index 4 and inserted into `uc` (skipping duplicates).
+- Subjects are parsed from table index 4 and inserted into `uc` (skipping duplicates).
 - Sessions (cells matching `td_tipologia_*`) are parsed from the main timetable:
-    - Each session block contains: course acronym, weekday, start time, duration (rowspan), teacher acronyms, section codes, and room names.
+    - Each session block contains: subject acronym, weekday, start time, duration (rowspan), teacher acronyms, section codes, and room names.
     - Teacher acronyms are resolved to numeric codes via the teachers table (index 3) on the same page.
     - Each session is inserted into `aula`, then linked into:
-        - `aulaUC` (session ↔ course)
+        - `aulaUC` (session ↔ subject)
         - `aulaDocente` (session ↔ teacher, one row per teacher)
         - `aulaTurmas` (session ↔ section, one row per section)
         - `aulaSala` (session ↔ room, one row per room)
-        - `turmaUC` (section ↔ course membership)
-    - Theoretical sessions (CSS class `td_tipologia_19`) are also recorded in the in-memory `course_shifts_map` for shift assignment in Phase 7.
+        - `turmaUC` (section ↔ subject membership)
+    - Theoretical sessions (CSS class `td_tipologia_19`) are also recorded in the in-memory `subject_shifts_map` for shift assignment in Phase 7.
 
 ---
 
@@ -111,17 +111,17 @@ For each room entry from the menu:
 
 ---
 
-### Phase 7 — Ingest Course Shifts
+### Phase 7 — Ingest Subject Shifts
 
-The `course_shifts_map` (built during Phase 5c) is structured as:
+The `subject_shifts_map` (built during Phase 5c) is structured as:
 
 ```
-program_acronym → year → course_code → shift_number → [section_codes]
+degree_acronym → year → subject_code → shift_number → [section_codes]
 ```
 
-Each unique group of sections attending the same theoretical session for a course constitutes one shift. Shifts are numbered 1..N in ascending order of each shift's minimum section code.
+Each unique group of sections attending the same theoretical session for a subject constitutes one shift. Shifts are numbered 1..N in ascending order of each shift's minimum section code.
 
-`_ingest_course_shifts()` flushes this map into the `turno` table, skipping (section, course) pairs that already have a row.
+`_ingest_subject_shifts()` flushes this map into the `turno` table, skipping (section, subject) pairs that already have a row.
 
 ---
 
@@ -129,19 +129,19 @@ Each unique group of sections attending the same theoretical session for a cours
 
 #### 8a — Fix sections without shifts (`_fix_sections_without_shifts`)
 
-Queries for every (section, course) pair present in `turmaUC` that has no corresponding row in `turno`. For each gap, a placeholder shift with `numero = 0` is inserted. This ensures every section–course pair has at least one shift record.
+Queries for every (section, subject) pair present in `turmaUC` that has no corresponding row in `turno`. For each gap, a placeholder shift with `numero = 0` is inserted. This ensures every section–subject pair has at least one shift record.
 
 #### 8b — Clean up duplicate sessions (`_cleanup_sessions`)
 
 Scraping multiple weekly pages for the same section often produces duplicate session records — identical in schedule attributes but covering different (sometimes overlapping) week ranges. This step merges them:
 
-1. Fetches all distinct session signatures: `(day, time, duration, type, teacher, course, section)`.
+1. Fetches all distinct session signatures: `(day, time, duration, type, teacher, subject, section)`.
 2. For each signature, collects all matching `aula` rows.
 3. While any two rows overlap in date range (or fall within one week of each other), the pair with the earliest start date is merged into a single record spanning the union of both ranges. The redundant row is deleted from `aula`, `aulaDocente`, `aulaUC`, `aulaSala`, and `aulaTurmas`.
 
 #### 8c — Find simultaneous classes (`_find_simultaneous_classes`)
 
-Detects pairs of sessions that share the same teacher, room, weekday, start time, and overlapping week ranges but belong to **different courses**. Each such pair is inserted into `aulasSimultaneas`. Pairs `(A, B)` and `(B, A)` are deduplicated at the SQL level using `a2.id > a1.id`.
+Detects pairs of sessions that share the same teacher, room, weekday, start time, and overlapping week ranges but belong to **different subjects**. Each such pair is inserted into `aulasSimultaneas`. Pairs `(A, B)` and `(B, A)` are deduplicated at the SQL level using `a2.id > a1.id`.
 
 ---
 
@@ -175,22 +175,22 @@ src/ingestion/
 │   │                   # extract_teacher_links, extract_sessions_info,
 │   │                   # extract_rooms_info
 │   ├── teacher_page.py # extract_teacher_info
-│   ├── section_page.py # extract_week_dates, extract_courses, extract_sessions
+│   ├── section_page.py # extract_week_dates, extract_subjects, extract_sessions
 │   ├── red_blocks.py   # extract_red_blocks
 │   └── utils.py        # matrix_from_html_table, get_cell_column,
 │                       # get_weekday_at_column
 │
 ├── ingestors/          # Python data structures → SQLite
 │   ├── teachers.py     # ingest_teacher, ingest_teacher_red_blocks
-│   ├── sections.py     # ingest_program, ingest_section,
-│   │                   # ingest_section_red_blocks, ingest_course,
+│   ├── sections.py     # ingest_degree, ingest_section,
+│   │                   # ingest_section_red_blocks, ingest_subject,
 │   │                   # ingest_session
 │   └── rooms.py        # ingest_room, ingest_room_red_blocks
 │
 └── schemas/            # TypedDict / type alias definitions
     ├── misc.py         # Matrix, Time, WeekDay, RedBlock, TurnosMap
-    ├── sections.py     # Program, Year, SectionLinks, SectionPage,
-    │                   # Course, Session
+    ├── sections.py     # Degree, Year, SectionLinks, SectionPage,
+    │                   # Subject, Session
     ├── rooms.py        # RoomLinks
     └── teachers.py     # TeacherPage
 ```
@@ -204,10 +204,10 @@ src/ingestion/
 | `blocosVermelhos`  | `pre_insert_red_blocks`      | All (weekday, time) slot combinations       |
 | `docentes`         | `ingest_teacher`             | Teacher records                             |
 | `blocoDocente`     | `ingest_teacher_red_blocks`  | Teacher ↔ unavailable slot links            |
-| `curso`            | `ingest_program`             | Program records                             |
+| `curso`            | `ingest_degree`              | Degree records                              |
 | `turmas`           | `ingest_section`             | Section records                             |
 | `blocoTurma`       | `ingest_section_red_blocks`  | Section ↔ unavailable slot links            |
-| `uc`               | `ingest_course`              | Course (UC) records                         |
+| `uc`               | `ingest_subject`             | Subject (UC) records                        |
 | `aula`             | `ingest_session`             | Session records                             |
 | `aulaUC`           | `ingest_session`             | Session ↔ course links                      |
 | `aulaDocente`      | `ingest_session`             | Session ↔ teacher links                     |
@@ -216,5 +216,5 @@ src/ingestion/
 | `turmaUC`          | `ingest_session`             | Section ↔ course membership                 |
 | `salas`            | `ingest_room`                | Room records                                |
 | `salaBloco`        | `ingest_room_red_blocks`     | Room ↔ unavailable slot links               |
-| `turno`            | `_ingest_course_shifts`      | Course shift assignments                    |
+| `turno`            | `_ingest_subject_shifts`     | Subject shift assignments                   |
 | `aulasSimultaneas` | `_find_simultaneous_classes` | Pairs of simultaneous cross-course sessions |
