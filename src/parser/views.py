@@ -47,7 +47,10 @@ def selecionar_aulas_em_paralelo(request: HttpRequest):
         return JsonResponse({"error": "Forbidden"}, status=403)
 
     db_path = os.path.join(
-        settings.BASE_DIR, "database", f"Project{project_id}", "initial_database.db"
+        settings.BASE_DIR,
+        "database",
+        f"Project{project_id}",
+        "initial_database.db",
     )
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
@@ -116,11 +119,14 @@ def selecionar_aulas_em_paralelo(request: HttpRequest):
 
         grupos_list.append(grupo_dict)
 
-    cursos_unicos = set(grupo["curso"] for grupo in grupos_list)
+    cursos_unicos = {grupo["curso"] for grupo in grupos_list}
     grupos_list.sort(key=lambda g: (g["curso"], g["nomeUC"]))
 
     general_db_path = os.path.join(
-        settings.BASE_DIR, "database", f"Project{project_id}", "general_database.db"
+        settings.BASE_DIR,
+        "database",
+        f"Project{project_id}",
+        "general_database.db",
     )
     general_conn = sqlite3.connect(general_db_path)
     general_conn.row_factory = sqlite3.Row
@@ -179,7 +185,10 @@ def guardar_aulas_em_paralelo(request: HttpRequest) -> JsonResponse:
         assert validated is not None
 
         db_path = os.path.join(
-            settings.BASE_DIR, "database", f"Project{project_id}", "general_database.db"
+            settings.BASE_DIR,
+            "database",
+            f"Project{project_id}",
+            "general_database.db",
         )
 
         with sqlite3.connect(db_path, timeout=10) as conn:
