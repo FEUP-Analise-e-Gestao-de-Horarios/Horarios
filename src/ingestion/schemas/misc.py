@@ -104,13 +104,13 @@ TurnosMap = dict[str, dict[int, dict[str, dict[int, list[str]]]]]
 
 Structure::
 
-    TurnosMap[degree_acronym][year][subject_code][turno_number] = [section1, section2, ...]
+    TurnosMap[degree_acronym][year][subject_code][turno_number] = [group1, group2, ...]
 
 - ``degree_acronym`` (:class:`str`): Degree acronym (e.g. ``"LEI"``).
 - ``year`` (:class:`int`): Academic year number (e.g. ``1``, ``2``, ``3``).
 - ``subject_code`` (:class:`str`): Institutional subject code (e.g. ``"L.EM009"``).
 - ``turno_number`` (:class:`int`): 1-based shift index, assigned in sorted order.
-- The list value holds the section codes belonging to that shift.
+- The list value holds the group codes belonging to that shift.
 
 Example::
 

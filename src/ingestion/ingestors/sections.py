@@ -2,7 +2,7 @@ import sqlite3
 from datetime import date
 
 from src.ingestion.schemas.misc import Time, WeekDay
-from src.ingestion.schemas.sections import Subject, Degree, Session
+from src.ingestion.schemas.sections import Degree, Session, Subject
 
 
 def ingest_degree(cursor: sqlite3.Cursor, degree: Degree) -> None:
@@ -18,41 +18,41 @@ def ingest_degree(cursor: sqlite3.Cursor, degree: Degree) -> None:
     )
 
 
-def ingest_section(
+def ingest_group(
     cursor: sqlite3.Cursor,
     degree_acronym: str,
     year_number: int,
-    section_code: str,
+    group_code: str,
 ) -> None:
-    """Insert a section record into the ``turmas`` table.
+    """Insert a group record into the ``turmas`` table.
 
     Args:
         cursor: Active SQLite cursor used to execute the INSERT statement.
-        degree_acronym: Acronym of the degree the section belongs to.
+        degree_acronym: Acronym of the degree the group belongs to.
         year_number: Academic year number within the degree.
-        section_code: Unique identifier code of the section.
+        group_code: Unique identifier code of the group.
     """
     cursor.execute(
         "INSERT INTO turmas (idCurso, ano, codigo) VALUES (?, ?, ?)",
-        (degree_acronym, year_number, section_code),
+        (degree_acronym, year_number, group_code),
     )
 
 
-def ingest_section_red_blocks(
+def ingest_group_red_blocks(
     cursor: sqlite3.Cursor,
-    section_code: str,
+    group_code: str,
     time: Time,
     day: WeekDay,
 ) -> None:
-    """Link an unavailability block to a section in the ``blocoTurma`` table.
+    """Link an unavailability block to a group in the ``blocoTurma`` table.
 
     Looks up the ``blocosVermelhos`` row for the given time and day, then
-    inserts a ``(block_id, section_code)`` pair into ``blocoTurma``,
+    inserts a ``(block_id, group_code)`` pair into ``blocoTurma``,
     ignoring duplicates.
 
     Args:
         cursor: Active SQLite cursor used to execute the queries.
-        section_code: Identifier of the section to associate with the block.
+        group_code: Identifier of the group to associate with the block.
         time: Time slot encoded as ``HHMM`` (e.g. ``900`` for 09:00).
         day: Day of the week for the unavailability block.
 
@@ -70,7 +70,7 @@ def ingest_section_red_blocks(
 
     cursor.execute(
         "INSERT OR IGNORE INTO blocoTurma (idBloco, idTurma) VALUES (?, ?)",
-        (result[0], section_code),
+        (result[0], group_code),
     )
 
 
@@ -108,8 +108,8 @@ def ingest_session(
     """Insert a session and all its associations into the database.
 
     Inserts a row into ``aula``, then links it to its subject (``aulaUC``),
-    each teacher (``aulaDocente``), each section (``aulaTurmas``), and
-    each room (``aulaSala``). Also records each (section, subject) pair in
+    each teacher (``aulaDocente``), each group (``aulaTurmas``), and
+    each room (``aulaSala``). Also records each (group, subject) pair in
     ``turmaUC``. All inserts use ``INSERT OR IGNORE`` to avoid duplicates.
 
     Args:
@@ -143,14 +143,14 @@ def ingest_session(
             (id_aula, teacher),
         )
 
-    for section in session["sections"]:
+    for group in session["groups"]:
         cursor.execute(
             "INSERT OR IGNORE INTO aulaTurmas (idAula, idTurma) VALUES (?, ?)",
-            (id_aula, section),
+            (id_aula, group),
         )
         cursor.execute(
             "INSERT OR IGNORE INTO turmaUC (idTurma, idUC) VALUES (?, ?)",
-            (section, subject_code),
+            (group, subject_code),
         )
 
     for room in session["room"]:

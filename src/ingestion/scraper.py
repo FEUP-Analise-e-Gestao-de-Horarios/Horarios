@@ -10,14 +10,14 @@ from src.ingestion.parsers.menu import (
 )
 from src.ingestion.parsers.red_blocks import extract_red_blocks
 from src.ingestion.parsers.section_page import (
-    extract_subjects,
     extract_sessions,
+    extract_subjects,
     extract_week_dates,
 )
 from src.ingestion.parsers.teacher_page import extract_teacher_info
 from src.ingestion.schemas.misc import RedBlock
 from src.ingestion.schemas.rooms import RoomLinks
-from src.ingestion.schemas.sections import Degree, SectionPage
+from src.ingestion.schemas.sections import Degree, GroupPage
 from src.ingestion.schemas.teachers import TeacherPage
 
 
@@ -80,7 +80,7 @@ class Scraper:
             A tuple of ``(teacher_links, degrees, rooms)`` where:
 
             - ``teacher_links``: Relative URLs to individual teacher pages.
-            - ``degrees``: Structured degree/section hierarchy from the Turmas menu.
+            - ``degrees``: Structured degree/group hierarchy from the Turmas menu.
             - ``rooms``: Room metadata and timetable links from the Salas menu.
 
         Raises:
@@ -125,15 +125,15 @@ class Scraper:
             "red_blocks": red_blocks,
         }
 
-    def get_section_page(self, path: str) -> SectionPage:
-        """Fetch and parse a section's weekly schedule page.
+    def get_group_page(self, path: str) -> GroupPage:
+        """Fetch and parse a group's weekly schedule page.
 
         Args:
-            path: Relative URL to the section's schedule page, as found in
-                a ``SectionLinks.links`` list.
+            path: Relative URL to the group's schedule page, as found in
+                a ``GroupLinks.links`` list.
 
         Returns:
-            A ``SectionPage`` with the week's date range, associated subjects,
+            A ``GroupPage`` with the week's date range, associated subjects,
             scheduled sessions, and unavailable time slots.
 
         Raises:

@@ -10,7 +10,7 @@ class Degree(TypedDict):
     Attributes:
         acronym: The degree's acronym or abbreviation.
         name: The degree's full name.
-        years: The academic years belonging to this degree, each containing their section links.
+        years: The academic years belonging to this degree, each containing their group links.
     """
 
     acronym: str
@@ -23,19 +23,19 @@ class Year(TypedDict):
 
     Attributes:
         number: The year number (e.g. 1, 2, 3).
-        sections: The sections offered in this year, each containing their schedule links.
+        groups: The groups offered in this year, each containing their schedule links.
     """
 
     number: int
-    sections: list[SectionLinks]
+    groups: list[GroupLinks]
 
 
-class SectionLinks(TypedDict):
-    """A section entry parsed from the menu, with links to its schedule pages.
+class GroupLinks(TypedDict):
+    """A group entry parsed from the menu, with links to its schedule pages.
 
     Attributes:
-        code: The section's identifier code.
-        links: URLs to the section's schedule pages. Multiple links indicate different
+        code: The group's identifier code.
+        links: URLs to the group's schedule pages. Multiple links indicate different
             week ranges covered by separate schedule pages.
     """
 
@@ -43,13 +43,13 @@ class SectionLinks(TypedDict):
     links: list[str]
 
 
-class SectionPage(TypedDict):
-    """All data extracted from a single section schedule page.
+class GroupPage(TypedDict):
+    """All data extracted from a single group schedule page.
 
     Attributes:
         start_date: First day of the schedule week covered by the page.
         end_date: Last day of the schedule week covered by the page.
-        subjects: Subjects associated with the section for this week.
+        subjects: Subjects associated with the group for this week.
         sessions: Scheduled sessions parsed from the timetable.
         red_blocks: Unavailable time slots marked on the timetable.
     """
@@ -62,13 +62,13 @@ class SectionPage(TypedDict):
 
 
 class Subject(TypedDict):
-    """A subject associated with a section, parsed from a section schedule page.
+    """A subject associated with a group, parsed from a group schedule page.
 
     Attributes:
         code: The subject's institutional code.
         name: The subject's full name.
         acronym: The subject's short abbreviation.
-        number: Number of students enrolled in this section for the subject.
+        number: Number of students enrolled in this group for the subject.
     """
 
     code: str
@@ -78,26 +78,26 @@ class Subject(TypedDict):
 
 
 class Session(TypedDict):
-    """A single scheduled session parsed from a section timetable.
+    """A single scheduled session parsed from a group timetable.
 
     Attributes:
-        course_acronym: Acronym of the subject this session belongs to.
+        subject_acronym: Acronym of the subject this session belongs to.
         weekday: Day of the week on which the session takes place.
         start_time: Start time encoded as ``HHMM`` (see :data:`~src.ingestion.schemas.misc.Time`).
         duration: Duration in timetable row slots (the cell's ``rowspan`` value).
         teachers: Numeric codes of the teachers assigned to this session.
-        sections: Section codes participating in this session.
+        groups: Group codes participating in this session.
         room: Names of the rooms where the session takes place. Contains
             ``["Online"]`` when no room is listed in the session block.
         is_theoretical: ``True`` if the session is theoretical
             (CSS class ``td_tipologia_19``), ``False`` otherwise.
     """
 
-    course_acronym: str
+    subject_acronym: str
     weekday: WeekDay
     start_time: int
     duration: int
     teachers: list[int]
-    sections: list[str]
+    groups: list[str]
     room: list[str]
     is_theoretical: bool
