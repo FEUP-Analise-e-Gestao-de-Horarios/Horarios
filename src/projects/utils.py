@@ -32,10 +32,8 @@ def create_project_db(proj_id: int) -> Path:
     try:
         schema: str = (settings.DB_DIR / "init_project_db.sql").read_text()
         for db_name in ("general_database.db", "initial_database.db"):
-            conn = sqlite3.connect(path / db_name)
-            conn.cursor().executescript(schema)
-            conn.commit()
-            conn.close()
+            with sqlite3.connect(path / db_name) as conn:
+                conn.executescript(schema)
 
     except Exception:
         shutil.rmtree(path, ignore_errors=True)
