@@ -29,8 +29,9 @@
             {% for curso in cursos %}
             <div class="curso-wrapper" data-curso="{{ curso }}">
                 <h2>Curso {{ curso }}</h2>
-                {% regroup grupos_aulas_ao_mesmo_tempo by nomeUC as grupos_por_uc %} {% for uc in grupos_por_uc %} {% if
-                uc.grouper and uc.list.0.curso == curso %}
+                {% regroup grupos_aulas_ao_mesmo_tempo by nomeUC as grupos_por_uc %}
+                {% for uc in grupos_por_uc %}
+                {% if uc.grouper and uc.list.0.curso == curso %}
                 <div class="uc-container">
                     <h4 onclick="toggleUC(this)" style="cursor: pointer">
                         <span class="toggle-icon">▾</span> {{ uc.grouper }} &emsp; {{ uc.list.0.uc }}
@@ -71,8 +72,7 @@
                                                 data-aula="{{ aula }}"
                                                 data-turmas="{{ turmas|join:',' }}"
                                             />
-                                            {% with turmas.0 as primeira %} {{ primeira }}{% for t in turmas|slice:"1:"
-                                            %}, {{ t|slice:"-2:" }}{% endfor %} {% endwith %}
+                                            {% with turmas.0 as primeira %}{{ primeira }}{% for t in turmas|slice:"1:" %}, {{ t|slice:"-2:" }}{% endfor %}{% endwith %}
                                         </label>
                                         {% endfor %}
                                     </div>

@@ -22,6 +22,8 @@ from src.getHorariosFromDB.utils import organize_changes, append_aula_data
 from src.getHorariosFromDB.models import Node, GraphManager, Graph, Edge, Conflict_Manager
 import src.getHorariosFromDB.graph as graph_controller
 from src.FeupScheduleEditor.utils import reverse_time_span_conversion, switch_number_to_day
+from django.conf import settings
+from pathlib import Path
 
 # Configure basic logging
 logging.basicConfig(
@@ -411,7 +413,7 @@ def editTurnos(request: HttpRequest, projId: int) -> HttpResponse:
         return redirect(f'/parser/selecionar_aulas_em_paralelo/?id={projId}')
 
     #salas e docentes para dropdown select
-    conn = sqlite3.connect('./database/Project'+ str(projId)+'/general_database.db')
+    conn = sqlite3.connect(Path(settings.PROJECTS_DB_PATH) / str(projId) / 'general_database.db')
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -626,7 +628,7 @@ def uc_view(request: HttpRequest, projId: int, uc_codigo: str) -> HttpResponse:
     projeto = Project.objects.values_list().get(id=projId)
     
     # Get UC information
-    conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
+    conn = sqlite3.connect(Path(settings.PROJECTS_DB_PATH) / str(projId) / 'general_database.db')
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
@@ -742,7 +744,7 @@ def distribuicao_view(request):
     
     for ucCodigo in ucsLista:
         path = "Project" + str(projId)
-        conn = sqlite3.connect('./database/' + path + '/general_database.db', check_same_thread=False)
+        conn = sqlite3.connect(Path(settings.PROJECTS_DB_PATH) / str(projId) / 'general_database.db')
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         query = '''SELECT sigla FROM uc WHERE codigo = ?;'''
@@ -900,7 +902,7 @@ def swap_teachers(request, projId):
         except (json.JSONDecodeError, ValueError) as e:
             return JsonResponse({"success": False, "error": "Invalid request data"}, status=400)
 
-        conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
+        conn = sqlite3.connect(Path(settings.PROJECTS_DB_PATH) / str(projId) / 'general_database.db')
         cursor = conn.cursor()
         
         try:
@@ -987,7 +989,7 @@ def swap_aulas(request, projId):
                    aula1.get('newHora'), aula2.get('newHora')]):
             return JsonResponse({"success": False, "error": "Missing required parameters"}, status=400)
 
-        conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
+        conn = sqlite3.connect(Path(settings.PROJECTS_DB_PATH) / str(projId) / 'general_database.db')
         cursor = conn.cursor()
         
         try:
@@ -1048,7 +1050,7 @@ def uc_changes(request, projId):
         data = json.loads(request.body)
         change_type = data.get('type')  # 'move', 'swap', or 'teacher'
         
-        conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
+        conn = sqlite3.connect(Path(settings.PROJECTS_DB_PATH) / str(projId) / 'general_database.db')
         cursor = conn.cursor()
         
         try:
@@ -1197,7 +1199,7 @@ def makeChanges(request, projId):
     salasIds   = data['salasIds']
 
     #get original data for comparison
-    conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
+    conn = sqlite3.connect(Path(settings.PROJECTS_DB_PATH) / str(projId) / 'general_database.db')
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -1303,7 +1305,7 @@ def getAulaSimultaneasParalelas(request):
         if request.method != "GET" and not request.is_ajax():
             return JsonResponse({"error": "Invalid request", "id": projId}, status=400)
 
-        conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
+        conn = sqlite3.connect(Path(settings.PROJECTS_DB_PATH) / str(projId) / 'general_database.db')
         cursor = conn.cursor()
 
         show_popup_paralelo = False
@@ -1497,7 +1499,7 @@ def editDocentes(request, projId):
     #projetos = Project.objects.filter(person = Person.objects.get(username = request.user.pk))
     projetos = getProjetosListAux(request, request.user.pk)
 
-    conn = sqlite3.connect('./database/Project'+ str(projId)+'/general_database.db')
+    conn = sqlite3.connect(Path(settings.PROJECTS_DB_PATH) / str(projId) / 'general_database.db')
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -1529,7 +1531,7 @@ def editDocentesMakeChange(request, projId):
     siglaDocente = bleach.clean(data['siglaDocente'])
     oldId        = data['oldId']
 
-    conn = sqlite3.connect('./database/Project'+ str(projId)+'/general_database.db')
+    conn = sqlite3.connect(Path(settings.PROJECTS_DB_PATH) / str(projId) / 'general_database.db')
     cursor = conn.cursor()
 
     #print(f'editDocentesMakeChange: projId: {projId}, idDocente: {idDocente}, nomeDocente: {nomeDocente}, siglaDocente:{siglaDocente}, oldIdDocente: {oldId}')
@@ -1565,7 +1567,7 @@ def createDocente(request, projId):
     nomeDocente = bleach.clean(request.POST.get('nomeDocente'))
     siglaDocente = bleach.clean(request.POST.get('siglaDocente'))
 
-    conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
+    conn = sqlite3.connect(Path(settings.PROJECTS_DB_PATH) / str(projId) / 'general_database.db')
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     stmt = ''' SELECT * FROM docentes WHERE numeroMecanografico = ?'''
@@ -1619,7 +1621,7 @@ def get_aula_info(projId, aulaId):
     Retrieves complete AulaInfo for a specific aula from the project database
     Returns an AulaInfo object or None if not found
     """
-    conn = sqlite3.connect(f'./database/Project{projId}/general_database.db')
+    conn = sqlite3.connect(Path(settings.PROJECTS_DB_PATH) / str(projId) / 'general_database.db')
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
