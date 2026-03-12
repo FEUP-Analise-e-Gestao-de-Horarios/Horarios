@@ -6,11 +6,11 @@ For canonical naming of domain concepts (Degree, Group, Subject, Session, etc.) 
 
 ```
 PI/
-├── docs/               # Project documentation
-├── databases/          # SQLite databases
-│   ├── db.sqlite3      # Django meta-database (users, projects, groups)
-│   ├── criar.sql       # DDL for a project's schedule database
-│   └── projects/       # Per-project schedule databases
+├── docs/                     # Project documentation
+├── databases/                # SQLite databases
+│   ├── db.sqlite3            # Django meta-database (users, projects, groups)
+│   ├── init_project_db.sql   # DDL for a project's schedule database
+│   └── projects/             # Per-project schedule databases
 │       └── <id>/
 │           ├── general_database.db   # Live working database
 │           └── initial_database.db   # Snapshot taken after ingestion

@@ -11,7 +11,7 @@ def create_project_db(proj_id: int) -> Path:
     Creates a subdirectory under ``settings.PROJECTS_DB_PATH`` named after
     ``proj_id`` and initializes two SQLite databases (``general_database.db``
     and ``initial_database.db``) using the SQL schema at
-    ``settings.DB_DIR/criar.sql``. If any step fails the directory is
+    ``settings.DB_DIR/init_project_db.sql``. If any step fails the directory is
     removed before re-raising the exception.
 
     Args:
@@ -30,7 +30,7 @@ def create_project_db(proj_id: int) -> Path:
     path.mkdir(parents=True, exist_ok=False)
 
     try:
-        schema: str = (settings.DB_DIR / "criar.sql").read_text()
+        schema: str = (settings.DB_DIR / "init_project_db.sql").read_text()
         for db_name in ("general_database.db", "initial_database.db"):
             conn = sqlite3.connect(path / db_name)
             conn.cursor().executescript(schema)

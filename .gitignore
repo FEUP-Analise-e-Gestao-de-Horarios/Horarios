@@ -34,7 +34,7 @@ staticfiles/
 
 # Database #
 database/*
-!database/criar.sql
+!database/init_project_db.sql
 *.sqlite3
 *.db
 
