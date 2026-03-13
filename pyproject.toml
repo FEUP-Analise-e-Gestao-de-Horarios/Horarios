@@ -32,3 +32,8 @@ indent-style = "space"
 [tool.pyright]
 djangoSettings = "src.config.settings"
 typeCheckingMode = "strict"
+deprecateTypingAliases = true
+enableReachabilityAnalysis = true
+strictDictionaryInference = true
+strictListInference = true
+strictSetInference = true
