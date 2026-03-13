@@ -38,7 +38,7 @@ def ingest_class(
     )
 
 
-def ingest_classred_blocks(
+def ingest_class_red_blocks(
     cursor: sqlite3.Cursor,
     class_code: str,
     time: Time,

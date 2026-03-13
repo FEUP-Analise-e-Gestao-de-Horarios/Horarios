@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from src.ingestion.ingestors.classes import (
     ingest_class,
-    ingest_classred_blocks,
+    ingest_class_red_blocks,
     ingest_degree,
     ingest_session,
     ingest_subject,
@@ -193,7 +193,7 @@ class IngestionManager:
                     # A class's red blocks only need to be parsed once,
                     # since they don't change between weeks
                     for time, day in class_pages[0]["red_blocks"]:
-                        ingest_classred_blocks(
+                        ingest_class_red_blocks(
                             self.cursor,
                             class_["code"],
                             time,
