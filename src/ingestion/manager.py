@@ -7,18 +7,18 @@ from pathlib import Path
 from django.conf import settings
 from django.utils import timezone
 
-from src.ingestion.ingestors.rooms import ingest_room, ingest_room_red_blocks
-from src.ingestion.ingestors.sections import (
+from src.ingestion.ingestors.classes import (
     ingest_class,
     ingest_classred_blocks,
     ingest_degree,
     ingest_session,
     ingest_subject,
 )
+from src.ingestion.ingestors.rooms import ingest_room, ingest_room_red_blocks
 from src.ingestion.ingestors.teachers import ingest_teacher, ingest_teacher_red_blocks
+from src.ingestion.schemas.classes import Degree
 from src.ingestion.schemas.misc import TurnosMap
 from src.ingestion.schemas.rooms import RoomLinks
-from src.ingestion.schemas.sections import Degree
 from src.ingestion.scraper import Scraper
 from src.ingestion.utils import check_date_range_overlap, pre_insert_red_blocks
 from src.projects.models import Project

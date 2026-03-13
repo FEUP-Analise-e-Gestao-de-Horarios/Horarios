@@ -2,8 +2,8 @@ from bs4 import BeautifulSoup
 from bs4.element import Tag
 
 from src.ingestion.rooms import ROOMS
+from src.ingestion.schemas.classes import ClassLinks, Degree, Year
 from src.ingestion.schemas.rooms import RoomLinks
-from src.ingestion.schemas.sections import ClassLinks, Degree, Year
 
 
 def extract_menu_link(soup: BeautifulSoup) -> str:

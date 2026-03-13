@@ -8,8 +8,8 @@ from src.ingestion.parsers.utils import (
     get_weekday_at_column,
     matrix_from_html_table,
 )
+from src.ingestion.schemas.classes import Session, Subject
 from src.ingestion.schemas.misc import WeekDay
-from src.ingestion.schemas.sections import Session, Subject
 
 THEORETICAL_SESSION = "td_tipologia_19"
 """CSS class used by the institution's schedule pages to mark theoretical sessions."""

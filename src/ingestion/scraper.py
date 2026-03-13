@@ -1,6 +1,11 @@
 import requests
 from bs4 import BeautifulSoup
 
+from src.ingestion.parsers.class_page import (
+    extract_sessions,
+    extract_subjects,
+    extract_week_dates,
+)
 from src.ingestion.parsers.menu import (
     extract_menu_link,
     extract_menu_tags,
@@ -9,15 +14,10 @@ from src.ingestion.parsers.menu import (
     extract_teacher_links,
 )
 from src.ingestion.parsers.red_blocks import extract_red_blocks
-from src.ingestion.parsers.section_page import (
-    extract_sessions,
-    extract_subjects,
-    extract_week_dates,
-)
 from src.ingestion.parsers.teacher_page import extract_teacher_info
+from src.ingestion.schemas.classes import ClassPage, Degree
 from src.ingestion.schemas.misc import RedBlock
 from src.ingestion.schemas.rooms import RoomLinks
-from src.ingestion.schemas.sections import ClassPage, Degree
 from src.ingestion.schemas.teachers import TeacherPage
 
 

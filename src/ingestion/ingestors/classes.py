@@ -1,8 +1,8 @@
 import sqlite3
 from datetime import date
 
+from src.ingestion.schemas.classes import Degree, Session, Subject
 from src.ingestion.schemas.misc import Time, WeekDay
-from src.ingestion.schemas.sections import Degree, Session, Subject
 
 
 def ingest_degree(cursor: sqlite3.Cursor, degree: Degree) -> None:
