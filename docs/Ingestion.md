@@ -183,7 +183,7 @@ src/ingestion/
 ├── ingestors/          # Python data structures → SQLite
 │   ├── teachers.py     # ingest_teacher, ingest_teacher_red_blocks
 │   ├── sections.py     # ingest_degree, ingest_class,
-│   │                   # ingest_classred_blocks, ingest_subject,
+│   │                   # ingest_class_red_blocks, ingest_subject,
 │   │                   # ingest_session
 │   └── rooms.py        # ingest_room, ingest_room_red_blocks
 │
@@ -206,7 +206,7 @@ src/ingestion/
 | `blocoDocente`     | `ingest_teacher_red_blocks`  | Teacher ↔ unavailable slot links             |
 | `curso`            | `ingest_degree`              | Degree records                               |
 | `turmas`           | `ingest_class`               | Class records                                |
-| `blocoTurma`       | `ingest_classred_blocks`     | Class ↔ unavailable slot links               |
+| `blocoTurma`       | `ingest_class_red_blocks`    | Class ↔ unavailable slot links               |
 | `uc`               | `ingest_subject`             | Subject (UC) records                         |
 | `aula`             | `ingest_session`             | Session records                              |
 | `aulaUC`           | `ingest_session`             | Session ↔ subject links                      |
