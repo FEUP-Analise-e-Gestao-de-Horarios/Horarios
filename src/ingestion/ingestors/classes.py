@@ -14,7 +14,7 @@ def ingest_degree(cursor: sqlite3.Cursor, degree: Degree) -> None:
     """
     cursor.execute(
         "INSERT INTO curso(designacao, abreviacao) VALUES(?, ?)",
-        (degree["acronym"], degree["name"]),
+        (degree["name"], degree["acronym"]),
     )
 
 
