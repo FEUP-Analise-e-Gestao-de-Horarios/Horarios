@@ -110,7 +110,7 @@ Structure::
 - ``year`` (:class:`int`): Academic year number (e.g. ``1``, ``2``, ``3``).
 - ``subject_code`` (:class:`str`): Institutional subject code (e.g. ``"L.EM009"``).
 - ``turno_number`` (:class:`int`): 1-based shift index, assigned in sorted order.
-- The list value holds the group codes belonging to that shift.
+- The list value holds the class codes belonging to that shift.
 
 Example::
 

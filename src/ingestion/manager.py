@@ -9,9 +9,9 @@ from django.utils import timezone
 
 from src.ingestion.ingestors.rooms import ingest_room, ingest_room_red_blocks
 from src.ingestion.ingestors.sections import (
+    ingest_class,
+    ingest_classred_blocks,
     ingest_degree,
-    ingest_group,
-    ingest_group_red_blocks,
     ingest_session,
     ingest_subject,
 )
@@ -62,7 +62,7 @@ class IngestionManager:
         """Execute the full ingestion pipeline.
 
         Runs setup, pre-populates the red-blocks table, scrapes and ingests
-        teachers, groups, and rooms, then runs post-processing steps. On
+        teachers, classes, and rooms, then runs post-processing steps. On
         success, calls ``_teardown_success``; on any exception, calls
         ``_teardown_failure`` and re-raises.
         """
@@ -73,11 +73,11 @@ class IngestionManager:
 
             teacher_links, degrees, rooms = self.scraper.read_menu()
             self._ingest_teachers(teacher_links)
-            self._ingest_groups(degrees)
+            self._ingest_classes(degrees)
             self._ingest_rooms(rooms)
             self._ingest_subject_shifts()
 
-            self._fix_groups_without_shifts()
+            self._fix_classes_without_shifts()
             self._cleanup_sessions()
             self._find_simultaneous_classes()
 
@@ -153,10 +153,10 @@ class IngestionManager:
                 ingest_teacher_red_blocks(self.cursor, teacher_page["code"], time, day)
             self.conn.commit()
 
-    def _ingest_groups(self, degrees: list[Degree]) -> None:
-        """Ingest degrees, groups, subjects, and sessions into the database.
+    def _ingest_classes(self, degrees: list[Degree]) -> None:
+        """Ingest degrees, classes, subjects, and sessions into the database.
 
-        First inserts all degrees, then for each group fetches all weekly
+        First inserts all degrees, then for each class fetches all weekly
         schedule pages, inserts red blocks (from the first page only, as they
         are week-invariant), and inserts subjects and sessions from every page.
         Theoretical sessions are also recorded in the internal shift map for
@@ -167,7 +167,7 @@ class IngestionManager:
                 ``Scraper.read_menu``.
 
         Raises:
-            ValueError: If a group has no schedule pages.
+            ValueError: If a class has no schedule pages.
         """
         for degree in degrees:
             ingest_degree(self.cursor, degree)
@@ -175,47 +175,47 @@ class IngestionManager:
 
         for degree in degrees:
             for year in degree["years"]:
-                for group in year["groups"]:
-                    ingest_group(
+                for class_ in year["classes"]:
+                    ingest_class(
                         self.cursor,
                         degree["acronym"],
                         year["number"],
-                        group["code"],
+                        class_["code"],
                     )
                     self.conn.commit()
 
-                    group_pages = [self.scraper.get_group_page(link) for link in group["links"]]
-                    if not group_pages:
+                    class_pages = [self.scraper.get_class_page(link) for link in class_["links"]]
+                    if not class_pages:
                         raise ValueError(
-                            f"No pages found for group {group['code']}",
+                            f"No pages found for class {class_['code']}",
                         )
 
                     # A class's red blocks only need to be parsed once,
                     # since they don't change between weeks
-                    for time, day in group_pages[0]["red_blocks"]:
-                        ingest_group_red_blocks(
+                    for time, day in class_pages[0]["red_blocks"]:
+                        ingest_classred_blocks(
                             self.cursor,
-                            group["code"],
+                            class_["code"],
                             time,
                             day,
                         )
                     self.conn.commit()
 
-                    for group_page in group_pages:
-                        for subject in group_page["subjects"]:
+                    for class_page in class_pages:
+                        for subject in class_page["subjects"]:
                             ingest_subject(self.cursor, subject, degree["acronym"])
                         self.conn.commit()
 
-                        subjects_by_acronym = {s["acronym"]: s for s in group_page["subjects"]}
-                        for session in group_page["sessions"]:
+                        subjects_by_acronym = {s["acronym"]: s for s in class_page["subjects"]}
+                        for session in class_page["sessions"]:
                             subject_code = subjects_by_acronym[session["subject_acronym"]]["code"]
 
                             ingest_session(
                                 self.cursor,
                                 subject_code,
                                 session,
-                                group_page["start_date"],
-                                group_page["end_date"],
+                                class_page["start_date"],
+                                class_page["end_date"],
                             )
 
                             if session["is_theoretical"]:
@@ -223,7 +223,7 @@ class IngestionManager:
                                     degree["acronym"],
                                     year["number"],
                                     subject_code,
-                                    session["groups"],
+                                    session["classes"],
                                 )
 
                     self.conn.commit()
@@ -250,23 +250,23 @@ class IngestionManager:
         """Inserts all recorded subject shifts into the ``turno`` table.
 
         Iterates over :attr:`subject_shifts_map` and inserts each
-        (shift number, group, subject) triple, skipping entries that already
+        (shift number, class, subject) triple, skipping entries that already
         exist. A single commit is issued at the end.
         """
         for degree in self.subject_shifts_map:
             for year in self.subject_shifts_map[degree]:
                 for subject in self.subject_shifts_map[degree][year]:
                     for turno_number in self.subject_shifts_map[degree][year][subject]:
-                        for group in self.subject_shifts_map[degree][year][subject][turno_number]:
+                        for class_ in self.subject_shifts_map[degree][year][subject][turno_number]:
                             self.cursor.execute(
                                 "SELECT * FROM turno WHERE idTurma=? AND idUC=?",
-                                (group, subject),
+                                (class_, subject),
                             )
                             result = self.cursor.fetchall()
                             if len(result) == 0:
                                 self.cursor.execute(
                                     "INSERT INTO turno (numero, idTurma, idUC) VALUES (?, ?, ?)",
-                                    (turno_number, group, subject),
+                                    (turno_number, class_, subject),
                                 )
         self.conn.commit()
 
@@ -279,41 +279,41 @@ class IngestionManager:
         degree: str,
         year: int,
         subject_code: str,
-        groups: list[str],
+        classes: list[str],
     ) -> None:
-        """Records a new shift for a subject, keeping shifts sorted by their smallest group code.
+        """Records a new shift for a subject, keeping shifts sorted by their smallest class code.
 
-        If ``groups`` is already registered for this subject, this is a no-op.
+        If ``classes`` is already registered for this subject, this is a no-op.
         Otherwise, adds it and re-numbers all shifts from 1 in ascending order
-        of each shift's minimum group code.
+        of each shift's minimum class code.
 
         Args:
             degree: Acronym of the degree the subject belongs to.
             year: Academic year number within the degree.
             subject_code: Institutional code of the subject.
-            groups: Group codes that form the new shift.
+            classes: Class codes that form the new shift.
         """
         subject_map = self.subject_shifts_map[degree][year][subject_code]
 
-        if groups not in subject_map.values():
-            all_groups = sorted(
-                [*subject_map.values(), groups],
+        if classes not in subject_map.values():
+            all_classes = sorted(
+                [*subject_map.values(), classes],
                 key=min,
             )
             subject_map.clear()
-            for i, groups in enumerate(all_groups, 1):
-                subject_map[i] = groups
+            for i, classes in enumerate(all_classes, 1):
+                subject_map[i] = classes
 
     # -----------------------------------------------------------------------
     # Post processing
     # -----------------------------------------------------------------------
 
-    def _fix_groups_without_shifts(self) -> None:
-        """Insert a placeholder shift (number 0) for groups that have no shift assigned.
+    def _fix_classes_without_shifts(self) -> None:
+        """Insert a placeholder shift (number 0) for classes that have no shift assigned.
 
-        Queries for all (group, subject) pairs in ``turmaUC`` that have no
+        Queries for all (class, subject) pairs in ``turmaUC`` that have no
         corresponding row in ``turno``, then inserts a row with shift number 0
-        for each. This ensures every group-subject association has at least one
+        for each. This ensures every class-subject association has at least one
         shift record, preventing referential gaps in downstream queries.
         """
         stmt = """
@@ -323,22 +323,22 @@ class IngestionManager:
             WHERE tn.idTurma IS NULL
         """
         self.cursor.execute(stmt)
-        missing_groups = self.cursor.fetchall()
+        missing_classes = self.cursor.fetchall()
 
-        for group in missing_groups:
-            group_id, subject_id = group
+        for class_ in missing_classes:
+            class_id, subject_id = class_
             stmt = """
                 INSERT INTO turno (numero, idTurma, idUC)
                 VALUES (0, ?, ?)
             """
-            self.cursor.execute(stmt, (group_id, subject_id))
+            self.cursor.execute(stmt, (class_id, subject_id))
         self.conn.commit()
 
     def _cleanup_sessions(self) -> None:
         """Merge duplicate session records that share the same schedule and overlap in date range.
 
         Sessions are considered duplicates if they have identical schedule attributes
-        (day, time, duration, type, teacher, subject unit, and class group). When
+        (day, time, duration, type, teacher, subject unit, and class). When
         duplicates with overlapping week ranges are found, they are merged into a single
         record spanning the union of their date ranges, and the redundant record is deleted
         (along with its associated rows in aulaDocente, aulaUC, aulaSala, and aulaTurmas).

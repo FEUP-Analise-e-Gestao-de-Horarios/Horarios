@@ -286,6 +286,6 @@ sudo tail -100 /var/log/daphne.log
 
 For a description of the directory structure see [Structure](Structure.md).
 
-For canonical naming of domain concepts (Degree, Group, Subject, Session, etc.) see [Glossary](Glossary.md).
+For canonical naming of domain concepts (Degree, Class, Subject, Session, etc.) see [Glossary](Glossary.md).
 
 For a detailed walkthrough of the schedule data ingestion pipeline see [Ingestion](Ingestion.md).
