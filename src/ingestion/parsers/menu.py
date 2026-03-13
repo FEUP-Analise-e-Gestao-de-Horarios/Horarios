@@ -2,8 +2,8 @@ from bs4 import BeautifulSoup
 from bs4.element import Tag
 
 from src.ingestion.rooms import ROOMS
+from src.ingestion.schemas.classes import ClassLinks, Degree, Year
 from src.ingestion.schemas.rooms import RoomLinks
-from src.ingestion.schemas.sections import Degree, GroupLinks, Year
 
 
 def extract_menu_link(soup: BeautifulSoup) -> str:
@@ -109,29 +109,29 @@ def extract_teacher_links(teachers_menu: Tag) -> list[str]:
     return result
 
 
-def extract_sessions_info(groups_menu: Tag) -> list[Degree]:
+def extract_sessions_info(classes_menu: Tag) -> list[Degree]:
     """Parse the Turmas menu section into a structured list of degrees.
 
     Traverses the deeply nested menu structure to build a list of `Degree`
     objects. The expected hierarchy is:
     - Degree (degree acronym + name)
       - Year (year number)
-        - Group/class (group code)
+        - Class (class code)
           - Week page URLs
 
     Args:
-        groups_menu: The `<li>` tag for the "Turmas" menu section,
+        classes_menu: The `<li>` tag for the "Turmas" menu section,
             as returned by `extract_menu_tags`.
 
     Returns:
         A list of `Degree` objects, each containing the degree acronym, name,
-        and a list of `Year` objects with their associated `GroupLinks`.
+        and a list of `Year` objects with their associated `ClassLinks`.
 
     Raises:
         ValueError: If any expected element in the menu hierarchy is missing,
             a text node cannot be parsed, or an href is not a string.
     """
-    ul = groups_menu.find("ul")
+    ul = classes_menu.find("ul")
     if ul is None:
         raise ValueError("Could not find <ul> in turmas menu")
 
@@ -175,7 +175,7 @@ def extract_sessions_info(groups_menu: Tag) -> list[Degree]:
             if class_ul is None:
                 raise ValueError(f"Could not find turmas <ul> for ano '{year_number}'")
 
-            groups: list[GroupLinks] = []
+            classes: list[ClassLinks] = []
             for class_ in class_ul.find_all(recursive=False):
                 class_a = class_.find("a")
                 if class_a is None:
@@ -183,12 +183,12 @@ def extract_sessions_info(groups_menu: Tag) -> list[Degree]:
                         f"Could not find <a> in turma item for ano '{year_number}'",
                     )
 
-                group_code = str(class_a.contents[0])
+                class_code = str(class_a.contents[0])
 
                 weeks_ul = class_.find("ul")
                 if weeks_ul is None:
                     raise ValueError(
-                        f"Could not find semanas <ul> for turma '{group_code}'",
+                        f"Could not find semanas <ul> for turma '{class_code}'",
                     )
 
                 links: list[str] = []
@@ -196,7 +196,7 @@ def extract_sessions_info(groups_menu: Tag) -> list[Degree]:
                     week_a = week.find("a", recursive=False)
                     if week_a is None:
                         raise ValueError(
-                            f"Could not find <a> in semana item for turma '{group_code}'",
+                            f"Could not find <a> in semana item for turma '{class_code}'",
                         )
 
                     week_href = week_a["href"]
@@ -206,8 +206,8 @@ def extract_sessions_info(groups_menu: Tag) -> list[Degree]:
                         )
 
                     links.append(week_href)
-                groups.append({"code": group_code, "links": links})
-            years.append({"number": year_number, "groups": groups})
+                classes.append({"code": class_code, "links": links})
+            years.append({"number": year_number, "classes": classes})
         result.append({"acronym": degree_id, "name": degree_name, "years": years})
     return result
 

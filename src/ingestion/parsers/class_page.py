@@ -8,8 +8,8 @@ from src.ingestion.parsers.utils import (
     get_weekday_at_column,
     matrix_from_html_table,
 )
+from src.ingestion.schemas.classes import Session, Subject
 from src.ingestion.schemas.misc import WeekDay
-from src.ingestion.schemas.sections import Session, Subject
 
 THEORETICAL_SESSION = "td_tipologia_19"
 """CSS class used by the institution's schedule pages to mark theoretical sessions."""
@@ -102,13 +102,13 @@ def extract_subjects(soup: BeautifulSoup) -> list[Subject]:
 
 
 def extract_sessions(soup: BeautifulSoup) -> list[Session]:
-    """Extract all scheduled sessions from a group page.
+    """Extract all scheduled sessions from a class page.
 
     Locates every ``td_tipologia_*`` cell in the main timetable, builds a cell
     position matrix to derive each session's weekday, and reads the teachers
     table (index 3) to resolve teacher acronyms to numeric codes. For each
     session block the function extracts: subject acronym, weekday, start time,
-    duration (rowspan), teacher codes, group codes, room, and whether it is a
+    duration (rowspan), teacher codes, class codes, room, and whether it is a
     theoretical session (CSS class ``td_tipologia_19``).
 
     Args:
@@ -235,8 +235,8 @@ def extract_sessions(soup: BeautifulSoup) -> list[Session]:
                 )
             session_teachers.append(teachers_map[acronym])
 
-        # -- Groups and Room ---------------------------------------------------
-        session_groups = re.split(r";\s*", raw_turmas)
+        # -- Classes and Room --------------------------------------------------
+        session_classes = re.split(r";\s*", raw_turmas)
         session_room = str(rest[0]).split(";") if rest else ["Online"]
 
         # -- Is Theoretical ----------------------------------------------------
@@ -253,7 +253,7 @@ def extract_sessions(soup: BeautifulSoup) -> list[Session]:
                 "start_time": session_start_time,
                 "duration": session_duration,
                 "teachers": session_teachers,
-                "groups": session_groups,
+                "classes": session_classes,
                 "room": session_room,
                 "is_theoretical": THEORETICAL_SESSION in session_css_classes,
             },
