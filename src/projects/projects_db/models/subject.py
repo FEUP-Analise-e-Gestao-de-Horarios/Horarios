@@ -1,0 +1,31 @@
+import uuid
+from uuid import UUID
+
+from projects_db.base import Base
+from sqlalchemy import ForeignKey, Text, Uuid
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from src.projects.projects_db.models import Session, Year
+
+from ._secondary_tables import session_subjects
+
+
+class Subject(Base):
+    __tablename__ = "subjects"
+
+    # UUIDs
+    id: Mapped[UUID] = mapped_column(Uuid(native_uuid=False), primary_key=True, default=uuid.uuid7)
+    year_id: Mapped[UUID] = mapped_column(ForeignKey("years.id"))
+
+    # Data
+    number: Mapped[int] = mapped_column(unique=True)
+    code: Mapped[str] = mapped_column(Text)
+    acronym: Mapped[str] = mapped_column(Text)
+    name: Mapped[str] = mapped_column(Text)
+
+    # Relationships
+    year: Mapped[Year] = relationship(back_populates="subjects")
+    sessions: Mapped[list[Session]] = relationship(
+        secondary=session_subjects,
+        back_populates="subjects",
+    )
