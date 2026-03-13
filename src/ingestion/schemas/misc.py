@@ -104,7 +104,7 @@ TurnosMap = dict[str, dict[int, dict[str, dict[int, list[str]]]]]
 
 Structure::
 
-    TurnosMap[degree_acronym][year][subject_code][turno_number] = [group1, group2, ...]
+    TurnosMap[degree_acronym][year][subject_code][turno_number] = [class1, class2, ...]
 
 - ``degree_acronym`` (:class:`str`): Degree acronym (e.g. ``"LEI"``).
 - ``year`` (:class:`int`): Academic year number (e.g. ``1``, ``2``, ``3``).
