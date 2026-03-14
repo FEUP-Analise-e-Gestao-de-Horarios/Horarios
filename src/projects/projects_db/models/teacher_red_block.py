@@ -2,10 +2,11 @@ import uuid
 from uuid import UUID
 
 from projects_db.base import Base
-from sqlalchemy import ForeignKey, Text, Uuid
+from sqlalchemy import Enum, ForeignKey, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.projects.projects_db.models.teacher import Teacher
+from src.projects.projects_db.schemas.weekday import WeekDay
 
 
 class TeacherRedBlock(Base):
@@ -17,7 +18,7 @@ class TeacherRedBlock(Base):
 
     # Data
     hour: Mapped[int] = mapped_column()
-    weekday: Mapped[str] = mapped_column(Text)
+    weekday: Mapped[WeekDay] = mapped_column(Enum(WeekDay, native_enum=False))
 
     # Relationships
     teacher: Mapped[Teacher] = relationship(back_populates="red_blocks")

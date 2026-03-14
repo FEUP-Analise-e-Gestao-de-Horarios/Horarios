@@ -3,10 +3,11 @@ import uuid
 from uuid import UUID
 
 from projects_db.base import Base
-from sqlalchemy import Date, Text, Uuid
+from sqlalchemy import Date, Enum, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.projects.projects_db.models import Class, Room, Subject, Teacher
+from src.projects.projects_db.schemas.weekday import WeekDay
 
 from ._secondary_tables import session_classes, session_rooms, session_subjects, session_teachers
 
@@ -19,7 +20,7 @@ class Session(Base):
 
     # Data
     week: Mapped[datetime.date] = mapped_column(Date)
-    weekday: Mapped[str] = mapped_column(Text)
+    weekday: Mapped[WeekDay] = mapped_column(Enum(WeekDay, native_enum=False))
     start_time: Mapped[int] = mapped_column()
     duration: Mapped[int] = mapped_column()
     type: Mapped[str] = mapped_column(Text)
