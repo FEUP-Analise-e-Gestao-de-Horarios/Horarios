@@ -25,3 +25,6 @@ class ClassRedBlock(Base):
 
     # Relationships
     class_: Mapped[Class] = relationship(back_populates="red_blocks")
+
+    def __str__(self) -> str:
+        return f"ClassRedBlock(class_id={self.class_id}, {self.weekday} hour={self.hour})"

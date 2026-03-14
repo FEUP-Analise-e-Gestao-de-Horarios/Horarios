@@ -46,3 +46,6 @@ class Session(Base):
         secondary=session_classes,
         back_populates="sessions",
     )
+
+    def __str__(self) -> str:
+        return f"Session(week={self.week}, {self.weekday} start={self.start_time}, duration={self.duration}, type={self.type!r})"

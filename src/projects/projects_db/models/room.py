@@ -27,3 +27,6 @@ class Room(Base):
     # Relationships
     red_blocks: Mapped[list[RoomRedBlock]] = relationship(back_populates="room")
     sessions: Mapped[list[Session]] = relationship(secondary=session_rooms, back_populates="rooms")
+
+    def __str__(self) -> str:
+        return f"Room({self.name!r})"

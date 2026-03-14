@@ -23,3 +23,6 @@ class Degree(Base):
 
     # Relationships
     years: Mapped[list[Year]] = relationship(back_populates="degree")
+
+    def __str__(self) -> str:
+        return f"Degree({self.acronym!r} - {self.name!r})"

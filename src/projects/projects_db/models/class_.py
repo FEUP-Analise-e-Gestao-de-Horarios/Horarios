@@ -30,3 +30,6 @@ class Class(Base):
         secondary=session_classes,
         back_populates="classes",
     )
+
+    def __str__(self) -> str:
+        return f"Class(code={self.code!r}, shift={self.shift})"

@@ -31,3 +31,6 @@ class Subject(Base):
         secondary=session_subjects,
         back_populates="subjects",
     )
+
+    def __str__(self) -> str:
+        return f"Subject({self.code!r} - {self.name!r})"

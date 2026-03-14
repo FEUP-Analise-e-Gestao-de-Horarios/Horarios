@@ -29,3 +29,6 @@ class Teacher(Base):
         secondary=session_teachers,
         back_populates="teachers",
     )
+
+    def __str__(self) -> str:
+        return f"Teacher({self.acronym!r} - {self.name!r})"

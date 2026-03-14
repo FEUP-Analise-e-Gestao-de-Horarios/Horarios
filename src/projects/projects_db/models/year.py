@@ -26,3 +26,6 @@ class Year(Base):
     degree: Mapped[Degree] = relationship(back_populates="years")
     subjects: Mapped[list[Subject]] = relationship(back_populates="year")
     classes: Mapped[list[Class]] = relationship(back_populates="year")
+
+    def __str__(self) -> str:
+        return f"Year(degree_id={self.degree_id}, number={self.number})"
