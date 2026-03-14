@@ -6,8 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.projects.projects_db.base import Base
 from src.projects.projects_db.models import RoomRedBlock, Session
-
-from ._secondary_tables import session_rooms
+from src.projects.projects_db.models.session import session_rooms
 
 
 class Room(Base):

@@ -6,8 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.projects.projects_db.base import Base
 from src.projects.projects_db.models import Session, Year
-
-from ._secondary_tables import session_subjects
+from src.projects.projects_db.models.session import session_subjects
 
 
 class Subject(Base):

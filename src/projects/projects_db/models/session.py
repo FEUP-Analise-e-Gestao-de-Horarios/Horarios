@@ -7,9 +7,13 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.projects.projects_db.base import Base
 from src.projects.projects_db.models import Class, Room, Subject, Teacher
+from src.projects.projects_db.models._secondary_tables import (
+    session_classes,
+    session_rooms,
+    session_subjects,
+    session_teachers,
+)
 from src.projects.projects_db.schemas.weekday import WeekDay
-
-from ._secondary_tables import session_classes, session_rooms, session_subjects, session_teachers
 
 
 class Session(Base):
