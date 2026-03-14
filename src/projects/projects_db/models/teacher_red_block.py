@@ -25,3 +25,5 @@ class TeacherRedBlock(Base):
 
     def __str__(self) -> str:
         return f"TeacherRedBlock(teacher_id={self.teacher_id}, {self.weekday} hour={self.hour})"
+
+    __repr__ = __str__

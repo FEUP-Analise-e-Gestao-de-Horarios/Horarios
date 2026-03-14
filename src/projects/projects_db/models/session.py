@@ -49,3 +49,5 @@ class Session(Base):
 
     def __str__(self) -> str:
         return f"Session(week={self.week}, {self.weekday} start={self.start_time}, duration={self.duration}, type={self.type!r})"
+
+    __repr__ = __str__

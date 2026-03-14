@@ -26,3 +26,5 @@ class Degree(Base):
 
     def __str__(self) -> str:
         return f"Degree({self.acronym!r} - {self.name!r})"
+
+    __repr__ = __str__

@@ -30,3 +30,5 @@ class Room(Base):
 
     def __str__(self) -> str:
         return f"Room({self.name!r})"
+
+    __repr__ = __str__

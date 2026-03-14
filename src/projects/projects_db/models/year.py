@@ -29,3 +29,5 @@ class Year(Base):
 
     def __str__(self) -> str:
         return f"Year(degree_id={self.degree_id}, number={self.number})"
+
+    __repr__ = __str__

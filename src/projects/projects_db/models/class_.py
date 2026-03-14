@@ -33,3 +33,5 @@ class Class(Base):
 
     def __str__(self) -> str:
         return f"Class(code={self.code!r}, shift={self.shift})"
+
+    __repr__ = __str__

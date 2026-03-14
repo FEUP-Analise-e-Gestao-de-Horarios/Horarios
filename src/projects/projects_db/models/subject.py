@@ -34,3 +34,5 @@ class Subject(Base):
 
     def __str__(self) -> str:
         return f"Subject({self.code!r} - {self.name!r})"
+
+    __repr__ = __str__

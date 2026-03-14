@@ -28,3 +28,5 @@ class RoomRedBlock(Base):
 
     def __str__(self) -> str:
         return f"RoomRedBlock(room_id={self.room_id}, {self.weekday} hour={self.hour})"
+
+    __repr__ = __str__
