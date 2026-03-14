@@ -78,7 +78,7 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": DB_DIR / "db.sqlite3",
-    }
+    },
 }
 
 
@@ -103,10 +103,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # ── Static files ──────────────────────────────────────────────────────────────
 STATIC_URL = "static/"
 STATIC_ROOT = SRC_DIR / "staticfiles"
-STATICFILES_DIRS = [
-    SRC_DIR / "static",
-    SRC_DIR / "static" / "frontend",  # Vite build output — for collectstatic
-]
+STATICFILES_DIRS = [SRC_DIR / "static"]
 
 
 # ── Email ─────────────────────────────────────────────────────────────────────

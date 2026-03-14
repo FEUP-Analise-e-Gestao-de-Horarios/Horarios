@@ -7,6 +7,7 @@ const REACT_ROUTES = ["/react-test", "/react-test-2"];
 
 export default defineConfig({
     plugins: [react()],
+    base: "/static/frontend/",
     build: {
         // Output directly into Django's static/frontend/ directory
         outDir: "../backend/src/static/frontend",
