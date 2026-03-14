@@ -1,42 +1,40 @@
-# Visual Studio Code # 
-.vscode/* 
-.vscode/settings.json 
-.vscode/tasks.json 
-.vscode/launch.json 
-.vscode/extensions.json 
+# Visual Studio Code
+.vscode/*
+.vscode/settings.json
+.vscode/tasks.json
+.vscode/launch.json
+.vscode/extensions.json
 .history
 
-# Backup files # 
-*.bak 
+# Backup files
+*.bak
 
-# Environments 
-.env 
-.venv 
-env/ 
-venv/ 
-ENV/ 
-env.bak/ 
-venv.bak/ 
+# Database
+databases/*
+!databases/init_project_db.sql
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
 
-# Django #
+# Site mirror
+site-mirror/
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Python
 *.log
 *.pot
 *.pyc
 __pycache__
-media
-staticfiles/
+.python-version
 
-# pyenv 
-.python-version 
-
-# mypy 
-.mypy_cache/ 
-
-# Database #
-database/*
-!database/init_project_db.sql
-*.sqlite3
-*.db
-
-# Site mirror
-site-mirror/
+# Ruff cache
+.ruff_cache/

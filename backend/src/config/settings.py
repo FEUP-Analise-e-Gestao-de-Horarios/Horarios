@@ -14,9 +14,9 @@ import os
 from pathlib import Path
 
 # ── Python ──────────────────────────────────────────────────────────────────────
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
 SRC_DIR = Path(__file__).resolve().parent.parent
-DB_DIR = BASE_DIR / "databases"
+DB_DIR = ROOT_DIR / "databases"
 PROJECTS_DB_PATH = DB_DIR / "projects"
 
 
