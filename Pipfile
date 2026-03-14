@@ -4,24 +4,25 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-django = "*"
-bs4 = "*"
-requests = "*"
-readerwriterlock = "*"
-unicode = "*"
-six = "*"
-networkx = "*"
-matplotlib = "*"
-whitenoise = "*"
-daphne = "*"
 bleach = "*"
+bs4 = "*"
+daphne = "*"
+django = "*"
+matplotlib = "*"
+networkx = "*"
 pydantic = "*"
+readerwriterlock = "*"
+requests = "*"
+six = "*"
+sqlalchemy = "*"
+unicode = "*"
+whitenoise = "*"
 
 [dev-packages]
 django-livereload-server = "*"
-ruff = "*"
-pre-commit = "*"
 django-stubs = "*"
+pre-commit = "*"
+ruff = "*"
 
 [requires]
 python_version = "3.14"
