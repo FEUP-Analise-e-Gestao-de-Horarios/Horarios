@@ -2,7 +2,7 @@ import uuid
 from uuid import UUID
 
 from projects_db.base import Base
-from sqlalchemy import ForeignKey, Uuid
+from sqlalchemy import ForeignKey, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.projects.projects_db.models import Class, Degree, Subject
@@ -10,6 +10,7 @@ from src.projects.projects_db.models import Class, Degree, Subject
 
 class Year(Base):
     __tablename__ = "years"
+    __table_args__ = (UniqueConstraint("degree_id", "number"),)
 
     # UUIDs
     id: Mapped[UUID] = mapped_column(Uuid(native_uuid=False), primary_key=True, default=uuid.uuid7)

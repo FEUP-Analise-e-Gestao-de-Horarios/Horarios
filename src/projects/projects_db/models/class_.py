@@ -17,7 +17,7 @@ class Class(Base):
     year_id: Mapped[UUID] = mapped_column(ForeignKey("years.id"))
 
     # Data
-    code: Mapped[str] = mapped_column(Text)
+    code: Mapped[str] = mapped_column(Text, unique=True)
     shift: Mapped[int] = mapped_column()
 
     # Relationships

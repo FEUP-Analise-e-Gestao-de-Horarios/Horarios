@@ -17,7 +17,7 @@ class Room(Base):
     id: Mapped[UUID] = mapped_column(Uuid(native_uuid=False), primary_key=True, default=uuid.uuid7)
 
     # Data
-    name: Mapped[str] = mapped_column(Text)
+    name: Mapped[str] = mapped_column(Text, unique=True)
     type: Mapped[str | None] = mapped_column(Text)
     size: Mapped[str | None] = mapped_column(Text)
     seats: Mapped[str | None] = mapped_column(Text)

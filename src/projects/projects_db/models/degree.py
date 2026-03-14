@@ -15,7 +15,7 @@ class Degree(Base):
     id: Mapped[UUID] = mapped_column(Uuid(native_uuid=False), primary_key=True, default=uuid.uuid7)
 
     # Data
-    acronym: Mapped[str] = mapped_column(Text)
+    acronym: Mapped[str] = mapped_column(Text, unique=True)
     name: Mapped[str] = mapped_column(Text)
 
     # Relationships

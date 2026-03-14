@@ -19,7 +19,7 @@ class Subject(Base):
 
     # Data
     number: Mapped[int] = mapped_column(unique=True)
-    code: Mapped[str] = mapped_column(Text)
+    code: Mapped[str] = mapped_column(Text, unique=True)
     acronym: Mapped[str] = mapped_column(Text)
     name: Mapped[str] = mapped_column(Text)
 

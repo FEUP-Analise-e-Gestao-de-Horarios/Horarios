@@ -7,7 +7,7 @@
 
 CREATE TABLE rooms (
     id     UUID PRIMARY KEY,
-    name   TEXT NOT NULL,
+    name   TEXT UNIQUE NOT NULL,
     type   TEXT,
     size   TEXT,
     seats  TEXT
@@ -48,7 +48,7 @@ CREATE TABLE teacher_red_blocks (
 
 CREATE TABLE degrees (
     id       UUID PRIMARY KEY,
-    acronym  TEXT NOT NULL,
+    acronym  TEXT UNIQUE NOT NULL,
     name     TEXT NOT NULL
 );
 
@@ -56,13 +56,15 @@ CREATE TABLE years (
     id         UUID PRIMARY KEY,
     number     INT NOT NULL,
 
-    degree_id  UUID NOT NULL REFERENCES degrees(id)
+    degree_id  UUID NOT NULL REFERENCES degrees(id),
+
+    UNIQUE (degree_id, number)
 );
 
 CREATE TABLE subjects (
     id       UUID PRIMARY KEY,
     number   INT UNIQUE NOT NULL,
-    code     TEXT NOT NULL,
+    code     TEXT UNIQUE NOT NULL,
     acronym  TEXT NOT NULL,
     name     TEXT NOT NULL,
 
@@ -76,7 +78,7 @@ CREATE TABLE subjects (
 
 CREATE TABLE classes (
     id       UUID PRIMARY KEY,
-    code     TEXT NOT NULL,
+    code     TEXT UNIQUE NOT NULL,
     shift    INT NOT NULL,
 
     year_id  UUID NOT NULL REFERENCES years(id)
