@@ -1,5 +1,6 @@
-from projects_db.base import Base
 from sqlalchemy import Column, ForeignKey, Table, Uuid
+
+from src.projects.projects_db.base import Base
 
 session_rooms = Table(
     "session_rooms",

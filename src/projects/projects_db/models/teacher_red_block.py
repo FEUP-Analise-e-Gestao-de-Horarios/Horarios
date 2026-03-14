@@ -1,10 +1,10 @@
 import uuid
 from uuid import UUID
 
-from projects_db.base import Base
 from sqlalchemy import Enum, ForeignKey, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from src.projects.projects_db.base import Base
 from src.projects.projects_db.models.teacher import Teacher
 from src.projects.projects_db.schemas.weekday import WeekDay
 

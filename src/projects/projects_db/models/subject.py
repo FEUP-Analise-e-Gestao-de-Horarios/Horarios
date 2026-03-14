@@ -1,10 +1,10 @@
 import uuid
 from uuid import UUID
 
-from projects_db.base import Base
 from sqlalchemy import ForeignKey, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from src.projects.projects_db.base import Base
 from src.projects.projects_db.models import Session, Year
 
 from ._secondary_tables import session_subjects

@@ -2,10 +2,10 @@ import datetime
 import uuid
 from uuid import UUID
 
-from projects_db.base import Base
 from sqlalchemy import Date, Enum, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from src.projects.projects_db.base import Base
 from src.projects.projects_db.models import Class, Room, Subject, Teacher
 from src.projects.projects_db.schemas.weekday import WeekDay
 
