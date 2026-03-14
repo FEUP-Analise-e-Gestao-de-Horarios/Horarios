@@ -94,17 +94,19 @@ def extract_teacher_links(teachers_menu: Tag) -> list[str]:
         if inner_ul is None:
             raise ValueError("Could not find <ul> in child menu item")
 
-        content = inner_ul.find_all("li", recursive=False)
-        for i in content:
-            a = i.find("a", recursive=False)
-            if a is None:
-                raise ValueError("Could not find <a> in <li>")
+        inner_il = inner_ul.find("li", recursive=False)
+        if inner_il is None:
+            raise ValueError("Could not find <il> in child menu item")
 
-            href = a["href"]
-            if not isinstance(href, str):
-                raise ValueError(f"Expected href to be a str, got {type(href)}")
+        a = inner_il.find("a", recursive=False)
+        if a is None:
+            raise ValueError("Could not find <a> in <li>")
 
-            result.append(href)
+        href = a["href"]
+        if not isinstance(href, str):
+            raise ValueError(f"Expected href to be a str, got {type(href)}")
+
+        result.append(href)
 
     return result
 

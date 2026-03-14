@@ -14,7 +14,7 @@ class TeacherPage(TypedDict):
             encoded as a ``(Time, WeekDay)`` pair.
     """
 
+    code: int
     acronym: str
     name: str
-    code: str
     red_blocks: list[RedBlock]

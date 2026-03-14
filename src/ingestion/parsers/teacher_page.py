@@ -3,7 +3,7 @@ import re
 from bs4 import BeautifulSoup
 
 
-def extract_teacher_info(soup: BeautifulSoup) -> tuple[str, str, str]:
+def extract_teacher_info(soup: BeautifulSoup) -> tuple[str, str, int]:
     """Extract teacher acronym, name, and code from a parsed teacher page.
 
     Parses the `<td class="cabtitulo">` element, which contains the teacher's
@@ -30,12 +30,12 @@ def extract_teacher_info(soup: BeautifulSoup) -> tuple[str, str, str]:
         first = content.split('"')[1]
         acronym = content.split("<br/>, '")[1].split("'")[0]
         name = first[len(acronym) :] if acronym in first else ""
-        code = content.split("<br/>, '")[2].split("'")[0]
+        code = int(content.split("<br/>, '")[2].split("'")[0])
     else:
         content = content.split("', <br/>, '")
         acronym = content[1].split("'")[0]
         name = content[0][len(acronym) + 2 :] if acronym in content[0] else ""
-        code = content[2].split("'")[0]
+        code = int(content[2].split("'")[0])
 
     if " - " in name:
         name = name[3:]

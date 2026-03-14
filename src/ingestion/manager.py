@@ -15,13 +15,16 @@ from src.ingestion.ingestors.classes import (
     ingest_subject,
 )
 from src.ingestion.ingestors.rooms import ingest_room, ingest_room_red_blocks
-from src.ingestion.ingestors.teachers import ingest_teacher, ingest_teacher_red_blocks
 from src.ingestion.schemas.classes import Degree
 from src.ingestion.schemas.misc import TurnosMap
 from src.ingestion.schemas.rooms import RoomLinks
 from src.ingestion.scraper import Scraper
-from src.ingestion.utils import check_date_range_overlap, pre_insert_red_blocks
+from src.ingestion.utils import check_date_range_overlap
 from src.projects.models import Project
+from src.projects.projects_db.dao.teacher_dao import TeacherDAO
+from src.projects.projects_db.dao.teacher_red_block_dao import TeacherRedBlockDAO
+from src.projects.projects_db.paths import general_db
+from src.projects.projects_db.registry import get_session
 
 
 class IngestionManager:
@@ -68,8 +71,6 @@ class IngestionManager:
         """
         try:
             self._setup()
-
-            pre_insert_red_blocks(self.cursor, self.conn)
 
             teacher_links, degrees, rooms = self.scraper.read_menu()
             self._ingest_teachers(teacher_links)
@@ -143,15 +144,26 @@ class IngestionManager:
             ValueError: If a red block's (time, day) pair has no matching row
                 in the ``blocosVermelhos`` table.
         """
-        for link in teacher_links:
-            teacher_page = self.scraper.get_teacher_page(link)
+        teacher_pages = [self.scraper.get_teacher_page(link) for link in teacher_links]
 
-            ingest_teacher(self.cursor, teacher_page)
-            self.conn.commit()
+        with get_session(general_db(self.proj_id)) as session:
+            teacher_dao = TeacherDAO(session)
+            teacher_red_block_dao = TeacherRedBlockDAO(session)
+            for teacher_page in teacher_pages:
+                teacher = teacher_dao.create(
+                    number=teacher_page["code"],
+                    acronym=teacher_page["acronym"],
+                    name=teacher_page["name"],
+                )
 
-            for time, day in teacher_page["red_blocks"]:
-                ingest_teacher_red_blocks(self.cursor, teacher_page["code"], time, day)
-            self.conn.commit()
+                for red_block in teacher_page["red_blocks"]:
+                    teacher_red_block_dao.create(
+                        teacher_id=teacher.id,
+                        hour=red_block[0],
+                        weekday=red_block[1],
+                    )
+
+            session.commit()
 
     def _ingest_classes(self, degrees: list[Degree]) -> None:
         """Ingest degrees, classes, subjects, and sessions into the database.
