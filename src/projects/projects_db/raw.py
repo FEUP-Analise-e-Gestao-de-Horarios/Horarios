@@ -5,7 +5,7 @@ so connections are managed consistently.
 
 Usage (drop-in for sqlite3.connect):
 
-    from .db.raw import raw_connection
+    from src.projects.projects_db.raw import raw_connection
 
     with raw_connection(db_path) as conn:
         conn.execute("SELECT * FROM old_table WHERE id = ?", (some_id,))
