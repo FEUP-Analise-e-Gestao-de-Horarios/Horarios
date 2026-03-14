@@ -6,6 +6,9 @@ from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import ConnectionPoolEntry
 
+# Ensure models are registered in Base.metadata
+from src.projects.projects_db import models  # noqa: F401
+
 from .base import Base
 
 _engines: dict[str, Engine] = {}
