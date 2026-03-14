@@ -2,7 +2,6 @@ import random
 import string
 from typing import ClassVar
 
-from backend.src.config.settings import base
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import Group
@@ -12,6 +11,7 @@ from django.template.loader import render_to_string
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 
+from src.config.settings import base
 from src.login.tokens import generate_token
 
 from .forms import CustomUserChangeForm, CustomUserCreationForm

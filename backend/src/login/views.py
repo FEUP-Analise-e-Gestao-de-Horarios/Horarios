@@ -1,19 +1,17 @@
-from django.shortcuts import render, redirect
-from src.users.models import User
 from django.contrib import messages
-from django.utils.http import urlsafe_base64_decode
-from django.utils.encoding import force_str
-from django.contrib.auth import authenticate, login, logout
-from . tokens import generate_token
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.forms import PasswordChangeForm, SetPasswordForm
-from django.contrib.auth import update_session_auth_hash
-
-from backend.src.config.settings import base
 from django.core.mail import EmailMessage
+from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
-from django.utils.http import urlsafe_base64_encode
-from django.utils.encoding import force_bytes
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+
+from src.config.settings import base
 from src.login.tokens import generate_token
+from src.users.models import User
+
+from .tokens import generate_token
 
 
 # signin page
