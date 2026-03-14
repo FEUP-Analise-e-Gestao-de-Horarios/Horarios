@@ -1,4 +1,5 @@
 from typing import Any, TypeVar
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -12,7 +13,7 @@ class BaseDAO[T]:
         self.model = model
         self.session = session
 
-    def get(self, id: int) -> T | None:
+    def get(self, id: UUID) -> T | None:
         return self.session.get(self.model, id)
 
     def get_all(self) -> list[T]:
@@ -29,7 +30,7 @@ class BaseDAO[T]:
     def delete(self, instance: T) -> None:
         self.session.delete(instance)
 
-    def delete_by_id(self, id: int) -> bool:
+    def delete_by_id(self, id: UUID) -> bool:
         instance = self.get(id)
         if instance is None:
             return False
