@@ -1,12 +1,12 @@
 import datetime
 import uuid
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import Date, Enum, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.projects.projects_db.base import Base
-from src.projects.projects_db.models import Class, Room, Subject, Teacher
 from src.projects.projects_db.models._secondary_tables import (
     session_classes,
     session_rooms,
@@ -14,6 +14,9 @@ from src.projects.projects_db.models._secondary_tables import (
     session_teachers,
 )
 from src.projects.projects_db.schemas.weekday import WeekDay
+
+if TYPE_CHECKING:
+    from src.projects.projects_db.models import Class, Room, Subject, Teacher
 
 
 class Session(Base):

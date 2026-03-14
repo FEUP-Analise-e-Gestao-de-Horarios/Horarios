@@ -1,11 +1,14 @@
 import uuid
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import ForeignKey, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.projects.projects_db.base import Base
-from src.projects.projects_db.models import Class, Degree, Subject
+
+if TYPE_CHECKING:
+    from src.projects.projects_db.models import Class, Degree, Subject
 
 
 class Year(Base):
