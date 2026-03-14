@@ -2,6 +2,7 @@ import random
 import string
 from typing import ClassVar
 
+from backend.src.config.settings import base
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import Group
@@ -11,7 +12,6 @@ from django.template.loader import render_to_string
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 
-from src.config import settings
 from src.login.tokens import generate_token
 
 from .forms import CustomUserChangeForm, CustomUserCreationForm
@@ -91,7 +91,7 @@ class CustomUserAdmin(UserAdmin):
             email = EmailMessage(
                 email_subject,
                 email_message,
-                settings.EMAIL_HOST_USER,
+                base.EMAIL_HOST_USER,
                 [users.email],
             )
             email.fail_silently = True

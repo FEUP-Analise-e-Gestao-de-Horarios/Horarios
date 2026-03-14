@@ -8,7 +8,7 @@ from . tokens import generate_token
 from django.contrib.auth.forms import PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import update_session_auth_hash
 
-from src.config import settings
+from backend.src.config.settings import base
 from django.core.mail import EmailMessage
 from django.template.loader import render_to_string
 from django.utils.http import urlsafe_base64_encode
@@ -97,7 +97,7 @@ def forgot_password(request):
             email = EmailMessage(
                 email_subject,
                 email_message,
-                settings.EMAIL_HOST_USER,
+                base.EMAIL_HOST_USER,
                 [request.POST['email']],
             )
             email.fail_silently = True
