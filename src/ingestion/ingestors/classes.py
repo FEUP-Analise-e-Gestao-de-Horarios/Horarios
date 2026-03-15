@@ -1,7 +1,6 @@
 import sqlite3
-from datetime import date
 
-from src.ingestion.schemas.classes import Degree, Session, Subject
+from src.ingestion.schemas.classes import Degree, Subject
 from src.ingestion.schemas.misc import Time, WeekDay
 
 
@@ -96,65 +95,3 @@ def ingest_subject(
             subject["number"],
         ),
     )
-
-
-def ingest_session(
-    cursor: sqlite3.Cursor,
-    subject_code: str,
-    session: Session,
-    start_date: date,
-    end_date: date,
-) -> None:
-    """Insert a session and all its associations into the database.
-
-    Inserts a row into ``aula``, then links it to its subject (``aulaUC``),
-    each teacher (``aulaDocente``), each class (``aulaTurmas``), and
-    each room (``aulaSala``). Also records each (class, subject) pair in
-    ``turmaUC``. All inserts use ``INSERT OR IGNORE`` to avoid duplicates.
-
-    Args:
-        cursor: Active SQLite cursor used to execute the INSERT statements.
-        subject_code: Institutional code of the subject this session belongs to.
-        session: Session data to persist.
-        start_date: First day of the week range covered by this session.
-        end_date: Last day of the week range covered by this session.
-    """
-    cursor.execute(
-        "INSERT INTO aula (horaInicial, duracao, diaSemana, teorico, semanaInicial, semanaFinal) VALUES (?, ?, ?, ?, ?, ?)",
-        (
-            session["start_time"],
-            session["duration"],
-            session["weekday"],
-            session["is_theoretical"],
-            start_date,
-            end_date,
-        ),
-    )
-
-    id_aula = cursor.lastrowid
-    cursor.execute(
-        "INSERT OR IGNORE INTO aulaUC (idAula, idUC) VALUES (?, ?)",
-        (id_aula, subject_code),
-    )
-
-    for teacher in session["teachers"]:
-        cursor.execute(
-            "INSERT OR IGNORE INTO aulaDocente (idAula, idDocente) VALUES (?, ?)",
-            (id_aula, teacher),
-        )
-
-    for class_ in session["classes"]:
-        cursor.execute(
-            "INSERT OR IGNORE INTO aulaTurmas (idAula, idTurma) VALUES (?, ?)",
-            (id_aula, class_),
-        )
-        cursor.execute(
-            "INSERT OR IGNORE INTO turmaUC (idTurma, idUC) VALUES (?, ?)",
-            (class_, subject_code),
-        )
-
-    for room in session["room"]:
-        cursor.execute(
-            "INSERT OR IGNORE INTO aulaSala (idAula, idSala) VALUES (?, ?)",
-            (id_aula, room),
-        )

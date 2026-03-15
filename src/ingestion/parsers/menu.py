@@ -208,7 +208,7 @@ def extract_sessions_info(classes_menu: Tag) -> list[Degree]:
                         )
 
                     links.append(week_href)
-                classes.append({"code": class_code, "links": links})
+                classes.append({"code": class_code, "links": links, "class_pages": []})
             years.append({"number": year_number, "classes": classes})
         result.append({"acronym": degree_id, "name": degree_name, "years": years})
     return result

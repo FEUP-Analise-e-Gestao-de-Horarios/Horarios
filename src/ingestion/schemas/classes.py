@@ -41,6 +41,7 @@ class ClassLinks(TypedDict):
 
     code: str
     links: list[str]
+    class_pages: list[ClassPage]
 
 
 class ClassPage(TypedDict):
