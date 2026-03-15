@@ -72,6 +72,46 @@ class SessionDAO(BaseDAO[SessionModel]):
 
         return session
 
+    def create_if_not_exists(
+        self,
+        *,
+        week: datetime.date,
+        weekday: WeekDay,
+        start_time: int,
+        duration: int,
+        type: str,
+        room_ids: list[UUID] | None = None,
+        teacher_ids: list[UUID] | None = None,
+        subject_ids: list[UUID] | None = None,
+        class_ids: list[UUID] | None = None,
+    ) -> SessionModel:
+        # 1. Check if a session with these core unique constraints already exists
+        existing_stmt = select(SessionModel).filter_by(
+            week=week,
+            weekday=weekday,
+            start_time=start_time,
+            duration=duration,
+            type=type,
+        )
+
+        existing_session = self.session.execute(existing_stmt).scalar_one_or_none()
+
+        if existing_session is not None:
+            return existing_session
+
+        # 2. If it doesn't exist, proceed with your existing creation logic
+        return self.create(
+            week=week,
+            weekday=weekday,
+            start_time=start_time,
+            duration=duration,
+            type=type,
+            room_ids=room_ids,
+            teacher_ids=teacher_ids,
+            subject_ids=subject_ids,
+            class_ids=class_ids,
+        )
+
     # -------------------------------------------------------------------
     # -- Get
     # -------------------------------------------------------------------
