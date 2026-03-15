@@ -1,7 +1,7 @@
 import datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
@@ -98,3 +98,25 @@ class SessionDAO(BaseDAO[SessionModel]):
     def get_by_class(self, class_id: UUID) -> list[SessionModel]:
         class_ = self.session.get(Class, class_id)
         return class_.sessions if class_ else []
+
+    def get_by_class_with_attributes(
+        self,
+        *,
+        week: datetime.date,
+        weekday: WeekDay,
+        start_time: int,
+        duration: int,
+        type: str,
+        class_id: UUID,
+    ) -> SessionModel | None:
+        criteria = [
+            SessionModel.week == week,
+            SessionModel.weekday == weekday,
+            SessionModel.start_time == start_time,
+            SessionModel.duration == duration,
+            SessionModel.type == type,
+            SessionModel.classes.any(Class.id == class_id),
+        ]
+        class_ = self.session.scalar(select(SessionModel).where(and_(*criteria)))
+
+        return class_
