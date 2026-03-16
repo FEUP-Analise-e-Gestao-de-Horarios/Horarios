@@ -2,7 +2,7 @@
 
 This document describes how schedule data is fetched from the institution's website and persisted into a project's SQLite database.
 
-For domain terminology (Degree, Class, Subject, Session, Red Block, etc.) see [Glossary](Glossary.md).
+For domain terminology (Degree, Class, Subject, Session, Red Block, etc.) see [Glossary](../glossary.md).
 
 ---
 
@@ -52,9 +52,9 @@ This creates a fixed reference table so that later red-block links from teachers
 
 1. Fetches the root URL and extracts the `<frame name="links">` src to find the navigation menu page.
 2. Fetches the menu page and locates three `<li>` sections — **Docentes**, **Turmas**, **Salas** — producing:
-    - A flat list of teacher page URLs.
-    - A structured `Degree → Year → Class → week URLs` hierarchy.
-    - A list of room metadata + timetable URLs.
+   - A flat list of teacher page URLs.
+   - A structured `Degree → Year → Class → week URLs` hierarchy.
+   - A list of room metadata + timetable URLs.
 
 The three results are passed directly into Phases 4–6.
 
@@ -89,15 +89,15 @@ Red blocks are the same across all weeks for a given class, so only the first pa
 
 - Subjects are parsed from table index 4 and inserted into `uc` (skipping duplicates).
 - Sessions (cells matching `td_tipologia_*`) are parsed from the main timetable:
-    - Each session block contains: subject acronym, weekday, start time, duration (rowspan), teacher acronyms, class codes, and room names.
-    - Teacher acronyms are resolved to numeric codes via the teachers table (index 3) on the same page.
-    - Each session is inserted into `aula`, then linked into:
-        - `aulaUC` (session ↔ subject)
-        - `aulaDocente` (session ↔ teacher, one row per teacher)
-        - `aulaTurmas` (session ↔ class, one row per class)
-        - `aulaSala` (session ↔ room, one row per room)
-        - `turmaUC` (class ↔ subject membership)
-    - Theoretical sessions (CSS class `td_tipologia_19`) are also recorded in the in-memory `subject_shifts_map` for shift assignment in Phase 7.
+  - Each session block contains: subject acronym, weekday, start time, duration (rowspan), teacher acronyms, class codes, and room names.
+  - Teacher acronyms are resolved to numeric codes via the teachers table (index 3) on the same page.
+  - Each session is inserted into `aula`, then linked into:
+    - `aulaUC` (session ↔ subject)
+    - `aulaDocente` (session ↔ teacher, one row per teacher)
+    - `aulaTurmas` (session ↔ class, one row per class)
+    - `aulaSala` (session ↔ room, one row per room)
+    - `turmaUC` (class ↔ subject membership)
+  - Theoretical sessions (CSS class `td_tipologia_19`) are also recorded in the in-memory `subject_shifts_map` for shift assignment in Phase 7.
 
 ---
 
