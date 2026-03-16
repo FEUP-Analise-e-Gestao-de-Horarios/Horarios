@@ -17,6 +17,7 @@
   "cSpell.words": [
     "ASGI",
     "cabtitulo",
+    "collectstatic",
     "csrftoken",
     "docstrings",
     "executescript",
@@ -27,7 +28,9 @@
     "matplotlib",
     "mypy",
     "networkx",
+    "noinput",
     "Pipenv",
+    "Pipfile",
     "popleft",
     "pycache",
     "pydantic",
@@ -40,6 +43,7 @@
     "sqlalchemy",
     "staticfiles",
     "venv",
+    "Vite",
     "whitenoise"
   ],
   "editor.codeActionsOnSave": {

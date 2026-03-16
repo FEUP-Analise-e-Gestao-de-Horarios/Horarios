@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ -d "./site-mirror" ]; then
-  rm -rf ./site-mirror
+  rm -rdf ./site-mirror
 fi
 
 wget --mirror --convert-links --adjust-extension --page-requisites --no-parent \

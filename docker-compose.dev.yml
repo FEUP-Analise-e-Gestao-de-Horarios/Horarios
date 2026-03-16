@@ -1,0 +1,44 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      DJANGO_SETTINGS_MODULE: src.config.settings.dev
+    env_file:
+      - backend/.env
+    volumes:
+      - ./backend:/workspace/backend
+      - ./databases:/workspace/databases
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    environment:
+      # Points the Vite proxy at the backend service instead of localhost
+      BACKEND_HOST: backend
+    volumes:
+      - ./frontend:/workspace/frontend
+      # Preserve the container's node_modules from being shadowed by the bind mount
+      - /workspace/frontend/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+  mirror:
+    build:
+      context: .
+      dockerfile: scripts/Dockerfile
+    profiles:
+      - mirror
+    volumes:
+      - mirror_data:/app/site-mirror
+    ports:
+      - "8080:8080"
+
+volumes:
+  mirror_data:
