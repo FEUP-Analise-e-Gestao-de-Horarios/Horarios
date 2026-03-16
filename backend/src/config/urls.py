@@ -31,7 +31,7 @@ urlpatterns = [
     path("admin/", admin.site.urls, name="admin"),
     path("projects/", include("src.projects.urls")),
     # React URLs
-    path("react-test/", spa_view, name="react-test-1"),
+    path("react-login/", spa_view, name="react-login"),
     path("react-test-2/", spa_view, name="react-test-2"),
     # TODO: Check URLs bellow
     path("parser/", include("src.parser.urls")),

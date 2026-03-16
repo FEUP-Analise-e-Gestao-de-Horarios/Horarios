@@ -17,6 +17,8 @@ six = "*"
 sqlalchemy = "*"
 unicode = "*"
 whitenoise = "*"
+livereload = "<2.7.0,>=2.6.0"
+django-livereload-server = "*"
 
 [dev-packages]
 django-livereload-server = "*"
