@@ -2,6 +2,8 @@ import re
 
 from bs4 import BeautifulSoup
 
+from src.ingestion.schemas.teachers import TeacherPage
+
 
 def extract_teacher_info(soup: BeautifulSoup) -> tuple[str, str, int]:
     """Extract teacher acronym, name, and code from a parsed teacher page.
@@ -44,3 +46,54 @@ def extract_teacher_info(soup: BeautifulSoup) -> tuple[str, str, int]:
     name = re.sub(r"[^\w\s]", "", name)
 
     return acronym, name, code
+
+
+def extract_teacher_class_page(soup: BeautifulSoup) -> list[TeacherPage]:
+    """Extract teacher acronym, name, and code from teacher's table in parsed class page.
+
+    Reads the third table on the page (index 2), skipping the first two header
+    rows. Each data row must contain exactly three cells formatted as:
+    ``{code} - {name}``, ``{acronym}``, ``{code}``.
+
+    Args:
+        soup: Parsed HTML of the teacher page.
+
+    Returns:
+        A list of ``TeacherPage`` objects with ``code``, ``acronym``, ``name``, and
+        ``red_blocks`` fields.
+
+    Raises:
+        ValueError: If fewer than 5 tables are found, no data rows exist, a row
+            does not have exactly 3 cells, or the acronym cell does not match
+            the expected format.
+    """
+    tables = soup.find_all(class_="tabela_principal")
+
+    if len(tables) < 5:
+        raise ValueError(f"Expected at least 5 tables, found {len(tables)}")
+
+    teachers_rows = tables[2].find_all("tr")[2:]
+
+    teachers: list[TeacherPage] = []
+
+    for teacher_row in teachers_rows:
+        cells = [td.get_text(strip=True) for td in teacher_row.find_all("td")]
+        if len(cells) != 3:
+            raise ValueError(
+                f"Expected exactly 3 cells in row, found {len(cells)}: {teacher_row}",
+            )
+
+        acronym_and_name, acronym, code = cells[0], cells[1], cells[2]
+
+        if acronym_and_name.find(" - ") != -1:
+            print(acronym_and_name)
+            _code, name = acronym_and_name.split(" - ", 1)
+        else:
+            name = acronym_and_name
+
+        code = int(code)
+
+        teacher: TeacherPage = {"code": code, "acronym": acronym, "name": name, "red_blocks": []}
+        teachers.append(teacher)
+
+    return teachers

@@ -3,6 +3,7 @@ import sqlite3
 from collections import defaultdict
 from datetime import date, timedelta
 from pathlib import Path
+from uuid import UUID
 
 from django.conf import settings
 from django.utils import timezone
@@ -22,6 +23,7 @@ from src.projects.projects_db.dao.subject_dao import SubjectDAO
 from src.projects.projects_db.dao.teacher_dao import TeacherDAO
 from src.projects.projects_db.dao.teacher_red_block_dao import TeacherRedBlockDAO
 from src.projects.projects_db.dao.year_dao import YearDAO
+from src.projects.projects_db.models.class_ import Class
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session
 
@@ -75,6 +77,7 @@ class IngestionManager:
             self._ingest_teachers(teacher_links)
             self._ingest_classes(degrees)
             self._ingest_sessions(degrees)
+            self._ingest_shifts()
             # self._ingest_rooms(rooms)
             # self._ingest_subject_shifts()
 
@@ -246,6 +249,13 @@ class IngestionManager:
                 for year in degree["years"]:
                     for class_ in year["classes"]:
                         for class_page in class_["class_pages"]:
+                            for teacher_page in class_page["teachers"]:
+                                if teacher_dao.get_by_number(teacher_page["code"]) is None:
+                                    teacher_page = teacher_dao.create(
+                                        number=teacher_page["code"],
+                                        acronym=teacher_page["acronym"],
+                                        name=teacher_page["name"],
+                                    )
                             subjects_by_acronym = {s["acronym"]: s for s in class_page["subjects"]}
 
                             for session in class_page["sessions"]:
@@ -260,15 +270,17 @@ class IngestionManager:
                                         f"No subject with the code {subject_code} was found",
                                     )
 
-                                teachers_id = [
+                                teachers_id: list[UUID] = [
                                     t.id
                                     for number in session["teachers"]
                                     if (t := teacher_dao.get_by_number(number)) is not None
                                 ]
 
-                                # assert len(teachers_id) == len(
-                                #     session["teachers"]
-                                # ), f"One or more teachers were not found in {subjects_by_acronym[session['subject_acronym']]['name']} subject"
+                                assert len(teachers_id) == len(
+                                    session["teachers"],
+                                ), (
+                                    f"One or more teachers were not found in {subjects_by_acronym[session['subject_acronym']]['name']} subject"
+                                )
 
                                 classes_id = [
                                     c.id
@@ -333,29 +345,53 @@ class IngestionManager:
                     ingest_room_red_blocks(self.cursor, room["name"], time, day)
             self.conn.commit()
 
-    def _ingest_subject_shifts(self) -> None:
-        """Inserts all recorded subject shifts into the ``turno`` table.
-
-        Iterates over :attr:`subject_shifts_map` and inserts each
-        (shift number, class, subject) triple, skipping entries that already
-        exist. A single commit is issued at the end.
+    def _ingest_shifts(self) -> None:
         """
-        for degree in self.subject_shifts_map:
-            for year in self.subject_shifts_map[degree]:
-                for subject in self.subject_shifts_map[degree][year]:
-                    for turno_number in self.subject_shifts_map[degree][year][subject]:
-                        for class_ in self.subject_shifts_map[degree][year][subject][turno_number]:
-                            self.cursor.execute(
-                                "SELECT * FROM turno WHERE idTurma=? AND idUC=?",
-                                (class_, subject),
-                            )
-                            result = self.cursor.fetchall()
-                            if len(result) == 0:
-                                self.cursor.execute(
-                                    "INSERT INTO turno (numero, idTurma, idUC) VALUES (?, ?, ?)",
-                                    (turno_number, class_, subject),
-                                )
-        self.conn.commit()
+        Calculates and assigns shift numbers to classes based on their subject sessions.
+
+        This method iterates through all subjects to identify sessions of type 'T' (Theoretical).
+        It assigns a sequential shift number (starting from 1) to groups of classes found
+        within these sessions. To ensure data integrity, each class is assigned a shift
+        only once per ingestion cycle.
+
+        Logic Flow:
+            1.  Retrieves all subjects from the database.
+            2.  For each subject, fetches all related 'T' type sessions.
+            3.  For each session, identifies classes that have not yet been processed
+                (using a 'visited' set).
+            4.  Assigns the current `shift` counter value to the `shift` attribute of
+                the class model.
+            5.  Increments the `shift` counter only after a session with new,
+                unprocessed classes is handled.
+            6.  Persists all changes to the database in a single transaction.
+        """
+        with get_session(general_db(self.proj_id)) as session_db:
+            session_dao = SessionDAO(session_db)
+            subject_dao = SubjectDAO(session_db)
+
+            subjects = subject_dao.get_all()
+            visited_classes: set[Class] = set()
+
+            for subject in subjects:
+                shift = 1
+                sessions = session_dao.get_by_subject_type(subject, "T")
+
+                for session in sessions:
+                    classes = set(session.classes)
+                    classes_no_shift = classes.difference(visited_classes)
+
+                    if len(classes_no_shift) == 0:
+                        continue
+
+                    for class_ in classes_no_shift:
+                        class_.shift = shift
+                        visited_classes.add(class_)
+
+                        print(f"Class {class_.code} with shift {shift}")
+
+                    shift += 1
+
+            session_db.commit()
 
     # -----------------------------------------------------------------------
     # Subject <-> shift management

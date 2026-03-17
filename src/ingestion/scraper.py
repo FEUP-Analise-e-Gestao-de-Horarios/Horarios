@@ -14,7 +14,7 @@ from src.ingestion.parsers.menu import (
     extract_teacher_links,
 )
 from src.ingestion.parsers.red_blocks import extract_red_blocks
-from src.ingestion.parsers.teacher_page import extract_teacher_info
+from src.ingestion.parsers.teacher_page import extract_teacher_class_page, extract_teacher_info
 from src.ingestion.schemas.classes import ClassPage, Degree
 from src.ingestion.schemas.misc import RedBlock
 from src.ingestion.schemas.rooms import RoomLinks
@@ -145,6 +145,7 @@ class Scraper:
         start_date, end_date = extract_week_dates(soup)
         subjects = extract_subjects(soup)
         sessions = extract_sessions(soup)
+        teachers = extract_teacher_class_page(soup)
         red_blocks = extract_red_blocks(soup)
 
         return {
@@ -152,6 +153,7 @@ class Scraper:
             "end_date": end_date,
             "subjects": subjects,
             "sessions": sessions,
+            "teachers": teachers,
             "red_blocks": red_blocks,
         }
 

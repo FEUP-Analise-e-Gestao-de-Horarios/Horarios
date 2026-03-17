@@ -139,6 +139,16 @@ class SessionDAO(BaseDAO[SessionModel]):
         class_ = self.session.get(Class, class_id)
         return class_.sessions if class_ else []
 
+    def get_by_subject_type(self, subject: Subject, type: str):
+        return self.session.scalars(
+            select(SessionModel).where(
+                and_(
+                    SessionModel.subjects.contains(subject),
+                    SessionModel.type == type,
+                ),
+            ),
+        )
+
     def get_by_class_with_attributes(
         self,
         *,
