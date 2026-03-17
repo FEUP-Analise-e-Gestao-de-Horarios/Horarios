@@ -15,7 +15,7 @@ from src.ingestion.parsers.menu import (
 )
 from src.ingestion.parsers.red_blocks import extract_red_blocks
 from src.ingestion.parsers.teacher_page import extract_teacher_class_page, extract_teacher_info
-from src.ingestion.schemas.classes import ClassPage, Degree
+from src.ingestion.schemas.classes import ClassLinks, ClassPage, Degree
 from src.ingestion.schemas.misc import RedBlock
 from src.ingestion.schemas.rooms import RoomLinks
 from src.ingestion.schemas.teachers import TeacherPage
@@ -125,7 +125,17 @@ class Scraper:
             "red_blocks": red_blocks,
         }
 
-    def get_class_page(self, path: str) -> ClassPage:
+    def get_class_pages(self, class_: ClassLinks) -> list[ClassPage]:
+        class_pages = [self._get_class_page(link) for link in class_["links"]]
+        class_["class_pages"] = class_pages
+        if not class_pages:
+            raise ValueError(
+                f"No pages found for class {class_['code']}",
+            )
+
+        return class_pages
+
+    def _get_class_page(self, path: str) -> ClassPage:
         """Fetch and parse a class's weekly schedule page.
 
         Args:

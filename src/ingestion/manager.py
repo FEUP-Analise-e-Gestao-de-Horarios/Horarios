@@ -8,7 +8,6 @@ from uuid import UUID
 from django.conf import settings
 from django.utils import timezone
 
-from src.ingestion.ingestors.rooms import ingest_room, ingest_room_red_blocks
 from src.ingestion.schemas.classes import Degree
 from src.ingestion.schemas.misc import TurnosMap
 from src.ingestion.schemas.rooms import RoomLinks
@@ -18,6 +17,8 @@ from src.projects.models import Project
 from src.projects.projects_db.dao.class_dao import ClassDAO
 from src.projects.projects_db.dao.class_red_block_dao import ClassRedBlockDAO
 from src.projects.projects_db.dao.degree_dao import DegreeDAO
+from src.projects.projects_db.dao.room_dao import RoomDAO
+from src.projects.projects_db.dao.room_red_block_dao import RoomRedBlockDAO
 from src.projects.projects_db.dao.session_dao import SessionDAO
 from src.projects.projects_db.dao.subject_dao import SubjectDAO
 from src.projects.projects_db.dao.teacher_dao import TeacherDAO
@@ -73,13 +74,12 @@ class IngestionManager:
         try:
             self._setup()
 
-            teacher_links, degrees, _rooms = self.scraper.read_menu()
+            teacher_links, degrees, rooms = self.scraper.read_menu()
             self._ingest_teachers(teacher_links)
             self._ingest_classes(degrees)
+            self._ingest_rooms(rooms)
             self._ingest_sessions(degrees)
             self._ingest_shifts()
-            # self._ingest_rooms(rooms)
-            # self._ingest_subject_shifts()
 
             # self._fix_classes_without_shifts()
             # self._cleanup_sessions()
@@ -210,14 +210,7 @@ class IngestionManager:
                             shift=0,
                         )
 
-                        class_pages = [
-                            self.scraper.get_class_page(link) for link in class_["links"]
-                        ]
-                        class_["class_pages"] = class_pages
-                        if not class_pages:
-                            raise ValueError(
-                                f"No pages found for class {class_['code']}",
-                            )
+                        class_pages = self.scraper.get_class_pages(class_)
 
                         for hour, weekday in class_pages[0]["red_blocks"]:
                             class_red_block_dao.create(
@@ -249,6 +242,7 @@ class IngestionManager:
                 for year in degree["years"]:
                     for class_ in year["classes"]:
                         for class_page in class_["class_pages"]:
+                            # add teachers without redblocks
                             for teacher_page in class_page["teachers"]:
                                 if teacher_dao.get_by_number(teacher_page["code"]) is None:
                                     teacher_page = teacher_dao.create(
@@ -297,6 +291,8 @@ class IngestionManager:
                                 current_date = class_page["start_date"]
                                 class_obj = class_dao.get_by_code(class_["code"])
 
+                                rooms = session["room"] if session["room"][0] != "Online" else None
+
                                 assert class_obj is not None, (
                                     f"Class with code {class_['code']} was not found"
                                 )
@@ -308,7 +304,7 @@ class IngestionManager:
                                             weekday=session["weekday"],
                                             start_time=session["start_time"],
                                             duration=session["duration"],
-                                            type="T" if session["is_theoretical"] else "TP",
+                                            type=("T" if session["is_theoretical"] else "TP"),
                                             class_id=class_obj.id,
                                         )
                                         is None
@@ -318,7 +314,8 @@ class IngestionManager:
                                             weekday=session["weekday"],
                                             start_time=session["start_time"],
                                             duration=session["duration"],
-                                            type="T" if session["is_theoretical"] else "TP",
+                                            type=("T" if session["is_theoretical"] else "TP"),
+                                            room_names=rooms,
                                             class_ids=classes_id,
                                             teacher_ids=teachers_id,
                                             subject_ids=[subject.id],
@@ -336,14 +333,26 @@ class IngestionManager:
         Args:
             rooms: Room entries as returned by ``Scraper.read_menu``.
         """
-        for room in rooms:
-            ingest_room(self.cursor, room)
-            self.conn.commit()
+        with get_session(general_db(self.proj_id)) as session:
+            room_dao = RoomDAO(session)
+            room_red_block_dao = RoomRedBlockDAO(session)
 
-            for link in room["links"]:
-                for time, day in self.scraper.get_room_page(link):
-                    ingest_room_red_blocks(self.cursor, room["name"], time, day)
-            self.conn.commit()
+            for room in rooms:
+                room_entry = room_dao.create(
+                    name=room["name"],
+                    type=room["type_"],
+                    size=room["size"],
+                    seats=room["seats"],
+                )
+
+                for link in room["links"]:
+                    for hour, weekday in self.scraper.get_room_page(link):
+                        room_red_block_dao.create(
+                            room_id=room_entry.id,
+                            hour=hour,
+                            weekday=weekday,
+                        )
+            session.commit()
 
     def _ingest_shifts(self) -> None:
         """
@@ -430,32 +439,6 @@ class IngestionManager:
     # -----------------------------------------------------------------------
     # Post processing
     # -----------------------------------------------------------------------
-
-    def _fix_classes_without_shifts(self) -> None:
-        """Insert a placeholder shift (number 0) for classes that have no shift assigned.
-
-        Queries for all (class, subject) pairs in ``turmaUC`` that have no
-        corresponding row in ``turno``, then inserts a row with shift number 0
-        for each. This ensures every class-subject association has at least one
-        shift record, preventing referential gaps in downstream queries.
-        """
-        stmt = """
-            SELECT tu.idTurma, tu.idUC
-            FROM turmaUC tu
-            LEFT JOIN turno tn ON tu.idTurma = tn.idTurma
-            WHERE tn.idTurma IS NULL
-        """
-        self.cursor.execute(stmt)
-        missing_classes = self.cursor.fetchall()
-
-        for class_ in missing_classes:
-            class_id, subject_id = class_
-            stmt = """
-                INSERT INTO turno (numero, idTurma, idUC)
-                VALUES (0, ?, ?)
-            """
-            self.cursor.execute(stmt, (class_id, subject_id))
-        self.conn.commit()
 
     def _cleanup_sessions(self) -> None:
         """Merge duplicate session records that share the same schedule and overlap in date range.
