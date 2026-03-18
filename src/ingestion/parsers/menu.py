@@ -2,8 +2,8 @@ from bs4 import BeautifulSoup
 from bs4.element import Tag
 
 from src.ingestion.rooms import ROOMS
-from src.ingestion.schemas.classes import ClassLinks, Degree, Year
-from src.ingestion.schemas.rooms import RoomLinks
+from src.ingestion.schemas.classes import Class, Degree, Year
+from src.ingestion.schemas.rooms import RoomInfo
 
 
 def extract_menu_link(soup: BeautifulSoup) -> str:
@@ -177,7 +177,7 @@ def extract_sessions_info(classes_menu: Tag) -> list[Degree]:
             if class_ul is None:
                 raise ValueError(f"Could not find turmas <ul> for ano '{year_number}'")
 
-            classes: list[ClassLinks] = []
+            classes: list[Class] = []
             for class_ in class_ul.find_all(recursive=False):
                 class_a = class_.find("a")
                 if class_a is None:
@@ -208,13 +208,13 @@ def extract_sessions_info(classes_menu: Tag) -> list[Degree]:
                         )
 
                     links.append(week_href)
-                classes.append({"code": class_code, "links": links, "class_pages": []})
+                classes.append({"code": class_code, "links": links, "pages": []})
             years.append({"number": year_number, "classes": classes})
         result.append({"acronym": degree_id, "name": degree_name, "years": years})
     return result
 
 
-def extract_rooms_info(rooms_menu: Tag) -> list[RoomLinks]:
+def extract_rooms_info(rooms_menu: Tag) -> list[RoomInfo]:
     """Parse the Salas menu section into a structured list of room links.
 
     Traverses the room list items inside the Salas `<li>` tag. For each room,
@@ -239,9 +239,8 @@ def extract_rooms_info(rooms_menu: Tag) -> list[RoomLinks]:
         return []
 
     children = ul.find_all(recursive=False)
-    result: list[RoomLinks] = []
+    result: list[RoomInfo] = []
     for child in children:
-        a_list = child.find_all("a", {"class": "timetable-link"})
         anchor = child.find("a")
         if anchor is None:
             continue
@@ -253,18 +252,23 @@ def extract_rooms_info(rooms_menu: Tag) -> list[RoomLinks]:
         if not room_name:
             continue
 
+        schedule_anchor = child.find("a", {"class": "timetable-link"})
+        if schedule_anchor is None:
+            raise ValueError("Could not find timetable link in room entry")
+
+        raw_room_link = schedule_anchor.get("href")
+        if raw_room_link is None:
+            raise ValueError("Timetable link has no href in room entry")
+        
+        room_link = str(raw_room_link)
         room_type = "Desconhecido"
         room_size = "Desconhecido"
         number_of_seats = "Desconhecido"
-        sala_info = ROOMS.get(room_name)
-        if sala_info:
-            room_type = sala_info["type"]
-            room_size = sala_info["size"]
-            number_of_seats = sala_info["seats"]
-
-        links = [str(a.get("href")) for a in a_list if a.get("href") is not None]
-        if not links:
-            raise ValueError(f"No links found for sala: {room_name}")
+        room_external_info = ROOMS.get(room_name)
+        if room_external_info:
+            room_type = room_external_info["type"]
+            room_size = room_external_info["size"]
+            number_of_seats = room_external_info["seats"]
 
         result.append(
             {
@@ -272,7 +276,7 @@ def extract_rooms_info(rooms_menu: Tag) -> list[RoomLinks]:
                 "type_": room_type,
                 "size": room_size,
                 "seats": number_of_seats,
-                "links": links,
+                "link": room_link,
             },
         )
     return result
