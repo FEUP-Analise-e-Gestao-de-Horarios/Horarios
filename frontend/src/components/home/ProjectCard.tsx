@@ -3,6 +3,10 @@ import type { Project } from "@/types/project";
 
 interface ProjectCardProps {
   project: Project;
+  isMenuOpen: boolean;
+  onToggleMenu: () => void;
+  onRename: () => void;
+  onDelete: () => void;
 }
 
 function getElapsedTime(since: string): string {
@@ -52,31 +56,69 @@ function IngestionStatus({ project }: { project: Project }) {
   );
 }
 
-export default function ProjectCard({ project }: ProjectCardProps) {
+export default function ProjectCard({
+  project,
+  isMenuOpen,
+  onToggleMenu,
+  onRename,
+  onDelete,
+}: ProjectCardProps) {
   const navigate = useNavigate();
   const isReady = !!project.finished_ingestion_at;
 
   return (
-    <button
-      type="button"
-      disabled={!isReady}
-      onClick={() => {
-        if (isReady) void navigate(`/editturnos/${project.id}`);
-      }}
-      className={`w-[220px] h-[220px] bg-white border border-[#e5e4e7] rounded-lg flex flex-col items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.08)] overflow-hidden p-0 text-left ${isReady ? "cursor-pointer hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)] transition-shadow" : "cursor-default"}`}
-    >
-      <div className="w-full flex-1 flex items-center justify-center bg-[#f9f7f4] rounded-t-lg text-[64px]">
-        🗄️
-      </div>
-      <div className="w-full px-3.5 py-2 flex flex-col gap-1 box-border">
-        <div className="flex justify-between items-center">
-          <span className="text-[#08060d] font-medium max-w-[150px] break-words text-sm">
-            {project.name}
-          </span>
-          <span className="text-xl cursor-pointer text-[#6b6375] tracking-[2px]">···</span>
+    <div className="relative">
+      <button
+        type="button"
+        disabled={!isReady}
+        onClick={() => {
+          if (isReady) void navigate(`/editturnos/${project.id}`);
+        }}
+        className={`w-[220px] h-[220px] bg-white border border-[#e5e4e7] rounded-lg flex flex-col items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.08)] overflow-hidden p-0 text-left ${isReady ? "cursor-pointer hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)] transition-shadow" : "cursor-default"}`}
+      >
+        <div className="w-full flex-1 flex items-center justify-center bg-[#f9f7f4] rounded-t-lg text-[64px]">
+          🗄️
         </div>
-        <IngestionStatus project={project} />
-      </div>
-    </button>
+        <div className="w-full px-3.5 py-2 flex flex-col gap-1 box-border">
+          <div className="flex justify-between items-center">
+            <span className="text-[#08060d] font-medium max-w-[150px] break-words text-sm">
+              {project.name}
+            </span>
+            <span
+              className="text-xl cursor-pointer text-[#6b6375] tracking-[2px] hover:text-[#08060d] transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleMenu();
+              }}
+            >
+              ···
+            </span>
+          </div>
+          <IngestionStatus project={project} />
+        </div>
+      </button>
+
+      {isMenuOpen && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="absolute bottom-10 right-3 bg-white border border-[#e5e4e7] rounded-md shadow-[0_4px_12px_rgba(0,0,0,0.12)] z-10 min-w-[160px] overflow-hidden"
+        >
+          <button
+            type="button"
+            onClick={onRename}
+            className="w-full text-left px-4 py-2.5 text-sm text-[#08060d] border-b border-[#e5e4e7] bg-white hover:bg-[#f9f7f4] transition-colors cursor-pointer border-x-0 border-t-0"
+          >
+            Renomear
+          </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            className="w-full text-left px-4 py-2.5 text-sm text-[#8c2d19] bg-white hover:bg-[#f9f7f4] transition-colors cursor-pointer border-none"
+          >
+            Apagar projeto
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

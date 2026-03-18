@@ -13,8 +13,9 @@ from src.projects.schemas import (
     CreateProjectRequest,
     CreateProjectResponse,
     ProjectsResponse,
+    RenameProjectRequest,
 )
-from src.projects.services.project_db import create_project_db
+from src.projects.services.project_db import create_project_db, delete_project_db
 
 logger = logging.getLogger(__name__)
 
@@ -84,3 +85,65 @@ class ProjectsView(View):
             ),
         )
         return JsonResponse(response.model_dump(), status=HTTPStatus.ACCEPTED)
+
+
+class ProjectView(View):
+    def patch(self, request: HttpRequest, project_id: int) -> HttpResponse:
+        if not request.user.is_authenticated:
+            return JsonResponse(
+                {"error": "User is not authenticated"},
+                status=HTTPStatus.UNAUTHORIZED,
+            )
+
+        validated, err = validate_request_body(RenameProjectRequest, request.body)
+        if err:
+            return err
+        assert validated is not None
+
+        try:
+            project = Project.objects.get(pk=project_id)
+        except Project.DoesNotExist:
+            return JsonResponse(
+                {"error": "Project not found"},
+                status=HTTPStatus.NOT_FOUND,
+            )
+
+        new_name = validated.name
+        if Project.objects.filter(name=new_name).exclude(pk=project_id).exists():
+            return JsonResponse(
+                {"error": f"A project with the name '{new_name}' already exists"},
+                status=HTTPStatus.BAD_REQUEST,
+            )
+
+        project.name = new_name
+        project.save(update_fields=["name"])
+
+        return JsonResponse(
+            SuccessResponse(
+                message="Project renamed successfully",
+                data={"id": project.pk, "name": project.name},
+            ).model_dump(),
+        )
+
+    def delete(self, request: HttpRequest, project_id: int) -> HttpResponse:
+        if not request.user.is_authenticated:
+            return JsonResponse(
+                {"error": "User is not authenticated"},
+                status=HTTPStatus.UNAUTHORIZED,
+            )
+
+        try:
+            project = Project.objects.get(pk=project_id)
+        except Project.DoesNotExist:
+            return JsonResponse(
+                {"error": "Project not found"},
+                status=HTTPStatus.NOT_FOUND,
+            )
+
+        delete_project_db(project.pk)
+        project.delete()
+
+        return JsonResponse(
+            {"message": "Project deleted successfully"},
+            status=HTTPStatus.OK,
+        )

@@ -32,6 +32,8 @@ urlpatterns = [
     path("", spa_view, name="dashboard"),
     path("login", spa_view, name="login"),
     path("react-dashboard/", spa_view, name="react-dashboard"),
+     path("react-schedule/", spa_view, name="react-schedule"),
+
     # API endpoints
     path("admin/", admin.site.urls, name="admin"),  # TODO Change
     path("api/projects/", include("src.projects.urls")),
