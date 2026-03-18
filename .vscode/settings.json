@@ -70,6 +70,4 @@
     "**/*.pyo": true,
     "**/venv": true
   },
-  "python-envs.defaultEnvManager": "ms-python.python:pipenv",
-  "typescript.preferences.includePackageJsonAutoImports": "auto"
 }
