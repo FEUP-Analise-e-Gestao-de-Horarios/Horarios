@@ -12,8 +12,8 @@ The ingestion pipeline is orchestrated by `IngestionManager` (`src/ingestion/man
 
 1. Opens the project's SQLite database.
 2. Drives a `Scraper` to fetch and parse HTML pages from the institution's schedule website.
-3. Delegates persistence to the functions in `src/ingestion/ingestors/`.
-4. Runs post-processing steps to clean up and enrich the stored data.
+3. Delegates persistence to DAO classes from `src/projects/projects_db/dao/`.
+4. Runs a shift-assignment step to enrich the stored data.
 
 The pipeline is triggered once per project and its output is a fully populated `general_database.db` file. On success, the database is also snapshotted as `initial_database.db`.
 
@@ -35,124 +35,101 @@ and creates a `Scraper` pointed at the project's configured URL.
 
 ---
 
-### Phase 2 — Pre-populate Red Blocks
-
-`pre_insert_red_blocks()` fills the `blocosVermelhos` table with every possible (weekday, time) combination before any scraping begins:
-
-- **Days:** Monday through Saturday (`Segunda` → `Sábado`)
-- **Slots:** every 30 minutes from 08:00 to 22:30 (encoded as integers: `800`, `830`, …, `2230`)
-
-This creates a fixed reference table so that later red-block links from teachers, classes, and rooms can be resolved with a simple foreign-key lookup.
-
----
-
-### Phase 3 — Menu Parsing
+### Phase 2 — Menu Parsing
 
 `Scraper.read_menu()` drives a two-step fetch:
 
 1. Fetches the root URL and extracts the `<frame name="links">` src to find the navigation menu page.
 2. Fetches the menu page and locates three `<li>` sections — **Docentes**, **Turmas**, **Salas** — producing:
-    - A flat list of teacher page URLs.
-    - A structured `Degree → Year → Class → week URLs` hierarchy.
-    - A list of room metadata + timetable URLs.
+   - A flat list of teacher page URLs.
+   - A structured `Degree → Year → Class → week URLs` hierarchy.
+   - A list of room metadata + timetable URLs.
 
-The three results are passed directly into Phases 4–6.
+The three results feed into the subsequent phases.
 
 ---
 
-### Phase 4 — Ingest Teachers
+### Phase 3 — Fetch Class Pages
 
-For each teacher URL:
+Before any database writes begin, `run()` iterates over every class in the degree hierarchy and fetches all of its weekly schedule pages via `Scraper.get_class_page()`. The parsed `ClassPage` data (dates, teachers, subjects, sessions, red blocks) is stored in-memory on each `Class`'s `pages` list.
 
-1. Fetch the teacher page (`Scraper.get_teacher_page`).
+A flat list of teachers found across all class pages is also extracted here. This is necessary because some teachers have no red blocks and therefore no links in the menu — these would otherwise be missed.
+
+---
+
+### Phase 4 — Ingest Teachers (`_ingest_teachers`)
+
+1. For each teacher URL from the menu, fetch the teacher page (`Scraper.get_teacher_page`).
 2. Parse the `<td class="cabtitulo">` element to extract acronym, full name, and numeric code.
 3. Parse red blocks (cells with class `td_vermelha`).
-4. Insert the teacher into `docentes` (skipping duplicates).
-5. For each red block, look up its ID in `blocosVermelhos` and insert into `blocoDocente`.
+4. Merge in any teachers from class pages (Phase 3) that were not present in the menu (i.e. those without red blocks).
+5. Insert each teacher via `TeacherDAO.create()`.
+6. Insert each of the teacher's red blocks via `TeacherRedBlockDAO.create()`.
 
 ---
 
-### Phase 5 — Ingest Classes
+### Phase 5 — Ingest Classes (`_ingest_classes`)
 
-**5a — Degrees and classes**
+Inserts the degree/year/class hierarchy into the database:
 
-All degrees are inserted into `curso` first. Then, for each degree → year → class:
+1. Each degree is inserted via `DegreeDAO.create()`.
+2. Each year is inserted via `YearDAO.create()`, linked to its degree.
+3. Each class is inserted via `ClassDAO.create()`, linked to its year, with an initial shift value of `0`.
 
-- The class is inserted into `turmas`.
-- All weekly schedule pages are fetched (`Scraper.get_class_page`), one URL per week range.
-
-**5b — Red blocks** (from the first page only)
-
-Red blocks are the same across all weeks for a given class, so only the first page is parsed for them. Each block is linked via `blocoTurma`.
-
-**5c — Subjects and sessions** (for every page)
-
-- Subjects are parsed from table index 4 and inserted into `uc` (skipping duplicates).
-- Sessions (cells matching `td_tipologia_*`) are parsed from the main timetable:
-    - Each session block contains: subject acronym, weekday, start time, duration (rowspan), teacher acronyms, class codes, and room names.
-    - Teacher acronyms are resolved to numeric codes via the teachers table (index 3) on the same page.
-    - Each session is inserted into `aula`, then linked into:
-        - `aulaUC` (session ↔ subject)
-        - `aulaDocente` (session ↔ teacher, one row per teacher)
-        - `aulaTurmas` (session ↔ class, one row per class)
-        - `aulaSala` (session ↔ room, one row per room)
-        - `turmaUC` (class ↔ subject membership)
-    - Theoretical sessions (CSS class `td_tipologia_19`) are also recorded in the in-memory `subject_shifts_map` for shift assignment in Phase 7.
+No subjects, sessions, or red blocks are written in this phase.
 
 ---
 
-### Phase 6 — Ingest Rooms
+### Phase 6 — Ingest Rooms (`_ingest_rooms`)
 
 For each room entry from the menu:
 
-1. Insert the room into `salas` using static metadata from the `ROOMS` registry (`src/ingestion/rooms.py`). Rooms not present in the registry default to `"Desconhecido"` for type, size, and seat count.
-2. For each timetable URL, fetch the page and extract red blocks.
-3. Link each red block via `salaBloco`.
+1. Fetch the room's timetable page via `Scraper.get_room_page()` to collect red blocks.
+2. Insert the room via `RoomDAO.create()` using static metadata from the `ROOMS` registry (`src/ingestion/rooms.py`). Rooms not present in the registry default to `"Desconhecido"` for type, size, and seat count.
+3. Insert each red block via `RoomRedBlockDAO.create()`.
 
 ---
 
-### Phase 7 — Ingest Subject Shifts
+### Phase 7 — Ingest Sessions (`_ingest_sessions`)
 
-The `subject_shifts_map` (built during Phase 5c) is structured as:
+Iterates over every class page within the degree hierarchy and persists subjects and sessions:
 
-```
-degree_acronym → year → subject_code → shift_number → [class_codes]
-```
+**Subjects:**
 
-Each unique set of classes attending the same theoretical session for a subject constitutes one shift. Shifts are numbered 1..N in ascending order of each shift's minimum class code.
+- For each class page, subjects not yet in the database are inserted via `SubjectDAO.create()`, linked to their year.
 
-`_ingest_subject_shifts()` flushes this map into the `turno` table, skipping (class, subject) pairs that already have a row.
+**Sessions:**
+
+- For each session on a class page, the method resolves the subject, teachers, classes, and rooms to their database entries via the respective DAOs.
+- Weekly session records are created spanning the page's date range (one per week, advancing by 7 days from `start_date` to `end_date`).
+- If a session already exists for the same week, weekday, time, and classes, its subject list is extended rather than creating a duplicate.
+- Sessions are created via `SessionDAO.create()` with linked subject, teacher, class, and room IDs.
+- Sessions without a physical room are stored without room associations (the raw data uses `"Online"` as a sentinel).
+- Session type is set to `"T"` for theoretical sessions (CSS class `td_tipologia_19`) and `"TP"` otherwise.
 
 ---
 
-### Phase 8 — Post-processing
+### Phase 8 — Ingest Shifts (`_ingest_shifts`)
 
-#### 8a — Fix classes without shifts (`_fix_classes_without_shifts`)
+Calculates and assigns shift numbers to classes based on their theoretical sessions:
 
-Queries for every (class, subject) pair present in `turmaUC` that has no corresponding row in `turno`. For each gap, a placeholder shift with `numero = 0` is inserted. This ensures every class–subject pair has at least one shift record.
-
-#### 8b — Clean up duplicate sessions (`_cleanup_sessions`)
-
-Scraping multiple weekly pages for the same class often produces duplicate session records — identical in schedule attributes but covering different (sometimes overlapping) week ranges. This step merges them:
-
-1. Fetches all distinct session signatures: `(day, time, duration, type, teacher, subject, class)`.
-2. For each signature, collects all matching `aula` rows.
-3. While any two rows overlap in date range (or fall within one week of each other), the pair with the earliest start date is merged into a single record spanning the union of both ranges. The redundant row is deleted from `aula`, `aulaDocente`, `aulaUC`, `aulaSala`, and `aulaTurmas`.
-
-#### 8c — Find simultaneous classes (`_find_simultaneous_classes`)
-
-Detects pairs of sessions that share the same teacher, room, weekday, start time, and overlapping week ranges but belong to **different subjects**. Each such pair is inserted into `aulasSimultaneas`. Pairs `(A, B)` and `(B, A)` are deduplicated at the SQL level using `a2.id > a1.id`.
+1. Retrieves all subjects from the database via `SubjectDAO.get_all()`.
+2. For each subject, fetches all `"T"` type sessions via `SessionDAO.get_by_subject_type()`.
+3. For each session, identifies classes that have not yet been assigned a shift (tracked via a visited set).
+4. Assigns the current shift counter value to each unvisited class's `shift` attribute.
+5. Increments the shift counter only after processing a session with new classes.
+6. Commits all changes in a single transaction.
 
 ---
 
 ### Phase 9 — Teardown
 
-**On success:**
+**On success (`_teardown_success`):**
 
-- `general_database.db` is copied to `initial_database.db` as a read-only baseline snapshot.
+- `general_database.db` is copied to `initial_database.db` as a baseline snapshot.
 - `finished_ingestion_at` is stamped on the `Project` record.
 
-**On failure (any exception):**
+**On failure (`_teardown_failure`, any exception):**
 
 - `failed_ingestion_at` is stamped on the `Project` record.
 - The exception is re-raised after cleanup.
@@ -168,53 +145,40 @@ src/ingestion/
 ├── manager.py          # IngestionManager — pipeline orchestration
 ├── scraper.py          # Scraper — HTTP client + page dispatcher
 ├── rooms.py            # ROOMS — static room metadata registry
-├── utils.py            # pre_insert_red_blocks, check_date_range_overlap
 │
 ├── parsers/            # HTML → Python data structures
 │   ├── menu.py         # extract_menu_link, extract_menu_tags,
 │   │                   # extract_teacher_links, extract_sessions_info,
 │   │                   # extract_rooms_info
 │   ├── teacher_page.py # extract_teacher_info
-│   ├── section_page.py # extract_week_dates, extract_subjects, extract_sessions
+│   ├── class_page.py   # extract_week_dates, extract_teachers,
+│   │                   # extract_subjects, extract_sessions
 │   ├── red_blocks.py   # extract_red_blocks
 │   └── utils.py        # matrix_from_html_table, get_cell_column,
 │                       # get_weekday_at_column
 │
-├── ingestors/          # Python data structures → SQLite
-│   ├── teachers.py     # ingest_teacher, ingest_teacher_red_blocks
-│   ├── sections.py     # ingest_degree, ingest_class,
-│   │                   # ingest_class_red_blocks, ingest_subject,
-│   │                   # ingest_session
-│   └── rooms.py        # ingest_room, ingest_room_red_blocks
-│
 └── schemas/            # TypedDict / type alias definitions
-    ├── misc.py         # Matrix, Time, WeekDay, RedBlock, TurnosMap
-    ├── sections.py     # Degree, Year, ClassLinks, ClassPage,
+    ├── misc.py         # Matrix, Time, RedBlock, TurnosMap
+    ├── classes.py      # Degree, Year, Class, ClassPage, Teacher,
     │                   # Subject, Session
-    ├── rooms.py        # RoomLinks
-    └── teachers.py     # TeacherPage
+    ├── rooms.py        # RoomInfo
+    └── teachers.py     # TeacherInfo
 ```
 
 ---
 
-## Database Tables Written
+## DAO Classes Used
 
-| Table              | Written by                   | Content                                      |
-| ------------------ | ---------------------------- | -------------------------------------------- |
-| `blocosVermelhos`  | `pre_insert_red_blocks`      | All (weekday, time) slot combinations        |
-| `docentes`         | `ingest_teacher`             | Teacher records                              |
-| `blocoDocente`     | `ingest_teacher_red_blocks`  | Teacher ↔ unavailable slot links             |
-| `curso`            | `ingest_degree`              | Degree records                               |
-| `turmas`           | `ingest_class`               | Class records                                |
-| `blocoTurma`       | `ingest_class_red_blocks`    | Class ↔ unavailable slot links               |
-| `uc`               | `ingest_subject`             | Subject (UC) records                         |
-| `aula`             | `ingest_session`             | Session records                              |
-| `aulaUC`           | `ingest_session`             | Session ↔ subject links                      |
-| `aulaDocente`      | `ingest_session`             | Session ↔ teacher links                      |
-| `aulaTurmas`       | `ingest_session`             | Session ↔ class links                        |
-| `aulaSala`         | `ingest_session`             | Session ↔ room links                         |
-| `turmaUC`          | `ingest_session`             | Class ↔ subject membership                   |
-| `salas`            | `ingest_room`                | Room records                                 |
-| `salaBloco`        | `ingest_room_red_blocks`     | Room ↔ unavailable slot links                |
-| `turno`            | `_ingest_subject_shifts`     | Subject shift assignments                    |
-| `aulasSimultaneas` | `_find_simultaneous_classes` | Pairs of simultaneous cross-subject sessions |
+Persistence is handled through DAO (Data Access Object) classes from `src/projects/projects_db/dao/`, each accessed via a SQLAlchemy session obtained from `get_session()`:
+
+| DAO                  | Used in                               | Purpose                                       |
+| -------------------- | ------------------------------------- | --------------------------------------------- |
+| `TeacherDAO`         | `_ingest_teachers`                    | Create teacher records                        |
+| `TeacherRedBlockDAO` | `_ingest_teachers`                    | Create teacher unavailability slots           |
+| `DegreeDAO`          | `_ingest_classes`                     | Create degree records                         |
+| `YearDAO`            | `_ingest_classes`, `_ingest_sessions` | Create year records, look up years by degree  |
+| `ClassDAO`           | `_ingest_classes`, `_ingest_sessions` | Create class records, look up classes by code |
+| `RoomDAO`            | `_ingest_rooms`, `_ingest_sessions`   | Create room records, look up rooms by name    |
+| `RoomRedBlockDAO`    | `_ingest_rooms`                       | Create room unavailability slots              |
+| `SubjectDAO`         | `_ingest_sessions`, `_ingest_shifts`  | Create/look up subject records                |
+| `SessionDAO`         | `_ingest_sessions`, `_ingest_shifts`  | Create/look up session records                |
