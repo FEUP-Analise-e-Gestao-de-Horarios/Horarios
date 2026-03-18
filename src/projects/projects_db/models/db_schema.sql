@@ -98,12 +98,13 @@ CREATE TABLE class_red_blocks (
 -----------------------------------------------------------
 
 CREATE TABLE sessions (
-    id          UUID PRIMARY KEY,
-    week        DATE NOT NULL,
-    weekday     TEXT NOT NULL,
-    start_time  INT NOT NULL,
-    duration    INT NOT NULL,
-    type        TEXT NOT NULL
+    id                 UUID PRIMARY KEY,
+    week               DATE NOT NULL,
+    weekday            TEXT NOT NULL,
+    start_time         INT NOT NULL,
+    duration           INT NOT NULL,
+    type               TEXT NOT NULL,
+    original_block_id  UUID NOT NULL
 );
 
 CREATE TABLE session_rooms (

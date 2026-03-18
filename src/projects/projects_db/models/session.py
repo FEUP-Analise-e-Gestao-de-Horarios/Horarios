@@ -31,6 +31,7 @@ class Session(Base):
     start_time: Mapped[int] = mapped_column()
     duration: Mapped[int] = mapped_column()
     type: Mapped[str] = mapped_column(Text)
+    original_block_id: Mapped[UUID] = mapped_column(Uuid(native_uuid=False))
 
     # Relationships
     rooms: Mapped[list[Room]] = relationship(secondary=session_rooms, back_populates="sessions")

@@ -1,5 +1,6 @@
 import shutil
 import sqlite3
+import uuid
 from collections import defaultdict
 from datetime import timedelta
 from pathlib import Path
@@ -332,6 +333,7 @@ class IngestionManager:
 
                             for session in class_page["sessions"]:
                                 current_date = class_page["start_date"]
+                                original_block_id = uuid.uuid7()
 
                                 subject_number = subjects_by_acronym[session["subject_acronym"]][
                                     "number"
@@ -375,6 +377,7 @@ class IngestionManager:
                                             start_time=session["start_time"],
                                             duration=session["duration"],
                                             type_=("T" if session["is_theoretical"] else "TP"),
+                                            original_block_id=original_block_id,
                                             subject_ids=subject_ids,
                                             teacher_ids=teacher_ids,
                                             class_ids=class_ids,

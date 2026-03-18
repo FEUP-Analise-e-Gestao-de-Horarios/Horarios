@@ -34,6 +34,7 @@ class SessionDAO(BaseDAO[Session]):
         start_time: int,
         duration: int,
         type_: str,
+        original_block_id: UUID,
         subject_ids: set[UUID],
         teacher_ids: set[UUID],
         class_ids: set[UUID],
@@ -45,6 +46,7 @@ class SessionDAO(BaseDAO[Session]):
             start_time=start_time,
             duration=duration,
             type=type_,
+            original_block_id=original_block_id,
         )
 
         if subject_ids:
