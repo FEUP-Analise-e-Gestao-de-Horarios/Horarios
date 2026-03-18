@@ -7,14 +7,12 @@ from pathlib import Path
 from django.conf import settings
 from django.utils import timezone
 
-from src.ingestion.schemas.classes import Degree
+from src.ingestion.schemas.classes import Degree, Teacher
 from src.ingestion.schemas.misc import TurnosMap
-from src.ingestion.schemas.rooms import RoomLinks
-from src.ingestion.schemas.teachers import TeacherPages
+from src.ingestion.schemas.rooms import RoomInfo
 from src.ingestion.scraper import Scraper
 from src.projects.models import Project
 from src.projects.projects_db.dao.class_dao import ClassDAO
-from src.projects.projects_db.dao.class_red_block_dao import ClassRedBlockDAO
 from src.projects.projects_db.dao.degree_dao import DegreeDAO
 from src.projects.projects_db.dao.room_dao import RoomDAO
 from src.projects.projects_db.dao.room_red_block_dao import RoomRedBlockDAO
@@ -74,9 +72,31 @@ class IngestionManager:
             self._setup()
 
             teacher_links, degrees, rooms = self.scraper.read_menu()
-            teacher_pages = self._ingest_classes(degrees)
-            self._ingest_teachers(teacher_links, teacher_pages)
+
+            # Load info from class pages
+            for degree in degrees:
+                for year in degree["years"]:
+                    for class_ in year["classes"]:
+                        for link in class_["links"]:
+                            class_["pages"].append(self.scraper.get_class_page(link))
+
+            # Extract teachers from class pages.
+            # This is necessary as some teachers don't have red blocks
+            # which means they didn't have any links on the menu.
+            # These will be added to the ones extracted from the menu.
+            teachers_from_class_pages = [
+                teacher
+                for degree in degrees
+                for year in degree["years"]
+                for class_ in year["classes"]
+                for class_page in class_["pages"]
+                for teacher in class_page["teachers"]
+            ]
+
+            self._ingest_teachers(teacher_links, teachers_from_class_pages)
+            self._ingest_classes(degrees)
             self._ingest_rooms(rooms)
+
             self._ingest_sessions(degrees)
             self._ingest_shifts()
 
@@ -131,7 +151,7 @@ class IngestionManager:
     def _ingest_teachers(
         self,
         teacher_links: list[str],
-        teacher_pages: TeacherPages,
+        teachers_from_classes_page: list[Teacher],
     ) -> None:
         """Ingest teacher records and their unavailability blocks into the DB.
 
@@ -139,36 +159,48 @@ class IngestionManager:
         into the ``docentes`` table (skipping duplicates), then maps each red
         block to its ``blocosVermelhos`` row and records it in ``blocoDocente``.
 
+        Teachers that appear on class pages but not in the menu (i.e. those
+        without red blocks) are merged in from ``teachers_from_classes_page``.
+
         Args:
             teacher_links: Relative URL paths to each teacher's schedule page.
+            teachers_from_classes_page: Teacher entries extracted from class
+                pages, used to supplement teachers missing from the menu.
 
         Raises:
             ValueError: If a red block's (time, day) pair has no matching row
                 in the ``blocosVermelhos`` table.
         """
-        teacher_red_blocks = dict(self.scraper.get_teacher_page(link) for link in teacher_links)
+        teachers = [self.scraper.get_teacher_page(link) for link in teacher_links]
+
+        # Add missing teachers (didn't have red blocks so no links were available)
+        existing_codes = {t["code"] for t in teachers}
+        for teacher in teachers_from_classes_page:
+            if teacher["code"] not in existing_codes:
+                teachers.append({**teacher, "red_blocks": []})
+                existing_codes.add(teacher["code"])
 
         with get_session(general_db(self.proj_id)) as session:
             teacher_dao = TeacherDAO(session)
             teacher_red_block_dao = TeacherRedBlockDAO(session)
-            for code, teacher_page in teacher_pages.items():
-                teacher = teacher_dao.create(
-                    number=teacher_page["code"],
-                    acronym=teacher_page["acronym"],
-                    name=teacher_page["name"],
+
+            for teacher in teachers:
+                teacher_entry = teacher_dao.create(
+                    number=teacher["code"],
+                    acronym=teacher["acronym"],
+                    name=teacher["name"],
                 )
 
-                if teacher_red_blocks.get(code) is not None:
-                    for red_block in teacher_red_blocks[code]:
-                        teacher_red_block_dao.create(
-                            teacher_id=teacher.id,
-                            hour=red_block[0],
-                            weekday=red_block[1],
-                        )
+                for hour, weekday in teacher["red_blocks"]:
+                    teacher_red_block_dao.create(
+                        teacher_id=teacher_entry.id,
+                        hour=hour,
+                        weekday=weekday,
+                    )
 
             session.commit()
 
-    def _ingest_classes(self, degrees: list[Degree]) -> TeacherPages:
+    def _ingest_classes(self, degrees: list[Degree]) -> None:
         """Ingest degrees, classes, subjects, and sessions into the database.
 
         First inserts all degrees, then for each class fetches all weekly
@@ -184,13 +216,11 @@ class IngestionManager:
         Raises:
             ValueError: If a class has no schedule pages.
         """
+
         with get_session(general_db(self.proj_id)) as session_db:
             degree_dao = DegreeDAO(session_db)
             year_dao = YearDAO(session_db)
             class_dao = ClassDAO(session_db)
-            class_red_block_dao = ClassRedBlockDAO(session_db)
-            subject_dao = SubjectDAO(session_db)
-            all_teachers: TeacherPages = {}
 
             for degree in degrees:
                 degree_entry = degree_dao.create(
@@ -205,105 +235,31 @@ class IngestionManager:
                     )
 
                     for class_ in year["classes"]:
-                        class_entry = class_dao.create(
+                        class_dao.create(
                             year_id=year_entry.id,
                             code=class_["code"],
                             shift=0,
                         )
 
-                        class_pages, teacher_pages = self.scraper.get_class_pages(
-                            class_,
-                        )
-                        all_teachers.update(teacher_pages)
-
-                        for hour, weekday in class_pages[0]["red_blocks"]:
-                            class_red_block_dao.create(
-                                class_id=class_entry.id,
-                                hour=hour,
-                                weekday=weekday,
-                            )
-
-                        for class_page in class_pages:
-                            for subject in class_page["subjects"]:
-                                if subject_dao.get_by_code(subject["code"]) is None:
-                                    subject_dao.create(
-                                        year_id=year_entry.id,
-                                        number=subject["number"],
-                                        code=subject["code"],
-                                        acronym=subject["acronym"],
-                                        name=subject["name"],
-                                    )
-            session_db.commit()
-        return all_teachers
-
-    def _ingest_sessions(self, degrees: list[Degree]) -> None:
-        with get_session(general_db(self.proj_id)) as session_db:
-            session_dao = SessionDAO(session_db)
-            subject_dao = SubjectDAO(session_db)
-            for degree in degrees:
-                for year in degree["years"]:
-                    for class_ in year["classes"]:
-                        for class_page in class_["class_pages"]:
-                            subjects_by_acronym = {s["acronym"]: s for s in class_page["subjects"]}
-
-                            for session in class_page["sessions"]:
-                                rooms = session["room"] if session["room"][0] != "Online" else None
-
-                                current_date = class_page["start_date"]
-                                subject_code = subjects_by_acronym[session["subject_acronym"]][
-                                    "code"
-                                ]
-
-                                while current_date <= class_page["end_date"]:
-                                    session_entry = session_dao.get_by_class_with_attributes(
-                                        week=current_date,
-                                        weekday=session["weekday"],
-                                        start_time=session["start_time"],
-                                        duration=session["duration"],
-                                        type=("T" if session["is_theoretical"] else "TP"),
-                                        class_codes=session["classes"],
-                                        teacher_numbers=session["teachers"],
-                                        room_names=rooms,
-                                    )
-                                    if session_entry is None:
-                                        session_dao.create(
-                                            week=current_date,
-                                            weekday=session["weekday"],
-                                            start_time=session["start_time"],
-                                            duration=session["duration"],
-                                            type=("T" if session["is_theoretical"] else "TP"),
-                                            room_names=rooms,
-                                            class_codes=session["classes"],
-                                            teacher_numbers=session["teachers"],
-                                            subject_codes=[subject_code],
-                                        )
-                                    else:
-                                        if not session_dao.has_subject(session_entry, subject_code):
-                                            print(
-                                                f"added subject to session with id {session_entry.id}",
-                                            )
-                                            subject_entry = subject_dao.get_by_code(subject_code)
-                                            assert subject_entry is not None
-                                            session_entry.subjects.append(subject_entry)
-
-                                    current_date += timedelta(weeks=1)
-
             session_db.commit()
 
-    def _ingest_rooms(self, rooms: list[RoomLinks]) -> None:
+    def _ingest_rooms(self, rooms: list[RoomInfo]) -> None:
         """Ingest room metadata and unavailability blocks into the database.
 
-        For each room, inserts its record and then fetches every timetable
-        page to collect and store its red blocks.
+        For each room, inserts its record and then fetches a timetable page
+        to collect and store its red blocks.
 
         Args:
             rooms: Room entries as returned by ``Scraper.read_menu``.
         """
+
+        rooms_data = [(room, self.scraper.get_room_page(room["link"])) for room in rooms]
+
         with get_session(general_db(self.proj_id)) as session:
             room_dao = RoomDAO(session)
             room_red_block_dao = RoomRedBlockDAO(session)
 
-            for room in rooms:
+            for room, red_blocks in rooms_data:
                 room_entry = room_dao.create(
                     name=room["name"],
                     type=room["type_"],
@@ -311,14 +267,123 @@ class IngestionManager:
                     seats=room["seats"],
                 )
 
-                for link in room["links"]:
-                    for hour, weekday in self.scraper.get_room_page(link):
-                        room_red_block_dao.create(
-                            room_id=room_entry.id,
-                            hour=hour,
-                            weekday=weekday,
-                        )
+                for hour, weekday in red_blocks:
+                    room_red_block_dao.create(
+                        room_id=room_entry.id,
+                        hour=hour,
+                        weekday=weekday,
+                    )
+
             session.commit()
+
+    def _ingest_sessions(self, degrees: list[Degree]) -> None:
+        """Ingest session records from all class pages into the database.
+
+        Iterates over every class page within the degree hierarchy. For each
+        session, resolves its subject, teachers, classes, and rooms to database
+        entries, then creates weekly session records spanning the page's date
+        range. If a session already exists for the same week, weekday, time,
+        and classes, its subject list is extended rather than creating a
+        duplicate.
+
+        Args:
+            degrees: Structured degree hierarchy with populated ``pages``.
+
+        Raises:
+            ValueError: If a referenced year, subject, teacher, class, or room
+                cannot be found in the database.
+        """
+        with get_session(general_db(self.proj_id)) as db_session:
+            session_dao = SessionDAO(db_session)
+            year_dao = YearDAO(db_session)
+            subject_dao = SubjectDAO(db_session)
+            teacher_dao = TeacherDAO(db_session)
+            class_dao = ClassDAO(db_session)
+            room_dao = RoomDAO(db_session)
+            for degree in degrees:
+                for year in degree["years"]:
+                    year_db_entry = year_dao.get_by_degree_and_number(
+                        degree_acronym=degree["acronym"],
+                        number=year["number"],
+                    )
+                    if not year_db_entry:
+                        raise ValueError(
+                            f"Year {year['number']} not found for degree {degree['acronym']}",
+                        )
+
+                    for class_ in year["classes"]:
+                        for class_page in class_["pages"]:
+                            subjects_by_acronym = {s["acronym"]: s for s in class_page["subjects"]}
+
+                            subjects_db_entries = subject_dao.get_by_numbers(
+                                {s["number"] for s in class_page["subjects"]},
+                                check_count=False,
+                            )
+                            subjects_db_ids = {s.id for s in subjects_db_entries}
+                            for subject in class_page["subjects"]:
+                                if subject["number"] not in subjects_db_ids:
+                                    subject_dao.create(
+                                        year_id=year_db_entry.id,
+                                        number=subject["number"],
+                                        code=subject["code"],
+                                        acronym=subject["acronym"],
+                                        name=subject["name"],
+                                    )
+
+                            for session in class_page["sessions"]:
+                                current_date = class_page["start_date"]
+
+                                subject_number = subjects_by_acronym[session["subject_acronym"]][
+                                    "number"
+                                ]
+                                subject_db_entry = subject_dao.get_by_number(subject_number)
+                                if not subject_db_entry:
+                                    raise ValueError(
+                                        f"Subject {subject_number} not found for year {year['number']} of degree {degree['acronym']}",
+                                    )
+                                subject_ids = {subject_db_entry.id}
+
+                                teachers = teacher_dao.get_by_numbers(set(session["teachers"]))
+                                teacher_ids = {teacher.id for teacher in teachers}
+
+                                classes = class_dao.get_by_codes(set(session["classes"]))
+                                class_ids = {class_.id for class_ in classes}
+
+                                rooms = (
+                                    room_dao.get_by_names(set(session["rooms"]))
+                                    if session["rooms"][0] != "Online"
+                                    else []
+                                )
+                                room_ids = {room.id for room in rooms}
+
+                                while current_date <= class_page["end_date"]:
+                                    session_db_entry = session_dao.get_by_class_with_attributes(
+                                        week=current_date,
+                                        weekday=session["weekday"],
+                                        start_time=session["start_time"],
+                                        class_ids=class_ids,
+                                    )
+
+                                    if session_db_entry is not None:
+                                        if subject_db_entry not in session_db_entry.subjects:
+                                            session_db_entry.subjects.append(subject_db_entry)
+
+                                    else:
+                                        session_dao.create(
+                                            week=current_date,
+                                            weekday=session["weekday"],
+                                            start_time=session["start_time"],
+                                            duration=session["duration"],
+                                            type_=("T" if session["is_theoretical"] else "TP"),
+                                            subject_ids=subject_ids,
+                                            teacher_ids=teacher_ids,
+                                            class_ids=class_ids,
+                                            room_ids=room_ids,
+                                        )
+
+                                    current_date += timedelta(weeks=1)
+
+            db_session.commit()
 
     def _ingest_shifts(self) -> None:
         """

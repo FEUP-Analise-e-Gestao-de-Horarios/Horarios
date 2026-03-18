@@ -27,21 +27,23 @@ class Year(TypedDict):
     """
 
     number: int
-    classes: list[ClassLinks]
+    classes: list[Class]
 
 
-class ClassLinks(TypedDict):
+class Class(TypedDict):
     """A class entry parsed from the menu, with links to its schedule pages.
 
     Attributes:
         code: The class's identifier code.
         links: URLs to the class's schedule pages. Multiple links indicate different
             week ranges covered by separate schedule pages.
+        pages: Parsed schedule page data, populated during ingestion by fetching
+            each URL in ``links``.
     """
 
     code: str
     links: list[str]
-    class_pages: list[ClassPage]
+    pages: list[ClassPage]
 
 
 class ClassPage(TypedDict):
@@ -50,6 +52,7 @@ class ClassPage(TypedDict):
     Attributes:
         start_date: First day of the schedule week covered by the page.
         end_date: Last day of the schedule week covered by the page.
+        teachers: Teachers listed on the class schedule page.
         subjects: Subjects associated with the class for this week.
         sessions: Scheduled sessions parsed from the timetable.
         red_blocks: Unavailable time slots marked on the timetable.
@@ -57,9 +60,24 @@ class ClassPage(TypedDict):
 
     start_date: date
     end_date: date
+    teachers: list[Teacher]
     subjects: list[Subject]
     sessions: list[Session]
     red_blocks: list[RedBlock]
+
+
+class Teacher(TypedDict):
+    """A teacher entry parsed from a class schedule page.
+
+    Attributes:
+        acronym: Short identifier for the teacher (e.g. ``"ABC"``).
+        name: Full display name of the teacher.
+        code: Unique numeric identifier used by the institution.
+    """
+
+    acronym: str
+    name: str
+    code: int
 
 
 class Subject(TypedDict):
@@ -88,7 +106,7 @@ class Session(TypedDict):
         duration: Duration in timetable row slots (the cell's ``rowspan`` value).
         teachers: Numeric codes of the teachers assigned to this session.
         classes: Class codes participating in this session.
-        room: Names of the rooms where the session takes place. Contains
+        rooms: Names of the rooms where the session takes place. Contains
             ``["Online"]`` when no room is listed in the session block.
         is_theoretical: ``True`` if the session is theoretical
             (CSS class ``td_tipologia_19``), ``False`` otherwise.
@@ -100,5 +118,5 @@ class Session(TypedDict):
     duration: int
     teachers: list[int]
     classes: list[str]
-    room: list[str]
+    rooms: list[str]
     is_theoretical: bool

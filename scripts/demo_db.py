@@ -65,7 +65,7 @@ def main() -> None:
             weekday=WeekDay.MONDAY,
             start_time=8,
             duration=2,
-            type="T",
+            type_="T",
             room_ids=[room.id],
             teacher_ids=[teacher.id],
             subject_ids=[subject.id],
