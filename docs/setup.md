@@ -57,21 +57,27 @@ nvm install 24
 nvm use 24
 ```
 
-### Install dependencies
+### pre-commit
 
-**Backend:**
-
-```sh
-cd backend
-pipenv install --dev
-```
-
-**Frontend:**
+Git hooks are managed by [pre-commit](https://pre-commit.com). It is installed as a backend dev dependency, but you can also install it globally:
 
 ```sh
-cd frontend
-npm ci
+pip install pre-commit
 ```
+
+### Run local setup
+
+Once all tools above are installed, run:
+
+```sh
+make local-setup
+```
+
+This will:
+
+- Install backend dependencies (`pipenv install --dev`)
+- Install frontend dependencies (`npm install`)
+- Install the git pre-commit hooks (`pre-commit install`)
 
 ---
 
@@ -182,6 +188,7 @@ When creating a project in the application, set the schedule URL to:
 
 | Command             | Description                                 |
 | ------------------- | ------------------------------------------- |
+| `make local-setup`  | Install all dependencies and git hooks      |
 | `make dev`          | Build and start frontend + backend          |
 | `make dev-mirror`   | Build and start frontend + backend + mirror |
 | `make mirror`       | Start only the mirror service               |
