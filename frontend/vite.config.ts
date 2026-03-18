@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 
 // Pages already migrated to React.
 // When you migrate a new page, ADD it here.
@@ -10,7 +11,7 @@ const REACT_ROUTES = ["/react-test", "/react-test-2"];
 const backendHost = process.env.BACKEND_HOST ?? "localhost";
 
 export default defineConfig(({ command }) => ({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   // In production Django serves assets under /static/frontend/; in dev Vite
   // serves from root so React Router and asset paths resolve correctly.
   base: command === "build" ? "/static/frontend/" : "/",
