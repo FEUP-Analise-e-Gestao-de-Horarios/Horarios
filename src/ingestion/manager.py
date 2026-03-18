@@ -1,9 +1,8 @@
 import shutil
 import sqlite3
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import timedelta
 from pathlib import Path
-from uuid import UUID
 
 from django.conf import settings
 from django.utils import timezone
@@ -11,8 +10,8 @@ from django.utils import timezone
 from src.ingestion.schemas.classes import Degree
 from src.ingestion.schemas.misc import TurnosMap
 from src.ingestion.schemas.rooms import RoomLinks
+from src.ingestion.schemas.teachers import TeacherPage, TeacherPages
 from src.ingestion.scraper import Scraper
-from src.ingestion.utils import check_date_range_overlap
 from src.projects.models import Project
 from src.projects.projects_db.dao.class_dao import ClassDAO
 from src.projects.projects_db.dao.class_red_block_dao import ClassRedBlockDAO
@@ -75,13 +74,12 @@ class IngestionManager:
             self._setup()
 
             teacher_links, degrees, rooms = self.scraper.read_menu()
-            self._ingest_teachers(teacher_links)
-            self._ingest_classes(degrees)
+            teacher_pages = self._ingest_classes(degrees)
+            self._ingest_teachers(teacher_links, teacher_pages)
             self._ingest_rooms(rooms)
             self._ingest_sessions(degrees)
             self._ingest_shifts()
 
-            # self._fix_classes_without_shifts()
             # self._cleanup_sessions()
             # self._find_simultaneous_classes()
 
@@ -133,7 +131,11 @@ class IngestionManager:
     # Ingest functions
     # -----------------------------------------------------------------------
 
-    def _ingest_teachers(self, teacher_links: list[str]) -> None:
+    def _ingest_teachers(
+        self,
+        teacher_links: list[str],
+        teacher_pages: dict[int, TeacherPage],
+    ) -> None:
         """Ingest teacher records and their unavailability blocks into the DB.
 
         For each teacher link, fetches the schedule page, inserts the teacher
@@ -147,28 +149,29 @@ class IngestionManager:
             ValueError: If a red block's (time, day) pair has no matching row
                 in the ``blocosVermelhos`` table.
         """
-        teacher_pages = [self.scraper.get_teacher_page(link) for link in teacher_links]
+        teacher_red_blocks = dict(self.scraper.get_teacher_page(link) for link in teacher_links)
 
         with get_session(general_db(self.proj_id)) as session:
             teacher_dao = TeacherDAO(session)
             teacher_red_block_dao = TeacherRedBlockDAO(session)
-            for teacher_page in teacher_pages:
+            for code, teacher_page in teacher_pages.items():
                 teacher = teacher_dao.create(
                     number=teacher_page["code"],
                     acronym=teacher_page["acronym"],
                     name=teacher_page["name"],
                 )
 
-                for red_block in teacher_page["red_blocks"]:
-                    teacher_red_block_dao.create(
-                        teacher_id=teacher.id,
-                        hour=red_block[0],
-                        weekday=red_block[1],
-                    )
+                if teacher_red_blocks.get(code) is not None:
+                    for red_block in teacher_red_blocks[code]:
+                        teacher_red_block_dao.create(
+                            teacher_id=teacher.id,
+                            hour=red_block[0],
+                            weekday=red_block[1],
+                        )
 
             session.commit()
 
-    def _ingest_classes(self, degrees: list[Degree]) -> None:
+    def _ingest_classes(self, degrees: list[Degree]) -> TeacherPages:
         """Ingest degrees, classes, subjects, and sessions into the database.
 
         First inserts all degrees, then for each class fetches all weekly
@@ -190,6 +193,7 @@ class IngestionManager:
             class_dao = ClassDAO(session_db)
             class_red_block_dao = ClassRedBlockDAO(session_db)
             subject_dao = SubjectDAO(session_db)
+            all_teachers: TeacherPages = {}
 
             for degree in degrees:
                 degree_entry = degree_dao.create(
@@ -210,7 +214,10 @@ class IngestionManager:
                             shift=0,
                         )
 
-                        class_pages = self.scraper.get_class_pages(class_)
+                        class_pages, teacher_pages = self.scraper.get_class_pages(
+                            class_,
+                        )
+                        all_teachers.update(teacher_pages)
 
                         for hour, weekday in class_pages[0]["red_blocks"]:
                             class_red_block_dao.create(
@@ -230,85 +237,36 @@ class IngestionManager:
                                         name=subject["name"],
                                     )
             session_db.commit()
+        return all_teachers
 
     def _ingest_sessions(self, degrees: list[Degree]) -> None:
         with get_session(general_db(self.proj_id)) as session_db:
             session_dao = SessionDAO(session_db)
-            teacher_dao = TeacherDAO(session_db)
             subject_dao = SubjectDAO(session_db)
-            class_dao = ClassDAO(session_db)
-
             for degree in degrees:
                 for year in degree["years"]:
                     for class_ in year["classes"]:
                         for class_page in class_["class_pages"]:
-                            # add teachers without redblocks
-                            for teacher_page in class_page["teachers"]:
-                                if teacher_dao.get_by_number(teacher_page["code"]) is None:
-                                    teacher_page = teacher_dao.create(
-                                        number=teacher_page["code"],
-                                        acronym=teacher_page["acronym"],
-                                        name=teacher_page["name"],
-                                    )
                             subjects_by_acronym = {s["acronym"]: s for s in class_page["subjects"]}
 
                             for session in class_page["sessions"]:
+                                rooms = session["room"] if session["room"][0] != "Online" else None
+
+                                current_date = class_page["start_date"]
                                 subject_code = subjects_by_acronym[session["subject_acronym"]][
                                     "code"
                                 ]
 
-                                subject = subject_dao.get_by_code(subject_code)
-
-                                if subject is None:
-                                    raise ValueError(
-                                        f"No subject with the code {subject_code} was found",
-                                    )
-
-                                teachers_id: list[UUID] = [
-                                    t.id
-                                    for number in session["teachers"]
-                                    if (t := teacher_dao.get_by_number(number)) is not None
-                                ]
-
-                                assert len(teachers_id) == len(
-                                    session["teachers"],
-                                ), (
-                                    f"One or more teachers were not found in {subjects_by_acronym[session['subject_acronym']]['name']} subject"
-                                )
-
-                                classes_id = [
-                                    c.id
-                                    for code in session["classes"]
-                                    if (c := class_dao.get_by_code(code)) is not None
-                                ]
-
-                                assert len(classes_id) == len(
-                                    session["classes"],
-                                ), (
-                                    f"One or more classes were not found in {subjects_by_acronym[session['subject_acronym']]['name']} subject"
-                                )
-
-                                current_date = class_page["start_date"]
-                                class_obj = class_dao.get_by_code(class_["code"])
-
-                                rooms = session["room"] if session["room"][0] != "Online" else None
-
-                                assert class_obj is not None, (
-                                    f"Class with code {class_['code']} was not found"
-                                )
-
                                 while current_date <= class_page["end_date"]:
-                                    if (
-                                        session_dao.get_by_class_with_attributes(
-                                            week=current_date,
-                                            weekday=session["weekday"],
-                                            start_time=session["start_time"],
-                                            duration=session["duration"],
-                                            type=("T" if session["is_theoretical"] else "TP"),
-                                            class_id=class_obj.id,
-                                        )
-                                        is None
-                                    ):
+                                    session_entry = session_dao.get_by_class_with_attributes(
+                                        week=current_date,
+                                        weekday=session["weekday"],
+                                        start_time=session["start_time"],
+                                        duration=session["duration"],
+                                        type=("T" if session["is_theoretical"] else "TP"),
+                                        class_codes=session["classes"],
+                                    )
+                                    if session_entry is None:
                                         session_dao.create(
                                             week=current_date,
                                             weekday=session["weekday"],
@@ -316,10 +274,19 @@ class IngestionManager:
                                             duration=session["duration"],
                                             type=("T" if session["is_theoretical"] else "TP"),
                                             room_names=rooms,
-                                            class_ids=classes_id,
-                                            teacher_ids=teachers_id,
-                                            subject_ids=[subject.id],
+                                            class_codes=session["classes"],
+                                            teacher_numbers=session["teachers"],
+                                            subject_codes=[subject_code],
                                         )
+                                    else:
+                                        if not session_dao.has_subject(session_entry, subject_code):
+                                            print(
+                                                f"added subject to session with id {session_entry.id}",
+                                            )
+                                            subject_entry = subject_dao.get_by_code(subject_code)
+                                            assert subject_entry is not None
+                                            session_entry.subjects.append(subject_entry)
+
                                     current_date += timedelta(weeks=1)
 
             session_db.commit()
@@ -401,177 +368,3 @@ class IngestionManager:
                     shift += 1
 
             session_db.commit()
-
-    # -----------------------------------------------------------------------
-    # Subject <-> shift management
-    # -----------------------------------------------------------------------
-
-    def _update_subject_shifts_map(
-        self,
-        degree: str,
-        year: int,
-        subject_code: str,
-        classes: list[str],
-    ) -> None:
-        """Records a new shift for a subject, keeping shifts sorted by their smallest class code.
-
-        If ``classes`` is already registered for this subject, this is a no-op.
-        Otherwise, adds it and re-numbers all shifts from 1 in ascending order
-        of each shift's minimum class code.
-
-        Args:
-            degree: Acronym of the degree the subject belongs to.
-            year: Academic year number within the degree.
-            subject_code: Institutional code of the subject.
-            classes: Class codes that form the new shift.
-        """
-        subject_map = self.subject_shifts_map[degree][year][subject_code]
-
-        if classes not in subject_map.values():
-            all_classes = sorted(
-                [*subject_map.values(), classes],
-                key=min,
-            )
-            subject_map.clear()
-            for i, classes in enumerate(all_classes, 1):
-                subject_map[i] = classes
-
-    # -----------------------------------------------------------------------
-    # Post processing
-    # -----------------------------------------------------------------------
-
-    def _cleanup_sessions(self) -> None:
-        """Merge duplicate session records that share the same schedule and overlap in date range.
-
-        Sessions are considered duplicates if they have identical schedule attributes
-        (day, time, duration, type, teacher, subject unit, and class). When
-        duplicates with overlapping week ranges are found, they are merged into a single
-        record spanning the union of their date ranges, and the redundant record is deleted
-        (along with its associated rows in aulaDocente, aulaUC, aulaSala, and aulaTurmas).
-
-        The loop processes pairs in ascending date order and repeats until no overlapping
-        duplicates remain for a given session signature.
-        """
-        stmt = """
-            SELECT DISTINCT diaSemana, horaInicial, duracao, teorico, idDocente, idUC, idTurma
-            FROM aula
-            JOIN aulaDocente ON aula.id = aulaDocente.idAula
-            JOIN aulaUC ON aula.id = aulaUC.idAula
-            JOIN aulaTurmas ON aula.id = aulaTurmas.idAula
-        """
-        self.cursor.execute(stmt)
-        sessions = self.cursor.fetchall()
-
-        for session in sessions:
-            dia, hora, duracao, isTeorica, docente, uc, turma = session
-            stmt = """
-                SELECT * FROM aula
-                JOIN aulaDocente ON aula.id = aulaDocente.idAula
-                JOIN aulaUC ON aula.id = aulaUC.idAula
-                JOIN aulaTurmas ON aula.id = aulaTurmas.idAula
-                WHERE diaSemana=? AND horaInicial=? AND duracao=? AND teorico=? AND idDocente=? AND idUC=? AND idTurma=?
-            """
-            self.cursor.execute(
-                stmt,
-                (dia, hora, duracao, isTeorica, docente, uc, turma),
-            )
-            results = [
-                (*r[:5], date.fromisoformat(r[5]), date.fromisoformat(r[6]), *r[7:])
-                for r in self.cursor.fetchall()
-            ]
-
-            while len(results) > 1 and any(
-                check_date_range_overlap(
-                    (results[i][5], results[i][6]),
-                    (results[j][5], results[j][6]),
-                )
-                for i in range(len(results))
-                for j in range(i + 1, len(results))
-            ):
-                results.sort(key=lambda x: x[5])
-                session_id_1, range_start_1, range_end_1 = (
-                    results[0][0],
-                    results[0][5],
-                    results[0][6],
-                )
-                session_id_2, range_start_2, range_end_2 = (
-                    results[1][0],
-                    results[1][5],
-                    results[1][6],
-                )
-                if check_date_range_overlap(
-                    (range_start_1, range_end_1),
-                    (range_start_2, range_end_2),
-                ):
-                    min_range_start = min(range_start_1, range_start_2)
-                    max_range_end = max(range_end_1, range_end_2)
-                    results_list = list(results[0])
-                    results_list[5] = min_range_start
-                    results_list[6] = max_range_end
-                    results[0] = tuple(results_list)
-                    self.cursor.execute(
-                        "UPDATE aula SET semanaInicial=?, semanaFinal=? WHERE id=?",
-                        (min_range_start, max_range_end, session_id_1),
-                    )
-                    for table in ["aulaDocente", "aulaUC", "aulaSala", "aulaTurmas"]:
-                        self.cursor.execute(
-                            f"DELETE FROM {table} WHERE idAula=?",
-                            (session_id_2,),
-                        )
-                    self.cursor.execute("DELETE FROM aula WHERE id=?", (session_id_2,))
-                    results.pop(1)
-                    continue
-                results.pop(0)
-        self.conn.commit()
-
-    def _find_simultaneous_classes(self) -> None:
-        """
-        Finds simultaneous lessons across different subjects and records them in the database.
-
-        Queries for pairs of lessons that share the same lecturer, room, day, start time,
-        and overlapping week ranges, but belong to different subjects. Each such pair is
-        inserted into the `aulasSimultaneas` table. Pairs are deduplicated so (A, B) and
-        (B, A) are never stored as separate entries.
-        """
-        query = """
-            SELECT DISTINCT
-                CASE WHEN a1.id < a2.id THEN a1.id ELSE a2.id END AS id_aula1,
-                CASE WHEN a1.id < a2.id THEN a2.id ELSE a1.id END AS id_aula2,
-                uc1.idCurso AS id_curso1,
-                uc2.idCurso AS id_curso2
-            FROM aula AS a1
-            JOIN aulaSala AS asala1 ON a1.id = asala1.idAula
-            JOIN aulaDocente AS ad1 ON a1.id = ad1.idAula
-            JOIN aulaUC AS auc1 ON a1.id = auc1.idAula
-            JOIN uc AS uc1 ON auc1.idUC = uc1.codigo
-            JOIN aula AS a2
-            JOIN aulaSala AS asala2 ON a2.id = asala2.idAula
-            JOIN aulaDocente AS ad2 ON a2.id = ad2.idAula
-            JOIN aulaUC AS auc2 ON a2.id = auc2.idAula
-            JOIN uc AS uc2 ON auc2.idUC = uc2.codigo
-            WHERE a2.id > a1.id
-                AND ad1.idDocente = ad2.idDocente
-                AND asala1.idSala = asala2.idSala
-                AND a1.diaSemana = a2.diaSemana
-                AND a1.horaInicial = a2.horaInicial
-                AND (
-                    (a1.semanaInicial <= a2.semanaFinal AND a1.semanaFinal >= a2.semanaInicial)
-                    OR
-                    (a1.semanaInicial >= a2.semanaInicial AND a1.semanaFinal <= a2.semanaFinal)
-                    OR
-                    (a1.semanaInicial <= a2.semanaInicial AND a1.semanaFinal >= a2.semanaFinal)
-                )
-                AND uc1.idCurso <> uc2.idCurso;
-        """
-        self.cursor.execute(query)
-        simultaneous_sessions = self.cursor.fetchall()
-
-        for entry in simultaneous_sessions:
-            idAula1, idAula2, idCurso1, idCurso2 = entry
-            query = """
-                INSERT into aulasSimultaneas (aula1, aula2, curso1, curso2)
-                VALUES (?, ?, ?, ?)
-            """
-            self.cursor.execute(query, (idAula1, idAula2, idCurso1, idCurso2))
-
-        self.conn.commit()

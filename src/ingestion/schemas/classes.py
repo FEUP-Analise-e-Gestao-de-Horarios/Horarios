@@ -2,7 +2,6 @@ from datetime import date
 from typing import TypedDict
 
 from src.ingestion.schemas.misc import RedBlock, WeekDay
-from src.ingestion.schemas.teachers import TeacherPage
 
 
 class Degree(TypedDict):
@@ -60,7 +59,6 @@ class ClassPage(TypedDict):
     end_date: date
     subjects: list[Subject]
     sessions: list[Session]
-    teachers: list[TeacherPage]
     red_blocks: list[RedBlock]
 
 

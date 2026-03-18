@@ -1,4 +1,5 @@
 import datetime
+from collections.abc import Sequence
 from uuid import UUID
 
 from sqlalchemy import and_, select
@@ -32,8 +33,11 @@ class SessionDAO(BaseDAO[SessionModel]):
         room_ids: list[UUID] | None = None,
         room_names: list[str] | None = None,
         teacher_ids: list[UUID] | None = None,
+        teacher_numbers: list[int] | None = None,
         subject_ids: list[UUID] | None = None,
+        subject_codes: list[str] | None = None,
         class_ids: list[UUID] | None = None,
+        class_codes: list[str] | None = None,
     ) -> SessionModel:
         session = self._create(
             week=week,
@@ -62,6 +66,12 @@ class SessionDAO(BaseDAO[SessionModel]):
                     select(Teacher).where(Teacher.id.in_(teacher_ids)),
                 ).all(),
             )
+        elif teacher_numbers:
+            session.teachers = list(
+                self.session.scalars(
+                    select(Teacher).where(Teacher.number.in_(teacher_numbers)),
+                ).all(),
+            )
 
         if subject_ids:
             session.subjects = list(
@@ -69,11 +79,23 @@ class SessionDAO(BaseDAO[SessionModel]):
                     select(Subject).where(Subject.id.in_(subject_ids)),
                 ).all(),
             )
+        elif subject_codes:
+            session.subjects = list(
+                self.session.scalars(
+                    select(Subject).where(Subject.code.in_(subject_codes)),
+                ).all(),
+            )
 
         if class_ids:
             session.classes = list(
                 self.session.scalars(
                     select(Class).where(Class.id.in_(class_ids)),
+                ).all(),
+            )
+        elif class_codes:
+            session.classes = list(
+                self.session.scalars(
+                    select(Class).where(Class.code.in_(class_codes)),
                 ).all(),
             )
 
@@ -106,15 +128,21 @@ class SessionDAO(BaseDAO[SessionModel]):
         class_ = self.session.get(Class, class_id)
         return class_.sessions if class_ else []
 
-    def get_by_subject_type(self, subject: Subject, type: str):
+    def get_by_subject_type(
+        self,
+        subject: Subject,
+        type: str,
+    ) -> Sequence[SessionModel]:
         return self.session.scalars(
-            select(SessionModel).where(
+            select(SessionModel)
+            .join(SessionModel.classes)
+            .where(
                 and_(
                     SessionModel.subjects.contains(subject),
                     SessionModel.type == type,
                 ),
             ),
-        )
+        ).fetchall()
 
     def get_by_class_with_attributes(
         self,
@@ -124,7 +152,7 @@ class SessionDAO(BaseDAO[SessionModel]):
         start_time: int,
         duration: int,
         type: str,
-        class_id: UUID,
+        class_codes: list[str],
     ) -> SessionModel | None:
         criteria = [
             SessionModel.week == week,
@@ -132,8 +160,20 @@ class SessionDAO(BaseDAO[SessionModel]):
             SessionModel.start_time == start_time,
             SessionModel.duration == duration,
             SessionModel.type == type,
-            SessionModel.classes.any(Class.id == class_id),
         ]
-        class_ = self.session.scalar(select(SessionModel).where(and_(*criteria)))
+        class_ = self.session.scalar(
+            select(SessionModel).where(
+                and_(*criteria),
+                SessionModel.classes.any(Class.code.in_(class_codes)),
+            ),
+        )
 
         return class_
+
+    def has_subject(self, session: SessionModel, subject_code: str) -> bool:
+        query = select(SessionModel).where(
+            SessionModel.id == session.id,
+            SessionModel.subjects.any(Subject.code.in_([subject_code])),
+        )
+
+        return self.session.scalar(query) is not None

@@ -1,11 +1,9 @@
-import re
-
 from bs4 import BeautifulSoup
 
-from src.ingestion.schemas.teachers import TeacherPage
+from src.ingestion.schemas.teachers import TeacherPage, TeacherPages
 
 
-def extract_teacher_info(soup: BeautifulSoup) -> tuple[str, str, int]:
+def extract_teacher_info(soup: BeautifulSoup) -> int:
     """Extract teacher acronym, name, and code from a parsed teacher page.
 
     Parses the `<td class="cabtitulo">` element, which contains the teacher's
@@ -29,26 +27,15 @@ def extract_teacher_info(soup: BeautifulSoup) -> tuple[str, str, int]:
 
     content = str(td.contents)
     if '"' in content:
-        first = content.split('"')[1]
-        acronym = content.split("<br/>, '")[1].split("'")[0]
-        name = first[len(acronym) :] if acronym in first else ""
         code = int(content.split("<br/>, '")[2].split("'")[0])
     else:
         content = content.split("', <br/>, '")
-        acronym = content[1].split("'")[0]
-        name = content[0][len(acronym) + 2 :] if acronym in content[0] else ""
         code = int(content[2].split("'")[0])
 
-    if " - " in name:
-        name = name[3:]
-    if name == "":
-        name = acronym
-    name = re.sub(r"[^\w\s]", "", name)
-
-    return acronym, name, code
+    return code
 
 
-def extract_teacher_class_page(soup: BeautifulSoup) -> list[TeacherPage]:
+def extract_teacher_class_page(soup: BeautifulSoup) -> TeacherPages:
     """Extract teacher acronym, name, and code from teacher's table in parsed class page.
 
     Reads the third table on the page (index 2), skipping the first two header
@@ -74,7 +61,7 @@ def extract_teacher_class_page(soup: BeautifulSoup) -> list[TeacherPage]:
 
     teachers_rows = tables[2].find_all("tr")[2:]
 
-    teachers: list[TeacherPage] = []
+    teachers: TeacherPages = {}
 
     for teacher_row in teachers_rows:
         cells = [td.get_text(strip=True) for td in teacher_row.find_all("td")]
@@ -93,7 +80,7 @@ def extract_teacher_class_page(soup: BeautifulSoup) -> list[TeacherPage]:
 
         code = int(code)
 
-        teacher: TeacherPage = {"code": code, "acronym": acronym, "name": name, "red_blocks": []}
-        teachers.append(teacher)
+        teacher: TeacherPage = {"code": code, "acronym": acronym, "name": name}
+        teachers[code] = teacher
 
     return teachers

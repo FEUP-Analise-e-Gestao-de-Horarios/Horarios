@@ -14,11 +14,14 @@ from src.ingestion.parsers.menu import (
     extract_teacher_links,
 )
 from src.ingestion.parsers.red_blocks import extract_red_blocks
-from src.ingestion.parsers.teacher_page import extract_teacher_class_page, extract_teacher_info
+from src.ingestion.parsers.teacher_page import (
+    extract_teacher_class_page,
+    extract_teacher_info,
+)
 from src.ingestion.schemas.classes import ClassLinks, ClassPage, Degree
 from src.ingestion.schemas.misc import RedBlock
 from src.ingestion.schemas.rooms import RoomLinks
-from src.ingestion.schemas.teachers import TeacherPage
+from src.ingestion.schemas.teachers import TeacherPages
 
 
 class Scraper:
@@ -99,7 +102,7 @@ class Scraper:
             extract_rooms_info(rooms_li),
         )
 
-    def get_teacher_page(self, path: str) -> TeacherPage:
+    def get_teacher_page(self, path: str) -> tuple[int, list[RedBlock]]:
         """Fetch and parse a teacher's schedule page.
 
         Args:
@@ -115,27 +118,31 @@ class Scraper:
             ValueError: If expected page elements are missing.
         """
         soup = self._request(path)
-        acronym, name, code = extract_teacher_info(soup)
+        code = extract_teacher_info(soup)
         red_blocks = extract_red_blocks(soup)
 
-        return {
-            "acronym": acronym,
-            "name": name,
-            "code": code,
-            "red_blocks": red_blocks,
-        }
+        return code, red_blocks
 
-    def get_class_pages(self, class_: ClassLinks) -> list[ClassPage]:
-        class_pages = [self._get_class_page(link) for link in class_["links"]]
+    def get_class_pages(
+        self,
+        class_: ClassLinks,
+    ) -> tuple[list[ClassPage], TeacherPages]:
+        teacher_pages: TeacherPages = {}
+        class_pages: list[ClassPage] = []
+        for link in class_["links"]:
+            class_page, teachers = self._get_class_page(link)
+            teacher_pages.update(teachers)
+            class_pages.append(class_page)
+
         class_["class_pages"] = class_pages
         if not class_pages:
             raise ValueError(
                 f"No pages found for class {class_['code']}",
             )
 
-        return class_pages
+        return class_pages, teacher_pages
 
-    def _get_class_page(self, path: str) -> ClassPage:
+    def _get_class_page(self, path: str) -> tuple[ClassPage, TeacherPages]:
         """Fetch and parse a class's weekly schedule page.
 
         Args:
@@ -163,9 +170,8 @@ class Scraper:
             "end_date": end_date,
             "subjects": subjects,
             "sessions": sessions,
-            "teachers": teachers,
             "red_blocks": red_blocks,
-        }
+        }, teachers
 
     def get_room_page(self, path: str) -> list[RedBlock]:
         """Fetch and parse a room's timetable page.
