@@ -8,7 +8,7 @@ from src.ingestion.parsers.utils import (
     get_weekday_at_column,
     matrix_from_html_table,
 )
-from src.ingestion.schemas.classes import Session, Subject
+from src.ingestion.schemas.classes import Session, Subject, Teacher
 from src.ingestion.schemas.misc import WeekDay
 
 THEORETICAL_SESSION = "td_tipologia_19"
@@ -44,6 +44,34 @@ def extract_week_dates(soup: BeautifulSoup) -> tuple[date, date]:
     end_date = date.strptime(dates[-1], "%d/%m/%Y")
     return start_date, end_date
 
+def extract_teachers(soup: BeautifulSoup) -> list[Teacher]:
+    tables = soup.find_all(class_="tabela_principal")
+
+    if len(tables) < 5:
+        raise ValueError(f"Expected at least 5 tables, found {len(tables)}")
+
+    teachers_rows = tables[2].find_all("tr")[2:]
+
+    teachers: list[Teacher] = []
+
+    for teacher_row in teachers_rows:
+        cells = [td.get_text(strip=True) for td in teacher_row.find_all("td")]
+        if len(cells) != 3:
+            raise ValueError(
+                f"Expected exactly 3 cells in row, found {len(cells)}: {teacher_row}",
+            )
+
+        acronym_and_name, acronym, code = cells[0], cells[1], cells[2]
+
+        if acronym_and_name.find(" - ") != -1:
+            print(acronym_and_name)
+            _code, name = acronym_and_name.split(" - ", 1)
+        else:
+            name = acronym_and_name
+
+        teachers.append({"code": int(code), "acronym": acronym, "name": name})
+
+    return teachers
 
 def extract_subjects(soup: BeautifulSoup) -> list[Subject]:
     """Extract the list of subjects associated with a section from a section page.
@@ -99,7 +127,6 @@ def extract_subjects(soup: BeautifulSoup) -> list[Subject]:
         )
 
     return subjects
-
 
 def extract_sessions(soup: BeautifulSoup) -> list[Session]:
     """Extract all scheduled sessions from a class page.
@@ -254,7 +281,7 @@ def extract_sessions(soup: BeautifulSoup) -> list[Session]:
                 "duration": session_duration,
                 "teachers": session_teachers,
                 "classes": session_classes,
-                "room": session_room,
+                "rooms": session_room,
                 "is_theoretical": THEORETICAL_SESSION in session_css_classes,
             },
         )
