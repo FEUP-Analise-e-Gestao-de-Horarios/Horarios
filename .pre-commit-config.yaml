@@ -12,3 +12,12 @@ repos:
       - id: ruff-format
         name: ruff (format)
         files: ^backend/
+
+  - repo: local
+    hooks:
+      - id: frontend-check
+        name: frontend check (tsc + eslint + prettier)
+        language: system
+        entry: bash -c 'cd frontend && npm run check'
+        pass_filenames: false
+        files: ^frontend/
