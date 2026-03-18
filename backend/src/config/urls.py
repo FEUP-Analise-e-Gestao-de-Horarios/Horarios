@@ -32,6 +32,7 @@ urlpatterns = [
     path("projects/", include("src.projects.urls")),
     # React URLs
     path("login", spa_view, name="login"),
+    path("react-dashboard/", spa_view, name="react-dashboard"),
     # Login API + other auth endpoints
     path("api/auth/", include("src.login.urls")),
     # TODO: Check URLs bellow
