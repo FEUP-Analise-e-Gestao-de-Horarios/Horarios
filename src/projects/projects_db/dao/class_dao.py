@@ -39,7 +39,7 @@ class ClassDAO(BaseDAO[Class]):
                 .where(Degree.acronym == degree_acronym, Year.number == year_number),
             ).all(),
         )
-    
+
     def get_by_codes(self, codes: set[str], *, check_count: bool = True) -> list[Class]:
         if not codes:
             return []

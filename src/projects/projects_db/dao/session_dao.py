@@ -6,17 +6,17 @@ from sqlalchemy import and_, select
 from sqlalchemy.orm import Session as DBSession
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
-from src.projects.projects_db.models.class_ import Class
-from src.projects.projects_db.models.room import Room
-from src.projects.projects_db.models.session import Session
-from src.projects.projects_db.models.subject import Subject
-from src.projects.projects_db.models.teacher import Teacher
 from src.projects.projects_db.models._secondary_tables import (
     session_classes,
     session_rooms,
     session_subjects,
     session_teachers,
 )
+from src.projects.projects_db.models.class_ import Class
+from src.projects.projects_db.models.room import Room
+from src.projects.projects_db.models.session import Session
+from src.projects.projects_db.models.subject import Subject
+from src.projects.projects_db.models.teacher import Teacher
 from src.projects.projects_db.schemas.weekday import WeekDay
 
 
@@ -131,7 +131,7 @@ class SessionDAO(BaseDAO[Session]):
             Session.weekday == weekday,
             Session.start_time == start_time,
             Session.classes.any(Class.id.in_(class_ids)),
-            )
+        )
         return self.session.scalars(query).one_or_none()
 
     def has_subject(self, session: Session, subject_code: str) -> bool:

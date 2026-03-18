@@ -30,7 +30,7 @@ class RoomDAO(BaseDAO[Room]):
 
     def get_by_name(self, name: str) -> Room | None:
         return self.session.scalars(select(Room).where(Room.name == name)).first()
-    
+
     def get_by_names(self, names: set[str], *, check_count: bool = True) -> list[Room]:
         if not names:
             return []

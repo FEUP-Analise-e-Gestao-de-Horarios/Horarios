@@ -2,6 +2,7 @@ import re
 
 from bs4 import BeautifulSoup
 
+
 def extract_teacher_info(soup: BeautifulSoup) -> tuple[str, str, int]:
     """Extract teacher acronym, name, and code from a parsed teacher page.
 

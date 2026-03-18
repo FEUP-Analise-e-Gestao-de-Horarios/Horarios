@@ -89,7 +89,7 @@ class Subject(TypedDict):
         acronym: The subject's short abbreviation.
         number: Number of students enrolled in this class for the subject.
     """
-                        
+
     code: str
     name: str
     acronym: str

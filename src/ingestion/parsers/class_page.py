@@ -44,6 +44,7 @@ def extract_week_dates(soup: BeautifulSoup) -> tuple[date, date]:
     end_date = date.strptime(dates[-1], "%d/%m/%Y")
     return start_date, end_date
 
+
 def extract_teachers(soup: BeautifulSoup) -> list[Teacher]:
     """Extract the list of teachers from a class schedule page.
 
@@ -88,6 +89,7 @@ def extract_teachers(soup: BeautifulSoup) -> list[Teacher]:
         teachers.append({"code": int(code), "acronym": acronym, "name": name})
 
     return teachers
+
 
 def extract_subjects(soup: BeautifulSoup) -> list[Subject]:
     """Extract the list of subjects associated with a section from a section page.
@@ -143,6 +145,7 @@ def extract_subjects(soup: BeautifulSoup) -> list[Subject]:
         )
 
     return subjects
+
 
 def extract_sessions(soup: BeautifulSoup) -> list[Session]:
     """Extract all scheduled sessions from a class page.

@@ -259,7 +259,7 @@ def extract_rooms_info(rooms_menu: Tag) -> list[RoomInfo]:
         raw_room_link = schedule_anchor.get("href")
         if raw_room_link is None:
             raise ValueError("Timetable link has no href in room entry")
-        
+
         room_link = str(raw_room_link)
         room_type = "Desconhecido"
         room_size = "Desconhecido"

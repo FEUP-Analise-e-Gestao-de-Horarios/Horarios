@@ -10,4 +10,6 @@ class MultipleNotFoundError(Exception):
     """
 
     def __init__(self, attribute: str, missing_values: Collection[object]) -> None:
-        super().__init__(f"Could not find {len(missing_values)} records with '{attribute}' in: {list(missing_values)}")
+        super().__init__(
+            f"Could not find {len(missing_values)} records with '{attribute}' in: {list(missing_values)}",
+        )

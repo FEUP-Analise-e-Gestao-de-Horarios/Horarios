@@ -35,7 +35,9 @@ class SubjectDAO(BaseDAO[Subject]):
         if not numbers:
             return []
 
-        subjects = list(self.session.scalars(select(Subject).where(Subject.number.in_(numbers))).all())
+        subjects = list(
+            self.session.scalars(select(Subject).where(Subject.number.in_(numbers))).all(),
+        )
         if check_count and len(numbers) != len(subjects):
             found = {s.number for s in subjects}
             missing = numbers - found
@@ -52,5 +54,3 @@ class SubjectDAO(BaseDAO[Subject]):
                 .where(Degree.acronym == degree_acronym, Year.number == year_number),
             ).all(),
         )
-
-    

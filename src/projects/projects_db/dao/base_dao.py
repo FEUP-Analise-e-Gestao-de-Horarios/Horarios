@@ -8,7 +8,6 @@ from src.projects.projects_db.base import Base
 T = TypeVar("T", bound=Base)
 
 
-
 class BaseDAO[T]:
     def __init__(self, model: type[T], session: Session) -> None:
         self.model = model
