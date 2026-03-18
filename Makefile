@@ -1,5 +1,3 @@
-# Makefile (project root)
-
 .PHONY: dev mirror dev-mirror prod clean-db clean-db-volume clean-mirror
 
 mirror:
