@@ -15,9 +15,23 @@ repos:
 
   - repo: local
     hooks:
-      - id: frontend-check
-        name: frontend check (tsc + eslint + prettier)
+      - id: frontend-typecheck
+        name: frontend typecheck (tsc)
         language: system
-        entry: bash -c 'cd frontend && npm run check'
+        entry: bash -c 'cd frontend && npm run typecheck'
+        pass_filenames: false
+        files: ^frontend/
+
+      - id: frontend-lint
+        name: frontend lint (eslint)
+        language: system
+        entry: bash -c 'cd frontend && npm run lint'
+        pass_filenames: false
+        files: ^frontend/
+
+      - id: frontend-format
+        name: frontend format (prettier)
+        language: system
+        entry: bash -c 'cd frontend && npm run format:check'
         pass_filenames: false
         files: ^frontend/
