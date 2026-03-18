@@ -35,3 +35,6 @@ __pycache__
 
 # Ruff cache
 .ruff_cache/
+
+# Node modules
+node_modules/

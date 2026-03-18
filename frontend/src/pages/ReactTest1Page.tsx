@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 interface Item {
   id: number;
@@ -14,26 +14,17 @@ export default function ReactTest1Page() {
   ]);
   const [input, setInput] = useState("");
   const [filter, setFilter] = useState<"all" | "done" | "pending">("all");
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    setCount(items.filter((i) => i.done).length);
-  }, [items]);
+  const count = items.filter((i) => i.done).length;
 
   const addItem = () => {
     const trimmed = input.trim();
     if (!trimmed) return;
-    setItems((prev) => [
-      ...prev,
-      { id: Date.now(), name: trimmed, done: false },
-    ]);
+    setItems((prev) => [...prev, { id: Date.now(), name: trimmed, done: false }]);
     setInput("");
   };
 
   const toggleItem = (id: number) => {
-    setItems((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, done: !i.done } : i)),
-    );
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, done: !i.done } : i)));
   };
 
   const removeItem = (id: number) => {
@@ -90,9 +81,7 @@ export default function ReactTest1Page() {
               onChange={() => toggleItem(item.id)}
               className="w-4 h-4"
             />
-            <span
-              className={`flex-1 ${item.done ? "line-through text-gray-400" : ""}`}
-            >
+            <span className={`flex-1 ${item.done ? "line-through text-gray-400" : ""}`}>
               {item.name}
             </span>
             <button
