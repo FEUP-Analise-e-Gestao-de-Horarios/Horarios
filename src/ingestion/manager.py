@@ -7,14 +7,12 @@ from pathlib import Path
 from django.conf import settings
 from django.utils import timezone
 
-from src.ingestion.schemas.classes import Degree
+from src.ingestion.schemas.classes import Degree, Teacher
 from src.ingestion.schemas.misc import TurnosMap
-from src.ingestion.schemas.rooms import RoomLinks
-from src.ingestion.schemas.teachers import TeacherPage, TeacherPages
+from src.ingestion.schemas.rooms import RoomInfo
 from src.ingestion.scraper import Scraper
 from src.projects.models import Project
 from src.projects.projects_db.dao.class_dao import ClassDAO
-from src.projects.projects_db.dao.class_red_block_dao import ClassRedBlockDAO
 from src.projects.projects_db.dao.degree_dao import DegreeDAO
 from src.projects.projects_db.dao.room_dao import RoomDAO
 from src.projects.projects_db.dao.room_red_block_dao import RoomRedBlockDAO
@@ -74,14 +72,26 @@ class IngestionManager:
             self._setup()
 
             teacher_links, degrees, rooms = self.scraper.read_menu()
-            teacher_pages = self._ingest_classes(degrees)
-            self._ingest_teachers(teacher_links, teacher_pages)
+
+            # Load info from class pages
+            for degree in degrees:
+                for year in degree["years"]:
+                    for class_ in year["classes"]:
+                        for link in class_["links"]:
+                            class_["pages"].append(self.scraper.get_class_page(link)) 
+
+            # Extract teachers from class pages.
+            # This is necessary as some teachers don't have red blocks
+            # which means they didn't have any links on the menu.
+            # These will be added to the ones extracted from the menu.
+            teachers_from_class_pages = [teacher for degree in degrees for year in degree["years"] for class_ in year["classes"] for class_page in class_["pages"] for teacher in class_page["teachers"]]
+
+            self._ingest_teachers(teacher_links, teachers_from_class_pages)
+            self._ingest_classes(degrees)
             self._ingest_rooms(rooms)
+
             self._ingest_sessions(degrees)
             self._ingest_shifts()
-
-            # self._cleanup_sessions()
-            # self._find_simultaneous_classes()
 
             self._teardown_success()
 
@@ -131,11 +141,7 @@ class IngestionManager:
     # Ingest functions
     # -----------------------------------------------------------------------
 
-    def _ingest_teachers(
-        self,
-        teacher_links: list[str],
-        teacher_pages: dict[int, TeacherPage],
-    ) -> None:
+    def _ingest_teachers(self, teacher_links: list[str], teachers_from_classes_page: list[Teacher]) -> None:
         """Ingest teacher records and their unavailability blocks into the DB.
 
         For each teacher link, fetches the schedule page, inserts the teacher
@@ -149,29 +155,36 @@ class IngestionManager:
             ValueError: If a red block's (time, day) pair has no matching row
                 in the ``blocosVermelhos`` table.
         """
-        teacher_red_blocks = dict(self.scraper.get_teacher_page(link) for link in teacher_links)
+        teachers = [self.scraper.get_teacher_page(link) for link in teacher_links]
+
+        # Add missing teachers (didn't have red blocks so no links were available)
+        existing_codes = {t["code"] for t in teachers}
+        for teacher in teachers_from_classes_page:
+            if teacher["code"] not in existing_codes:
+                teachers.append({**teacher, "red_blocks": []})
+                existing_codes.add(teacher["code"])
 
         with get_session(general_db(self.proj_id)) as session:
             teacher_dao = TeacherDAO(session)
             teacher_red_block_dao = TeacherRedBlockDAO(session)
-            for code, teacher_page in teacher_pages.items():
-                teacher = teacher_dao.create(
-                    number=teacher_page["code"],
-                    acronym=teacher_page["acronym"],
-                    name=teacher_page["name"],
-                )
 
-                if teacher_red_blocks.get(code) is not None:
-                    for red_block in teacher_red_blocks[code]:
-                        teacher_red_block_dao.create(
-                            teacher_id=teacher.id,
-                            hour=red_block[0],
-                            weekday=red_block[1],
-                        )
+            for teacher in teachers:
+                teacher_entry = teacher_dao.create(
+                    number=teacher["code"],
+                    acronym=teacher["acronym"],
+                    name=teacher["name"],
+                )
+        
+                for hour, weekday in teacher["red_blocks"]:
+                    teacher_red_block_dao.create(
+                        teacher_id=teacher_entry.id,
+                        hour=hour,
+                        weekday=weekday,
+                    )
 
             session.commit()
 
-    def _ingest_classes(self, degrees: list[Degree]) -> TeacherPages:
+    def _ingest_classes(self, degrees: list[Degree]) -> None:
         """Ingest degrees, classes, subjects, and sessions into the database.
 
         First inserts all degrees, then for each class fetches all weekly
