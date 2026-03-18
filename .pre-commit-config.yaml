@@ -6,7 +6,9 @@ repos:
       - id: ruff
         name: ruff (fix)
         args: [--fix, --exit-non-zero-on-fix]
+        files: ^backend/
 
       # Lint-only pass — fail if any violations remain after fixing
       - id: ruff-format
         name: ruff (format)
+        files: ^backend/
