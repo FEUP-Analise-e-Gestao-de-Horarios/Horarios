@@ -75,6 +75,5 @@ Example::
     }
 
 See Also:
-    :meth:`src.ingestion.manager.IngestionManager._update_subject_shifts_map` — builds this structure.
-    :meth:`src.ingestion.manager.IngestionManager._ingest_subject_shifts` — flushes it to the database.
+    :meth:`src.ingestion.manager.IngestionManager._ingest_shifts` — assigns shift numbers using this structure.
 """

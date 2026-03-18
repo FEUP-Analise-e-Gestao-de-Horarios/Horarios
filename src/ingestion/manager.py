@@ -148,8 +148,13 @@ class IngestionManager:
         into the ``docentes`` table (skipping duplicates), then maps each red
         block to its ``blocosVermelhos`` row and records it in ``blocoDocente``.
 
+        Teachers that appear on class pages but not in the menu (i.e. those
+        without red blocks) are merged in from ``teachers_from_classes_page``.
+
         Args:
             teacher_links: Relative URL paths to each teacher's schedule page.
+            teachers_from_classes_page: Teacher entries extracted from class
+                pages, used to supplement teachers missing from the menu.
 
         Raises:
             ValueError: If a red block's (time, day) pair has no matching row
@@ -264,6 +269,22 @@ class IngestionManager:
             session.commit()
 
     def _ingest_sessions(self, degrees: list[Degree]) -> None:
+        """Ingest session records from all class pages into the database.
+
+        Iterates over every class page within the degree hierarchy. For each
+        session, resolves its subject, teachers, classes, and rooms to database
+        entries, then creates weekly session records spanning the page's date
+        range. If a session already exists for the same week, weekday, time,
+        and classes, its subject list is extended rather than creating a
+        duplicate.
+
+        Args:
+            degrees: Structured degree hierarchy with populated ``pages``.
+
+        Raises:
+            ValueError: If a referenced year, subject, teacher, class, or room
+                cannot be found in the database.
+        """
         with get_session(general_db(self.proj_id)) as db_session:
             session_dao = SessionDAO(db_session)
             year_dao = YearDAO(db_session)

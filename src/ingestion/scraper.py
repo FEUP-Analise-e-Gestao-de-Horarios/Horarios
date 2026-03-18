@@ -108,7 +108,7 @@ class Scraper:
                 :meth:`read_menu`.
 
         Returns:
-            A ``TeacherPage`` with the teacher's acronym, name, code, and
+            A ``TeacherInfo`` with the teacher's acronym, name, code, and
             unavailable time slots.
 
         Raises:
@@ -131,7 +131,7 @@ class Scraper:
 
         Args:
             path: Relative URL to the class's schedule page, as found in
-                a ``ClassLinks.links`` list.
+                a ``Class``'s ``links`` list.
 
         Returns:
             A ``ClassPage`` with the week's date range, associated subjects,
@@ -163,7 +163,7 @@ class Scraper:
 
         Args:
             path: Relative URL to the room's timetable page, as found in a
-                ``RoomLinks.links`` list.
+                a ``RoomInfo``'s ``link`` field.
 
         Returns:
             A list of unavailable time slots for the room. Empty if none are

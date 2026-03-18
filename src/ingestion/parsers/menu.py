@@ -127,7 +127,7 @@ def extract_sessions_info(classes_menu: Tag) -> list[Degree]:
 
     Returns:
         A list of `Degree` objects, each containing the degree acronym, name,
-        and a list of `Year` objects with their associated `ClassLinks`.
+        and a list of `Year` objects with their associated `Class` entries.
 
     Raises:
         ValueError: If any expected element in the menu hierarchy is missing,
@@ -227,7 +227,7 @@ def extract_rooms_info(rooms_menu: Tag) -> list[RoomInfo]:
             as returned by `extract_menu_tags`.
 
     Returns:
-        A list of `RoomLinks` objects, each containing the room name, type,
+        A list of `RoomInfo` objects, each containing the room name, type,
         size, seat count, and a list of timetable href URLs. Returns an empty
         list if no `<ul>` is found inside `rooms_menu`.
 

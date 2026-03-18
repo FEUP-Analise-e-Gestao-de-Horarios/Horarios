@@ -45,6 +45,22 @@ def extract_week_dates(soup: BeautifulSoup) -> tuple[date, date]:
     return start_date, end_date
 
 def extract_teachers(soup: BeautifulSoup) -> list[Teacher]:
+    """Extract the list of teachers from a class schedule page.
+
+    Reads the third ``tabela_principal`` table (index 2), skipping the first
+    two header rows. Each data row must contain exactly three cells: a combined
+    ``{code} - {name}`` string, the teacher's acronym, and a numeric code.
+
+    Args:
+        soup: Parsed HTML of a class schedule page.
+
+    Returns:
+        A list of ``Teacher`` dicts with ``code``, ``acronym``, and ``name`` fields.
+
+    Raises:
+        ValueError: If fewer than 5 ``tabela_principal`` tables are found or
+            a row does not have exactly 3 cells.
+    """
     tables = soup.find_all(class_="tabela_principal")
 
     if len(tables) < 5:
