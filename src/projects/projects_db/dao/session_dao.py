@@ -2,7 +2,7 @@ import datetime
 from collections.abc import Sequence
 from uuid import UUID
 
-from sqlalchemy import and_, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session as DBSession
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
@@ -88,10 +88,8 @@ class SessionDAO(BaseDAO[Session]):
             select(Session)
             .join(Session.classes)
             .where(
-                and_(
-                    Session.subjects.contains(subject),
-                    Session.type == type_,
-                ),
+                Session.subjects.contains(subject),
+                Session.type == type_,
             ),
         ).fetchall()
 

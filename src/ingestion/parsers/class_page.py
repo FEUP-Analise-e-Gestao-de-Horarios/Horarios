@@ -81,7 +81,6 @@ def extract_teachers(soup: BeautifulSoup) -> list[Teacher]:
         acronym_and_name, acronym, code = cells[0], cells[1], cells[2]
 
         if acronym_and_name.find(" - ") != -1:
-            print(acronym_and_name)
             _code, name = acronym_and_name.split(" - ", 1)
         else:
             name = acronym_and_name
