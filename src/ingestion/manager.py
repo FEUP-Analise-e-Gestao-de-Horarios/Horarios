@@ -320,9 +320,9 @@ class IngestionManager:
                                 {s["number"] for s in class_page["subjects"]},
                                 check_count=False,
                             )
-                            subjects_db_ids = {s.id for s in subjects_db_entries}
+                            subjects_db_numbers = {s.number for s in subjects_db_entries}
                             for subject in class_page["subjects"]:
-                                if subject["number"] not in subjects_db_ids:
+                                if subject["number"] not in subjects_db_numbers:
                                     subject_dao.create(
                                         year_id=year_db_entry.id,
                                         number=subject["number"],
