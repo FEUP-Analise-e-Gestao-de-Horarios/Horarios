@@ -47,65 +47,63 @@ export default function ReactTest1Page() {
   });
 
   return (
-    <div
-      style={{ maxWidth: 480, margin: "40px auto", fontFamily: "sans-serif" }}
-    >
-      <h1>React Test Page</h1>
-      <p>
+    <div className="max-w-lg mx-auto mt-10 p-6 font-sans">
+      <h1 className="text-2xl font-bold mb-1">React Test Page</h1>
+      <p className="text-gray-500 mb-4">
         {count} / {items.length} completed
       </p>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+      <div className="flex gap-2 mb-4">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && addItem()}
           placeholder="New item..."
-          style={{ flex: 1, padding: "6px 10px" }}
+          className="flex-1 px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
         />
-        <button onClick={addItem}>Add</button>
+        <button
+          onClick={addItem}
+          className="px-4 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600"
+        >
+          Add
+        </button>
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+      <div className="flex gap-2 mb-4">
         {(["all", "done", "pending"] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
-            style={{ fontWeight: filter === f ? "bold" : "normal" }}
+            className={`px-3 py-1 rounded capitalize text-sm ${filter === f ? "bg-gray-800 text-white font-semibold" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
           >
             {f}
           </button>
         ))}
       </div>
 
-      <ul style={{ listStyle: "none", padding: 0 }}>
+      <ul className="space-y-2">
         {filtered.map((item) => (
-          <li
-            key={item.id}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              marginBottom: 8,
-            }}
-          >
+          <li key={item.id} className="flex items-center gap-2">
             <input
               type="checkbox"
               checked={item.done}
               onChange={() => toggleItem(item.id)}
+              className="w-4 h-4"
             />
             <span
-              style={{
-                flex: 1,
-                textDecoration: item.done ? "line-through" : "none",
-              }}
+              className={`flex-1 ${item.done ? "line-through text-gray-400" : ""}`}
             >
               {item.name}
             </span>
-            <button onClick={() => removeItem(item.id)}>✕</button>
+            <button
+              onClick={() => removeItem(item.id)}
+              className="text-gray-400 hover:text-red-500"
+            >
+              ✕
+            </button>
           </li>
         ))}
-        {filtered.length === 0 && <li style={{ color: "#999" }}>No items.</li>}
+        {filtered.length === 0 && <li className="text-gray-400">No items.</li>}
       </ul>
     </div>
   );
