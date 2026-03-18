@@ -430,8 +430,6 @@ class IngestionManager:
                         class_.shift = shift
                         visited_classes.add(class_)
 
-                        print(f"Class {class_.code} with shift {shift}")
-
                     shift += 1
 
             session_db.commit()
