@@ -10,7 +10,7 @@ from django.utils import timezone
 from src.ingestion.schemas.classes import Degree
 from src.ingestion.schemas.misc import TurnosMap
 from src.ingestion.schemas.rooms import RoomLinks
-from src.ingestion.schemas.teachers import TeacherPage, TeacherPages
+from src.ingestion.schemas.teachers import TeacherPages
 from src.ingestion.scraper import Scraper
 from src.projects.models import Project
 from src.projects.projects_db.dao.class_dao import ClassDAO
@@ -80,9 +80,6 @@ class IngestionManager:
             self._ingest_sessions(degrees)
             self._ingest_shifts()
 
-            # self._cleanup_sessions()
-            # self._find_simultaneous_classes()
-
             self._teardown_success()
 
         except Exception:
@@ -134,7 +131,7 @@ class IngestionManager:
     def _ingest_teachers(
         self,
         teacher_links: list[str],
-        teacher_pages: dict[int, TeacherPage],
+        teacher_pages: TeacherPages,
     ) -> None:
         """Ingest teacher records and their unavailability blocks into the DB.
 
@@ -265,6 +262,8 @@ class IngestionManager:
                                         duration=session["duration"],
                                         type=("T" if session["is_theoretical"] else "TP"),
                                         class_codes=session["classes"],
+                                        teacher_numbers=session["teachers"],
+                                        room_names=rooms,
                                     )
                                     if session_entry is None:
                                         session_dao.create(

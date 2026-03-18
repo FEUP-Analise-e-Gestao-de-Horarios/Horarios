@@ -153,6 +153,8 @@ class SessionDAO(BaseDAO[SessionModel]):
         duration: int,
         type: str,
         class_codes: list[str],
+        teacher_numbers: list[int],
+        room_names: list[str] | None,
     ) -> SessionModel | None:
         criteria = [
             SessionModel.week == week,
@@ -161,14 +163,16 @@ class SessionDAO(BaseDAO[SessionModel]):
             SessionModel.duration == duration,
             SessionModel.type == type,
         ]
-        class_ = self.session.scalar(
-            select(SessionModel).where(
-                and_(*criteria),
-                SessionModel.classes.any(Class.code.in_(class_codes)),
-            ),
+        stmt = select(SessionModel).where(
+            and_(*criteria),
+            SessionModel.classes.any(Class.code.in_(class_codes)),
+            SessionModel.teachers.any(Teacher.number.in_(teacher_numbers)),
         )
 
-        return class_
+        if room_names is not None:
+            stmt.where(SessionModel.rooms.any(Room.name.in_(room_names)))
+
+        return self.session.scalar(stmt)
 
     def has_subject(self, session: SessionModel, subject_code: str) -> bool:
         query = select(SessionModel).where(
