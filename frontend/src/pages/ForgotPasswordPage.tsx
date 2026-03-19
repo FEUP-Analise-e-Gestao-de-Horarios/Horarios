@@ -14,7 +14,7 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     api
-      .post("/api/auth/forgot_password", { email })
+      .post("/api/auth/forgot-password", { email })
       .then(() => {
         setSubmitted(true);
       })
