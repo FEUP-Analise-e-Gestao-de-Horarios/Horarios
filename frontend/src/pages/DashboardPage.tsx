@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 interface Project {
   id: number;
-  nome: string;
+  name: string;
   finished: boolean;
 }
 
@@ -22,24 +22,24 @@ export default function DashboardPage() {
         <div className="flex gap-2">
           <button
             onClick={() => navigate(0)}
-            className="bg-[#8c2d19] text-white font-semibold px-3.5 py-2 rounded border-none cursor-pointer text-sm hover:bg-[#722415] transition-colors"
+            className="bg-[#8c2d19] text-white font-semibold px-3.5 py-2 rounded border-none cursor-pointer text-sm text-center hover:bg-[#722415] transition-colors"
           >
             Início
           </button>
-          <button className="bg-transparent text-white font-semibold px-3.5 py-2 rounded border border-[#8c2d19] cursor-pointer text-sm hover:bg-[#8c2d19] transition-colors">
+          <button className="bg-transparent text-white font-semibold px-3.5 py-2 rounded border border-[#8c2d19] cursor-pointer text-sm text-center hover:bg-[#8c2d19] transition-colors">
             Grupos
           </button>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => navigate("/react-change-password")}
-            className="bg-[#8c2d19] text-white font-semibold px-3.5 py-2 rounded border-none cursor-pointer text-sm hover:bg-[#722415] transition-colors"
+            className="bg-[#8c2d19] text-white font-semibold px-3.5 py-2 rounded border-none cursor-pointer text-sm text-center hover:bg-[#722415] transition-colors"
           >
             Mudar palavra-passe
           </button>
           <button
             onClick={() => navigate("/react-login")}
-            className="bg-[#8c2d19] text-white font-semibold px-3.5 py-2 rounded border-none cursor-pointer text-sm hover:bg-[#722415] transition-colors"
+            className="bg-[#8c2d19] text-white font-semibold px-3.5 py-2 rounded border-none cursor-pointer text-sm text-center hover:bg-[#722415] transition-colors"
           >
             Terminar sessão
           </button>
@@ -69,7 +69,7 @@ export default function DashboardPage() {
             </div>
             <div className="w-full px-3.5 py-2.5 flex justify-between items-center box-border">
               <span className="text-[#08060d] font-medium max-w-[150px] break-words text-sm">
-                {project.nome}
+                {project.name}
               </span>
               <span className="text-xl cursor-pointer text-[#6b6375] tracking-[2px]">···</span>
             </div>
@@ -126,7 +126,7 @@ export default function DashboardPage() {
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowNewProject(false)}
-                className="px-5 py-2 rounded border-none bg-[#6b7280] text-white cursor-pointer text-sm hover:bg-[#555b66] transition-colors"
+                className="px-5 py-2 rounded border-none bg-[#6b7280] text-white cursor-pointer text-sm text-center hover:bg-[#555b66] transition-colors"
               >
                 Cancelar
               </button>
@@ -137,7 +137,7 @@ export default function DashboardPage() {
                   setProjectName("");
                   setScheduleLink("");
                 }}
-                className="px-5 py-2 rounded border-none bg-[#8c2d19] text-white cursor-pointer text-sm font-semibold hover:bg-[#722415] transition-colors"
+                className="px-5 py-2 rounded border-none bg-[#8c2d19] text-white cursor-pointer text-sm text-center font-semibold hover:bg-[#722415] transition-colors"
               >
                 Criar Projeto
               </button>

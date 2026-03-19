@@ -6,9 +6,9 @@ import ChangePasswordPage from "./pages/ChangePasswordPage";
 
 // Paths here must match what Django delegates to spa_view in urls.py
 export const router = createBrowserRouter([
+  { path: "/", element: <DashboardPage /> },
+
   { path: "/login", element: <LoginPage /> },
   { path: "/forgot-password", element: <ForgotPasswordPage /> },
-
-  { path: "/react-dashboard", element: <DashboardPage /> },
   { path: "/react-change-password", element: <ChangePasswordPage /> },
 ]);

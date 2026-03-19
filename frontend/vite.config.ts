@@ -5,7 +5,7 @@ import tailwindcss from "@tailwindcss/vite";
 
 // Pages already migrated to React.
 // When you migrate a new page, ADD it here.
-const REACT_ROUTES = ["/login", "/forgot-password","/react-dashboard", "/react-change-password"];
+const REACT_ROUTES = ["/", "/login", "/forgot-password", "/react-change-password"];
 
 // Allow the Docker dev setup to point the proxy at the backend service.
 // Set BACKEND_HOST=backend when running via docker-compose.dev.yml.
