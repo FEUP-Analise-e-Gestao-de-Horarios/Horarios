@@ -16,7 +16,7 @@ from src.login.tokens import generate_token
 from src.users.models import User
 
 
-class SigninView(View):
+class LoginView(View):
     def post(self, request):
         try:
             data = json.loads(request.body)
