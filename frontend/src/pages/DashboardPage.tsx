@@ -41,7 +41,7 @@ export default function DashboardPage() {
             onClick={() => navigate("/react-login")}
             className="bg-[#8c2d19] text-white font-semibold px-3.5 py-2 rounded border-none cursor-pointer text-sm hover:bg-[#722415] transition-colors"
           >
-            Logout
+            Terminar sessão
           </button>
         </div>
       </header>
