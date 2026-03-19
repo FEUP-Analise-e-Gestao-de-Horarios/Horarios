@@ -159,7 +159,12 @@ class CursoEncoder(json.JSONEncoder):
 # Used in the starter page project cards and in the header, in most pages
 def getProjetosListAux(request, userId):
     projects = Project.objects.values_list(
-        "creator", "group", "people", "pk", "name", "finished_ingestion_at"
+        "creator",
+        "group",
+        "people",
+        "pk",
+        "name",
+        "finished_ingestion_at",
     )
     related = []
 
@@ -184,7 +189,7 @@ def getProjetosListAux(request, userId):
         ):
             ids.append(project[3])
             related.append(
-                {"id": project[3], "nome": project[4], "finished_ingestion_at": project[5]}
+                {"id": project[3], "nome": project[4], "finished_ingestion_at": project[5]},
             )
     related.reverse()
     return related
@@ -430,11 +435,13 @@ def deleteProject(request):
         return JsonResponse({"id": projId}, status=200)
     except AssertionError as e:
         return JsonResponse(
-            {"error": f'Could not delete project, exception: "{e}"', "id": projId}, status=401
+            {"error": f'Could not delete project, exception: "{e}"', "id": projId},
+            status=401,
         )
     except Exception as e:
         return JsonResponse(
-            {"error": f'Could not delete project, exception: "{e}"', "id": projId}, status=400
+            {"error": f'Could not delete project, exception: "{e}"', "id": projId},
+            status=400,
         )
 
 
@@ -525,7 +532,7 @@ def fillPageForCursoAno(request):
         semanaInterval = request.GET.get("semanas", None)
 
         logger.debug(
-            f"Request parameters - curso: {cursoNome}, projId: {projId}, anoNum: {anoNum}, semanaInterval: {semanaInterval}"
+            f"Request parameters - curso: {cursoNome}, projId: {projId}, anoNum: {anoNum}, semanaInterval: {semanaInterval}",
         )
 
         start_date = None
@@ -567,7 +574,7 @@ def fillPageForCursoAno(request):
                             row["teorico"],
                             row["semanaInicial"],
                             row["semanaFinal"],
-                        )
+                        ),
                     )
 
             for aula in aulasSala:
@@ -576,7 +583,8 @@ def fillPageForCursoAno(request):
 
             sala.set_aulas(aulasSala)  # FORMATO -> [Aula]
             rendered_html = render_to_string(
-                "editTurnos/miniSchedule.html", {"dias": dias, "horas": horas, "aulas": aulasSala}
+                "editTurnos/miniSchedule.html",
+                {"dias": dias, "horas": horas, "aulas": aulasSala},
             )
             minified_html = re.sub(r">\s+<", "><", rendered_html)
             sala.set_miniHorario(minified_html)
@@ -630,7 +638,7 @@ def fillPageForCursoAno(request):
                             row["teorico"],
                             row["semanaInicial"],
                             row["semanaFinal"],
-                        )
+                        ),
                     )
             for aula in aulasUC:
                 turmasAula = auxfunc.getTurmasFromAula(projId, aula.id, cursoNome)
@@ -685,7 +693,7 @@ def fillPageForCursoAno(request):
                             row["teorico"],
                             row["semanaInicial"],
                             row["semanaFinal"],
-                        )
+                        ),
                     )
 
             for aula in aulasDocente:
@@ -814,7 +822,7 @@ def uc_view(request: HttpRequest, projId: int, uc_codigo: str) -> HttpResponse:
                         "id": docente["numeroMecanografico"],
                         "nome": docente["nome"],
                         "abreviacao": docente["abreviacao"],
-                    }
+                    },
                 )
 
         # Get salas for this aula
@@ -900,7 +908,7 @@ def distribuicao_view(request):
     for ucCodigo in ucsLista:
         path = "Project" + str(projId)
         conn = sqlite3.connect(
-            Path(settings.PROJECTS_DB_PATH) / str(projId) / "general_database.db"
+            Path(settings.PROJECTS_DB_PATH) / str(projId) / "general_database.db",
         )
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -1030,7 +1038,8 @@ def getDocenteMiniHorario(request):
         ]
 
         miniHorario = render_to_string(
-            "editTurnos/miniSchedule.html", {"dias": dias, "horas": horas, "aulas": aulasDocente}
+            "editTurnos/miniSchedule.html",
+            {"dias": dias, "horas": horas, "aulas": aulasDocente},
         )
         minified_html = re.sub(r">\s+<", "><", miniHorario)
         response_data = {
@@ -1061,7 +1070,8 @@ def getSalaMiniHorario(request):
         ]
 
         miniHorario = render_to_string(
-            "editTurnos/miniSchedule.html", {"dias": dias, "horas": horas, "aulas": aulasSala}
+            "editTurnos/miniSchedule.html",
+            {"dias": dias, "horas": horas, "aulas": aulasSala},
         )
         minified_html = re.sub(r">\s+<", "><", miniHorario)
         response_data = {
@@ -1094,7 +1104,7 @@ def swap_teachers(request, projId):
             return JsonResponse({"success": False, "error": "Invalid request data"}, status=400)
 
         conn = sqlite3.connect(
-            Path(settings.PROJECTS_DB_PATH) / str(projId) / "general_database.db"
+            Path(settings.PROJECTS_DB_PATH) / str(projId) / "general_database.db",
         )
         cursor = conn.cursor()
 
@@ -1112,7 +1122,8 @@ def swap_teachers(request, projId):
 
             if len(teachers) != 2:
                 return JsonResponse(
-                    {"success": False, "error": "One or both teachers not found"}, status=404
+                    {"success": False, "error": "One or both teachers not found"},
+                    status=404,
                 )
 
             # Verify teachers are assigned to their respective aulas
@@ -1123,7 +1134,8 @@ def swap_teachers(request, projId):
             )
             if not cursor.fetchone():
                 return JsonResponse(
-                    {"success": False, "error": "Teacher1 not assigned to aula1"}, status=400
+                    {"success": False, "error": "Teacher1 not assigned to aula1"},
+                    status=400,
                 )
 
             cursor.execute(
@@ -1133,7 +1145,8 @@ def swap_teachers(request, projId):
             )
             if not cursor.fetchone():
                 return JsonResponse(
-                    {"success": False, "error": "Teacher2 not assigned to aula2"}, status=400
+                    {"success": False, "error": "Teacher2 not assigned to aula2"},
+                    status=400,
                 )
 
             # Remove existing assignments
@@ -1169,7 +1182,7 @@ def swap_teachers(request, projId):
                     "success": True,
                     "new_teacher1_abbreviation": teachers.get(teacher2),
                     "new_teacher2_abbreviation": teachers.get(teacher1),
-                }
+                },
             )
 
         except sqlite3.Error as e:
@@ -1214,14 +1227,15 @@ def swap_aulas(request, projId):
                 aula2.get("newDia"),
                 aula1.get("newHora"),
                 aula2.get("newHora"),
-            ]
+            ],
         ):
             return JsonResponse(
-                {"success": False, "error": "Missing required parameters"}, status=400
+                {"success": False, "error": "Missing required parameters"},
+                status=400,
             )
 
         conn = sqlite3.connect(
-            Path(settings.PROJECTS_DB_PATH) / str(projId) / "general_database.db"
+            Path(settings.PROJECTS_DB_PATH) / str(projId) / "general_database.db",
         )
         cursor = conn.cursor()
 
@@ -1259,7 +1273,7 @@ def swap_aulas(request, projId):
                 {
                     "success": True,
                     "conflicts": all_conflicts,
-                }
+                },
             )
 
         except sqlite3.Error as e:
@@ -1299,7 +1313,7 @@ def uc_changes(request, projId):
         change_type = data.get("type")  # 'move', 'swap', or 'teacher'
 
         conn = sqlite3.connect(
-            Path(settings.PROJECTS_DB_PATH) / str(projId) / "general_database.db"
+            Path(settings.PROJECTS_DB_PATH) / str(projId) / "general_database.db",
         )
         cursor = conn.cursor()
 
@@ -1313,7 +1327,8 @@ def uc_changes(request, projId):
                 new_hora = data.get("newHora")
                 if not all([aula_id, new_dia, new_hora]):
                     return JsonResponse(
-                        {"success": False, "error": "Missing parameters"}, status=400
+                        {"success": False, "error": "Missing parameters"},
+                        status=400,
                     )
 
                 # Update aula position
@@ -1334,7 +1349,7 @@ def uc_changes(request, projId):
                     {
                         "success": True,
                         "conflicts": conflicts if conflicts else [],
-                    }
+                    },
                 )
 
             elif change_type == "swap":
@@ -1350,10 +1365,11 @@ def uc_changes(request, projId):
                         aula2.get("newDia"),
                         aula1.get("newHora"),
                         aula2.get("newHora"),
-                    ]
+                    ],
                 ):
                     return JsonResponse(
-                        {"success": False, "error": "Missing parameters"}, status=400
+                        {"success": False, "error": "Missing parameters"},
+                        status=400,
                     )
 
                 # Update both aulas
@@ -1379,16 +1395,22 @@ def uc_changes(request, projId):
 
                 # Check for conflicts
                 conflicts1 = findAnyConflicts(
-                    projId, aula1["newDia"], aula1["newHora"], aula1["id"]
+                    projId,
+                    aula1["newDia"],
+                    aula1["newHora"],
+                    aula1["id"],
                 )
                 conflicts2 = findAnyConflicts(
-                    projId, aula2["newDia"], aula2["newHora"], aula2["id"]
+                    projId,
+                    aula2["newDia"],
+                    aula2["newHora"],
+                    aula2["id"],
                 )
                 return JsonResponse(
                     {
                         "success": True,
                         "conflicts": (conflicts1 or []) + (conflicts2 or []),
-                    }
+                    },
                 )
 
             elif change_type == "teacher":
@@ -1400,7 +1422,8 @@ def uc_changes(request, projId):
 
                 if not all([aula1.get("id"), aula2.get("id"), teacher1, teacher2]):
                     return JsonResponse(
-                        {"success": False, "error": "Missing parameters"}, status=400
+                        {"success": False, "error": "Missing parameters"},
+                        status=400,
                     )
 
                 # Verify teachers exist
@@ -1412,7 +1435,8 @@ def uc_changes(request, projId):
 
                 if len(teachers) != 2:
                     return JsonResponse(
-                        {"success": False, "error": "Teacher not found"}, status=404
+                        {"success": False, "error": "Teacher not found"},
+                        status=404,
                     )
 
                 # Remove existing assignments
@@ -1441,7 +1465,7 @@ def uc_changes(request, projId):
                         "success": True,
                         "new_teacher1_abbreviation": teachers.get(teacher2),
                         "new_teacher2_abbreviation": teachers.get(teacher1),
-                    }
+                    },
                 )
 
             else:
@@ -1606,7 +1630,7 @@ def getAulaSimultaneasParalelas(request):
             return JsonResponse({"error": "Invalid request", "id": projId}, status=400)
 
         conn = sqlite3.connect(
-            Path(settings.PROJECTS_DB_PATH) / str(projId) / "general_database.db"
+            Path(settings.PROJECTS_DB_PATH) / str(projId) / "general_database.db",
         )
         cursor = conn.cursor()
 
@@ -1698,7 +1722,9 @@ def getAulaSimultaneasParalelas(request):
                     # se as duas aulas forem aulas em paralelo mas em grupos diferentes
                     ambas_pertencem_a_grupos_diferentes = True
                     segundo_grupo_paralelo = obter_grupo_de_aulas(
-                        aulaId_2, "turmasSimultaneas", projId
+                        aulaId_2,
+                        "turmasSimultaneas",
+                        projId,
                     )
 
             if (aulaId_1 in grupo_simultanea_id) and (aulaId_2 in grupo_simultanea_id):
@@ -1719,7 +1745,9 @@ def getAulaSimultaneasParalelas(request):
                     # se as duas aulas forem aulas em simultâneo mas em grupos diferentes
                     ambas_pertencem_a_grupos_diferentes = True
                     segundo_grupo_paralelo = obter_grupo_de_aulas(
-                        aulaId_2, "turmasSimultaneas", projId
+                        aulaId_2,
+                        "turmasSimultaneas",
+                        projId,
                     )
 
         return JsonResponse(
@@ -1749,7 +1777,10 @@ def obter_grupo_de_aulas(aula_id, table, proj_id):
         return f"ERRO: tabela inválida '{table}'. Tem de ser turmasSimultaneas ou aulasSimultaneas."
 
     db_path = os.path.join(
-        settings.BASE_DIR, "database", f"Project{proj_id}", "general_database.db"
+        settings.BASE_DIR,
+        "database",
+        f"Project{proj_id}",
+        "general_database.db",
     )
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
@@ -1839,7 +1870,7 @@ def obter_grupo_de_aulas(aula_id, table, proj_id):
                     "sala": ", ".join(salas) if salas else None,
                     "turmas": turmas,
                     "docentes": docentes,
-                }
+                },
             )
 
         return resultados
@@ -2048,7 +2079,7 @@ def get_aula_info(projId, aulaId):
                 if aula_data["docentes_ids"]
                 else [],
                 "salasIds": aula_data["salas_ids"].split(",") if aula_data["salas_ids"] else [],
-            }
+            },
         )
 
         # Create and return the AulaInfo instance

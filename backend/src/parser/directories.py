@@ -16,6 +16,4 @@ def get_directories(path: str) -> list[str]:
     Returns an empty list if no directories are found.
     """
 
-    return [
-        os.path.join(root, dir) for root, dirs, _files in os.walk(path) for dir in dirs
-    ]
+    return [os.path.join(root, dir) for root, dirs, _files in os.walk(path) for dir in dirs]

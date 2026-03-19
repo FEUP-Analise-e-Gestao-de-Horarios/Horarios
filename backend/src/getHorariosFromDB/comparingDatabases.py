@@ -1,17 +1,21 @@
-from src.getHorariosFromDB.auxiliaryScheduleFunctions import getInformationFromAula
-from src.getHorariosFromDB.auxiliaryScheduleFunctions import getAbreviacaoFromMecanografico
-import sqlite3
 import shutil
+import sqlite3
+
 import networkx as nx
-from networkx import dfs_tree
-from src.getHorariosFromDB.conflictFunctionsDup import organizeInformation, findAnyConflicts
-import src.getHorariosFromDB.graphDup as graph_controller
+
+from src.getHorariosFromDB.auxiliaryScheduleFunctions import (
+    getAbreviacaoFromMecanografico,
+    getInformationFromAula,
+)
+from src.getHorariosFromDB.conflictFunctionsDup import findAnyConflicts
 
 changeOrder = 1
 
+
 def converter_horario(num):
     hora, minuto = divmod(num, 100)
-    return f"{hora:02d}:{minuto:02d}"   
+    return f"{hora:02d}:{minuto:02d}"
+
 
 def calculate_hora_final(horaInicial, duracao):
     # Remove the colon from the horaInicial string
@@ -33,6 +37,7 @@ def calculate_hora_final(horaInicial, duracao):
 
     return horaFinal
 
+
 def diferenca_horas(hora1, hora2):
     # Extrair horas e minutos das horas em formato inteiro
     hora1_h, hora1_m = divmod(hora1, 100)
@@ -43,77 +48,222 @@ def diferenca_horas(hora1, hora2):
 
     # Calcular diferença em horas, incluindo meias horas
     diff_hours = diff_minutes / 60.0
-    diff_hours = round(diff_hours, 1) # arredondar para uma casa decimal
+    diff_hours = round(diff_hours, 1)  # arredondar para uma casa decimal
 
     return diff_hours
 
 
-     
-
 linguagemNatural = {
-    "uc" : "Aula ({} - {} [Turma: {}]) : UC {} -> UC {}",
-    "docentes" : "Aula {} ({} - {} [Turma: {}]) : Docente {} -> Docente {}", # Aula [UC] (DiaSemana - Hora [Turma: 1ªTurma]) : Docente {DocenteRemovido} -> Docente {DocenteAdicionado}
-    "docentesAdd" : "Aula {} ({} - {} [Turma: {}]) : + Docente {}", # Aula [UC] (DiaSemana - Hora [Turma: 1ªTurma]) : + Docente {DocenteAdicionado}
-    "docentesRem" : "Aula {} ({} - {} [Turma: {}]) : - Docente {}", # Aula [UC] (DiaSemana - Hora [Turma: 1ªTurma]) : - Docente {DocenteRemovido}
-    "turmas" : "Aula {} ({} - {}) : Turma {} -> Turma {}", # Aula [UC] (DiaSemana - Hora [Turma: 1ªTurma]) : Docente {DocenteRemovido} -> Docente {DocenteAdicionado}
-    "turmasAdd" : "Aula {} ({} - {}) : + Turma {}", # Aula [UC] (DiaSemana - Hora [Turma: 1ªTurma]) : + Docente {DocenteAdicionado}
-    "turmasRem" : "Aula {} ({} - {}) : - Turma {}", # Aula [UC] (DiaSemana - Hora [Turma: 1ªTurma]) : - Docente {DocenteRemovido}
-    "horario" : "Aula {} [Turma: {}] : ({} - [{}-{}]) -> ({} - [{}-{}])", # Aula [UC] (DiaSemana - Hora [Turma: 1ªTurma]) : (DiaInicial - HoraInicial) -> (DiaFinal - HoraFinal)
-    "salasAdd" : "Aula {} ({} - {} [Turma : {}]) : + Sala {}",
-    "salasRem" : "Aula {} ({} - {} [Turma : {}]) : - Sala {}",
-    "salas" : "Aula {} ({} - {} [Turma : {}]) : Sala {} -> Sala {}",
-    "createDocente" : "Criar Docente {} - {} - {}", # Criar Docente (Mecanografico - Nome - Sigla)
-    "deleteDocente" : "Delete Docente {} - {} - {}"
-
+    "uc": "Aula ({} - {} [Turma: {}]) : UC {} -> UC {}",
+    "docentes": "Aula {} ({} - {} [Turma: {}]) : Docente {} -> Docente {}",  # Aula [UC] (DiaSemana - Hora [Turma: 1ªTurma]) : Docente {DocenteRemovido} -> Docente {DocenteAdicionado}
+    "docentesAdd": "Aula {} ({} - {} [Turma: {}]) : + Docente {}",  # Aula [UC] (DiaSemana - Hora [Turma: 1ªTurma]) : + Docente {DocenteAdicionado}
+    "docentesRem": "Aula {} ({} - {} [Turma: {}]) : - Docente {}",  # Aula [UC] (DiaSemana - Hora [Turma: 1ªTurma]) : - Docente {DocenteRemovido}
+    "turmas": "Aula {} ({} - {}) : Turma {} -> Turma {}",  # Aula [UC] (DiaSemana - Hora [Turma: 1ªTurma]) : Docente {DocenteRemovido} -> Docente {DocenteAdicionado}
+    "turmasAdd": "Aula {} ({} - {}) : + Turma {}",  # Aula [UC] (DiaSemana - Hora [Turma: 1ªTurma]) : + Docente {DocenteAdicionado}
+    "turmasRem": "Aula {} ({} - {}) : - Turma {}",  # Aula [UC] (DiaSemana - Hora [Turma: 1ªTurma]) : - Docente {DocenteRemovido}
+    "horario": "Aula {} [Turma: {}] : ({} - [{}-{}]) -> ({} - [{}-{}])",  # Aula [UC] (DiaSemana - Hora [Turma: 1ªTurma]) : (DiaInicial - HoraInicial) -> (DiaFinal - HoraFinal)
+    "salasAdd": "Aula {} ({} - {} [Turma : {}]) : + Sala {}",
+    "salasRem": "Aula {} ({} - {} [Turma : {}]) : - Sala {}",
+    "salas": "Aula {} ({} - {} [Turma : {}]) : Sala {} -> Sala {}",
+    "createDocente": "Criar Docente {} - {} - {}",  # Criar Docente (Mecanografico - Nome - Sigla)
+    "deleteDocente": "Delete Docente {} - {} - {}",
     ## SORTING:
-
     # CRIAR DOCENTES
     # MEXER NAS AULAS DOS DOCENTES
     # HORARIOS AULAS
     # SALAS
 }
 
-#ACRESCENTAR SIGLA UC
+# ACRESCENTAR SIGLA UC
 
-def globalNaturalLanguage(tipo, uc, diaSemanaInicial, diaSemanaFinal, horaInicialInicial, horaInicialFinal, salaInicial, salaFinal, docenteInicial, docenteFinal, turmaDaAula, nomeDocente, siglaDocente, idAula, horaFinalInicial, horaFinalFinal):
 
-    precedencia = {"DOC_CREATE_REMOVE" : 1, "CLASS_SCHEDULING" : 2, "UC_CHANGE_CLASS" : 3, "DOC_CHANGE_CLASS" : 4, "CLASS_CHANGE_CLASS" : 5, "CLASSROOM_MANIPULATION" : 6}
-    if tipo=="uc":
-        return (precedencia["UC_CHANGE_CLASS"], linguagemNatural["uc"].format(horaInicialInicial, horaFinalInicial, turmaDaAula, uc, docenteFinal), idAula)
-    elif tipo=="docentes":
-        return (precedencia["DOC_CHANGE_CLASS"] , linguagemNatural["docentes"].format(uc, diaSemanaInicial, horaInicialInicial, turmaDaAula, docenteInicial, docenteFinal), idAula)
-    elif tipo=="docentesAdd":
-        return (precedencia["DOC_CHANGE_CLASS"] , linguagemNatural["docentesAdd"].format(uc, diaSemanaInicial, horaInicialInicial, turmaDaAula, docenteInicial), idAula)
-    elif tipo=="docentesRem":
-        return (precedencia["DOC_CHANGE_CLASS"] , linguagemNatural["docentesRem"].format(uc, diaSemanaInicial, horaInicialInicial, turmaDaAula, docenteInicial), idAula)
-    elif tipo=="turmas":
-        return (precedencia["CLASS_CHANGE_CLASS"] , linguagemNatural["turmas"].format(uc, diaSemanaInicial, horaInicialInicial, docenteInicial, docenteFinal), idAula)
-    elif tipo=="turmasAdd":
-        return (precedencia["CLASS_CHANGE_CLASS"] , linguagemNatural["turmasAdd"].format(uc, diaSemanaInicial, horaInicialInicial, docenteInicial), idAula)
-    elif tipo=="turmasRem":
-        return (precedencia["CLASS_CHANGE_CLASS"] , linguagemNatural["turmasRem"].format(uc, diaSemanaInicial, horaInicialInicial, docenteInicial), idAula)
+def globalNaturalLanguage(
+    tipo,
+    uc,
+    diaSemanaInicial,
+    diaSemanaFinal,
+    horaInicialInicial,
+    horaInicialFinal,
+    salaInicial,
+    salaFinal,
+    docenteInicial,
+    docenteFinal,
+    turmaDaAula,
+    nomeDocente,
+    siglaDocente,
+    idAula,
+    horaFinalInicial,
+    horaFinalFinal,
+):
+
+    precedencia = {
+        "DOC_CREATE_REMOVE": 1,
+        "CLASS_SCHEDULING": 2,
+        "UC_CHANGE_CLASS": 3,
+        "DOC_CHANGE_CLASS": 4,
+        "CLASS_CHANGE_CLASS": 5,
+        "CLASSROOM_MANIPULATION": 6,
+    }
+    if tipo == "uc":
+        return (
+            precedencia["UC_CHANGE_CLASS"],
+            linguagemNatural["uc"].format(
+                horaInicialInicial,
+                horaFinalInicial,
+                turmaDaAula,
+                uc,
+                docenteFinal,
+            ),
+            idAula,
+        )
+    elif tipo == "docentes":
+        return (
+            precedencia["DOC_CHANGE_CLASS"],
+            linguagemNatural["docentes"].format(
+                uc,
+                diaSemanaInicial,
+                horaInicialInicial,
+                turmaDaAula,
+                docenteInicial,
+                docenteFinal,
+            ),
+            idAula,
+        )
+    elif tipo == "docentesAdd":
+        return (
+            precedencia["DOC_CHANGE_CLASS"],
+            linguagemNatural["docentesAdd"].format(
+                uc,
+                diaSemanaInicial,
+                horaInicialInicial,
+                turmaDaAula,
+                docenteInicial,
+            ),
+            idAula,
+        )
+    elif tipo == "docentesRem":
+        return (
+            precedencia["DOC_CHANGE_CLASS"],
+            linguagemNatural["docentesRem"].format(
+                uc,
+                diaSemanaInicial,
+                horaInicialInicial,
+                turmaDaAula,
+                docenteInicial,
+            ),
+            idAula,
+        )
+    elif tipo == "turmas":
+        return (
+            precedencia["CLASS_CHANGE_CLASS"],
+            linguagemNatural["turmas"].format(
+                uc,
+                diaSemanaInicial,
+                horaInicialInicial,
+                docenteInicial,
+                docenteFinal,
+            ),
+            idAula,
+        )
+    elif tipo == "turmasAdd":
+        return (
+            precedencia["CLASS_CHANGE_CLASS"],
+            linguagemNatural["turmasAdd"].format(
+                uc,
+                diaSemanaInicial,
+                horaInicialInicial,
+                docenteInicial,
+            ),
+            idAula,
+        )
+    elif tipo == "turmasRem":
+        return (
+            precedencia["CLASS_CHANGE_CLASS"],
+            linguagemNatural["turmasRem"].format(
+                uc,
+                diaSemanaInicial,
+                horaInicialInicial,
+                docenteInicial,
+            ),
+            idAula,
+        )
     elif tipo == "horario":
-        return (precedencia["CLASS_SCHEDULING"] , linguagemNatural["horario"].format(uc, turmaDaAula, diaSemanaInicial, horaInicialInicial, horaFinalInicial ,diaSemanaFinal, horaInicialFinal, horaFinalFinal), idAula) #change
+        return (
+            precedencia["CLASS_SCHEDULING"],
+            linguagemNatural["horario"].format(
+                uc,
+                turmaDaAula,
+                diaSemanaInicial,
+                horaInicialInicial,
+                horaFinalInicial,
+                diaSemanaFinal,
+                horaInicialFinal,
+                horaFinalFinal,
+            ),
+            idAula,
+        )  # change
     elif tipo == "salasAdd":
-        return (precedencia["CLASSROOM_MANIPULATION"] , linguagemNatural["salasAdd"].format(uc, diaSemanaInicial, horaInicialInicial, turmaDaAula, salaInicial), idAula)
+        return (
+            precedencia["CLASSROOM_MANIPULATION"],
+            linguagemNatural["salasAdd"].format(
+                uc,
+                diaSemanaInicial,
+                horaInicialInicial,
+                turmaDaAula,
+                salaInicial,
+            ),
+            idAula,
+        )
     elif tipo == "salasRem":
-        return (precedencia["CLASSROOM_MANIPULATION"] , linguagemNatural["salasRem"].format(uc, diaSemanaInicial, horaInicialInicial, turmaDaAula, salaInicial), idAula)
+        return (
+            precedencia["CLASSROOM_MANIPULATION"],
+            linguagemNatural["salasRem"].format(
+                uc,
+                diaSemanaInicial,
+                horaInicialInicial,
+                turmaDaAula,
+                salaInicial,
+            ),
+            idAula,
+        )
     elif tipo == "salas":
-        return (precedencia["CLASSROOM_MANIPULATION"] , linguagemNatural["salas"].format(uc, diaSemanaInicial, horaInicialInicial, turmaDaAula, salaInicial, salaFinal), idAula)
+        return (
+            precedencia["CLASSROOM_MANIPULATION"],
+            linguagemNatural["salas"].format(
+                uc,
+                diaSemanaInicial,
+                horaInicialInicial,
+                turmaDaAula,
+                salaInicial,
+                salaFinal,
+            ),
+            idAula,
+        )
     elif tipo == "createDocente":
-        return (precedencia["DOC_CREATE_REMOVE"] , linguagemNatural["createDocente"].format(docenteInicial, nomeDocente, siglaDocente), 0)
+        return (
+            precedencia["DOC_CREATE_REMOVE"],
+            linguagemNatural["createDocente"].format(docenteInicial, nomeDocente, siglaDocente),
+            0,
+        )
     elif tipo == "removeDocente":
-        return (precedencia["DOC_CREATE_REMOVE"] , linguagemNatural["removeDocente"].format(docenteInicial, nomeDocente, siglaDocente), 0)
+        return (
+            precedencia["DOC_CREATE_REMOVE"],
+            linguagemNatural["removeDocente"].format(docenteInicial, nomeDocente, siglaDocente),
+            0,
+        )
 
 
 def handleAulas(setFinal, setInicial, ProjectNumber):
     path = "Project" + str(ProjectNumber)
-    connIni = sqlite3.connect('./database/' + path + '/initial_database.db', check_same_thread=False)
+    connIni = sqlite3.connect(
+        "./database/" + path + "/initial_database.db",
+        check_same_thread=False,
+    )
     connIni.row_factory = sqlite3.Row
     cursorIni = connIni.cursor()
     allChanges = []
-    diff1 = setFinal-setInicial
-    diff2 = setInicial-setFinal
+    diff1 = setFinal - setInicial
+    diff2 = setInicial - setFinal
     listaInicial = []
     listaFinal = []
     for elem in diff1:
@@ -125,10 +275,9 @@ def handleAulas(setFinal, setInicial, ProjectNumber):
     dicInicial = {}
     dicFinal = {}
 
-
     for k in diff1:
         for l in range(0, 4):
-            listaInicial.append(k[l])    
+            listaInicial.append(k[l])
     for k in diff2:
         for l in range(0, 4):
             listaFinal.append(k[l])
@@ -136,78 +285,176 @@ def handleAulas(setFinal, setInicial, ProjectNumber):
     for i, item in enumerate(listaInicial):
         if i % 4 == 0:
             key = item
-            values = tuple(listaInicial[i+1:i+4])
+            values = tuple(listaInicial[i + 1 : i + 4])
             dicFinal[key] = values
     for i, item in enumerate(listaFinal):
         if i % 4 == 0:
             key = item
-            values = tuple(listaFinal[i+1:i+4])
+            values = tuple(listaFinal[i + 1 : i + 4])
             dicInicial[key] = values
 
     # CHECK IF THERE ARE TRADES
-    
+
     for key in dicInicial:
         if key in dicFinal:
-            stmtB = '''SELECT * FROM aulaUC WHERE idAula=?'''
+            stmtB = """SELECT * FROM aulaUC WHERE idAula=?"""
             cursorIni.execute(stmtB, (key,))
             resultAulaUC = cursorIni.fetchone()
-            stmtTurma = '''SELECT * FROM aulaTurmas WHERE idAula=?'''
+            stmtTurma = """SELECT * FROM aulaTurmas WHERE idAula=?"""
             cursorIni.execute(stmtTurma, (key,))
             resultTurma = cursorIni.fetchone()
-            horaFinalInicial =  converter_horario(calculate_hora_final(converter_horario(dicInicial[key][0]),dicInicial[key][1]))
-            horaFinalFinal = converter_horario(calculate_hora_final(converter_horario(dicFinal[key][0]),dicFinal[key][1]))
-            change = globalNaturalLanguage("horario", resultAulaUC["idUc"], dicInicial[key][2], dicFinal[key][2], converter_horario(dicInicial[key][0]), converter_horario(dicFinal[key][0]), "", "", "", "", resultTurma["idTurma"], "", "", key, horaFinalInicial, horaFinalFinal)
+            horaFinalInicial = converter_horario(
+                calculate_hora_final(converter_horario(dicInicial[key][0]), dicInicial[key][1]),
+            )
+            horaFinalFinal = converter_horario(
+                calculate_hora_final(converter_horario(dicFinal[key][0]), dicFinal[key][1]),
+            )
+            change = globalNaturalLanguage(
+                "horario",
+                resultAulaUC["idUc"],
+                dicInicial[key][2],
+                dicFinal[key][2],
+                converter_horario(dicInicial[key][0]),
+                converter_horario(dicFinal[key][0]),
+                "",
+                "",
+                "",
+                "",
+                resultTurma["idTurma"],
+                "",
+                "",
+                key,
+                horaFinalInicial,
+                horaFinalFinal,
+            )
             allChanges.append(change)
     return allChanges
 
-def handleSalas(setFinal, setInicial, ProjectNumber): # TESTED AND WORKING
+
+def handleSalas(setFinal, setInicial, ProjectNumber):  # TESTED AND WORKING
     allChanges = []
-    diff1 = setFinal-setInicial
+    diff1 = setFinal - setInicial
     lista1 = []
-    diff2 = setInicial-setFinal
+    diff2 = setInicial - setFinal
     lista2 = []
     for elem in diff1:
         lista1.append(elem)
     for elem2 in diff2:
         lista2.append(elem2)
     for newSala in lista1:
-        change = globalNaturalLanguage("salasAdd", "", "", "", "", "", newSala["numero"], "", "", "" , "", "", "", "", "", "")
+        change = globalNaturalLanguage(
+            "salasAdd",
+            "",
+            "",
+            "",
+            "",
+            "",
+            newSala["numero"],
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+        )
         allChanges.append(change)
     for delSala in lista2:
-        change = globalNaturalLanguage("salasRem", "", "", "", "", "", delSala["numero"], "", "", "" , "", "", "", "", "", "")
+        change = globalNaturalLanguage(
+            "salasRem",
+            "",
+            "",
+            "",
+            "",
+            "",
+            delSala["numero"],
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+        )
         allChanges.append(change)
-    return allChanges    
-        
-def handleDocentes(setFinal, setInicial, ProjectNumber): # TESTED AND WORKING
+    return allChanges
+
+
+def handleDocentes(setFinal, setInicial, ProjectNumber):  # TESTED AND WORKING
     allChanges = []
-    diff1 = setFinal-setInicial
+    diff1 = setFinal - setInicial
     lista1 = []
-    diff2 = setInicial-setFinal
+    diff2 = setInicial - setFinal
     lista2 = []
     for elem in diff1:
         lista1.append(elem)
     for elem2 in diff2:
         lista2.append(elem2)
     for newDocente in lista1:
-        change = globalNaturalLanguage("createDocente", "", "", "", "", "", "", "", newDocente["numeroMecanografico"], "", "", newDocente["nome"], newDocente["abreviacao"], "", "", "")
+        change = globalNaturalLanguage(
+            "createDocente",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            newDocente["numeroMecanografico"],
+            "",
+            "",
+            newDocente["nome"],
+            newDocente["abreviacao"],
+            "",
+            "",
+            "",
+        )
         allChanges.append(change)
     for delDocente in lista2:
-        change = globalNaturalLanguage("removeDocente", "", "", "", "", "", "", "", delDocente["numeroMecanografico"], "", "", delDocente["nome"], delDocente["abreviacao"], "", "", "")
+        change = globalNaturalLanguage(
+            "removeDocente",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            delDocente["numeroMecanografico"],
+            "",
+            "",
+            delDocente["nome"],
+            delDocente["abreviacao"],
+            "",
+            "",
+            "",
+        )
         allChanges.append(change)
     return allChanges
 
-def handleAulaDocente(setFinal, setInicial, ProjectNumber): # TESTED AND WORKING
+
+def handleAulaDocente(setFinal, setInicial, ProjectNumber):  # TESTED AND WORKING
     path = "Project" + str(ProjectNumber)
-    connIni = sqlite3.connect('./database/' + path + '/initial_database.db', check_same_thread=False)
+    connIni = sqlite3.connect(
+        "./database/" + path + "/initial_database.db",
+        check_same_thread=False,
+    )
     connIni.row_factory = sqlite3.Row
     cursorIni = connIni.cursor()
-    connFin = sqlite3.connect('./database/' + path + '/general_database.db', check_same_thread=False)
+    connFin = sqlite3.connect(
+        "./database/" + path + "/general_database.db",
+        check_same_thread=False,
+    )
     connFin.row_factory = sqlite3.Row
     cursorFin = connFin.cursor()
     allChanges = []
-    diff1 = setFinal-setInicial
-    diff2 = setInicial-setFinal
-   
+    diff1 = setFinal - setInicial
+    diff2 = setInicial - setFinal
+
     listaInicial = []
     listaFinal = []
     dicInicial = {}
@@ -216,77 +463,116 @@ def handleAulaDocente(setFinal, setInicial, ProjectNumber): # TESTED AND WORKING
     for k in diff1:
         for l in range(0, len(k)):
             listaInicial.append(k[l])
-    
+
     for k in diff2:
         for l in range(0, len(k)):
             listaFinal.append(k[l])
 
-
-    for index in range(0, len(listaInicial)-1, 2):
+    for index in range(0, len(listaInicial) - 1, 2):
         # print("Index: ", index)
         key = listaInicial[index]
-        value = listaInicial[index+1]
+        value = listaInicial[index + 1]
         if key in dicFinal:
             dicFinal[key].append(value)
-        else:    
+        else:
             dicFinal[key] = [value]
-    for index2 in range(0, len(listaFinal)-1, 2):
+    for index2 in range(0, len(listaFinal) - 1, 2):
         key = listaFinal[index2]
-        value = listaFinal[index2+1]
+        value = listaFinal[index2 + 1]
         if key in dicInicial:
             dicInicial[key].append(value)
-        else:    
+        else:
             dicInicial[key] = [value]
 
     # CHECK IF THERE ARE TRADES
-    
 
     for key in dicInicial:
         for i, elem in enumerate(dicInicial[key]):
-            stmt = '''SELECT * FROM aula WHERE id=?'''
+            stmt = """SELECT * FROM aula WHERE id=?"""
             cursorFin.execute(stmt, (key,))
             resultAula = cursorFin.fetchone()
-            stmtB = '''SELECT * FROM aulaUC WHERE idAula=?'''
+            stmtB = """SELECT * FROM aulaUC WHERE idAula=?"""
             cursorIni.execute(stmtB, (key,))
             resultAulaUC = cursorIni.fetchone()
-            stmtTurma = '''SELECT * FROM aulaTurmas WHERE idAula=?'''
+            stmtTurma = """SELECT * FROM aulaTurmas WHERE idAula=?"""
             cursorIni.execute(stmtTurma, (key,))
             resultTurma = cursorIni.fetchone()
-            stmtDocente = '''SELECT * FROM docentes WHERE numeroMecanografico=?'''
+            stmtDocente = """SELECT * FROM docentes WHERE numeroMecanografico=?"""
             cursorIni.execute(stmtDocente, (elem,))
             lastDocente = cursorIni.fetchone()
-            change = globalNaturalLanguage("docentesRem", resultAulaUC["idUC"], resultAula["diaSemana"], "", converter_horario(resultAula["horaInicial"]), "", "", "", lastDocente["abreviacao"], "", resultTurma["idTurma"], "", "", key, "", "")
+            change = globalNaturalLanguage(
+                "docentesRem",
+                resultAulaUC["idUC"],
+                resultAula["diaSemana"],
+                "",
+                converter_horario(resultAula["horaInicial"]),
+                "",
+                "",
+                "",
+                lastDocente["abreviacao"],
+                "",
+                resultTurma["idTurma"],
+                "",
+                "",
+                key,
+                "",
+                "",
+            )
             allChanges.append(change)
     for key in dicFinal:
-        for i, elem in enumerate(dicFinal[key]): 
-            stmt = '''SELECT * FROM aula WHERE id=?'''
+        for i, elem in enumerate(dicFinal[key]):
+            stmt = """SELECT * FROM aula WHERE id=?"""
             cursorFin.execute(stmt, (key,))
             resultAula = cursorFin.fetchone()
-            stmtB = '''SELECT * FROM aulaUC WHERE idAula=?'''
+            stmtB = """SELECT * FROM aulaUC WHERE idAula=?"""
             cursorFin.execute(stmtB, (key,))
             resultAulaUC = cursorFin.fetchone()
-            stmtTurma = '''SELECT * FROM aulaTurmas WHERE idAula=?'''
+            stmtTurma = """SELECT * FROM aulaTurmas WHERE idAula=?"""
             cursorFin.execute(stmtTurma, (key,))
             resultTurma = cursorFin.fetchone()
-            stmtDocente = '''SELECT * FROM docentes WHERE numeroMecanografico=?'''
+            stmtDocente = """SELECT * FROM docentes WHERE numeroMecanografico=?"""
             cursorFin.execute(stmtDocente, (elem,))
             firstDocente = cursorFin.fetchone()
-            change = globalNaturalLanguage("docentesAdd", resultAulaUC["idUC"], resultAula["diaSemana"], "", converter_horario(resultAula["horaInicial"]), "", "", "", firstDocente["abreviacao"], "", resultTurma["idTurma"], "", "", key, "", "")
+            change = globalNaturalLanguage(
+                "docentesAdd",
+                resultAulaUC["idUC"],
+                resultAula["diaSemana"],
+                "",
+                converter_horario(resultAula["horaInicial"]),
+                "",
+                "",
+                "",
+                firstDocente["abreviacao"],
+                "",
+                resultTurma["idTurma"],
+                "",
+                "",
+                key,
+                "",
+                "",
+            )
             allChanges.append(change)
     return allChanges
 
-def handleAulaUC(setFinal, setInicial, ProjectNumber): # TESTED AND WORKING
+
+def handleAulaUC(setFinal, setInicial, ProjectNumber):  # TESTED AND WORKING
     path = "Project" + str(ProjectNumber)
-    connIni = sqlite3.connect('./database/' + path + '/initial_database.db', check_same_thread=False)
+    connIni = sqlite3.connect(
+        "./database/" + path + "/initial_database.db",
+        check_same_thread=False,
+    )
     connIni.row_factory = sqlite3.Row
     cursorIni = connIni.cursor()
-    connFin = sqlite3.connect('./database/' + path + '/general_database.db', check_same_thread=False)
+    connFin = sqlite3.connect(
+        "./database/" + path + "/general_database.db",
+        check_same_thread=False,
+    )
     connFin.row_factory = sqlite3.Row
     cursorFin = connFin.cursor()
     allChanges = []
-    diff1 = setFinal-setInicial
-    diff2 = setInicial-setFinal
-   
+    diff1 = setFinal - setInicial
+    diff2 = setInicial - setFinal
+
     listaInicial = []
     listaFinal = []
     dicInicial = {}
@@ -295,57 +581,78 @@ def handleAulaUC(setFinal, setInicial, ProjectNumber): # TESTED AND WORKING
     for k in diff1:
         for l in range(0, len(k)):
             listaInicial.append(k[l])
-    
+
     for k in diff2:
         for l in range(0, len(k)):
             listaFinal.append(k[l])
 
-
-    for index in range(0, len(listaInicial)-1, 2):
+    for index in range(0, len(listaInicial) - 1, 2):
         # print("Index: ", index)
         key = listaInicial[index]
-        value = listaInicial[index+1]
+        value = listaInicial[index + 1]
         if key in dicFinal:
             dicFinal[key].append(value)
-        else:    
+        else:
             dicFinal[key] = [value]
-    for index2 in range(0, len(listaFinal)-1, 2):
+    for index2 in range(0, len(listaFinal) - 1, 2):
         key = listaFinal[index2]
-        value = listaFinal[index2+1]
+        value = listaFinal[index2 + 1]
         if key in dicInicial:
             dicInicial[key].append(value)
-        else:    
+        else:
             dicInicial[key] = [value]
 
     # CHECK IF THERE ARE TRADES
     print(f"ALL CHANGES GOING INTO UC: DicFinal: {dicFinal}, DicInicial: {dicInicial}")
 
-
     for key in dicInicial:
         for i, elem in enumerate(dicInicial[key]):
-            stmt = '''SELECT * FROM aula WHERE id=?'''
+            stmt = """SELECT * FROM aula WHERE id=?"""
             cursorFin.execute(stmt, (key,))
             resultAula = cursorFin.fetchone()
-            stmtTurma = '''SELECT * FROM aulaTurmas WHERE idAula=?'''
+            stmtTurma = """SELECT * FROM aulaTurmas WHERE idAula=?"""
             cursorIni.execute(stmtTurma, (key,))
             resultTurma = cursorIni.fetchone()
             elem2 = dicFinal[key][i]
-            change = globalNaturalLanguage("uc", elem, resultAula["diaSemana"], "", converter_horario(resultAula["horaInicial"]), "", "" ,"", "", elem2, resultTurma["idTurma"], "", "", key, "", "")
+            change = globalNaturalLanguage(
+                "uc",
+                elem,
+                resultAula["diaSemana"],
+                "",
+                converter_horario(resultAula["horaInicial"]),
+                "",
+                "",
+                "",
+                "",
+                elem2,
+                resultTurma["idTurma"],
+                "",
+                "",
+                key,
+                "",
+                "",
+            )
             allChanges.append(change)
     return allChanges
 
 
-def handleAulaTurmas(setFinal, setInicial, ProjectNumber): # TESTED AND WORKING
+def handleAulaTurmas(setFinal, setInicial, ProjectNumber):  # TESTED AND WORKING
     path = "Project" + str(ProjectNumber)
-    connIni = sqlite3.connect('./database/' + path + '/initial_database.db', check_same_thread=False)
+    connIni = sqlite3.connect(
+        "./database/" + path + "/initial_database.db",
+        check_same_thread=False,
+    )
     connIni.row_factory = sqlite3.Row
     cursorIni = connIni.cursor()
-    connFin = sqlite3.connect('./database/' + path + '/general_database.db', check_same_thread=False)
+    connFin = sqlite3.connect(
+        "./database/" + path + "/general_database.db",
+        check_same_thread=False,
+    )
     connFin.row_factory = sqlite3.Row
     cursorFin = connFin.cursor()
     allChanges = []
-    diff1 = setFinal-setInicial
-    diff2 = setInicial-setFinal
+    diff1 = setFinal - setInicial
+    diff2 = setInicial - setFinal
     listaInicial = []
     listaFinal = []
     dicInicial = {}
@@ -354,25 +661,25 @@ def handleAulaTurmas(setFinal, setInicial, ProjectNumber): # TESTED AND WORKING
     for k in diff1:
         for l in range(0, len(k)):
             listaInicial.append(k[l])
-    
+
     for k in diff2:
         for l in range(0, len(k)):
             listaFinal.append(k[l])
 
-    for index in range(0, len(listaInicial)-1, 2):
+    for index in range(0, len(listaInicial) - 1, 2):
         # print("Index: ", index)
         key = listaInicial[index]
-        value = listaInicial[index+1]
+        value = listaInicial[index + 1]
         if key in dicFinal:
             dicFinal[key].append(value)
-        else:    
+        else:
             dicFinal[key] = [value]
-    for index2 in range(0, len(listaFinal)-1, 2):
+    for index2 in range(0, len(listaFinal) - 1, 2):
         key = listaFinal[index2]
-        value = listaFinal[index2+1]
+        value = listaFinal[index2 + 1]
         if key in dicInicial:
             dicInicial[key].append(value)
-        else:    
+        else:
             dicInicial[key] = [value]
 
     # CHECK IF THERE ARE TRADES
@@ -380,46 +687,86 @@ def handleAulaTurmas(setFinal, setInicial, ProjectNumber): # TESTED AND WORKING
     for key in dicInicial:
         for i, elem in enumerate(dicInicial[key]):
             elem2 = dicFinal[key][i]
-            stmt = '''SELECT * FROM aula WHERE id=?'''
+            stmt = """SELECT * FROM aula WHERE id=?"""
             cursorFin.execute(stmt, (key,))
             resultAula = cursorFin.fetchone()
-            stmtB = '''SELECT * FROM aulaUC WHERE idAula=?'''
+            stmtB = """SELECT * FROM aulaUC WHERE idAula=?"""
             cursorIni.execute(stmtB, (key,))
             resultAulaUC = cursorIni.fetchone()
-            stmtDocente = '''SELECT * FROM turmas WHERE codigo=?'''
+            stmtDocente = """SELECT * FROM turmas WHERE codigo=?"""
             cursorIni.execute(stmtDocente, (elem,))
             lastTurma = cursorIni.fetchone()
             cursorIni.execute(stmtDocente, (elem2,))
             firstTurma = cursorIni.fetchone()
-            change = globalNaturalLanguage("turmasRem", resultAulaUC["idUC"], resultAula["diaSemana"], "", converter_horario(resultAula["horaInicial"]), "", "", "", firstTurma["codigo"], "", "", "", "", key, "", "")
+            change = globalNaturalLanguage(
+                "turmasRem",
+                resultAulaUC["idUC"],
+                resultAula["diaSemana"],
+                "",
+                converter_horario(resultAula["horaInicial"]),
+                "",
+                "",
+                "",
+                firstTurma["codigo"],
+                "",
+                "",
+                "",
+                "",
+                key,
+                "",
+                "",
+            )
             allChanges.append(change)
     for key in dicFinal:
-        for i, elem in enumerate(dicFinal[key]):  
-            stmt = '''SELECT * FROM aula WHERE id=?'''
+        for i, elem in enumerate(dicFinal[key]):
+            stmt = """SELECT * FROM aula WHERE id=?"""
             cursorFin.execute(stmt, (key,))
             resultAula = cursorFin.fetchone()
-            stmtB = '''SELECT * FROM aulaUC WHERE idAula=?'''
+            stmtB = """SELECT * FROM aulaUC WHERE idAula=?"""
             cursorFin.execute(stmtB, (key,))
             resultAulaUC = cursorFin.fetchone()
-            stmtDocente = '''SELECT * FROM turmas WHERE codigo=?'''
+            stmtDocente = """SELECT * FROM turmas WHERE codigo=?"""
             cursorFin.execute(stmtDocente, (elem,))
             firstTurma = cursorFin.fetchone()
-            change = globalNaturalLanguage("turmasAdd", resultAulaUC["idUC"], resultAula["diaSemana"], "", converter_horario(resultAula["horaInicial"]), "", "", "", firstTurma["codigo"], "", "", "", "", key, "", "")
+            change = globalNaturalLanguage(
+                "turmasAdd",
+                resultAulaUC["idUC"],
+                resultAula["diaSemana"],
+                "",
+                converter_horario(resultAula["horaInicial"]),
+                "",
+                "",
+                "",
+                firstTurma["codigo"],
+                "",
+                "",
+                "",
+                "",
+                key,
+                "",
+                "",
+            )
             allChanges.append(change)
     return allChanges
 
 
-def handleAulaSala(setFinal, setInicial, ProjectNumber): # TESTED AND WORKING
+def handleAulaSala(setFinal, setInicial, ProjectNumber):  # TESTED AND WORKING
     path = "Project" + str(ProjectNumber)
-    connIni = sqlite3.connect('./database/' + path + '/initial_database.db', check_same_thread=False)
+    connIni = sqlite3.connect(
+        "./database/" + path + "/initial_database.db",
+        check_same_thread=False,
+    )
     connIni.row_factory = sqlite3.Row
     cursorIni = connIni.cursor()
-    connFin = sqlite3.connect('./database/' + path + '/general_database.db', check_same_thread=False)
+    connFin = sqlite3.connect(
+        "./database/" + path + "/general_database.db",
+        check_same_thread=False,
+    )
     connFin.row_factory = sqlite3.Row
     cursorFin = connFin.cursor()
     allChanges = []
-    diff1 = setFinal-setInicial
-    diff2 = setInicial-setFinal
+    diff1 = setFinal - setInicial
+    diff2 = setInicial - setFinal
     dicInicial = {}
     dicFinal = {}
     listaInicial = []
@@ -433,64 +780,98 @@ def handleAulaSala(setFinal, setInicial, ProjectNumber): # TESTED AND WORKING
     for k in diff1:
         for l in range(0, len(k)):
             listaInicial.append(k[l])
-    
+
     for k in diff2:
         for l in range(0, len(k)):
             listaFinal.append(k[l])
-    
-    for index in range(0, len(listaInicial)-1, 2):
+
+    for index in range(0, len(listaInicial) - 1, 2):
         # print("Index: ", index)
         key = listaInicial[index]
-        value = listaInicial[index+1]
+        value = listaInicial[index + 1]
         if key in dicFinal:
             dicFinal[key].append(value)
-        else:    
+        else:
             dicFinal[key] = [value]
-    for index2 in range(0, len(listaFinal)-1, 2):
+    for index2 in range(0, len(listaFinal) - 1, 2):
         key = listaFinal[index2]
-        value = listaFinal[index2+1]
+        value = listaFinal[index2 + 1]
         if key in dicInicial:
             dicInicial[key].append(value)
-        else:    
+        else:
             dicInicial[key] = [value]
     # CHECK IF THERE ARE TRADES
-
 
     for key in dicInicial:
         for i, elem in enumerate(dicInicial[key]):
             elem2 = dicFinal[key][i]
-            stmt = '''SELECT * FROM aula WHERE id=?'''
+            stmt = """SELECT * FROM aula WHERE id=?"""
             cursorIni.execute(stmt, (key,))
             resultAula = cursorIni.fetchone()
-            stmtB = '''SELECT * FROM aulaUC WHERE idAula=?'''
+            stmtB = """SELECT * FROM aulaUC WHERE idAula=?"""
             cursorIni.execute(stmtB, (key,))
             resultAulaUC = cursorIni.fetchone()
-            stmtTurma = '''SELECT * FROM aulaTurmas WHERE idAula=?'''
+            stmtTurma = """SELECT * FROM aulaTurmas WHERE idAula=?"""
             cursorIni.execute(stmtTurma, (key,))
             resultTurma = cursorIni.fetchone()
-            change = globalNaturalLanguage("salasRem", resultAulaUC["idUC"], resultAula["diaSemana"], "", converter_horario(resultAula["horaInicial"]), "", elem, "", "", "", resultTurma["idTurma"], "", "", key, "", "")
+            change = globalNaturalLanguage(
+                "salasRem",
+                resultAulaUC["idUC"],
+                resultAula["diaSemana"],
+                "",
+                converter_horario(resultAula["horaInicial"]),
+                "",
+                elem,
+                "",
+                "",
+                "",
+                resultTurma["idTurma"],
+                "",
+                "",
+                key,
+                "",
+                "",
+            )
             allChanges.append(change)
     for key in dicFinal:
         for i, elem in enumerate(dicFinal[key]):
-            stmt = '''SELECT * FROM aula WHERE id=?'''
+            stmt = """SELECT * FROM aula WHERE id=?"""
             cursorIni.execute(stmt, (key,))
             resultAula = cursorIni.fetchone()
-            stmtB = '''SELECT * FROM aulaUC WHERE idAula=?'''
+            stmtB = """SELECT * FROM aulaUC WHERE idAula=?"""
             cursorFin.execute(stmtB, (key,))
             resultAulaUC = cursorFin.fetchone()
-            stmtTurma = '''SELECT * FROM aulaTurmas WHERE idAula=?'''
+            stmtTurma = """SELECT * FROM aulaTurmas WHERE idAula=?"""
             cursorFin.execute(stmtTurma, (key,))
             resultTurma = cursorFin.fetchone()
             # print(f"ResultTurma: {resultTurma}")
-            change = globalNaturalLanguage("salasAdd", resultAulaUC["idUC"], resultAula["diaSemana"], "", converter_horario(resultAula["horaInicial"]), "", elem, "", "", "", resultTurma["idTurma"], "", "", key, "", "")
+            change = globalNaturalLanguage(
+                "salasAdd",
+                resultAulaUC["idUC"],
+                resultAula["diaSemana"],
+                "",
+                converter_horario(resultAula["horaInicial"]),
+                "",
+                elem,
+                "",
+                "",
+                "",
+                resultTurma["idTurma"],
+                "",
+                "",
+                key,
+                "",
+                "",
+            )
             allChanges.append(change)
     return allChanges
-            
+
 
 def sortChanges(item):
     # print(f"Item: {item}")
     (precedence, string, id) = item
     return (id, precedence)
+
 
 def addChangeToDict(changesDict, table_name, primaryKey, diff_data1, diff_data2):
     # print("Table: ", table_name)
@@ -502,7 +883,7 @@ def addChangeToDict(changesDict, table_name, primaryKey, diff_data1, diff_data2)
     for prev in prev_changes:
         for new in new_changes:
             if prev[primaryKey] == new[primaryKey]:
-                changesDict[len(changesDict)+1] = (table_name, prev, new)
+                changesDict[len(changesDict) + 1] = (table_name, prev, new)
                 break
 
 
@@ -515,12 +896,19 @@ def get_primary_key(conn, table_name):
             return column[1]
     return None
 
+
 def changeAulaTurma(ProjectNumber, idAula, idTurma):
-    path = "Project"+str(ProjectNumber)
-    conn = sqlite3.connect('./database/' + path + '/duplicate_initial_database.db', check_same_thread=False)
+    path = "Project" + str(ProjectNumber)
+    conn = sqlite3.connect(
+        "./database/" + path + "/duplicate_initial_database.db",
+        check_same_thread=False,
+    )
     cursor = conn.cursor()
     # Check if the (idAula, idTurma) already exists
-    cursor.execute("SELECT COUNT(*) FROM aulaTurmas WHERE idAula = ? AND idTurma = ?", (idAula, idTurma))
+    cursor.execute(
+        "SELECT COUNT(*) FROM aulaTurmas WHERE idAula = ? AND idTurma = ?",
+        (idAula, idTurma),
+    )
     result = cursor.fetchone()
 
     if result[0] == 0:  # If no existing entry, insert it
@@ -530,53 +918,85 @@ def changeAulaTurma(ProjectNumber, idAula, idTurma):
 
     cursor.connection.commit()
 
+
 def changeAula(ProjectNumber, aula):
-    path = "Project"+str(ProjectNumber)
-    conn = sqlite3.connect('./database/' + path + '/duplicate_initial_database.db', check_same_thread=False)
+    path = "Project" + str(ProjectNumber)
+    conn = sqlite3.connect(
+        "./database/" + path + "/duplicate_initial_database.db",
+        check_same_thread=False,
+    )
     cursor = conn.cursor()
-    stmt = '''UPDATE aula SET horaInicial=?, duracao=?, diaSemana=?, teorico=?, semanaInicial=?, semanaFinal=? WHERE id=?'''
-    cursor.execute(stmt, (aula["horaInicial"], aula["duracao"], aula["diaSemana"], aula["teorico"], aula["semanaInicial"], aula["semanaFinal"], aula["id"]))
+    stmt = """UPDATE aula SET horaInicial=?, duracao=?, diaSemana=?, teorico=?, semanaInicial=?, semanaFinal=? WHERE id=?"""
+    cursor.execute(
+        stmt,
+        (
+            aula["horaInicial"],
+            aula["duracao"],
+            aula["diaSemana"],
+            aula["teorico"],
+            aula["semanaInicial"],
+            aula["semanaFinal"],
+            aula["id"],
+        ),
+    )
     conn.commit()
 
+
 def changeAulaSala(ProjectNumber, idAula, idSala):
-    path = "Project"+str(ProjectNumber)
-    conn = sqlite3.connect('./database/' + path + '/duplicate_initial_database.db', check_same_thread=False)
+    path = "Project" + str(ProjectNumber)
+    conn = sqlite3.connect(
+        "./database/" + path + "/duplicate_initial_database.db",
+        check_same_thread=False,
+    )
     cursor = conn.cursor()
-    stmt = '''UPDATE aulaSala SET idSala=? WHERE idAula=?'''
+    stmt = """UPDATE aulaSala SET idSala=? WHERE idAula=?"""
     cursor.execute(stmt, (idSala, idAula))
     conn.commit()
 
+
 def changeAulaDocente(ProjectNumber, idAula, idDocente):
-    path = "Project"+str(ProjectNumber)
-    conn = sqlite3.connect('./database/' + path + '/duplicate_initial_database.db', check_same_thread=False)
+    path = "Project" + str(ProjectNumber)
+    conn = sqlite3.connect(
+        "./database/" + path + "/duplicate_initial_database.db",
+        check_same_thread=False,
+    )
     cursor = conn.cursor()
-    stmt = '''UPDATE aulaDocente SET idDocente=? WHERE idAula=?'''
+    stmt = """UPDATE aulaDocente SET idDocente=? WHERE idAula=?"""
     cursor.execute(stmt, (idDocente, idAula))
     conn.commit()
 
+
 def changeAulaUC(ProjectNumber, idAula, idUC):
-    path = "Project"+str(ProjectNumber)
-    conn = sqlite3.connect('./database/' + path + '/duplicate_initial_database.db', check_same_thread=False)
+    path = "Project" + str(ProjectNumber)
+    conn = sqlite3.connect(
+        "./database/" + path + "/duplicate_initial_database.db",
+        check_same_thread=False,
+    )
     cursor = conn.cursor()
-    stmt = '''UPDATE aulaUC SET idUC=? WHERE idAula=?'''
+    stmt = """UPDATE aulaUC SET idUC=? WHERE idAula=?"""
     cursor.execute(stmt, (idUC, idAula))
     conn.commit()
 
+
 def switch_day_to_number(day_string):
     switch_dict = {
-        'Segunda' : '0',
-        'Terça' : '1',
-        'Quarta' : '2',
-        'Quinta' : '3',
-        'Sexta' : '4',
-        'Sábado' : '5'
+        "Segunda": "0",
+        "Terça": "1",
+        "Quarta": "2",
+        "Quinta": "3",
+        "Sexta": "4",
+        "Sábado": "5",
     }
-    return switch_dict.get(day_string, None)
+    return switch_dict.get(day_string)
+
 
 def getAulaDiaHora(ProjectNumber, aulaId):
-    path = "Project"+str(ProjectNumber)
-    conn = sqlite3.connect('./database/' + path + '/duplicate_initial_database.db', check_same_thread=False)
-    conn.row_factory=sqlite3.Row
+    path = "Project" + str(ProjectNumber)
+    conn = sqlite3.connect(
+        "./database/" + path + "/duplicate_initial_database.db",
+        check_same_thread=False,
+    )
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     stmt = "SELECT * FROM aula WHERE id=?"
     cursor.execute(stmt, (aulaId,))
@@ -584,6 +1004,7 @@ def getAulaDiaHora(ProjectNumber, aulaId):
     dia = aulaRow["diaSemana"]
     hora = aulaRow["horaInicial"]
     return dia, hora
+
 
 def applyChangeToDB(ProjectNumber, table, new):
     conflicts = []
@@ -594,7 +1015,7 @@ def applyChangeToDB(ProjectNumber, table, new):
         aulaId = new["idAula"]
         # print("diaAula: ", diaAula, " horaAula: ", horaAula, " aulaId: ", aulaId)
         conflicts = findAnyConflicts(ProjectNumber, diaAula, horaAula, aulaId)
-        #print("conflicts: ", conflicts, "\n")
+        # print("conflicts: ", conflicts, "\n")
 
     elif table == "aula":
         changeAula(ProjectNumber, new)
@@ -603,7 +1024,7 @@ def applyChangeToDB(ProjectNumber, table, new):
         aulaId = new["id"]
         # print("diaAula: ", diaAula, " horaAula: ", horaAula, " aulaId: ", aulaId)
         conflicts = findAnyConflicts(ProjectNumber, diaAula, horaAula, aulaId)
-        #print("conflicts: ", conflicts, "\n")
+        # print("conflicts: ", conflicts, "\n")
 
     elif table == "aulaSala":
         changeAulaSala(ProjectNumber, new["idAula"], new["idSala"])
@@ -611,7 +1032,7 @@ def applyChangeToDB(ProjectNumber, table, new):
         aulaId = new["idAula"]
         # print("diaAula: ", diaAula, " horaAula: ", horaAula, " aulaId: ", aulaId)
         conflicts = findAnyConflicts(ProjectNumber, diaAula, horaAula, aulaId)
-        #print("conflicts: ", conflicts, "\n")
+        # print("conflicts: ", conflicts, "\n")
 
     elif table == "aulaDocente":
         changeAulaDocente(ProjectNumber, new["idAula"], new["idDocente"])
@@ -619,8 +1040,8 @@ def applyChangeToDB(ProjectNumber, table, new):
         aulaId = new["idAula"]
         # print("diaAula: ", diaAula, " horaAula: ", horaAula, " aulaId: ", aulaId)
         conflicts = findAnyConflicts(ProjectNumber, diaAula, horaAula, aulaId)
-        #print("conflicts: ", conflicts, "\n")
-    
+        # print("conflicts: ", conflicts, "\n")
+
     elif table == "aulaUC":
         changeAulaUC(ProjectNumber, new["idAula"], new["idUC"])
         diaAula, horaAula = getAulaDiaHora(ProjectNumber, new["idAula"])
@@ -630,12 +1051,13 @@ def applyChangeToDB(ProjectNumber, table, new):
     # return findConflicts(ProjectNumber)
     return conflicts
 
+
 def generateConflicts(ProjectNumber, table, prev, new):
-    print(f'{table} {prev} {new}')
+    print(f"{table} {prev} {new}")
     conflicts = applyChangeToDB(ProjectNumber, table, new)
     applyChangeToDB(ProjectNumber, table, prev)
     print("Conflicts next: ", conflicts)
-    
+
     if len(conflicts) > 0:
         return True
     else:
@@ -656,6 +1078,7 @@ def checkChangeToDB(ProjectNumber, generated_conflict, table, prev, new):
         print("New Conlficts", new_conflicts)
         return True, new_conflicts
 
+
 def findBestChange(ProjectNumber, changesDict, conflict, visited):
     print("Finding change for conflict: ", conflict)
     for change in changesDict:
@@ -668,6 +1091,7 @@ def findBestChange(ProjectNumber, changesDict, conflict, visited):
             return change, new_conflicts
     print("ERROR: No solution found for conflict: ", conflict)
     return None, None
+
 
 def dfs_visit(ProjectNumber, changesDict, graph, change, visited):
     global changeOrder
@@ -684,7 +1108,12 @@ def dfs_visit(ProjectNumber, changesDict, graph, change, visited):
         while len(conflicts) > 0:
             conflict = conflicts.pop(0)
             # find the next change that solves the conflict
-            next_change, new_conflicts = findBestChange(ProjectNumber, changesDict, conflict, visited)
+            next_change, new_conflicts = findBestChange(
+                ProjectNumber,
+                changesDict,
+                conflict,
+                visited,
+            )
             if next_change is None:
                 continue
             table, prev, new = changesDict[next_change]
@@ -695,6 +1124,7 @@ def dfs_visit(ProjectNumber, changesDict, graph, change, visited):
             conflicts = dfs_visit(ProjectNumber, changesDict, graph, next_change, visited)
             # print("Conflicts: ", conflicts)
         return conflicts
+
 
 # find all changes that do not generate any conflicts
 # and put them as the first ones in the export graph
@@ -713,10 +1143,11 @@ def findIndependentChanges(ProjectNumber, changesDict, visited, G):
             continue
         changeNum += 1
 
+
 def buildExportGraph(ProjectNumber, changesDict):
     global changeOrder
-    src = './database/Project' + str(ProjectNumber) + '/initial_database.db'
-    dst = './database/Project' + str(ProjectNumber) + '/duplicate_initial_database.db'
+    src = "./database/Project" + str(ProjectNumber) + "/initial_database.db"
+    dst = "./database/Project" + str(ProjectNumber) + "/duplicate_initial_database.db"
     shutil.copy2(src, dst)
 
     duplicateInitialDB = sqlite3.connect(dst, check_same_thread=False)
@@ -742,17 +1173,18 @@ def buildExportGraph(ProjectNumber, changesDict):
 
     return G
 
+
 def readGraph(ProjectNumber, graph, changesDict):
     # refresh the duplicate initial database
-    src = './database/Project' + str(ProjectNumber) + '/initial_database.db'
-    dst = './database/Project' + str(ProjectNumber) + '/duplicate_initial_database.db'
+    src = "./database/Project" + str(ProjectNumber) + "/initial_database.db"
+    dst = "./database/Project" + str(ProjectNumber) + "/duplicate_initial_database.db"
     shutil.copy2(src, dst)
     duplicateInitialDB = sqlite3.connect(dst, check_same_thread=False)
     duplicateInitialDB.row_factory = sqlite3.Row
 
     nodes = graph.nodes(data=True)
-    nodes = sorted(nodes, key=lambda x: x[1]['order'])
-    
+    nodes = sorted(nodes, key=lambda x: x[1]["order"])
+
     visited = set()
     all_traversal_orders = []
 
@@ -767,7 +1199,7 @@ def readGraph(ProjectNumber, graph, changesDict):
                     visited.add(vertex)
                     stack.extend(reversed(list(graph.neighbors(vertex))))
             all_traversal_orders.append(traversal_order)
-    
+
     # functions = {
     #     "aulaSala": handleAulaSala,
     #     "docentes": handleDocentes,
@@ -799,75 +1231,101 @@ def readGraph(ProjectNumber, graph, changesDict):
             table = changesDict[change][0]
             prev = changesDict[change][1]
             new = changesDict[change][2]
-            
+
             # check if the change has a different UC or Turma then the previous one
             if table == "aula":
-                idAula = changesDict[change][2]['id']
+                idAula = changesDict[change][2]["id"]
             else:
-                idAula = changesDict[change][2]['idAula']
-            info = getInformationFromAula(ProjectNumber, idAula, 'duplicate_initial_database.db')
-            if info['uc_sigla'] != current_uc or info['turma'] != current_turma:
-                if info['uc_sigla'] != current_uc:
+                idAula = changesDict[change][2]["idAula"]
+            info = getInformationFromAula(ProjectNumber, idAula, "duplicate_initial_database.db")
+            if info["uc_sigla"] != current_uc or info["turma"] != current_turma:
+                if info["uc_sigla"] != current_uc:
                     current_uc = ""
                     current_turma = ""
                     text.append("")
-                if info['turma'] != current_turma:
+                if info["turma"] != current_turma:
                     current_turma = ""
 
             change_text = ""
             if table == "aula":
-                idAula = new['id']
-                info = getInformationFromAula(ProjectNumber, idAula, 'duplicate_initial_database.db')
-                if current_uc=="":
+                idAula = new["id"]
+                info = getInformationFromAula(
+                    ProjectNumber,
+                    idAula,
+                    "duplicate_initial_database.db",
+                )
+                if current_uc == "":
                     text.append(f"em {info['uc_sigla']} ({info['uc_code']}):")
-                    current_uc = info['uc_sigla']
-                if current_turma=="":
-                    text.append(f"Turma {info['turma']} ({prev['diaSemana']}, {str(prev['horaInicial'])[:-2] + ':' + str(prev['horaInicial'])[-2:]})")
-                    current_turma = info['turma']
+                    current_uc = info["uc_sigla"]
+                if current_turma == "":
+                    text.append(
+                        f"Turma {info['turma']} ({prev['diaSemana']}, {str(prev['horaInicial'])[:-2] + ':' + str(prev['horaInicial'])[-2:]})",
+                    )
+                    current_turma = info["turma"]
 
-                text[-1] += f" -> ({new['diaSemana']}, {str(new['horaInicial'])[:-2] + ':' + str(new['horaInicial'])[-2:]})"
-            
-            elif table == "aulaSala":   
-                idAula = new['idAula']
-                info = getInformationFromAula(ProjectNumber, idAula, 'duplicate_initial_database.db')
-                if current_uc=="":
+                text[-1] += (
+                    f" -> ({new['diaSemana']}, {str(new['horaInicial'])[:-2] + ':' + str(new['horaInicial'])[-2:]})"
+                )
+
+            elif table == "aulaSala":
+                idAula = new["idAula"]
+                info = getInformationFromAula(
+                    ProjectNumber,
+                    idAula,
+                    "duplicate_initial_database.db",
+                )
+                if current_uc == "":
                     text.append(f"em {info['uc_sigla']} ({info['uc_code']}):")
-                    current_uc = info['uc_sigla']
-                if current_turma=="":
-                    text.append(f"Turma {info['turma']} ({info['dia']}, {str(info['hora'])[:-2] + ':' + str(info['hora'])[-2:]})")
-                    current_turma = info['turma']
-                    
+                    current_uc = info["uc_sigla"]
+                if current_turma == "":
+                    text.append(
+                        f"Turma {info['turma']} ({info['dia']}, {str(info['hora'])[:-2] + ':' + str(info['hora'])[-2:]})",
+                    )
+                    current_turma = info["turma"]
+
                 text[-1] += f" -> {new['idSala']}"
-            
-            elif table == "aulaDocente":
-                idAula = new['idAula']
-                info = getInformationFromAula(ProjectNumber, idAula, 'duplicate_initial_database.db')
-                if current_uc=="":
-                    text.append(f"em {info['uc_sigla']} ({info['uc_code']}):")
-                    current_uc = info['uc_sigla']
-                if current_turma=="":
-                    text.append(f"Turma {info['turma']} ({info['dia']}, {str(info['hora'])[:-2] + ':' + str(info['hora'])[-2:]})")
-                    current_turma = info['turma']
 
-                docente = getAbreviacaoFromMecanografico(ProjectNumber, new['idDocente'])
+            elif table == "aulaDocente":
+                idAula = new["idAula"]
+                info = getInformationFromAula(
+                    ProjectNumber,
+                    idAula,
+                    "duplicate_initial_database.db",
+                )
+                if current_uc == "":
+                    text.append(f"em {info['uc_sigla']} ({info['uc_code']}):")
+                    current_uc = info["uc_sigla"]
+                if current_turma == "":
+                    text.append(
+                        f"Turma {info['turma']} ({info['dia']}, {str(info['hora'])[:-2] + ':' + str(info['hora'])[-2:]})",
+                    )
+                    current_turma = info["turma"]
+
+                docente = getAbreviacaoFromMecanografico(ProjectNumber, new["idDocente"])
                 text[-1] += f" -> {docente}"
 
             elif table == "aulaTurmas":
-                idAula = new['idAula']
-                info = getInformationFromAula(ProjectNumber, idAula, 'duplicate_initial_database.db')
-                if current_uc=="":
+                idAula = new["idAula"]
+                info = getInformationFromAula(
+                    ProjectNumber,
+                    idAula,
+                    "duplicate_initial_database.db",
+                )
+                if current_uc == "":
                     text.append(f"em {info['uc_sigla']} ({info['uc_code']}):")
-                    current_uc = info['uc_sigla']
-                if current_turma=="":
-                    text.append(f"Turma {info['turma']} ({info['dia']}, {str(info['hora'])[:-2] + ':' + str(info['hora'])[-2:]})")
-                    current_turma = info['turma']
+                    current_uc = info["uc_sigla"]
+                if current_turma == "":
+                    text.append(
+                        f"Turma {info['turma']} ({info['dia']}, {str(info['hora'])[:-2] + ':' + str(info['hora'])[-2:]})",
+                    )
+                    current_turma = info["turma"]
                 text[-1] += f" -> Turma {new['idTurma']}"
 
             elif table == "aulaUC":
                 pass
 
             applyChangeToDB(ProjectNumber, table, new)
-        
+
         if next_transaction and all_traversal_orders[-1] != sequence:
             text.append("")
             text.append(f"Transaction #{num_transactions}")
@@ -877,28 +1335,31 @@ def readGraph(ProjectNumber, graph, changesDict):
 
     return text
 
+
 def getDifferencesFromDatabases(ProjectNumber):
     changesDict = dict()
-    
+
     functions = {
         "aulaSala": handleAulaSala,
         "docentes": handleDocentes,
         "salas": handleSalas,
         "aulaDocente": handleAulaDocente,
-        "aula" : handleAulas, # Verificar se é necessário adicionar/remover aulas
-        "aulaTurmas" : handleAulaTurmas,
-        "aulaUC" : handleAulaUC
+        "aula": handleAulas,  # Verificar se é necessário adicionar/remover aulas
+        "aulaTurmas": handleAulaTurmas,
+        "aulaUC": handleAulaUC,
     }
 
     changesPerClass = {}
     path = "Project" + str(ProjectNumber)
-    connDB = sqlite3.connect('./database/' + path + '/general_database.db', check_same_thread=False)
+    connDB = sqlite3.connect("./database/" + path + "/general_database.db", check_same_thread=False)
     connDB.row_factory = sqlite3.Row
     cursorDB = connDB.cursor()
-    connIni = sqlite3.connect('./database/' + path + '/initial_database.db', check_same_thread=False)
+    connIni = sqlite3.connect(
+        "./database/" + path + "/initial_database.db",
+        check_same_thread=False,
+    )
     connIni.row_factory = sqlite3.Row
     cursorIni = connIni.cursor()
-
 
     cursorDB.execute("SELECT name FROM sqlite_master WHERE type='table';")
     tables1 = cursorDB.fetchall()
@@ -909,7 +1370,6 @@ def getDifferencesFromDatabases(ProjectNumber):
     everyChange = []
 
     for table1 in tables1:
-
         table1_name = table1[0]
 
         for table2 in tables2:
@@ -933,8 +1393,6 @@ def getDifferencesFromDatabases(ProjectNumber):
                 set2 = set(data2)
 
                 if set1 != set2:
-            
-            
                     diff_data1 = set1 - set2
                     diff_data2 = set2 - set1
 
@@ -942,21 +1400,15 @@ def getDifferencesFromDatabases(ProjectNumber):
                     addChangeToDict(changesDict, table1_name, primaryKey, diff_data1, diff_data2)
 
                     # everyChange.append(functions[table1_name](set1, set2, ProjectNumber))
-                    
-                    
+
                     for row in diff_data1:
-                    
                         for i in range(len(row)):
                             attribute_name = columns1[i][1]
-                        
-                    
 
                     for row in diff_data2:
-                    
                         for i in range(len(row)):
                             attribute_name = columns2[i][1]
-                        
-                    
+
                 break
 
     exportGraph = buildExportGraph(ProjectNumber, changesDict)
@@ -970,7 +1422,7 @@ def getDifferencesFromDatabases(ProjectNumber):
 
     print("\n\n")
     print("changesDict")
-    changesDescription = str()
+    changesDescription = ""
     for change in changesDict:
         if change == 0:
             continue
@@ -981,8 +1433,9 @@ def getDifferencesFromDatabases(ProjectNumber):
 
     return graph_str
 
+
 def globalChanges(ProjectNumber):
     changes, conflicts = getDifferencesFromDatabases(ProjectNumber)
-    with open("changes.txt", 'w') as file:
+    with open("changes.txt", "w") as file:
         for string in changes:
-            file.write(f'=> {string}\n')
+            file.write(f"=> {string}\n")

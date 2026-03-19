@@ -1,23 +1,23 @@
-from comparingDatabases import handleAulaSala
-from comparingDatabases import handleDocentes
-from comparingDatabases import handleSalas
-from comparingDatabases import handleAulaDocente
-from comparingDatabases import handleAulas
-from comparingDatabases import handleAulaTurmas
-from comparingDatabases import handleAulaUC
-from comparingDatabases import sortChanges
-from conflictFunctionsDup import findAnyConflicts
-import sqlite3
-import networkx as nx
-import matplotlib.pyplot as plt
-from itertools import groupby
 import shutil
-import os
-import time
+import sqlite3
 
+import matplotlib.pyplot as plt
+import networkx as nx
+from comparingDatabases import (
+    handleAulaDocente,
+    handleAulas,
+    handleAulaSala,
+    handleAulaTurmas,
+    handleAulaUC,
+    handleDocentes,
+    handleSalas,
+    sortChanges,
+)
+from conflictFunctionsDup import findAnyConflicts
 
 projectNumber = 23
 changeOrder = 1
+
 
 def getDifferencesFromDatabases(ProjectNumber):
     functions = {
@@ -25,20 +25,22 @@ def getDifferencesFromDatabases(ProjectNumber):
         "docentes": handleDocentes,
         "salas": handleSalas,
         "aulaDocente": handleAulaDocente,
-        "aula" : handleAulas, # Verificar se é necessário adicionar/remover aulas
-        "aulaTurmas" : handleAulaTurmas,
-        "aulaUC" : handleAulaUC
+        "aula": handleAulas,  # Verificar se é necessário adicionar/remover aulas
+        "aulaTurmas": handleAulaTurmas,
+        "aulaUC": handleAulaUC,
     }
 
     changesPerClass = {}
     path = "Project" + str(ProjectNumber)
-    connDB = sqlite3.connect('./database/' + path + '/general_database.db', check_same_thread=False)
+    connDB = sqlite3.connect("./database/" + path + "/general_database.db", check_same_thread=False)
     connDB.row_factory = sqlite3.Row
     cursorDB = connDB.cursor()
-    connIni = sqlite3.connect('./database/' + path + '/initial_database.db', check_same_thread=False)
+    connIni = sqlite3.connect(
+        "./database/" + path + "/initial_database.db",
+        check_same_thread=False,
+    )
     connIni.row_factory = sqlite3.Row
     cursorIni = connIni.cursor()
-
 
     cursorDB.execute("SELECT name FROM sqlite_master WHERE type='table';")
     tables1 = cursorDB.fetchall()
@@ -49,7 +51,6 @@ def getDifferencesFromDatabases(ProjectNumber):
     everyChange = []
 
     for table1 in tables1:
-
         table1_name = table1[0]
 
         for table2 in tables2:
@@ -73,41 +74,35 @@ def getDifferencesFromDatabases(ProjectNumber):
                 set2 = set(data2)
 
                 if set1 != set2:
-            
-            
                     diff_data1 = set1 - set2
                     diff_data2 = set2 - set1
 
                     primaryKey = get_primary_key(connDB, table1_name)
                     addChangeToDict(table1_name, primaryKey, diff_data1, diff_data2)
-            
+
                     everyChange.append(functions[table1_name](set1, set2, ProjectNumber))
-                    
-                    
+
                     for row in diff_data1:
-                    
                         for i in range(len(row)):
                             attribute_name = columns1[i][1]
-                        
-                    
 
                     for row in diff_data2:
-                    
                         for i in range(len(row)):
                             attribute_name = columns2[i][1]
-                        
-                    
+
                 break
 
     # print("everychange: ", everyChange)
     formattedChanges = [item for sublist in everyChange for item in sublist]
     sortedChanges = sorted(formattedChanges, key=sortChanges)
     finalChanges = [string for precedence, string, id in sortedChanges]
-    return finalChanges  
+    return finalChanges
+
 
 # declare a pair
 # number of change : (table name, {previous data}, {new data}})
 changesDict = dict()
+
 
 def addChangeToDict(table_name, primaryKey, diff_data1, diff_data2):
     # print("Table: ", table_name)
@@ -119,7 +114,7 @@ def addChangeToDict(table_name, primaryKey, diff_data1, diff_data2):
     for prev in prev_changes:
         for new in new_changes:
             if prev[primaryKey] == new[primaryKey]:
-                changesDict[len(changesDict)+1] = (table_name, prev, new)
+                changesDict[len(changesDict) + 1] = (table_name, prev, new)
                 break
 
 
@@ -132,53 +127,85 @@ def get_primary_key(conn, table_name):
             return column[1]
     return None
 
+
 def changeAulaTurma(ProjectNumber, idAula, idTurma):
-    path = "Project"+str(ProjectNumber)
-    conn = sqlite3.connect('./database/' + path + '/duplicate_initial_database.db', check_same_thread=False)
+    path = "Project" + str(ProjectNumber)
+    conn = sqlite3.connect(
+        "./database/" + path + "/duplicate_initial_database.db",
+        check_same_thread=False,
+    )
     cursor = conn.cursor()
-    stmt = '''UPDATE aulaTurmas SET idTurma=? WHERE idAula=?'''
+    stmt = """UPDATE aulaTurmas SET idTurma=? WHERE idAula=?"""
     cursor.execute(stmt, (idTurma, idAula))
     conn.commit()
 
+
 def changeAula(ProjectNumber, aula):
-    path = "Project"+str(ProjectNumber)
-    conn = sqlite3.connect('./database/' + path + '/duplicate_initial_database.db', check_same_thread=False)
+    path = "Project" + str(ProjectNumber)
+    conn = sqlite3.connect(
+        "./database/" + path + "/duplicate_initial_database.db",
+        check_same_thread=False,
+    )
     cursor = conn.cursor()
-    stmt = '''UPDATE aula SET horaInicial=?, duracao=?, diaSemana=?, teorico=?, semanaInicial=?, semanaFinal=? WHERE id=?'''
-    cursor.execute(stmt, (aula["horaInicial"], aula["duracao"], aula["diaSemana"], aula["teorico"], aula["semanaInicial"], aula["semanaFinal"], aula["id"]))
+    stmt = """UPDATE aula SET horaInicial=?, duracao=?, diaSemana=?, teorico=?, semanaInicial=?, semanaFinal=? WHERE id=?"""
+    cursor.execute(
+        stmt,
+        (
+            aula["horaInicial"],
+            aula["duracao"],
+            aula["diaSemana"],
+            aula["teorico"],
+            aula["semanaInicial"],
+            aula["semanaFinal"],
+            aula["id"],
+        ),
+    )
     conn.commit()
 
+
 def changeAulaSala(ProjectNumber, idAula, idSala):
-    path = "Project"+str(ProjectNumber)
-    conn = sqlite3.connect('./database/' + path + '/duplicate_initial_database.db', check_same_thread=False)
+    path = "Project" + str(ProjectNumber)
+    conn = sqlite3.connect(
+        "./database/" + path + "/duplicate_initial_database.db",
+        check_same_thread=False,
+    )
     cursor = conn.cursor()
-    stmt = '''UPDATE aulaSala SET idSala=? WHERE idAula=?'''
+    stmt = """UPDATE aulaSala SET idSala=? WHERE idAula=?"""
     cursor.execute(stmt, (idSala, idAula))
     conn.commit()
 
+
 def changeAulaDocente(ProjectNumber, idAula, idDocente):
-    path = "Project"+str(ProjectNumber)
-    conn = sqlite3.connect('./database/' + path + '/duplicate_initial_database.db', check_same_thread=False)
+    path = "Project" + str(ProjectNumber)
+    conn = sqlite3.connect(
+        "./database/" + path + "/duplicate_initial_database.db",
+        check_same_thread=False,
+    )
     cursor = conn.cursor()
-    stmt = '''UPDATE aulaDocente SET idDocente=? WHERE idAula=?'''
+    stmt = """UPDATE aulaDocente SET idDocente=? WHERE idAula=?"""
     cursor.execute(stmt, (idDocente, idAula))
     conn.commit()
 
+
 def switch_day_to_number(day_string):
     switch_dict = {
-        'Segunda' : '0',
-        'Terça' : '1',
-        'Quarta' : '2',
-        'Quinta' : '3',
-        'Sexta' : '4',
-        'Sábado' : '5'
+        "Segunda": "0",
+        "Terça": "1",
+        "Quarta": "2",
+        "Quinta": "3",
+        "Sexta": "4",
+        "Sábado": "5",
     }
-    return switch_dict.get(day_string, None)
+    return switch_dict.get(day_string)
+
 
 def getAulaDiaHora(aulaId):
-    path = "Project"+str(projectNumber)
-    conn = sqlite3.connect('./database/' + path + '/duplicate_initial_database.db', check_same_thread=False)
-    conn.row_factory=sqlite3.Row
+    path = "Project" + str(projectNumber)
+    conn = sqlite3.connect(
+        "./database/" + path + "/duplicate_initial_database.db",
+        check_same_thread=False,
+    )
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     stmt = "SELECT * FROM aula WHERE id=?"
     cursor.execute(stmt, (aulaId,))
@@ -186,6 +213,7 @@ def getAulaDiaHora(aulaId):
     dia = aulaRow["diaSemana"]
     hora = aulaRow["horaInicial"]
     return dia, hora
+
 
 def applyChangeToDB(table, new):
     conflicts = []
@@ -196,7 +224,7 @@ def applyChangeToDB(table, new):
         aulaId = new["idAula"]
         # print("diaAula: ", diaAula, " horaAula: ", horaAula, " aulaId: ", aulaId)
         conflicts = findAnyConflicts(projectNumber, diaAula, horaAula, aulaId)
-        #print("conflicts: ", conflicts, "\n")
+        # print("conflicts: ", conflicts, "\n")
 
     elif table == "aula":
         changeAula(projectNumber, new)
@@ -205,7 +233,7 @@ def applyChangeToDB(table, new):
         aulaId = new["id"]
         # print("diaAula: ", diaAula, " horaAula: ", horaAula, " aulaId: ", aulaId)
         conflicts = findAnyConflicts(projectNumber, diaAula, horaAula, aulaId)
-        #print("conflicts: ", conflicts, "\n")
+        # print("conflicts: ", conflicts, "\n")
 
     elif table == "aulaSala":
         changeAulaSala(projectNumber, new["idAula"], new["idSala"])
@@ -213,7 +241,7 @@ def applyChangeToDB(table, new):
         aulaId = new["idAula"]
         # print("diaAula: ", diaAula, " horaAula: ", horaAula, " aulaId: ", aulaId)
         conflicts = findAnyConflicts(projectNumber, diaAula, horaAula, aulaId)
-        #print("conflicts: ", conflicts, "\n")
+        # print("conflicts: ", conflicts, "\n")
 
     elif table == "aulaDocente":
         changeAulaDocente(projectNumber, new["idAula"], new["idDocente"])
@@ -221,16 +249,17 @@ def applyChangeToDB(table, new):
         aulaId = new["idAula"]
         # print("diaAula: ", diaAula, " horaAula: ", horaAula, " aulaId: ", aulaId)
         conflicts = findAnyConflicts(projectNumber, diaAula, horaAula, aulaId)
-        #print("conflicts: ", conflicts, "\n")
+        # print("conflicts: ", conflicts, "\n")
 
     return conflicts
 
+
 def generateConflicts(table, prev, new):
-    print(f'{table} {prev} {new}')
+    print(f"{table} {prev} {new}")
     conflicts = applyChangeToDB(table, new)
     applyChangeToDB(table, prev)
     print("Conflicts next: ", conflicts)
-    
+
     if len(conflicts) > 0:
         return True
     else:
@@ -251,6 +280,7 @@ def checkChangeToDB(generated_conflict, table, prev, new):
         print("New Conlficts", new_conflicts)
         return True, new_conflicts
 
+
 def findBestChange(conflict, visited):
     print("Finding change for conflict: ", conflict)
     for change in changesDict:
@@ -263,6 +293,7 @@ def findBestChange(conflict, visited):
             return change, new_conflicts
     print("ERROR: No solution found for conflict: ", conflict)
     return None, None
+
 
 def dfs_visit(graph, change, visited):
     global changeOrder
@@ -281,7 +312,7 @@ def dfs_visit(graph, change, visited):
             # find the next change that solves the conflict
             next_change, new_conflicts = findBestChange(conflict, visited)
             if next_change is None:
-                continue # No solution found for this conflict
+                continue  # No solution found for this conflict
             table, prev, new = changesDict[next_change]
             graph.add_node(next_change, table=table, prev=prev, new=new, order=changeOrder)
             graph.add_edge(change, next_change)
@@ -291,13 +322,14 @@ def dfs_visit(graph, change, visited):
             # print("Conflicts: ", conflicts)
         return conflicts
 
+
 ret = getDifferencesFromDatabases(projectNumber)
 
 
 # Copiar a base de dados inicial, se não existir
 # if not os.path.exists('./database/Project' + str(projectNumber) + '/duplicate_initial_database.db'):
-src = './database/Project' + str(projectNumber) + '/initial_database.db'
-dst = './database/Project' + str(projectNumber) + '/duplicate_initial_database.db'
+src = "./database/Project" + str(projectNumber) + "/initial_database.db"
+dst = "./database/Project" + str(projectNumber) + "/duplicate_initial_database.db"
 shutil.copy2(src, dst)
 
 duplicateInitialDB = sqlite3.connect(dst, check_same_thread=False)
@@ -335,11 +367,11 @@ for change, table, prev, new in queue:
         dfs_visit(G, change, visited)
 
     # input("Press Enter to continue...")
-        
+
 
 print("\n\n")
 print("changesDict")
-changesDescription = str()
+changesDescription = ""
 for change in changesDict:
     if change == 0:
         continue
@@ -355,9 +387,18 @@ pos = nx.spring_layout(G, k=1.5)
 for key, value in pos.items():
     pos[key] = (value[0] + 1, value[1])
 
-labels = {node: f'{node}\nOrd:{G.nodes[node]["order"]}' for node in G.nodes()}
+labels = {node: f"{node}\nOrd:{G.nodes[node]['order']}" for node in G.nodes()}
 
-nx.draw(G, pos, labels=labels, with_labels=True, arrows=True, node_size=3000, font_size=20, node_shape="s")
+nx.draw(
+    G,
+    pos,
+    labels=labels,
+    with_labels=True,
+    arrows=True,
+    node_size=3000,
+    font_size=20,
+    node_shape="s",
+)
 
 plt.xlim(-2, 2)
 plt.ylim(-2, 2)

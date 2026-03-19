@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 from src.ingestion.parsers.class_page import (
     extract_sessions,
     extract_subjects,
+    extract_teachers,
     extract_week_dates,
 )
 from src.ingestion.parsers.menu import (
@@ -17,8 +18,8 @@ from src.ingestion.parsers.red_blocks import extract_red_blocks
 from src.ingestion.parsers.teacher_page import extract_teacher_info
 from src.ingestion.schemas.classes import ClassPage, Degree
 from src.ingestion.schemas.misc import RedBlock
-from src.ingestion.schemas.rooms import RoomLinks
-from src.ingestion.schemas.teachers import TeacherPage
+from src.ingestion.schemas.rooms import RoomInfo
+from src.ingestion.schemas.teachers import TeacherInfo
 
 
 class Scraper:
@@ -70,7 +71,7 @@ class Scraper:
     # Public page-navigation methods
     # -------------------------------------------------------------------
 
-    def read_menu(self) -> tuple[list[str], list[Degree], list[RoomLinks]]:
+    def read_menu(self) -> tuple[list[str], list[Degree], list[RoomInfo]]:
         """Fetch and parse the main navigation menu.
 
         Requests the root page, extracts the navigation frame URL, then fetches
@@ -99,7 +100,7 @@ class Scraper:
             extract_rooms_info(rooms_li),
         )
 
-    def get_teacher_page(self, path: str) -> TeacherPage:
+    def get_teacher_page(self, path: str) -> TeacherInfo:
         """Fetch and parse a teacher's schedule page.
 
         Args:
@@ -107,7 +108,7 @@ class Scraper:
                 :meth:`read_menu`.
 
         Returns:
-            A ``TeacherPage`` with the teacher's acronym, name, code, and
+            A ``TeacherInfo`` with the teacher's acronym, name, code, and
             unavailable time slots.
 
         Raises:
@@ -130,7 +131,7 @@ class Scraper:
 
         Args:
             path: Relative URL to the class's schedule page, as found in
-                a ``ClassLinks.links`` list.
+                a ``Class``'s ``links`` list.
 
         Returns:
             A ``ClassPage`` with the week's date range, associated subjects,
@@ -143,6 +144,7 @@ class Scraper:
         soup = self._request(path)
 
         start_date, end_date = extract_week_dates(soup)
+        teachers = extract_teachers(soup)
         subjects = extract_subjects(soup)
         sessions = extract_sessions(soup)
         red_blocks = extract_red_blocks(soup)
@@ -150,6 +152,7 @@ class Scraper:
         return {
             "start_date": start_date,
             "end_date": end_date,
+            "teachers": teachers,
             "subjects": subjects,
             "sessions": sessions,
             "red_blocks": red_blocks,
@@ -160,7 +163,7 @@ class Scraper:
 
         Args:
             path: Relative URL to the room's timetable page, as found in a
-                ``RoomLinks.links`` list.
+                a ``RoomInfo``'s ``link`` field.
 
         Returns:
             A list of unavailable time slots for the room. Empty if none are
