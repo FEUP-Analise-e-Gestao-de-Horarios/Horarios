@@ -2,7 +2,7 @@
 
 This document describes how schedule data is fetched from the institution's website and persisted into a project's SQLite database.
 
-For domain terminology (Degree, Class, Subject, Session, Red Block, etc.) see [Glossary](Glossary.md).
+For domain terminology (Degree, Class, Subject, Session, Red Block, etc.) see [Glossary](../glossary.md).
 
 ---
 

@@ -7,11 +7,9 @@ from django.template.loader import render_to_string
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 
-from src.config import settings
+from src.config.settings import base
 from src.login.tokens import generate_token
 from src.users.models import User
-
-from .tokens import generate_token
 
 
 # signin page
@@ -101,7 +99,7 @@ def forgot_password(request):
             email = EmailMessage(
                 email_subject,
                 email_message,
-                settings.EMAIL_HOST_USER,
+                base.EMAIL_HOST_USER,
                 [request.POST["email"]],
             )
             email.fail_silently = True

@@ -6,7 +6,32 @@ repos:
       - id: ruff
         name: ruff (fix)
         args: [--fix, --exit-non-zero-on-fix]
+        files: ^backend/
 
       # Lint-only pass — fail if any violations remain after fixing
       - id: ruff-format
         name: ruff (format)
+        files: ^backend/
+
+  - repo: local
+    hooks:
+      - id: frontend-typecheck
+        name: frontend typecheck (tsc)
+        language: system
+        entry: bash -c 'cd frontend && npm run typecheck'
+        pass_filenames: false
+        files: ^frontend/
+
+      - id: frontend-lint
+        name: frontend lint (eslint)
+        language: system
+        entry: bash -c 'cd frontend && npm run lint'
+        pass_filenames: false
+        files: ^frontend/
+
+      - id: frontend-format
+        name: frontend format (prettier)
+        language: system
+        entry: bash -c 'cd frontend && npm run format:check'
+        pass_filenames: false
+        files: ^frontend/

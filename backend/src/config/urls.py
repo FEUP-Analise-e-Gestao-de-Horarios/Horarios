@@ -16,12 +16,23 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import include, path
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.generic import TemplateView
 
 from src.FeupScheduleEditor import views
 
+# SPA (Single Page Application) for React
+spa_view = ensure_csrf_cookie(
+    TemplateView.as_view(template_name="index.html"),
+)
+
+
 urlpatterns = [
-    path("admin/", admin.site.urls),
+    path("admin/", admin.site.urls, name="admin"),
     path("projects/", include("src.projects.urls")),
+    # React URLs
+    path("react-test/", spa_view, name="react-test-1"),
+    path("react-test-2/", spa_view, name="react-test-2"),
     # TODO: Check URLs bellow
     path("parser/", include("src.parser.urls")),
     path("", views.starter),
