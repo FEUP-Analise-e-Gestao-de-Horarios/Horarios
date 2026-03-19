@@ -12,7 +12,6 @@ from src.projects.projects_db.models._secondary_tables import (
     session_subjects,
     session_teachers,
 )
-from src.projects.projects_db.models.class_ import Class
 from src.projects.projects_db.models.session import Session
 from src.projects.projects_db.models.subject import Subject
 from src.projects.projects_db.schemas.weekday import WeekDay
@@ -93,19 +92,15 @@ class SessionDAO(BaseDAO[Session]):
             ),
         ).fetchall()
 
-    def get_by_class_with_attributes(
+    def get_by_week_and_block(
         self,
         *,
         week: datetime.date,
-        weekday: WeekDay,
-        start_time: int,
-        class_ids: set[UUID],
+        original_block_id: UUID,
     ) -> Session | None:
         query = select(Session).where(
             Session.week == week,
-            Session.weekday == weekday,
-            Session.start_time == start_time,
-            Session.classes.any(Class.id.in_(class_ids)),
+            Session.original_block_id == original_block_id,
         )
         return self.session.scalars(query).one_or_none()
 

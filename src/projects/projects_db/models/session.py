@@ -3,7 +3,7 @@ import uuid
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import Date, Enum, Text, Uuid
+from sqlalchemy import Date, Enum, Text, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.projects.projects_db.base import Base
@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
 class Session(Base):
     __tablename__ = "sessions"
+    __table_args__ = (UniqueConstraint("week", "original_block_id"),)
 
     # UUIDs
     id: Mapped[UUID] = mapped_column(Uuid(native_uuid=False), primary_key=True, default=uuid.uuid7)

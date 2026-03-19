@@ -281,8 +281,8 @@ def extract_sessions(soup: BeautifulSoup) -> list[Session]:
             session_teachers.append(teachers_map[acronym])
 
         # -- Classes and Room --------------------------------------------------
-        session_classes = re.split(r";\s*", raw_turmas)
-        session_room = str(rest[0]).split(";") if rest else ["Online"]
+        session_classes = re.split(r"\s*;\s*", raw_turmas)
+        session_room = re.split(r"\s*;\s*", str(rest[0])) if rest else ["Online"]
 
         # -- Is Theoretical ----------------------------------------------------
         session_css_classes = session_block.get("class")

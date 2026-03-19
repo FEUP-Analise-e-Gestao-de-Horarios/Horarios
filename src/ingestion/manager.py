@@ -7,12 +7,14 @@ from pathlib import Path
 
 from django.conf import settings
 from django.utils import timezone
+from sqlalchemy.exc import IntegrityError
 
 from src.ingestion.schemas.classes import Degree, Teacher
 from src.ingestion.schemas.misc import TurnosMap
 from src.ingestion.schemas.rooms import RoomInfo
 from src.ingestion.scraper import Scraper
 from src.projects.models import Project
+from src.projects.projects_db.dao import ClassRedBlockDAO
 from src.projects.projects_db.dao.class_dao import ClassDAO
 from src.projects.projects_db.dao.degree_dao import DegreeDAO
 from src.projects.projects_db.dao.room_dao import RoomDAO
@@ -297,6 +299,7 @@ class IngestionManager:
         with get_session(general_db(self.proj_id)) as db_session:
             session_dao = SessionDAO(db_session)
             year_dao = YearDAO(db_session)
+            class_red_block_dao = ClassRedBlockDAO(db_session)
             subject_dao = SubjectDAO(db_session)
             teacher_dao = TeacherDAO(db_session)
             class_dao = ClassDAO(db_session)
@@ -313,6 +316,21 @@ class IngestionManager:
                         )
 
                     for class_ in year["classes"]:
+                        class_db_entry = class_dao.get_by_code(class_["code"])
+                        if not class_db_entry:
+                            raise ValueError(f"Class {class_['code']} not found")
+
+                        first_class_page = class_["pages"][0]
+                        if not first_class_page:
+                            raise ValueError(f"No pages found for class {class_['code']}")
+
+                        for hour, weekday in first_class_page["red_blocks"]:
+                            class_red_block_dao.create(
+                                class_id=class_db_entry.id,
+                                hour=hour,
+                                weekday=weekday,
+                            )
+
                         for class_page in class_["pages"]:
                             subjects_by_acronym = {s["acronym"]: s for s in class_page["subjects"]}
 
@@ -321,7 +339,7 @@ class IngestionManager:
                                 check_count=False,
                             )
                             subjects_db_numbers = {s.number for s in subjects_db_entries}
-                            for subject in class_page["subjects"]:
+                            for subject in subjects_by_acronym.values():
                                 if subject["number"] not in subjects_db_numbers:
                                     subject_dao.create(
                                         year_id=year_db_entry.id,
@@ -359,30 +377,30 @@ class IngestionManager:
                                 room_ids = {room.id for room in rooms}
 
                                 while current_date <= class_page["end_date"]:
-                                    session_db_entry = session_dao.get_by_class_with_attributes(
-                                        week=current_date,
-                                        weekday=session["weekday"],
-                                        start_time=session["start_time"],
-                                        class_ids=class_ids,
-                                    )
+                                    try:
+                                        with db_session.begin_nested():
+                                            session_dao.create(
+                                                week=current_date,
+                                                weekday=session["weekday"],
+                                                start_time=session["start_time"],
+                                                duration=session["duration"],
+                                                type_=("T" if session["is_theoretical"] else "TP"),
+                                                original_block_id=original_block_id,
+                                                subject_ids=subject_ids,
+                                                teacher_ids=teacher_ids,
+                                                class_ids=class_ids,
+                                                room_ids=room_ids,
+                                            )
+                                    except IntegrityError:
+                                        session_db_entry = session_dao.get_by_week_and_block(
+                                            week=current_date,
+                                            original_block_id=original_block_id,
+                                        )
+                                        if session_db_entry is None:
+                                            raise
 
-                                    if session_db_entry is not None:
                                         if subject_db_entry not in session_db_entry.subjects:
                                             session_db_entry.subjects.append(subject_db_entry)
-
-                                    else:
-                                        session_dao.create(
-                                            week=current_date,
-                                            weekday=session["weekday"],
-                                            start_time=session["start_time"],
-                                            duration=session["duration"],
-                                            type_=("T" if session["is_theoretical"] else "TP"),
-                                            original_block_id=original_block_id,
-                                            subject_ids=subject_ids,
-                                            teacher_ids=teacher_ids,
-                                            class_ids=class_ids,
-                                            room_ids=room_ids,
-                                        )
 
                                     current_date += timedelta(weeks=1)
 
