@@ -2,11 +2,11 @@ import uuid
 from typing import TYPE_CHECKING
 from uuid import UUID
 
+from backend.src.projects.projects_db.schemas.weekday import WeekDay
 from sqlalchemy import Enum, ForeignKey, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.projects.projects_db.base import Base
-from src.projects.projects_db.schemas.weekday import WeekDay
 
 if TYPE_CHECKING:
     from src.projects.projects_db.models import Room

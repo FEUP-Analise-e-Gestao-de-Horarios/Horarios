@@ -2,6 +2,7 @@ import datetime
 from collections.abc import Sequence
 from uuid import UUID
 
+from backend.src.projects.projects_db.schemas.weekday import WeekDay
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DBSession
 
@@ -14,7 +15,6 @@ from src.projects.projects_db.models._secondary_tables import (
 )
 from src.projects.projects_db.models.session import Session
 from src.projects.projects_db.models.subject import Subject
-from src.projects.projects_db.schemas.weekday import WeekDay
 
 
 class SessionDAO(BaseDAO[Session]):
