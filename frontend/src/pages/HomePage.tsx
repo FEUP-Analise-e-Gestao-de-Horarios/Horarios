@@ -1,28 +1,15 @@
 import { api } from "@/api/client";
-import { ROUTES } from "@/routes";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-
-interface Project {
-  id: string;
-  name: string;
-  url: string;
-  finished_ingestion_at: string | null;
-  failed_ingestion_at: string | null;
-}
-
-interface ProjectsResponse {
-  data: {
-    projects: Project[];
-  };
-}
+import type { Project, ProjectsResponse } from "@/types/project";
+import Navbar from "@/components/layout/Navbar";
+import NewProjectCard from "@/components/home/NewProjectCard";
+import ProjectCard from "@/components/home/ProjectCard";
+import NewProjectModal from "@/components/home/NewProjectModal";
 
 export default function HomePage() {
-  const navigate = useNavigate();
   const [showNewProject, setShowNewProject] = useState(false);
-  const [projectName, setProjectName] = useState("");
-  const [scheduleLink, setScheduleLink] = useState("");
   const [projects, setProjects] = useState<Project[]>([]);
+
   useEffect(() => {
     api
       .get<ProjectsResponse>("/api/projects/")
@@ -32,146 +19,18 @@ export default function HomePage() {
 
   return (
     <div className="min-h-svh bg-[#f0eeeb] font-[system-ui,'Segoe_UI',Roboto,sans-serif]">
-      {/* Navbar */}
-      <header className="px-6 py-3 bg-[#1e2028] flex items-center justify-between w-full box-border">
-        <div className="flex gap-2">
-          <button
-            onClick={() => navigate(0)}
-            className="bg-[#8c2d19] text-white font-semibold px-3.5 py-2 rounded border-none cursor-pointer text-sm text-center hover:bg-[#722415] transition-colors"
-          >
-            Início
-          </button>
-          <button className="bg-transparent text-white font-semibold px-3.5 py-2 rounded border border-[#8c2d19] cursor-pointer text-sm text-center hover:bg-[#8c2d19] transition-colors">
-            Grupos
-          </button>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => navigate(ROUTES.CHANGE_PASSWORD)}
-            className="bg-[#8c2d19] text-white font-semibold px-3.5 py-2 rounded border-none cursor-pointer text-sm text-center hover:bg-[#722415] transition-colors"
-          >
-            Mudar palavra-passe
-          </button>
-          <button
-            onClick={() => {
-              api
-                .post("/api/auth/logout", {})
-                .then(() => navigate(ROUTES.HOME))
-                .catch(() => {});
-            }}
-            className="bg-[#8c2d19] text-white font-semibold px-3.5 py-2 rounded border-none cursor-pointer text-sm text-center hover:bg-[#722415] transition-colors"
-          >
-            Terminar sessão
-          </button>
-        </div>
-      </header>
+      <Navbar />
 
-      {/* Content */}
       <div className="flex flex-wrap p-6 pt-8 gap-4">
-        {/* New Project Card */}
-        <div
-          className="w-[220px] h-[220px] bg-white border border-[#e5e4e7] rounded-lg flex flex-col items-center justify-center cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,0.08)] overflow-hidden hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)] transition-shadow"
-          onClick={() => setShowNewProject(true)}
-        >
-          <span className="text-[90px] text-[#8c2d19] leading-none">+</span>
-          <span className="text-[#08060d] font-medium mt-2">Novo Projeto</span>
-        </div>
+        <NewProjectCard onClick={() => setShowNewProject(true)} />
 
-        {/* Project Cards */}
         {projects.map((project) => (
-          <div
-            key={project.id}
-            className={`w-[220px] h-[220px] bg-white border border-[#e5e4e7] rounded-lg flex flex-col items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.08)] overflow-hidden ${project.finished_ingestion_at ? "cursor-pointer hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)] transition-shadow" : "cursor-default"}`}
-            onClick={() => {
-              if (project.finished_ingestion_at) void navigate(`/editturnos/${project.id}`);
-            }}
-          >
-            <div className="w-full flex-1 flex items-center justify-center bg-[#f9f7f4] rounded-t-lg text-[64px]">
-              🗄️
-            </div>
-            <div className="w-full px-3.5 py-2.5 flex justify-between items-center box-border">
-              <span className="text-[#08060d] font-medium max-w-[150px] break-words text-sm">
-                {project.name}
-              </span>
-              <span className="text-xl cursor-pointer text-[#6b6375] tracking-[2px]">···</span>
-            </div>
-          </div>
+          <ProjectCard key={project.id} project={project} />
         ))}
       </div>
 
-      {/* New Project Popup */}
       {showNewProject && (
-        <div
-          onClick={() => setShowNewProject(false)}
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100]"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-lg p-8 w-[460px] flex flex-col gap-4 shadow-[rgba(0,0,0,0.1)_0_10px_15px_-3px,rgba(0,0,0,0.05)_0_4px_6px_-2px]"
-          >
-            <div className="flex justify-between items-center">
-              <h2 className="m-0 text-[#08060d] text-xl">Novo Projeto</h2>
-              <span
-                onClick={() => setShowNewProject(false)}
-                className="cursor-pointer text-xl text-[#6b6375] hover:text-[#08060d] transition-colors"
-              >
-                ✕
-              </span>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="project-name" className="text-[#08060d] text-sm">
-                Nome do Projeto:
-              </label>
-              <input
-                id="project-name"
-                type="text"
-                value={projectName}
-                onChange={(e) => setProjectName(e.target.value)}
-                className="px-3 py-2.5 rounded border border-[#8c2d19] text-[15px] outline-none bg-white text-[#08060d] focus:ring-1 focus:ring-[rgba(140,45,25,0.5)]"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="schedule-link" className="text-[#08060d] text-sm">
-                Link do Horário:
-              </label>
-              <input
-                id="schedule-link"
-                type="text"
-                value={scheduleLink}
-                onChange={(e) => setScheduleLink(e.target.value)}
-                className="px-3 py-2.5 rounded border border-[#8c2d19] text-[15px] outline-none bg-white text-[#08060d] focus:ring-1 focus:ring-[rgba(140,45,25,0.5)]"
-              />
-            </div>
-
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowNewProject(false)}
-                className="px-5 py-2 rounded border-none bg-[#6b7280] text-white cursor-pointer text-sm text-center hover:bg-[#555b66] transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => {
-                  api
-                    .post("/api/projects/", { name: projectName, url: scheduleLink })
-                    .then(() => {
-                      setShowNewProject(false);
-                      setProjectName("");
-                      setScheduleLink("");
-                      return api.get<ProjectsResponse>("/api/projects/");
-                    })
-                    .then((res) => setProjects(res.data.projects))
-                    .catch(() => {});
-                }}
-                className="px-5 py-2 rounded border-none bg-[#8c2d19] text-white cursor-pointer text-sm text-center font-semibold hover:bg-[#722415] transition-colors"
-              >
-                Criar Projeto
-              </button>
-            </div>
-          </div>
-        </div>
+        <NewProjectModal onClose={() => setShowNewProject(false)} onProjectsUpdated={setProjects} />
       )}
     </div>
   );

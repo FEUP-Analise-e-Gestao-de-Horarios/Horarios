@@ -38,7 +38,10 @@ export default function ForgotPasswordPage() {
               Se o e-mail introduzido estiver associado a uma conta, receberá uma mensagem com
               instruções para redefinir a sua palavra-passe.
             </p>
-            <Link to={ROUTES.LOGIN} className="text-[#8c2d19] text-sm font-semibold hover:underline">
+            <Link
+              to={ROUTES.LOGIN}
+              className="text-[#8c2d19] text-sm font-semibold hover:underline"
+            >
               Voltar ao início de sessão
             </Link>
           </>
@@ -77,7 +80,10 @@ export default function ForgotPasswordPage() {
               {loading ? "A enviar..." : "Enviar e-mail"}
             </button>
 
-            <Link to={ROUTES.LOGIN} className="text-[#8c2d19] text-[13px] text-center hover:underline">
+            <Link
+              to={ROUTES.LOGIN}
+              className="text-[#8c2d19] text-[13px] text-center hover:underline"
+            >
               Voltar ao início de sessão
             </Link>
           </form>
