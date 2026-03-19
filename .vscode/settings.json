@@ -61,9 +61,7 @@
     "typescript",
     "typescriptreact"
   ],
-  "eslint.workingDirectories": [
-    "frontend"
-  ],
+  "eslint.workingDirectories": ["frontend"],
   "files.exclude": {
     "**/__pycache__": true,
     "**/.mypy_cache": true,
@@ -73,5 +71,6 @@
     "**/*.pyo": true,
     "**/venv": true
   },
-  "js/ts.tsdk.path": "frontend/node_modules/typescript/lib"
+  "js/ts.tsdk.path": "frontend/node_modules/typescript/lib",
+  "python-envs.defaultEnvManager": "ms-python.python:pipenv"
 }
