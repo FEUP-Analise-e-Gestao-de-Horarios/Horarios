@@ -33,8 +33,8 @@ urlpatterns = [
     path("login", spa_view, name="login"),
     path("react-dashboard/", spa_view, name="react-dashboard"),
     # API endpoints
-    path("admin/", admin.site.urls, name="admin"), # TODO Change
-    path("projects/", include("src.projects.urls")), # TODO Change
+    path("admin/", admin.site.urls, name="admin"),  # TODO Change
+    path("api/projects/", include("src.projects.urls")),
     path("api/auth/", include("src.login.urls")),
     # TODO: Check URLs bellow
     path("parser/", include("src.parser.urls")),
