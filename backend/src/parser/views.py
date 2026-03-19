@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 def selecionar_aulas_em_paralelo(request: HttpRequest):
     if not request.user.is_authenticated:
-        return redirect("signin")
+        return redirect("login")
 
     project_id_raw = request.GET.get("id")
     if project_id_raw is None:
