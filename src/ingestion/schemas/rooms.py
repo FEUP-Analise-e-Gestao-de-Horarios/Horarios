@@ -1,7 +1,7 @@
 from typing import TypedDict
 
 
-class RoomLinks(TypedDict):
+class RoomInfo(TypedDict):
     """A room entry parsed from the menu, with metadata and schedule links.
 
     Attributes:
@@ -14,11 +14,11 @@ class RoomLinks(TypedDict):
             ``"Desconhecido"`` when not in the registry.
         seats: Number of seats as a string. Defaults to ``"Desconhecido"``
             when not in the registry.
-        links: URLs to the room's timetable pages.
+        link: URL to the room's timetable page.
     """
 
     name: str
     type_: str
     size: str
     seats: str
-    links: list[str]
+    link: str

@@ -1,7 +1,7 @@
 import shutil
 from pathlib import Path
 
-from src.projects.projects_db.paths import all_dbs, project_dir
+from src.projects.projects_db.paths import all_dbs, general_db, project_dir
 from src.projects.projects_db.registry import evict_engine, init_engine
 
 
@@ -17,8 +17,7 @@ def create_project_db(proj_id: int) -> Path:
     path.mkdir(parents=True, exist_ok=False)
 
     try:
-        for db_path in all_dbs(proj_id):
-            init_engine(db_path)  # create_all + cache engine
+        init_engine(general_db(proj_id))  # create_all + cache engine
     except Exception:
         shutil.rmtree(path, ignore_errors=True)
         raise

@@ -10,7 +10,7 @@ from src.ingestion.manager import IngestionManager
 from src.parser.utils import validate_request_body
 from src.projects.models import Project
 from src.projects.schemas import CreateProjectRequest, CreateProjectResponse
-from src.projects.utils import create_project_db
+from src.projects.services.project_db import create_project_db
 
 logger = logging.getLogger(__name__)
 

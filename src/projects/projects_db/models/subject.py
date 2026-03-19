@@ -17,11 +17,11 @@ class Subject(Base):
 
     # UUIDs
     id: Mapped[UUID] = mapped_column(Uuid(native_uuid=False), primary_key=True, default=uuid.uuid7)
-    year_id: Mapped[UUID] = mapped_column(ForeignKey("years.id"))
+    year_id: Mapped[UUID] = mapped_column(ForeignKey("years.id"), index=True)
 
     # Data
-    number: Mapped[int] = mapped_column(unique=True)
-    code: Mapped[str] = mapped_column(Text, unique=True)
+    number: Mapped[int] = mapped_column(unique=True, index=True)
+    code: Mapped[str] = mapped_column(Text, unique=True, index=True)
     acronym: Mapped[str] = mapped_column(Text)
     name: Mapped[str] = mapped_column(Text)
 
