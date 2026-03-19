@@ -1,8 +1,9 @@
 import json
 
 from django.contrib import messages
-from django.contrib.auth import authenticate, logout, update_session_auth_hash
+from django.contrib.auth import authenticate, update_session_auth_hash
 from django.contrib.auth import login as django_login
+from django.contrib.auth import logout as django_logout
 from django.contrib.auth.forms import PasswordChangeForm, SetPasswordForm
 from django.core.mail import EmailMessage
 from django.http import JsonResponse
@@ -19,7 +20,7 @@ from src.users.models import User
 
 
 @require_GET
-def me(request):
+def me(request) -> JsonResponse:
     if not request.user.is_authenticated:
         return JsonResponse({"error": "Not authenticated"}, status=401)
     user = request.user
@@ -34,7 +35,7 @@ def me(request):
 
 
 @require_POST
-def login(request):
+def login(request) -> JsonResponse:
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
@@ -49,6 +50,12 @@ def login(request):
         return JsonResponse({"ok": True, "username": user.username})
 
     return JsonResponse({"error": "Bad Credentials!"}, status=401)
+
+
+@require_POST
+def logout(request) -> JsonResponse:
+    django_logout(request)
+    return JsonResponse({"ok": True})
 
 
 class ForgotPasswordView(View):
@@ -85,13 +92,6 @@ class ForgotPasswordView(View):
             email.send()
 
         return JsonResponse({"detail": "ok"})
-
-
-# signouts the user
-def signout(request):
-    logout(request)
-    messages.success(request, "Logged out")
-    return redirect("login")
 
 
 # activates the user through a token by adding their id to the Person object

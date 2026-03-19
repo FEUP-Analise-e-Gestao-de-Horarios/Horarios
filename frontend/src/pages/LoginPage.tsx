@@ -1,4 +1,5 @@
 import { api } from "@/api/client";
+import { ROUTES } from "@/routes";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -15,7 +16,7 @@ export default function LoginPage() {
     api
       .post("/api/auth/login", { username, password })
       .then(() => {
-        window.location.href = "/";
+        window.location.href = ROUTES.HOME;
       })
       .catch(() => {
         setError("Credenciais inválidas.");
@@ -62,7 +63,7 @@ export default function LoginPage() {
         </div>
 
         <Link
-          to="/forgot-password"
+          to={ROUTES.FORGOT_PASSWORD}
           className="text-[#8c2d19] text-[13px] text-left hover:underline"
         >
           Esqueci-me da palavra-passe

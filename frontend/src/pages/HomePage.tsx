@@ -1,4 +1,5 @@
 import { api } from "@/api/client";
+import { ROUTES } from "@/routes";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -16,7 +17,7 @@ interface ProjectsResponse {
   };
 }
 
-export default function DashboardPage() {
+export default function HomePage() {
   const navigate = useNavigate();
   const [showNewProject, setShowNewProject] = useState(false);
   const [projectName, setProjectName] = useState("");
@@ -46,13 +47,18 @@ export default function DashboardPage() {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={() => navigate("/react-change-password")}
+            onClick={() => navigate(ROUTES.CHANGE_PASSWORD)}
             className="bg-[#8c2d19] text-white font-semibold px-3.5 py-2 rounded border-none cursor-pointer text-sm text-center hover:bg-[#722415] transition-colors"
           >
             Mudar palavra-passe
           </button>
           <button
-            onClick={() => navigate("/react-login")}
+            onClick={() => {
+              api
+                .post("/api/auth/logout", {})
+                .then(() => navigate(ROUTES.HOME))
+                .catch(() => {});
+            }}
             className="bg-[#8c2d19] text-white font-semibold px-3.5 py-2 rounded border-none cursor-pointer text-sm text-center hover:bg-[#722415] transition-colors"
           >
             Terminar sessão
@@ -76,7 +82,9 @@ export default function DashboardPage() {
           <div
             key={project.id}
             className={`w-[220px] h-[220px] bg-white border border-[#e5e4e7] rounded-lg flex flex-col items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.08)] overflow-hidden ${project.finished_ingestion_at ? "cursor-pointer hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)] transition-shadow" : "cursor-default"}`}
-            onClick={() => { if (project.finished_ingestion_at) void navigate(`/editturnos/${project.id}`); }}
+            onClick={() => {
+              if (project.finished_ingestion_at) void navigate(`/editturnos/${project.id}`);
+            }}
           >
             <div className="w-full flex-1 flex items-center justify-center bg-[#f9f7f4] rounded-t-lg text-[64px]">
               🗄️

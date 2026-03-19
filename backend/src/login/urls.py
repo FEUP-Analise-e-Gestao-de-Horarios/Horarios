@@ -6,8 +6,8 @@ from . import views
 urlpatterns = [
     path("me", views.me, name="api-me"),
     path("login", views.login, name="api-login"),
+    path("logout", views.logout, name="api-logout"),
     path("forgot-password", views.ForgotPasswordView.as_view(), name="api-forgot-password"),
-    path("signout", views.signout, name="signout"),
     path("activate/<uidb64>/<token>", views.activate, name="activate"),
     path(
         "forgot_password/<uidb64>/<token>",
