@@ -1,7 +1,8 @@
 import json
 
 from django.contrib import messages
-from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
+from django.contrib.auth import authenticate, logout, update_session_auth_hash
+from django.contrib.auth import login as django_login
 from django.contrib.auth.forms import PasswordChangeForm, SetPasswordForm
 from django.core.mail import EmailMessage
 from django.http import JsonResponse
@@ -10,28 +11,44 @@ from django.template.loader import render_to_string
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.views import View
+from django.views.decorators.http import require_GET, require_POST
 
 from src.config.settings import base
 from src.login.tokens import generate_token
 from src.users.models import User
 
 
-class LoginView(View):
-    def post(self, request):
-        try:
-            data = json.loads(request.body)
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "Invalid JSON"}, status=400)
+@require_GET
+def me(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Not authenticated"}, status=401)
+    user = request.user
+    return JsonResponse(
+        {
+            "username": user.username,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+        },
+    )
 
-        username = data.get("username", "")
-        password = data.get("password", "")
 
-        user = authenticate(username=username, password=password)
-        if user is not None:
-            login(request, user)
-            return JsonResponse({"ok": True, "username": user.username})
+@require_POST
+def login(request):
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
 
-        return JsonResponse({"error": "Bad Credentials!"}, status=401)
+    username = data.get("username", "")
+    password = data.get("password", "")
+
+    user = authenticate(username=username, password=password)
+    if user is not None:
+        django_login(request, user)
+        return JsonResponse({"ok": True, "username": user.username})
+
+    return JsonResponse({"error": "Bad Credentials!"}, status=401)
 
 
 class ForgotPasswordView(View):
