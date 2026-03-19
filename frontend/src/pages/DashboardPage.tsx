@@ -16,92 +16,62 @@ export default function DashboardPage() {
   const projects: Project[] = [];
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#f0eeeb", fontFamily: "var(--sans)" }}>
+    <div className="min-h-svh bg-[#f0eeeb] font-[system-ui,'Segoe_UI',Roboto,sans-serif]">
       {/* Navbar */}
-      <header
-        style={{
-          padding: "12px 24px",
-          backgroundColor: "#1e2028",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          width: "100%",
-          boxSizing: "border-box",
-        }}
-      >
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => navigate(0)} style={btnYellow}>
+      <header className="px-6 py-3 bg-[#1e2028] flex items-center justify-between w-full box-border">
+        <div className="flex gap-2">
+          <button
+            onClick={() => navigate(0)}
+            className="bg-[#8c2d19] text-white font-semibold px-3.5 py-2 rounded border-none cursor-pointer text-sm hover:bg-[#722415] transition-colors"
+          >
             Início
           </button>
-          <button style={btnOutlineRed}>Grupos</button>
+          <button className="bg-transparent text-white font-semibold px-3.5 py-2 rounded border border-[#8c2d19] cursor-pointer text-sm hover:bg-[#8c2d19] transition-colors">
+            Grupos
+          </button>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => navigate("/react-change-password")} style={btnYellow}>
+        <div className="flex gap-2">
+          <button
+            onClick={() => navigate("/react-change-password")}
+            className="bg-[#8c2d19] text-white font-semibold px-3.5 py-2 rounded border-none cursor-pointer text-sm hover:bg-[#722415] transition-colors"
+          >
             Mudar palavra-passe
           </button>
-          <button onClick={() => navigate("/react-login")} style={btnYellow}>
+          <button
+            onClick={() => navigate("/react-login")}
+            className="bg-[#8c2d19] text-white font-semibold px-3.5 py-2 rounded border-none cursor-pointer text-sm hover:bg-[#722415] transition-colors"
+          >
             Logout
           </button>
         </div>
       </header>
 
       {/* Content */}
-      <div style={{ display: "flex", flexWrap: "wrap", padding: "32px 24px", gap: 16 }}>
+      <div className="flex flex-wrap p-6 pt-8 gap-4">
         {/* New Project Card */}
-        <div style={card} onClick={() => setShowNewProject(true)}>
-          <span style={{ fontSize: 90, color: "var(--accent)", lineHeight: 1 }}>+</span>
-          <span style={{ color: "var(--text-h)", fontWeight: 500, marginTop: 8 }}>
-            Novo Projeto
-          </span>
+        <div
+          className="w-[220px] h-[220px] bg-white border border-[#e5e4e7] rounded-lg flex flex-col items-center justify-center cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,0.08)] overflow-hidden hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)] transition-shadow"
+          onClick={() => setShowNewProject(true)}
+        >
+          <span className="text-[90px] text-[#8c2d19] leading-none">+</span>
+          <span className="text-[#08060d] font-medium mt-2">Novo Projeto</span>
         </div>
 
         {/* Project Cards */}
         {projects.map((project) => (
           <div
             key={project.id}
-            style={{ ...card, cursor: project.finished ? "pointer" : "default" }}
+            className={`w-[220px] h-[220px] bg-white border border-[#e5e4e7] rounded-lg flex flex-col items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.08)] overflow-hidden ${project.finished ? "cursor-pointer hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)] transition-shadow" : "cursor-default"}`}
             onClick={() => project.finished && navigate(`/editturnos/${project.id}`)}
           >
-            <div
-              style={{
-                width: "100%",
-                flex: 1,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: "#f9f7f4",
-                borderRadius: "8px 8px 0 0",
-                fontSize: 64,
-              }}
-            >
+            <div className="w-full flex-1 flex items-center justify-center bg-[#f9f7f4] rounded-t-lg text-[64px]">
               🗄️
             </div>
-            <div
-              style={{
-                width: "100%",
-                padding: "10px 14px",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                boxSizing: "border-box",
-              }}
-            >
-              <span
-                style={{
-                  color: "var(--text-h)",
-                  fontWeight: 500,
-                  maxWidth: 150,
-                  wordWrap: "break-word",
-                  fontSize: 14,
-                }}
-              >
+            <div className="w-full px-3.5 py-2.5 flex justify-between items-center box-border">
+              <span className="text-[#08060d] font-medium max-w-[150px] break-words text-sm">
                 {project.nome}
               </span>
-              <span
-                style={{ fontSize: 20, cursor: "pointer", color: "var(--text)", letterSpacing: 2 }}
-              >
-                ···
-              </span>
+              <span className="text-xl cursor-pointer text-[#6b6375] tracking-[2px]">···</span>
             </div>
           </div>
         ))}
@@ -111,87 +81,52 @@ export default function DashboardPage() {
       {showNewProject && (
         <div
           onClick={() => setShowNewProject(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            backgroundColor: "rgba(0,0,0,0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 100,
-          }}
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100]"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{
-              backgroundColor: "var(--bg)",
-              borderRadius: 8,
-              padding: 32,
-              width: 460,
-              display: "flex",
-              flexDirection: "column",
-              gap: 16,
-              boxShadow: "var(--shadow)",
-            }}
+            className="bg-white rounded-lg p-8 w-[460px] flex flex-col gap-4 shadow-[rgba(0,0,0,0.1)_0_10px_15px_-3px,rgba(0,0,0,0.05)_0_4px_6px_-2px]"
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h2 style={{ margin: 0, color: "var(--text-h)", fontSize: 20 }}>Novo Projeto</h2>
+            <div className="flex justify-between items-center">
+              <h2 className="m-0 text-[#08060d] text-xl">Novo Projeto</h2>
               <span
                 onClick={() => setShowNewProject(false)}
-                style={{ cursor: "pointer", fontSize: 20, color: "var(--text)" }}
+                className="cursor-pointer text-xl text-[#6b6375] hover:text-[#08060d] transition-colors"
               >
                 ✕
               </span>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <label style={{ color: "var(--text-h)", fontSize: 14 }}>Nome do Projeto:</label>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="project-name" className="text-[#08060d] text-sm">
+                Nome do Projeto:
+              </label>
               <input
+                id="project-name"
                 type="text"
                 value={projectName}
                 onChange={(e) => setProjectName(e.target.value)}
-                style={{
-                  padding: "10px 12px",
-                  borderRadius: 4,
-                  border: "1px solid var(--accent)",
-                  fontSize: 15,
-                  outline: "none",
-                  backgroundColor: "white",
-                  color: "#08060d",
-                }}
+                className="px-3 py-2.5 rounded border border-[#8c2d19] text-[15px] outline-none bg-white text-[#08060d] focus:ring-1 focus:ring-[rgba(140,45,25,0.5)]"
               />
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <label style={{ color: "var(--text-h)", fontSize: 14 }}>Link do Horário:</label>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="schedule-link" className="text-[#08060d] text-sm">
+                Link do Horário:
+              </label>
               <input
+                id="schedule-link"
                 type="text"
                 value={scheduleLink}
                 onChange={(e) => setScheduleLink(e.target.value)}
-                style={{
-                  padding: "10px 12px",
-                  borderRadius: 4,
-                  border: "1px solid var(--accent)",
-                  fontSize: 15,
-                  outline: "none",
-                  backgroundColor: "white",
-                  color: "#08060d",
-                }}
+                className="px-3 py-2.5 rounded border border-[#8c2d19] text-[15px] outline-none bg-white text-[#08060d] focus:ring-1 focus:ring-[rgba(140,45,25,0.5)]"
               />
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowNewProject(false)}
-                style={{
-                  padding: "8px 20px",
-                  borderRadius: 4,
-                  border: "none",
-                  backgroundColor: "#6b7280",
-                  color: "white",
-                  cursor: "pointer",
-                  fontSize: 14,
-                }}
+                className="px-5 py-2 rounded border-none bg-[#6b7280] text-white cursor-pointer text-sm hover:bg-[#555b66] transition-colors"
               >
                 Cancelar
               </button>
@@ -202,16 +137,7 @@ export default function DashboardPage() {
                   setProjectName("");
                   setScheduleLink("");
                 }}
-                style={{
-                  padding: "8px 20px",
-                  borderRadius: 4,
-                  border: "none",
-                  backgroundColor: "var(--accent)",
-                  color: "white",
-                  cursor: "pointer",
-                  fontSize: 14,
-                  fontWeight: 600,
-                }}
+                className="px-5 py-2 rounded border-none bg-[#8c2d19] text-white cursor-pointer text-sm font-semibold hover:bg-[#722415] transition-colors"
               >
                 Criar Projeto
               </button>
@@ -222,40 +148,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-const btnYellow: React.CSSProperties = {
-  backgroundColor: "var(--accent)",
-  color: "white",
-  fontWeight: 600,
-  padding: "8px 14px",
-  borderRadius: 4,
-  border: "none",
-  cursor: "pointer",
-  fontSize: 14,
-};
-
-const btnOutlineRed: React.CSSProperties = {
-  backgroundColor: "transparent",
-  color: "white",
-  fontWeight: 600,
-  padding: "8px 14px",
-  borderRadius: 4,
-  border: "1px solid var(--accent)",
-  cursor: "pointer",
-  fontSize: 14,
-};
-
-const card: React.CSSProperties = {
-  width: 220,
-  height: 220,
-  backgroundColor: "white",
-  border: "1px solid var(--border)",
-  borderRadius: 8,
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  cursor: "pointer",
-  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-  overflow: "hidden",
-};
