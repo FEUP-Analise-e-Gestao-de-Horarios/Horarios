@@ -1,45 +1,44 @@
+import json
+
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.forms import PasswordChangeForm, SetPasswordForm
 from django.core.mail import EmailMessage
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from django.views import View
 
 from src.config.settings import base
 from src.login.tokens import generate_token
 from src.users.models import User
 
 
-# signin page
-def signin(request):
+class SigninView(View):
+    def post(self, request):
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
 
-    if request.user.is_authenticated:
-        return redirect("/")
-
-    if request.method == "POST":
-        username = request.POST["username"]
-        password = request.POST["pass"]
+        username = data.get("username", "")
+        password = data.get("password", "")
 
         user = authenticate(username=username, password=password)
-
         if user is not None:
             login(request, user)
-            return redirect("/")
+            return JsonResponse({"ok": True, "username": user.username})
 
-        else:
-            messages.error(request, "Bad Credentials!")
-            return redirect("signin")
-
-    return render(request, "login/signin.html")
+        return JsonResponse({"error": "Bad Credentials!"}, status=401)
 
 
 # signouts the user
 def signout(request):
     logout(request)
     messages.success(request, "Logged out")
-    return redirect("signin")
+    return redirect("login")
 
 
 # activates the user through a token by adding their id to the Person object
@@ -58,7 +57,7 @@ def activate(request, uidb64, token):
         # messages.success(request, "Your Account has been activated!!")
         return redirect("password_change")
     else:
-        return redirect("signin")
+        return redirect("login")
 
 
 # Change password of user (asks the old password)
@@ -104,7 +103,7 @@ def forgot_password(request):
             )
             email.fail_silently = True
             email.send()
-            return redirect("signin")
+            return redirect("login")
         else:
             messages.error(request, "Email doesn't exist")
             return render(request, "login/forgot_password.html")
@@ -145,4 +144,4 @@ def forgot_password_change(request, uidb64, token):
         login(request, myuser)
         return redirect("password_change_no_old_pass")
     else:
-        return redirect("signin")
+        return redirect("login")

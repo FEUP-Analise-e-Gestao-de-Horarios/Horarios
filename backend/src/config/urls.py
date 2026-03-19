@@ -31,14 +31,14 @@ urlpatterns = [
     path("admin/", admin.site.urls, name="admin"),
     path("projects/", include("src.projects.urls")),
     # React URLs
-    path("react-login/", spa_view, name="react-login"),
-    path("react-test-2/", spa_view, name="react-test-2"),
+    path("login/", spa_view, name="login"),
+    # Login API + other auth endpoints
+    path("api/auth/", include("src.login.urls")),
     # TODO: Check URLs bellow
     path("parser/", include("src.parser.urls")),
     path("", views.starter),
     path("groups", views.groups),
     path("deleteProject", views.deleteProject),
-    path("login/", include("src.login.urls")),
     path("editturnos/<int:projId>", views.editTurnos),
     path("emptytable/", views.createEmptyTable, name="emptytable"),
     path("getucs/", views.get_uc_list, name="get_uc_list"),
