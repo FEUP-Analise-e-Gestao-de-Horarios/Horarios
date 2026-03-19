@@ -219,7 +219,7 @@ def starter(request: HttpRequest) -> HttpResponse:
 
     # Se o utlizador não estiver autenticado, redireciona para a página de login
     if not request.user.is_authenticated:
-        return redirect("login/")
+        return redirect("login")
 
     projetos = getProjetosListAux(request, request.user.pk)
 
@@ -240,7 +240,7 @@ def manageProjects(request: HttpRequest, projId: int) -> HttpResponse:
 
     # Se o utlizador não estiver autenticado, redireciona para a página de login
     if not request.user.is_authenticated:
-        return redirect("login/")
+        return redirect("login")
 
     if request.method == "POST":
         a = request.POST
@@ -322,7 +322,7 @@ def manageProjects(request: HttpRequest, projId: int) -> HttpResponse:
 
 def groups(request):
     if not request.user.is_authenticated:
-        return redirect("login/")
+        return redirect("login")
 
     group = Group.objects.values_list("name", "pk", "abreviation")
     groups = []
@@ -467,7 +467,7 @@ def editTurnos(request: HttpRequest, projId: int) -> HttpResponse:
     HttpResponse: O objeto Http response que contém a página `editTurnos` criada.
     """
     if not request.user.is_authenticated:
-        return redirect("login/")
+        return redirect("login")
     # projetos = Project.objects.filter(person = Person.objects.get(username = request.user.pk))
     projetos = getProjetosListAux(request, request.user.pk)
     projeto = Project.objects.values_list().get(id=projId)
@@ -774,7 +774,7 @@ def fillPageForCursoAno(request):
 
 def uc_view(request: HttpRequest, projId: int, uc_codigo: str) -> HttpResponse:
     if not request.user.is_authenticated:
-        return redirect("login/")
+        return redirect("login")
 
     projetos = getProjetosListAux(request, request.user.pk)
     projeto = Project.objects.values_list().get(id=projId)
@@ -1884,7 +1884,7 @@ def obter_grupo_de_aulas(aula_id, table, proj_id):
 # renders the edit docentes page, with a list of all docentes in the project
 def editDocentes(request, projId):
     if not request.user.is_authenticated:
-        return redirect("login/")
+        return redirect("login")
 
     # projetos = Project.objects.filter(person = Person.objects.get(username = request.user.pk))
     projetos = getProjetosListAux(request, request.user.pk)
@@ -2097,7 +2097,7 @@ def get_aula_info(projId, aulaId):
 def getConflicts(request, projId):
     global validator
     if not request.user.is_authenticated:
-        return redirect("login/")
+        return redirect("login")
 
     projetos = getProjetosListAux(request, request.user.pk)
     projeto = Project.objects.values_list().get(id=projId)
@@ -2157,7 +2157,7 @@ def getConflicts(request, projId):
 def export(request, projId):
     global validator
     if not request.user.is_authenticated:
-        return redirect("login/")
+        return redirect("login")
 
     projetos = getProjetosListAux(request, request.user.pk)
     projeto = Project.objects.values_list().get(id=projId)
