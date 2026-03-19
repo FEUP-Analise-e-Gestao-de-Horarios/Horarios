@@ -67,13 +67,17 @@ class Migration(migrations.Migration):
                 (
                     "group",
                     models.ManyToManyField(
-                        blank=True, related_name="project_groups", to="projects.group"
+                        blank=True,
+                        related_name="project_groups",
+                        to="projects.group",
                     ),
                 ),
                 (
                     "people",
                     models.ManyToManyField(
-                        blank=True, related_name="projects", to=settings.AUTH_USER_MODEL
+                        blank=True,
+                        related_name="projects",
+                        to=settings.AUTH_USER_MODEL,
                     ),
                 ),
             ],

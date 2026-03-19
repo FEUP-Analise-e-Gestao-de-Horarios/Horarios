@@ -18,12 +18,12 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     is_staff: bool | BooleanField[bool | Combinable, bool] = BooleanField(default=False)
     is_active: bool | BooleanField[bool | Combinable, bool] = BooleanField(
-        default=False
+        default=False,
     )
 
     sent_email: BooleanField[bool | Combinable, bool] = BooleanField(default=False)
-    date_joined: DateTimeField[str | datetime | date | Combinable, datetime] = (
-        DateTimeField(default=timezone.now)
+    date_joined: DateTimeField[str | datetime | date | Combinable, datetime] = DateTimeField(
+        default=timezone.now,
     )
 
     USERNAME_FIELD = "username"

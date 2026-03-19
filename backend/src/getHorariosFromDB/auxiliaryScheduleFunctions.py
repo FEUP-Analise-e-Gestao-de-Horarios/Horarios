@@ -17,7 +17,7 @@ def organizeBlocos(blocos, dia_semana):
 def getAbreviacaoFromMecanografico(ProjectNumber, numMecanografico):
     # Establish a connection to the database
     conn = sqlite3.connect(
-        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db"
+        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db",
     )
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -52,7 +52,7 @@ def getAulaFromSalaAndTime(ProjectNumber, hora_inicial, dia_semana, sala, idAula
         return []
     # Establish a connection to the database
     conn = sqlite3.connect(
-        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db"
+        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db",
     )
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -114,7 +114,7 @@ def getAulaFromSalaAndTime(ProjectNumber, hora_inicial, dia_semana, sala, idAula
 def getAulaFromUCAndTime(ProjectNumber, hora_inicial, dia_semana, uc, idAulaToCheck):
     # Establish a connection to the database
     conn = sqlite3.connect(
-        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db"
+        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db",
     )
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -151,7 +151,7 @@ def getAulaFromDocenteAndTime(ProjectNumber, hora_inicial, dia_semana, docente, 
     # Establish a connection to the database
     # print("getAulaFromDocenteAndTime Docente: ", docente)
     conn = sqlite3.connect(
-        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db"
+        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db",
     )
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -213,7 +213,7 @@ def getAulaFromDocenteAndTime(ProjectNumber, hora_inicial, dia_semana, docente, 
 def getAulaFromTurmaAndTime(ProjectNumber, hora_inicial, dia_semana, turma, idAulaToCheck):
     # Establish a connection to the database
     conn = sqlite3.connect(
-        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db"
+        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db",
     )
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -279,7 +279,7 @@ def getAulaFromTurmaAndTime(ProjectNumber, hora_inicial, dia_semana, turma, idAu
 def getTurmasPorTurnoCursoAno(ProjectNumber, curso, ano):
     # Establish a connection to the database
     conn = sqlite3.connect(
-        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db"
+        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db",
     )
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -343,7 +343,7 @@ def getTurmasPorTurnoCursoAno(ProjectNumber, curso, ano):
 def getNumeroTurmasPorTurnoAnoCurso(ProjectNumber, curso, ano):
     # Establish a connection to the database
     conn = sqlite3.connect(
-        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db"
+        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db",
     )
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -371,7 +371,7 @@ def getNumeroTurmasPorTurnoAnoCurso(ProjectNumber, curso, ano):
 def getNumeroTurmasAno(ProjectNumber, curso, ano):
     # Establish a connection to the database
     conn = sqlite3.connect(
-        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db"
+        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db",
     )
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -392,7 +392,7 @@ def getNumeroTurmasAno(ProjectNumber, curso, ano):
 
 def getDistribuicaoUC(ProjectNumber, uc_codigo):
     conn = sqlite3.connect(
-        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db"
+        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db",
     )
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -439,7 +439,7 @@ def getDistribuicaoUC(ProjectNumber, uc_codigo):
 def getDocentesFromAnoFromCurso(ProjectNumber, abrevCurso, ano):
     # Connect to the database
     conn = sqlite3.connect(
-        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db"
+        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db",
     )
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -537,7 +537,7 @@ def getTurmasFromCurso(ProjectNumber, abrevCurso):
 def getTurmasFromTurno(ProjectNumber, abreviacao_curso):
     # Connect to database
     conn = sqlite3.connect(
-        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db"
+        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db",
     )
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -560,7 +560,7 @@ def getTurmasFromTurno(ProjectNumber, abreviacao_curso):
 def getSalasPorAnoCurso(ProjectNumber, abrevCurso):
     # Connect to the database
     conn = sqlite3.connect(
-        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db"
+        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db",
     )
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -606,7 +606,7 @@ def getSalasPorAnoCurso(ProjectNumber, abrevCurso):
 def getSalasFromCurso(ProjectNumber, abreviacao_curso):
     # Connect to database
     conn = sqlite3.connect(
-        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db"
+        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db",
     )
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -633,7 +633,7 @@ def getSalasFromCurso(ProjectNumber, abreviacao_curso):
 def getUCsFromCurso(ProjectNumber, abreviacao_curso, anoNum):
     # Connect to database
     conn = sqlite3.connect(
-        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db"
+        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db",
     )
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -655,7 +655,7 @@ def getUCsFromCurso(ProjectNumber, abreviacao_curso, anoNum):
 def getSalaHorarioAgrupado(ProjectNumber, numero, curso):
     # Connect to database
     conn = sqlite3.connect(
-        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db"
+        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db",
     )
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -699,7 +699,7 @@ def getSalaHorarioAgrupado(ProjectNumber, numero, curso):
 def getUcHorarioAgrupado(ProjectNumber, codigo, curso):
     # Connect to database
     conn = sqlite3.connect(
-        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db"
+        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db",
     )
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -743,7 +743,7 @@ def getUcHorarioAgrupado(ProjectNumber, codigo, curso):
 def getDocenteHorarioAgrupado(ProjectNumber, numeroMecanografico, curso):
     # Connect to database
     conn = sqlite3.connect(
-        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db"
+        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db",
     )
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -787,7 +787,7 @@ def getDocenteHorarioAgrupado(ProjectNumber, numeroMecanografico, curso):
 def getTurmasFromAula(ProjectNumber, aulaId, curso):
     # Connect to database
     conn = sqlite3.connect(
-        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db"
+        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db",
     )
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -813,7 +813,7 @@ def getTurmasFromAula(ProjectNumber, aulaId, curso):
 def getDocenteHorario(ProjectNumber, numeroMecanografico):
     # Connect to database
     conn = sqlite3.connect(
-        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db"
+        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db",
     )
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -1014,7 +1014,7 @@ def getNumYearsFromCurso(ProjectNumber, curso):
 
 def getCursos(ProjectNumber):
     conn = sqlite3.connect(
-        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db"
+        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db",
     )
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -1029,7 +1029,7 @@ def getCursos(ProjectNumber):
 
 def getAnoFromUcCurso(ProjectNumber, curso, uc):
     conn = sqlite3.connect(
-        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db"
+        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db",
     )
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -1044,7 +1044,7 @@ def getAnoFromUcCurso(ProjectNumber, curso, uc):
 
 def getSemanasFromCursoAno(ProjectNumber, curso, ano):
     conn = sqlite3.connect(
-        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db"
+        Path(settings.PROJECTS_DB_PATH) / str(ProjectNumber) / "general_database.db",
     )
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
