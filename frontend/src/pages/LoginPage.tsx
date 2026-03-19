@@ -30,7 +30,7 @@ export default function LoginPage() {
         onSubmit={handleSubmit}
         className="flex flex-col gap-5 w-96 p-8 rounded-lg shadow-[rgba(0,0,0,0.1)_0_10px_15px_-3px,rgba(0,0,0,0.05)_0_4px_6px_-2px] border border-[#e5e4e7]"
       >
-        <h1 className="text-[#08060d] text-2xl font-bold m-0">Sign In</h1>
+        <h1 className="text-[#08060d] text-2xl font-bold m-0">Iniciar Sessão</h1>
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor="username" className="text-sm text-[#6b6375]">
@@ -39,7 +39,7 @@ export default function LoginPage() {
           <input
             id="username"
             type="text"
-            placeholder="Username"
+            placeholder="Nome de utilizador"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             className="px-3 py-2 rounded border border-[#e5e4e7] outline-none bg-[#f4f3ec] text-[#08060d] focus:border-[rgba(140,45,25,0.5)] focus:ring-1 focus:ring-[rgba(140,45,25,0.5)]"
@@ -78,7 +78,7 @@ export default function LoginPage() {
           disabled={loading}
           className="bg-[#8c2d19] text-white font-semibold py-2.5 rounded border-none cursor-pointer text-[15px] hover:bg-[#722415] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? "A entrar..." : "Sign in"}
+          {loading ? "A entrar..." : "Entrar"}
         </button>
       </form>
     </div>
