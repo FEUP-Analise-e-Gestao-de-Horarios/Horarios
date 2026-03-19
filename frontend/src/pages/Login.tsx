@@ -1,50 +1,32 @@
 export default function Login() {
   return (
-    <div style={{
-      minHeight: "100vh",
-      backgroundColor: "#2b2b2b",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      fontFamily: "sans-serif",
-    }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 16, width: 280 }}>
-        <h1 style={{ color: "white", fontSize: 32, fontWeight: "bold", margin: 0 }}>
-          Sign In
-        </h1>
+    <div className="min-h-screen bg-[#2b2b2b] flex items-center justify-center font-sans">
+      <div className="flex flex-col gap-4 w-70">
+        <h1 className="text-white text-3xl font-bold m-0">Sign In</h1>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <div className="flex flex-col gap-1">
           <input
             type="text"
             placeholder="Username"
-            style={{ padding: "8px 12px", borderRadius: 4, border: "none", outline: "none" }}
+            className="px-3 py-2 rounded border-none outline-none"
           />
-          <span style={{ color: "d1d5db", fontSize: 13, display: "flex" }}>Nome de utilizador</span>
+          <span className="text-gray-300 text-[13px] flex">Nome de utilizador</span>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <div className="flex flex-col gap-1">
           <input
             type="password"
             placeholder="••••••••"
-            style={{ padding: "8px 12px", borderRadius: 4, border: "none", outline: "none" }}
+            className="px-3 py-2 rounded border-none outline-none"
           />
-          <span style={{ color: "#d1d5db", fontSize: 13, display: "flex" }}>Palavra-passe</span>
+          <span className="text-gray-300 text-[13px] flex">Palavra-passe</span>
         </div>
 
-        <a href="#" style={{ color: "#60a5fa", fontSize: 13 }}>
+        <a href="#" className="text-blue-400 text-[13px]">
           Esqueci-me da palavra-passe
         </a>
 
-        <button style={{
-          backgroundColor: "#facc15",
-          color: "black",
-          fontWeight: "600",
-          padding: "10px",
-          borderRadius: 4,
-          border: "none",
-          cursor: "pointer",
-          fontSize: 15,
-        }}>
+        <button className="bg-yellow-400 text-black font-semibold py-2.5 rounded border-none cursor-pointer text-[15px]">
           Sign in
         </button>
       </div>
