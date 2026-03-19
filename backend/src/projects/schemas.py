@@ -33,3 +33,8 @@ class ProjectResponse(BaseModel):
     started_ingestion_at: datetime | None
     finished_ingestion_at: datetime | None
     failed_ingestion_at: datetime | None
+
+
+class ProjectsResponse(BaseModel):
+    projects: list[ProjectResponse]
+    count: int
