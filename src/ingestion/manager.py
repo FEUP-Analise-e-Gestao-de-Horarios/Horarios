@@ -124,7 +124,6 @@ class IngestionManager:
         """
         self.proj.finished_ingestion_at = timezone.now()
         self.proj.save()
-        self.conn.close()
         self.scraper.close()
 
     def _teardown_failure(self) -> None:
@@ -135,7 +134,6 @@ class IngestionManager:
         """
         self.proj.failed_ingestion_at = timezone.now()
         self.proj.save()
-        self.conn.close()
         self.scraper.close()
 
     # -----------------------------------------------------------------------
