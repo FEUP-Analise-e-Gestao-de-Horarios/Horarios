@@ -1,11 +1,8 @@
 import shutil
-import sqlite3
 import uuid
 from collections import defaultdict
 from datetime import timedelta
-from pathlib import Path
 
-from django.conf import settings
 from django.utils import timezone
 from sqlalchemy.exc import IntegrityError
 
@@ -25,7 +22,7 @@ from src.projects.projects_db.dao.teacher_dao import TeacherDAO
 from src.projects.projects_db.dao.teacher_red_block_dao import TeacherRedBlockDAO
 from src.projects.projects_db.dao.year_dao import YearDAO
 from src.projects.projects_db.models.class_ import Class
-from src.projects.projects_db.paths import general_db
+from src.projects.projects_db.paths import general_db, initial_db
 from src.projects.projects_db.registry import get_session
 
 
@@ -53,10 +50,6 @@ class IngestionManager:
         """
         self.proj_id = proj_id
         self.proj = Project.objects.get(pk=proj_id)
-
-        self.path = Path(settings.PROJECTS_DB_PATH) / str(proj_id)
-        self.conn = sqlite3.connect(self.path / "general_database.db")
-        self.cursor: sqlite3.Cursor = self.conn.cursor()
 
         self.scraper = Scraper(self.proj.url)
         self.subject_shifts_map: TurnosMap = defaultdict(
@@ -103,6 +96,8 @@ class IngestionManager:
             self._ingest_sessions(degrees)
             self._ingest_shifts()
 
+            shutil.copy2(general_db(self.proj_id), initial_db(self.proj_id))
+
             self._teardown_success()
 
         except Exception:
@@ -127,10 +122,6 @@ class IngestionManager:
         baseline snapshot, records the completion timestamp, and closes the
         database connection and HTTP session.
         """
-        shutil.copy2(
-            self.path / "general_database.db",
-            self.path / "initial_database.db",
-        )
         self.proj.finished_ingestion_at = timezone.now()
         self.proj.save()
         self.conn.close()
