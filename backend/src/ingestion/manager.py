@@ -366,6 +366,21 @@ class IngestionManager:
                                 room_ids = {room.id for room in rooms}
 
                                 while current_date <= class_page["end_date"]:
+                                    if len(class_ids) > 1:
+                                        existing = (
+                                            session_dao.get_by_week_weekday_start_time_and_class(
+                                                week=current_date,
+                                                weekday=session["weekday"],
+                                                start_time=session["start_time"],
+                                                class_id=next(iter(class_ids)),
+                                            )
+                                        )
+                                        if existing is not None:
+                                            if subject_db_entry not in existing.subjects:
+                                                existing.subjects.append(subject_db_entry)
+                                            current_date += timedelta(weeks=1)
+                                            continue
+
                                     try:
                                         with db_session.begin_nested():
                                             session_dao.create(
