@@ -1,5 +1,6 @@
 import { api } from "@/api/client";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -60,12 +61,12 @@ export default function LoginPage() {
           />
         </div>
 
-        <button
-          type="button"
-          className="text-[#8c2d19] text-[13px] text-left hover:underline cursor-pointer bg-transparent border-none p-0"
+        <Link
+          to="/forgot-password"
+          className="text-[#8c2d19] text-[13px] text-left hover:underline"
         >
           Esqueci-me da palavra-passe
-        </button>
+        </Link>
 
         {error && (
           <p className="text-[#8c2d19] text-sm m-0 bg-[rgba(140,45,25,0.1)] px-3 py-2 rounded">
