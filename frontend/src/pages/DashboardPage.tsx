@@ -7,7 +7,7 @@ interface Project {
   finished: boolean;
 }
 
-export default function Dashboard() {
+export default function DashboardPage() {
   const navigate = useNavigate();
   const [showNewProject, setShowNewProject] = useState(false);
   const [projectName, setProjectName] = useState("");
@@ -18,15 +18,17 @@ export default function Dashboard() {
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f0eeeb", fontFamily: "var(--sans)" }}>
       {/* Navbar */}
-      <header style={{
-        padding: "12px 24px",
-        backgroundColor: "#1e2028",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        width: "100%",
-        boxSizing: "border-box",
-      }}>
+      <header
+        style={{
+          padding: "12px 24px",
+          backgroundColor: "#1e2028",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          width: "100%",
+          boxSizing: "border-box",
+        }}
+      >
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={() => navigate(0)} style={btnYellow}>
             Início
@@ -34,8 +36,12 @@ export default function Dashboard() {
           <button style={btnOutlineRed}>Grupos</button>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => navigate("/react-change-password")} style={btnYellow}>Mudar palavra-passe</button>
-          <button onClick={() => navigate("/react-login")} style={btnYellow}>Logout</button>
+          <button onClick={() => navigate("/react-change-password")} style={btnYellow}>
+            Mudar palavra-passe
+          </button>
+          <button onClick={() => navigate("/react-login")} style={btnYellow}>
+            Logout
+          </button>
         </div>
       </header>
 
@@ -44,7 +50,9 @@ export default function Dashboard() {
         {/* New Project Card */}
         <div style={card} onClick={() => setShowNewProject(true)}>
           <span style={{ fontSize: 90, color: "var(--accent)", lineHeight: 1 }}>+</span>
-          <span style={{ color: "var(--text-h)", fontWeight: 500, marginTop: 8 }}>Novo Projeto</span>
+          <span style={{ color: "var(--text-h)", fontWeight: 500, marginTop: 8 }}>
+            Novo Projeto
+          </span>
         </div>
 
         {/* Project Cards */}
@@ -54,30 +62,46 @@ export default function Dashboard() {
             style={{ ...card, cursor: project.finished ? "pointer" : "default" }}
             onClick={() => project.finished && navigate(`/editturnos/${project.id}`)}
           >
-            <div style={{
-              width: "100%",
-              flex: 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: "#f9f7f4",
-              borderRadius: "8px 8px 0 0",
-              fontSize: 64,
-            }}>
+            <div
+              style={{
+                width: "100%",
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: "#f9f7f4",
+                borderRadius: "8px 8px 0 0",
+                fontSize: 64,
+              }}
+            >
               🗄️
             </div>
-            <div style={{
-              width: "100%",
-              padding: "10px 14px",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              boxSizing: "border-box",
-            }}>
-              <span style={{ color: "var(--text-h)", fontWeight: 500, maxWidth: 150, wordWrap: "break-word", fontSize: 14 }}>
+            <div
+              style={{
+                width: "100%",
+                padding: "10px 14px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                boxSizing: "border-box",
+              }}
+            >
+              <span
+                style={{
+                  color: "var(--text-h)",
+                  fontWeight: 500,
+                  maxWidth: 150,
+                  wordWrap: "break-word",
+                  fontSize: 14,
+                }}
+              >
                 {project.nome}
               </span>
-              <span style={{ fontSize: 20, cursor: "pointer", color: "var(--text)", letterSpacing: 2 }}>···</span>
+              <span
+                style={{ fontSize: 20, cursor: "pointer", color: "var(--text)", letterSpacing: 2 }}
+              >
+                ···
+              </span>
             </div>
           </div>
         ))}
