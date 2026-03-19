@@ -31,7 +31,7 @@ urlpatterns = [
     path("admin/", admin.site.urls, name="admin"),
     path("projects/", include("src.projects.urls")),
     # React URLs
-    path("login/", spa_view, name="login"),
+    path("login", spa_view, name="login"),
     # Login API + other auth endpoints
     path("api/auth/", include("src.login.urls")),
     # TODO: Check URLs bellow

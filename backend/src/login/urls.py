@@ -4,7 +4,7 @@ from . import views
 
 # urls for auth
 urlpatterns = [
-    path("login", views.LoginView.as_view(), name="login"),
+    path("login", views.LoginView.as_view(), name="api-login"),
     path("signout", views.signout, name="signout"),
     path("activate/<uidb64>/<token>", views.activate, name="activate"),
     path(
