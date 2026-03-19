@@ -1,10 +1,19 @@
-import { useState } from "react";
+import { api } from "@/api/client";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 interface Project {
-  id: number;
+  id: string;
   name: string;
-  finished: boolean;
+  url: string;
+  finished_ingestion_at: string | null;
+  failed_ingestion_at: string | null;
+}
+
+interface ProjectsResponse {
+  data: {
+    projects: Project[];
+  };
 }
 
 export default function DashboardPage() {
@@ -12,8 +21,13 @@ export default function DashboardPage() {
   const [showNewProject, setShowNewProject] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [scheduleLink, setScheduleLink] = useState("");
-
-  const projects: Project[] = [];
+  const [projects, setProjects] = useState<Project[]>([]);
+  useEffect(() => {
+    api
+      .get<ProjectsResponse>("/api/projects/")
+      .then((res) => setProjects(res.data.projects))
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="min-h-svh bg-[#f0eeeb] font-[system-ui,'Segoe_UI',Roboto,sans-serif]">
@@ -61,8 +75,8 @@ export default function DashboardPage() {
         {projects.map((project) => (
           <div
             key={project.id}
-            className={`w-[220px] h-[220px] bg-white border border-[#e5e4e7] rounded-lg flex flex-col items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.08)] overflow-hidden ${project.finished ? "cursor-pointer hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)] transition-shadow" : "cursor-default"}`}
-            onClick={() => project.finished && navigate(`/editturnos/${project.id}`)}
+            className={`w-[220px] h-[220px] bg-white border border-[#e5e4e7] rounded-lg flex flex-col items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.08)] overflow-hidden ${project.finished_ingestion_at ? "cursor-pointer hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)] transition-shadow" : "cursor-default"}`}
+            onClick={() => { if (project.finished_ingestion_at) void navigate(`/editturnos/${project.id}`); }}
           >
             <div className="w-full flex-1 flex items-center justify-center bg-[#f9f7f4] rounded-t-lg text-[64px]">
               🗄️
@@ -132,10 +146,16 @@ export default function DashboardPage() {
               </button>
               <button
                 onClick={() => {
-                  // TODO: ligar à API
-                  setShowNewProject(false);
-                  setProjectName("");
-                  setScheduleLink("");
+                  api
+                    .post("/api/projects/", { name: projectName, url: scheduleLink })
+                    .then(() => {
+                      setShowNewProject(false);
+                      setProjectName("");
+                      setScheduleLink("");
+                      return api.get<ProjectsResponse>("/api/projects/");
+                    })
+                    .then((res) => setProjects(res.data.projects))
+                    .catch(() => {});
                 }}
                 className="px-5 py-2 rounded border-none bg-[#8c2d19] text-white cursor-pointer text-sm text-center font-semibold hover:bg-[#722415] transition-colors"
               >

@@ -35,6 +35,9 @@ export default defineConfig(({ command }) => ({
           const url = req.url ?? "";
           // If the URL belongs to a migrated React route,
           // tell Vite to serve index.html instead of proxying
+          if (url.startsWith("/api/")) {
+            return;
+          }
           if (REACT_ROUTES.some((route) => url.startsWith(route))) {
             return "/index.html";
           }
