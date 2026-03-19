@@ -17,10 +17,10 @@ class Class(Base):
 
     # UUIDs
     id: Mapped[UUID] = mapped_column(Uuid(native_uuid=False), primary_key=True, default=uuid.uuid7)
-    year_id: Mapped[UUID] = mapped_column(ForeignKey("years.id"))
+    year_id: Mapped[UUID] = mapped_column(ForeignKey("years.id"), index=True)
 
     # Data
-    code: Mapped[str] = mapped_column(Text, unique=True)
+    code: Mapped[str] = mapped_column(Text, unique=True, index=True)
     shift: Mapped[int] = mapped_column()
 
     # Relationships
