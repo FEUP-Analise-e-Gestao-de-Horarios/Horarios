@@ -92,6 +92,26 @@ class SessionDAO(BaseDAO[Session]):
             ),
         ).fetchall()
 
+    def get_by_week_weekday_start_time_and_class(
+        self,
+        *,
+        week: datetime.date,
+        weekday: WeekDay,
+        start_time: int,
+        class_id: UUID,
+    ) -> Session | None:
+        query = (
+            select(Session)
+            .join(session_classes, session_classes.c.session_id == Session.id)
+            .where(
+                Session.week == week,
+                Session.weekday == weekday,
+                Session.start_time == start_time,
+                session_classes.c.class_id == class_id,
+            )
+        )
+        return self.session.scalars(query).first()
+
     def get_by_week_and_block(
         self,
         *,
