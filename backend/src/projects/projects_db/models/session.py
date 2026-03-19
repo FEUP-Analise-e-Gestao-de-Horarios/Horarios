@@ -8,10 +8,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.projects.projects_db.base import Base
 from src.projects.projects_db.models._secondary_tables import (
-    session_classes,
     session_rooms,
-    session_subjects,
     session_teachers,
+    sessions_classes_subject,
 )
 from src.projects.projects_db.schemas.weekday import WeekDay
 
@@ -44,11 +43,15 @@ class Session(Base):
         back_populates="sessions",
     )
     subjects: Mapped[list[Subject]] = relationship(
-        secondary=session_subjects,
+        secondary=sessions_classes_subject,
+        primaryjoin="sessions.id == sessions_classes_subject.c.session_id",
+        secondaryjoin="subjects.id == sessions_classes_subject.c.subject_id",
         back_populates="sessions",
     )
     classes: Mapped[list[Class]] = relationship(
-        secondary=session_classes,
+        secondary=sessions_classes_subject,
+        primaryjoin="sessions.id == sessions_classes_subject.c.session_id",
+        secondaryjoin="classes.id == sessions_classes_subject.c.class_id",
         back_populates="sessions",
     )
 

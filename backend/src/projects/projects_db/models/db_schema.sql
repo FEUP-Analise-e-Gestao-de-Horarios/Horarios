@@ -121,16 +121,11 @@ CREATE TABLE session_teachers (
     PRIMARY KEY (session_id, teacher_id)
 );
 
-CREATE TABLE session_subjects (
-    session_id  UUID NOT NULL REFERENCES sessions(id),
-    subject_id  UUID NOT NULL REFERENCES subjects(id),
-
-    PRIMARY KEY (session_id, subject_id)
-);
-
-CREATE TABLE session_classes (
+CREATE TABLE sessions_classes_subject (
     session_id  UUID NOT NULL REFERENCES sessions(id),
     class_id    UUID NOT NULL REFERENCES classes(id),
+    subject_id  UUID NOT NULL REFERENCES subjects(id),
 
-    PRIMARY KEY (session_id, class_id)
+    PRIMARY KEY (session_id, class_id, subject_id),
+    UNIQUE (session_id, class_id)
 );
