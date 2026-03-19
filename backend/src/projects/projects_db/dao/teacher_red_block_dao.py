@@ -1,11 +1,11 @@
 from uuid import UUID
 
-from backend.src.projects.projects_db.schemas.weekday import WeekDay
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.models.teacher_red_block import TeacherRedBlock
+from src.projects.projects_db.schemas.weekday import WeekDay
 
 
 class TeacherRedBlockDAO(BaseDAO[TeacherRedBlock]):

@@ -1,7 +1,8 @@
 from collections.abc import Sequence
 
-from backend.src.projects.projects_db.schemas.weekday import WeekDay
 from bs4 import Tag
+
+from src.projects.projects_db.schemas.weekday import WeekDay
 
 Matrix = Sequence[Sequence[Tag]]
 """A 2D grid of BeautifulSoup ``Tag`` objects representing an HTML table.
