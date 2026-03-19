@@ -1,6 +1,5 @@
 import re
 from datetime import datetime
-from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
@@ -25,7 +24,7 @@ class CreateProjectResponse(BaseModel):
 class ProjectResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: UUID
+    id: int
     name: str
     url: str
 
