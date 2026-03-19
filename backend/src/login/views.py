@@ -34,6 +34,42 @@ class LoginView(View):
         return JsonResponse({"error": "Bad Credentials!"}, status=401)
 
 
+class ForgotPasswordView(View):
+    def post(self, request):
+        if request.user.is_authenticated:
+            return redirect("/")
+
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+        email_addr = data.get("email", "")
+
+        if User.objects.filter(email=email_addr).exists():
+            user = User.objects.get(email__exact=email_addr)
+            email_subject = "Forgot password"
+            email_message = render_to_string(
+                "login/email_forgot_password.html",
+                {
+                    "name": user.username,
+                    "domain": "10.227.107.115",
+                    "uid": urlsafe_base64_encode(force_bytes(user.pk)),
+                    "token": generate_token.make_token(user),
+                },
+            )
+            email = EmailMessage(
+                email_subject,
+                email_message,
+                base.EMAIL_HOST_USER,
+                [email_addr],
+            )
+            email.fail_silently = True
+            email.send()
+
+        return JsonResponse({"detail": "ok"})
+
+
 # signouts the user
 def signout(request):
     logout(request)
@@ -75,40 +111,6 @@ def password_change(request):
     else:
         form = PasswordChangeForm(user=request.user)
     return render(request, "login/password_reset.html", {"form": form})
-
-
-# asks for email and sends an email to change password
-def forgot_password(request):
-    if request.user.is_authenticated:
-        return redirect("/")
-
-    if request.method == "POST":
-        if User.objects.filter(email=request.POST["email"]).exists():
-            user = User.objects.get(email__exact=request.POST["email"])
-            email_subject = "Forgot password"
-            email_message = render_to_string(
-                "login/email_forgot_password.html",
-                {
-                    "name": user.username,
-                    "domain": "10.227.107.115",
-                    "uid": urlsafe_base64_encode(force_bytes(user.pk)),
-                    "token": generate_token.make_token(user),
-                },
-            )
-            email = EmailMessage(
-                email_subject,
-                email_message,
-                base.EMAIL_HOST_USER,
-                [request.POST["email"]],
-            )
-            email.fail_silently = True
-            email.send()
-            return redirect("login")
-        else:
-            messages.error(request, "Email doesn't exist")
-            return render(request, "login/forgot_password.html")
-    else:
-        return render(request, "login/forgot_password.html")
 
 
 # Change password of user (does not ask the old password)

@@ -5,6 +5,7 @@ from . import views
 # urls for auth
 urlpatterns = [
     path("login", views.LoginView.as_view(), name="api-login"),
+    path("forgot_password", views.ForgotPasswordView.as_view(), name="api-forgot-password"),
     path("signout", views.signout, name="signout"),
     path("activate/<uidb64>/<token>", views.activate, name="activate"),
     path(
@@ -14,5 +15,4 @@ urlpatterns = [
     ),
     path("password_change", views.password_change, name="password_change"),
     path("change_password", views.password_change_no_old_pass, name="password_change_no_old_pass"),
-    path("forgot_password", views.forgot_password, name="forgot_password"),
 ]
