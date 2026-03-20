@@ -1,6 +1,7 @@
 import re
+from datetime import datetime
 
-from pydantic import BaseModel, Field, HttpUrl, field_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
 
 class CreateProjectRequest(BaseModel):
@@ -18,3 +19,21 @@ class CreateProjectRequest(BaseModel):
 class CreateProjectResponse(BaseModel):
     id: int
     name: str
+
+
+class ProjectResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    url: str
+
+    has_selected_aulas_em_paralelo: bool
+    started_ingestion_at: datetime | None
+    finished_ingestion_at: datetime | None
+    failed_ingestion_at: datetime | None
+
+
+class ProjectsResponse(BaseModel):
+    projects: list[ProjectResponse]
+    count: int

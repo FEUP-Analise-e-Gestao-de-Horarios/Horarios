@@ -9,7 +9,11 @@ from src.core.schemas import SuccessResponse
 from src.ingestion.manager import IngestionManager
 from src.parser.utils import validate_request_body
 from src.projects.models import Project
-from src.projects.schemas import CreateProjectRequest, CreateProjectResponse
+from src.projects.schemas import (
+    CreateProjectRequest,
+    CreateProjectResponse,
+    ProjectsResponse,
+)
 from src.projects.services.project_db import create_project_db
 
 logger = logging.getLogger(__name__)
@@ -17,7 +21,12 @@ logger = logging.getLogger(__name__)
 
 class ProjectsView(View):
     def get(self, request: HttpRequest) -> HttpResponse:
-        return HttpResponse()
+        projects = list(Project.objects.all())
+        response = SuccessResponse(
+            message="Projects retrieved successfully",
+            data=ProjectsResponse(projects=projects, count=len(projects)),
+        )
+        return JsonResponse(response.model_dump())
 
     def post(self, request: HttpRequest) -> HttpResponse:
         # -- Check user auth ---------------------------------------------------

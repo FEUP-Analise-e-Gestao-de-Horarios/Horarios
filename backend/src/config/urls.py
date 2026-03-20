@@ -28,15 +28,16 @@ spa_view = ensure_csrf_cookie(
 
 
 urlpatterns = [
-    path("admin/", admin.site.urls, name="admin"),
-    path("projects/", include("src.projects.urls")),
     # React URLs
+    path("", spa_view, name="dashboard"),
     path("login", spa_view, name="login"),
-    # Login API + other auth endpoints
+    path("react-dashboard/", spa_view, name="react-dashboard"),
+    # API endpoints
+    path("admin/", admin.site.urls, name="admin"),  # TODO Change
+    path("api/projects/", include("src.projects.urls")),
     path("api/auth/", include("src.login.urls")),
     # TODO: Check URLs bellow
     path("parser/", include("src.parser.urls")),
-    path("", views.starter),
     path("groups", views.groups),
     path("deleteProject", views.deleteProject),
     path("editturnos/<int:projId>", views.editTurnos),
