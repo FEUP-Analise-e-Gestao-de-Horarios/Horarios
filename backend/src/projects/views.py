@@ -159,7 +159,7 @@ class ProjectView(View):
         return JsonResponse(
             SuccessResponse(
                 message="Project renamed successfully",
-                data={"id": project.pk, "name": project.name},
+                data=ProjectResponse.model_validate(project),
             ).model_dump(),
         )
 
