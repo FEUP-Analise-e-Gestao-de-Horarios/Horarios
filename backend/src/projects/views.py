@@ -5,6 +5,7 @@ from http import HTTPStatus
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views import View
 
+from src.core.errors import ApiError, error_response
 from src.core.schemas import SuccessResponse
 from src.ingestion.manager import IngestionManager
 from src.parser.utils import validate_request_body
@@ -25,9 +26,10 @@ class ProjectsView(View):
     def get(self, request: HttpRequest) -> HttpResponse:
         # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:
-            return JsonResponse(
-                {"error": "User is not authenticated"},
+            return error_response(
                 status=HTTPStatus.UNAUTHORIZED,
+                code=ApiError.AUTH_NOT_AUTHENTICATED,
+                message="User is not authenticated.",
             )
 
         # -- Fetch all projects ------------------------------------------------
@@ -41,9 +43,10 @@ class ProjectsView(View):
     def post(self, request: HttpRequest) -> HttpResponse:
         # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:
-            return JsonResponse(
-                {"error": "User is not authenticated"},
+            return error_response(
                 status=HTTPStatus.UNAUTHORIZED,
+                code=ApiError.AUTH_NOT_AUTHENTICATED,
+                message="User is not authenticated.",
             )
 
         # -- Validate and extract input ----------------------------------------
@@ -57,9 +60,10 @@ class ProjectsView(View):
 
         # -- Check if Project already exists -----------------------------------
         if Project.objects.filter(name=project_name).exists():
-            return JsonResponse(
-                {"error": f"A project with the name '{project_name}' already exists"},
+            return error_response(
                 status=HTTPStatus.BAD_REQUEST,
+                code=ApiError.PROJECTS_CREATE_DUPLICATED_NAME,
+                message=f"A project with the name '{project_name}' already exists.",
             )
 
         # -- Create Project's entry and DB -------------------------------------
@@ -71,9 +75,10 @@ class ProjectsView(View):
             create_project_db(proj_id)
         except Exception:
             proj.delete()
-            return JsonResponse(
-                {"error": "Failed to create project"},
+            return error_response(
                 status=HTTPStatus.INTERNAL_SERVER_ERROR,
+                code=ApiError.PROJECTS_CREATE_FAILED,
+                message="Failed to create project.",
             )
 
         # -- Run Ingestion in a background thread ------------------------------
@@ -100,18 +105,20 @@ class ProjectView(View):
     def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
         # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:
-            return JsonResponse(
-                {"error": "User is not authenticated"},
+            return error_response(
                 status=HTTPStatus.UNAUTHORIZED,
+                code=ApiError.AUTH_NOT_AUTHENTICATED,
+                message="User is not authenticated.",
             )
 
         # -- Fetch project -----------------------------------------------------
         try:
             project = Project.objects.get(pk=project_id)
         except Project.DoesNotExist:
-            return JsonResponse(
-                {"error": "Project not found"},
+            return error_response(
                 status=HTTPStatus.NOT_FOUND,
+                code=ApiError.PROJECTS_NOT_FOUND,
+                message="Project not found.",
             )
 
         # -- Return project ----------------------------------------------------
@@ -124,9 +131,10 @@ class ProjectView(View):
     def patch(self, request: HttpRequest, project_id: int) -> HttpResponse:
         # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:
-            return JsonResponse(
-                {"error": "User is not authenticated"},
+            return error_response(
                 status=HTTPStatus.UNAUTHORIZED,
+                code=ApiError.AUTH_NOT_AUTHENTICATED,
+                message="User is not authenticated.",
             )
 
         # -- Validate and extract input ----------------------------------------
@@ -139,17 +147,19 @@ class ProjectView(View):
         try:
             project = Project.objects.get(pk=project_id)
         except Project.DoesNotExist:
-            return JsonResponse(
-                {"error": "Project not found"},
+            return error_response(
                 status=HTTPStatus.NOT_FOUND,
+                code=ApiError.PROJECTS_NOT_FOUND,
+                message="Project not found.",
             )
 
         # -- Check if name is taken --------------------------------------------
         new_name = validated.name
         if Project.objects.filter(name=new_name).exclude(pk=project_id).exists():
-            return JsonResponse(
-                {"error": f"A project with the name '{new_name}' already exists"},
+            return error_response(
                 status=HTTPStatus.BAD_REQUEST,
+                code=ApiError.PROJECTS_RENAME_DUPLICATED_NAME,
+                message=f"A project with the name '{new_name}' already exists.",
             )
 
         # -- Rename and return -------------------------------------------------
@@ -166,18 +176,20 @@ class ProjectView(View):
     def delete(self, request: HttpRequest, project_id: int) -> HttpResponse:
         # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:
-            return JsonResponse(
-                {"error": "User is not authenticated"},
+            return error_response(
                 status=HTTPStatus.UNAUTHORIZED,
+                code=ApiError.AUTH_NOT_AUTHENTICATED,
+                message="User is not authenticated.",
             )
 
         # -- Fetch project -----------------------------------------------------
         try:
             project = Project.objects.get(pk=project_id)
         except Project.DoesNotExist:
-            return JsonResponse(
-                {"error": "Project not found"},
+            return error_response(
                 status=HTTPStatus.NOT_FOUND,
+                code=ApiError.PROJECTS_NOT_FOUND,
+                message="Project not found.",
             )
 
         # -- Delete project and its DB -----------------------------------------

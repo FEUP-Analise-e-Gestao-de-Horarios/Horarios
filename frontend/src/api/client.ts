@@ -22,7 +22,16 @@ async function request<T>(
     ...(data !== undefined ? { body: JSON.stringify(data) } : {}),
   });
 
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    let code: string | undefined;
+    let apiMessage: string | undefined;
+    try {
+      const body = (await res.json()) as { error?: string; message?: string };
+      code = body.error;
+      apiMessage = body.message;
+    } catch {}
+    throw Object.assign(new Error(`HTTP ${res.status}`), { code, apiMessage, status: res.status });
+  }
   return res.json() as Promise<T>;
 }
 

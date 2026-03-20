@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api } from "@/api/client";
+import { ApiError } from "@/types/api";
 import type { Project, ProjectsResponse } from "@/types/project";
 
 interface NewProjectModalProps {
@@ -10,8 +11,10 @@ interface NewProjectModalProps {
 export default function NewProjectModal({ onClose, onProjectsUpdated }: NewProjectModalProps) {
   const [projectName, setProjectName] = useState("");
   const [scheduleLink, setScheduleLink] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const handleCreate = () => {
+    setError(null);
     api
       .post("/api/projects/", { name: projectName, url: scheduleLink })
       .then(() => api.get<ProjectsResponse>("/api/projects/"))
@@ -19,7 +22,15 @@ export default function NewProjectModal({ onClose, onProjectsUpdated }: NewProje
         onProjectsUpdated(res.data.projects);
         onClose();
       })
-      .catch(() => {});
+      .catch((err: { code?: string }) => {
+        if (err.code === ApiError.PROJECTS_CREATE_DUPLICATED_NAME) {
+          setError("Já existe um projeto com esse nome.");
+        } else if (err.code === ApiError.INVALID_BODY) {
+          setError("Link inválido.");
+        } else {
+          setError("Ocorreu um erro. Tente novamente.");
+        }
+      });
   };
 
   return (
@@ -72,6 +83,8 @@ export default function NewProjectModal({ onClose, onProjectsUpdated }: NewProje
             className="px-3 py-2.5 rounded border border-[#8c2d19] text-[15px] outline-none bg-white text-[#08060d] focus:ring-1 focus:ring-[rgba(140,45,25,0.5)]"
           />
         </div>
+
+        {error && <p className="text-red-600 text-sm m-0">{error}</p>}
 
         <div className="flex justify-end gap-2">
           <button

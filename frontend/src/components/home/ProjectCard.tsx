@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
+import { ApiError } from "@/types/api";
 import type { Project, ProjectsResponse } from "@/types/project";
 import { Pencil, Trash2, Check, X, Loader2 } from "lucide-react";
 
@@ -76,7 +77,9 @@ export default function ProjectCard({ project, onProjectsUpdated }: ProjectCardP
   const isReady = !!project.finished_ingestion_at;
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(project.name);
+  const [renameError, setRenameError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -89,6 +92,7 @@ export default function ProjectCard({ project, onProjectsUpdated }: ProjectCardP
       setEditName(project.name);
       return;
     }
+    setRenameError(null);
     api
       .patch(`/api/projects/${project.id}/`, { name: editName })
       .then(() => api.get<ProjectsResponse>("/api/projects/"))
@@ -96,17 +100,32 @@ export default function ProjectCard({ project, onProjectsUpdated }: ProjectCardP
         onProjectsUpdated(res.data.projects);
         setIsEditing(false);
       })
-      .catch(() => {});
+      .catch((err: { code?: string }) => {
+        if (err.code === ApiError.PROJECTS_RENAME_DUPLICATED_NAME) {
+          setRenameError("Nome já existe.");
+        } else if (err.code === ApiError.INVALID_BODY) {
+          setRenameError("Nome inválido.");
+        } else {
+          setRenameError("Erro ao renomear.");
+        }
+      });
   };
 
   const handleDelete = () => {
+    setDeleteError(null);
     api
       .delete(`/api/projects/${project.id}/`)
       .then(() => api.get<ProjectsResponse>("/api/projects/"))
       .then((res) => {
         onProjectsUpdated(res.data.projects);
       })
-      .catch(() => {});
+      .catch((err: { code?: string }) => {
+        if (err.code === ApiError.PROJECTS_NOT_FOUND) {
+          setDeleteError("Projeto não encontrado.");
+        } else {
+          setDeleteError("Erro ao apagar. Tente novamente.");
+        }
+      });
   };
 
   return (
@@ -116,6 +135,7 @@ export default function ProjectCard({ project, onProjectsUpdated }: ProjectCardP
           <p className="text-[#08060d] text-sm text-center m-0">
             Tens a certeza que queres apagar este projeto?
           </p>
+          {deleteError && <p className="text-red-600 text-xs text-center m-0">{deleteError}</p>}
           <div className="flex gap-2">
             <button
               type="button"
@@ -147,40 +167,44 @@ export default function ProjectCard({ project, onProjectsUpdated }: ProjectCardP
 
         <div className="w-full px-3.5 py-2 flex flex-col gap-1 box-border">
           {isEditing ? (
-            <div className="flex items-center gap-1">
-              <input
-                ref={inputRef}
-                type="text"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleRename();
-                  if (e.key === "Escape") {
+            <div className="flex flex-col gap-0.5">
+              <div className="flex items-center gap-1">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleRename();
+                    if (e.key === "Escape") {
+                      setIsEditing(false);
+                      setEditName(project.name);
+                    }
+                  }}
+                  className="flex-1 text-sm px-1.5 py-0.5 border border-[#8c2d19] rounded outline-none text-[#08060d] min-w-0 focus:ring-1 focus:ring-[rgba(140,45,25,0.5)]"
+                />
+                <button
+                  type="button"
+                  onClick={handleRename}
+                  className="text-green-600 hover:text-green-800 transition-colors bg-transparent border-none cursor-pointer p-0 flex-shrink-0"
+                  title="Guardar"
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
                     setIsEditing(false);
                     setEditName(project.name);
-                  }
-                }}
-                className="flex-1 text-sm px-1.5 py-0.5 border border-[#8c2d19] rounded outline-none text-[#08060d] min-w-0 focus:ring-1 focus:ring-[rgba(140,45,25,0.5)]"
-              />
-              <button
-                type="button"
-                onClick={handleRename}
-                className="text-green-600 hover:text-green-800 transition-colors bg-transparent border-none cursor-pointer p-0 flex-shrink-0"
-                title="Guardar"
-              >
-                <Check className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsEditing(false);
-                  setEditName(project.name);
-                }}
-                className="text-[#6b6375] hover:text-[#08060d] transition-colors bg-transparent border-none cursor-pointer p-0 flex-shrink-0"
-                title="Cancelar"
-              >
-                <X className="w-4 h-4" />
-              </button>
+                    setRenameError(null);
+                  }}
+                  className="text-[#6b6375] hover:text-[#08060d] transition-colors bg-transparent border-none cursor-pointer p-0 flex-shrink-0"
+                  title="Cancelar"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              {renameError && <p className="text-red-600 text-xs m-0">{renameError}</p>}
             </div>
           ) : (
             <div className="flex items-center justify-between group">

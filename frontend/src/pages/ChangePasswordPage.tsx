@@ -1,4 +1,5 @@
 import { api } from "@/api/client";
+import { ApiError } from "@/types/api";
 import AuthPageLayout from "@/components/auth/AuthPageLayout";
 import BackLink from "@/components/auth/BackLink";
 import FormCard from "@/components/auth/FormCard";
@@ -131,8 +132,17 @@ export default function ChangePasswordPage() {
       .then(() => {
         setCountdown(3);
       })
-      .catch(() => {
-        setFieldError("oldPassword", "Palavra-passe antiga incorreta.");
+      .catch((err: { code?: string; apiMessage?: string }) => {
+        if (err.code === ApiError.AUTH_INVALID_OLD_PASSWORD) {
+          setFieldError("oldPassword", "Palavra-passe antiga incorreta.");
+        } else if (err.code === ApiError.AUTH_PASSWORD_POLICY_VIOLATION) {
+          setFieldError(
+            "newPassword",
+            err.apiMessage ?? "A palavra-passe não cumpre os requisitos de segurança.",
+          );
+        } else {
+          setFieldError("oldPassword", "Ocorreu um erro. Tente novamente.");
+        }
       })
       .finally(() => {
         setLoading(false);
