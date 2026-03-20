@@ -15,5 +15,5 @@ export const router = createBrowserRouter([
   { path: ROUTES.FORGOT_PASSWORD, element: <ForgotPasswordPage /> },
   { path: ROUTES.CHANGE_PASSWORD, element: <ChangePasswordPage />, loader: requireAuth },
 
-  { path: "/react-schedule", element: <SchedulePage /> },
+  { path: ROUTES.SCHEDULE, element: <SchedulePage />, loader: requireAuth },
 ]);
