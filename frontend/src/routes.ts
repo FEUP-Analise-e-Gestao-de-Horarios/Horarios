@@ -2,5 +2,6 @@ export const ROUTES = {
   HOME: "/",
   LOGIN: "/login",
   FORGOT_PASSWORD: "/forgot-password",
-  CHANGE_PASSWORD: "/react-change-password",
+  CHANGE_PASSWORD: "/change-password",
+  SCHEDULE: "/projects/:projectId",
 } as const;

@@ -25,7 +25,7 @@ export default function HomePage() {
         <NewProjectCard onClick={() => setShowNewProject(true)} />
 
         {projects.map((project) => (
-          <ProjectCard key={project.id} project={project} />
+          <ProjectCard key={project.id} project={project} onProjectsUpdated={setProjects} />
         ))}
       </div>
 

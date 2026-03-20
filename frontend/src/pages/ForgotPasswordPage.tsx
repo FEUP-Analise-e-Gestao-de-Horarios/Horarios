@@ -1,4 +1,5 @@
 import { api } from "@/api/client";
+import { ApiError } from "@/types/api";
 import AuthPageLayout from "@/components/auth/AuthPageLayout";
 import BackLink from "@/components/auth/BackLink";
 import FormCard from "@/components/auth/FormCard";
@@ -31,8 +32,12 @@ export default function ForgotPasswordPage() {
       .then(() => {
         setSubmitted(true);
       })
-      .catch(() => {
-        setError("Ocorreu um erro. Tente novamente mais tarde.");
+      .catch((err: { code?: string }) => {
+        if (err.code === ApiError.AUTH_ALREADY_AUTHENTICATED) {
+          setError("Já tem sessão iniciada.");
+        } else {
+          setError("Ocorreu um erro. Tente novamente mais tarde.");
+        }
         shake("email");
       })
       .finally(() => {

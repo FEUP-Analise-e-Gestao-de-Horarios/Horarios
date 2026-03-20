@@ -12,6 +12,7 @@ from django.utils.http import urlsafe_base64_encode
 from django.views.decorators.http import require_GET, require_POST
 
 from src.config.settings import base
+from src.core.errors import ApiError, ErrorResponse
 from src.login.tokens import generate_token
 from src.users.models import User
 
@@ -19,7 +20,12 @@ from src.users.models import User
 @require_GET
 def me(request) -> JsonResponse:
     if not request.user.is_authenticated:
-        return JsonResponse({"error": "Not authenticated"}, status=401)
+        return ErrorResponse(
+            status=401,
+            code=ApiError.AUTH_NOT_AUTHENTICATED,
+            message="Not authenticated.",
+        )
+
     user = request.user
     return JsonResponse(
         {
@@ -36,7 +42,7 @@ def login(request) -> JsonResponse:
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
-        return JsonResponse({"error": "Invalid JSON"}, status=400)
+        return ErrorResponse(status=400, code=ApiError.INVALID_JSON, message="Invalid JSON.")
 
     username = data.get("username", "")
     password = data.get("password", "")
@@ -46,7 +52,11 @@ def login(request) -> JsonResponse:
         django_login(request, user)
         return JsonResponse({"ok": True, "username": user.username})
 
-    return JsonResponse({"error": "Bad Credentials!"}, status=401)
+    return ErrorResponse(
+        status=401,
+        code=ApiError.AUTH_BAD_CREDENTIALS,
+        message="Invalid username or password.",
+    )
 
 
 @require_POST
@@ -58,12 +68,16 @@ def logout(request) -> JsonResponse:
 @require_POST
 def forgot_password(request) -> JsonResponse:
     if request.user.is_authenticated:
-        return JsonResponse({"error": "Already authenticated"}, status=400)
+        return ErrorResponse(
+            status=400,
+            code=ApiError.AUTH_ALREADY_AUTHENTICATED,
+            message="Already authenticated.",
+        )
 
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
-        return JsonResponse({"error": "Invalid JSON"}, status=400)
+        return ErrorResponse(status=400, code=ApiError.INVALID_JSON, message="Invalid JSON.")
 
     email_addr = data.get("email", "")
 
@@ -94,18 +108,26 @@ def forgot_password(request) -> JsonResponse:
 @require_POST
 def change_password(request) -> JsonResponse:
     if not request.user.is_authenticated:
-        return JsonResponse({"error": "Not authenticated"}, status=401)
+        return ErrorResponse(
+            status=401,
+            code=ApiError.AUTH_NOT_AUTHENTICATED,
+            message="Not authenticated.",
+        )
 
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
-        return JsonResponse({"error": "Invalid JSON"}, status=400)
+        return ErrorResponse(status=400, code=ApiError.INVALID_JSON, message="Invalid JSON.")
 
     old_password = data.get("old_password", "")
     new_password = data.get("new_password", "")
 
     if not request.user.check_password(old_password):
-        return JsonResponse({"error": "Incorrect old password."}, status=401)
+        return ErrorResponse(
+            status=401,
+            code=ApiError.AUTH_INVALID_OLD_PASSWORD,
+            message="Incorrect old password.",
+        )
 
     form = PasswordChangeForm(
         user=request.user,
@@ -118,7 +140,11 @@ def change_password(request) -> JsonResponse:
 
     if not form.is_valid():
         errors = [e for error_list in form.errors.values() for e in error_list]
-        return JsonResponse({"error": errors[0]}, status=400)
+        return ErrorResponse(
+            status=400,
+            code=ApiError.AUTH_PASSWORD_POLICY_VIOLATION,
+            message=errors[0],
+        )
 
     form.save()
     update_session_auth_hash(request, form.user)

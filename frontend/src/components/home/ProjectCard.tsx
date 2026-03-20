@@ -1,20 +1,43 @@
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import type { Project } from "@/types/project";
+import { api } from "@/api/client";
+import { ApiError } from "@/types/api";
+import type { Project, ProjectsResponse } from "@/types/project";
+import { Pencil, Trash2, Check, X, Loader2 } from "lucide-react";
 
 interface ProjectCardProps {
   project: Project;
+  onProjectsUpdated: (projects: Project[]) => void;
 }
 
-function getElapsedTime(since: string): string {
-  const diff = Date.now() - new Date(since).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return "< 1 min";
-  if (minutes < 60) return `${minutes} min`;
+function useElapsedSeconds(since: string | null | undefined): number {
+  const [seconds, setSeconds] = useState(() =>
+    since ? Math.floor((Date.now() - new Date(since).getTime()) / 1000) : 0,
+  );
+
+  useEffect(() => {
+    if (!since) return;
+    const id = setInterval(() => {
+      setSeconds(Math.floor((Date.now() - new Date(since).getTime()) / 1000));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [since]);
+
+  return seconds;
+}
+
+function formatElapsed(totalSeconds: number): string {
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes < 60) return `${minutes}m ${seconds}s`;
   const hours = Math.floor(minutes / 60);
-  return `${hours}h ${minutes % 60}m`;
+  return `${hours}h ${minutes % 60}m ${seconds}s`;
 }
 
 function IngestionStatus({ project }: { project: Project }) {
+  const elapsed = useElapsedSeconds(project.started_ingestion_at);
+
   if (project.failed_ingestion_at) {
     return (
       <div className="flex items-center gap-1.5 text-xs text-red-600">
@@ -33,13 +56,10 @@ function IngestionStatus({ project }: { project: Project }) {
     );
   }
 
-  const startedAt = project.started_ingestion_at;
-  if (startedAt) {
-    const elapsed = getElapsedTime(startedAt);
+  if (project.started_ingestion_at) {
     return (
       <div className="flex items-center gap-1.5 text-xs text-amber-600">
-        <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse" />A processar
-        — {elapsed}
+        <Loader2 className="w-3 h-3 animate-spin" />A processar — {formatElapsed(elapsed)}
       </div>
     );
   }
@@ -52,31 +72,166 @@ function IngestionStatus({ project }: { project: Project }) {
   );
 }
 
-export default function ProjectCard({ project }: ProjectCardProps) {
+export default function ProjectCard({ project, onProjectsUpdated }: ProjectCardProps) {
   const navigate = useNavigate();
   const isReady = !!project.finished_ingestion_at;
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(project.name);
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditing) inputRef.current?.focus();
+  }, [isEditing]);
+
+  const handleRename = () => {
+    if (!editName.trim() || editName === project.name) {
+      setIsEditing(false);
+      setEditName(project.name);
+      return;
+    }
+    setRenameError(null);
+    api
+      .patch(`/api/projects/${project.id}/`, { name: editName })
+      .then(() => api.get<ProjectsResponse>("/api/projects/"))
+      .then((res) => {
+        onProjectsUpdated(res.data.projects);
+        setIsEditing(false);
+      })
+      .catch((err: { code?: string }) => {
+        if (err.code === ApiError.PROJECTS_RENAME_DUPLICATED_NAME) {
+          setRenameError("Nome já existe.");
+        } else if (err.code === ApiError.INVALID_BODY) {
+          setRenameError("Nome inválido.");
+        } else {
+          setRenameError("Erro ao renomear.");
+        }
+      });
+  };
+
+  const handleDelete = () => {
+    setDeleteError(null);
+    api
+      .delete(`/api/projects/${project.id}/`)
+      .then(() => api.get<ProjectsResponse>("/api/projects/"))
+      .then((res) => {
+        onProjectsUpdated(res.data.projects);
+      })
+      .catch((err: { code?: string }) => {
+        if (err.code === ApiError.PROJECTS_NOT_FOUND) {
+          setDeleteError("Projeto não encontrado.");
+        } else {
+          setDeleteError("Erro ao apagar. Tente novamente.");
+        }
+      });
+  };
 
   return (
-    <button
-      type="button"
-      disabled={!isReady}
-      onClick={() => {
-        if (isReady) void navigate(`/editturnos/${project.id}`);
-      }}
-      className={`w-[220px] h-[220px] bg-white border border-[#e5e4e7] rounded-lg flex flex-col items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.08)] overflow-hidden p-0 text-left ${isReady ? "cursor-pointer hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)] transition-shadow" : "cursor-default"}`}
-    >
-      <div className="w-full flex-1 flex items-center justify-center bg-[#f9f7f4] rounded-t-lg text-[64px]">
-        🗄️
-      </div>
-      <div className="w-full px-3.5 py-2 flex flex-col gap-1 box-border">
-        <div className="flex justify-between items-center">
-          <span className="text-[#08060d] font-medium max-w-[150px] break-words text-sm">
-            {project.name}
-          </span>
-          <span className="text-xl cursor-pointer text-[#6b6375] tracking-[2px]">···</span>
+    <div className="relative w-[220px] h-[220px]">
+      {showDeleteConfirm && (
+        <div className="absolute inset-0 z-10 bg-white rounded-lg border border-[#e5e4e7] flex flex-col items-center justify-center gap-3 p-5 shadow-[0_4px_12px_rgba(0,0,0,0.12)]">
+          <p className="text-[#08060d] text-sm text-center m-0">
+            Tens a certeza que queres apagar este projeto?
+          </p>
+          {deleteError && <p className="text-red-600 text-xs text-center m-0">{deleteError}</p>}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(false)}
+              className="px-4 py-1.5 rounded border-none bg-[#6b7280] text-white cursor-pointer text-sm hover:bg-[#555b66] transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="px-4 py-1.5 rounded border-none bg-[#8c2d19] text-white cursor-pointer text-sm font-semibold hover:bg-[#722415] transition-colors"
+            >
+              Apagar
+            </button>
+          </div>
         </div>
-        <IngestionStatus project={project} />
+      )}
+
+      <div className="w-full h-full bg-white border border-[#e5e4e7] rounded-lg flex flex-col shadow-[0_2px_8px_rgba(0,0,0,0.08)] overflow-hidden hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)] transition-shadow">
+        <button
+          type="button"
+          disabled={!isReady}
+          onClick={() => void navigate(`/projects/${project.id}`)}
+          className={`w-full flex-1 flex items-center justify-center bg-[#f9f7f4] rounded-t-lg text-[64px] border-none bg-none ${isReady ? "cursor-pointer" : "cursor-default"}`}
+        >
+          🗄️
+        </button>
+
+        <div className="w-full px-3.5 py-2 flex flex-col gap-1 box-border">
+          {isEditing ? (
+            <div className="flex flex-col gap-0.5">
+              <div className="flex items-center gap-1">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleRename();
+                    if (e.key === "Escape") {
+                      setIsEditing(false);
+                      setEditName(project.name);
+                    }
+                  }}
+                  className="flex-1 text-sm px-1.5 py-0.5 border border-[#8c2d19] rounded outline-none text-[#08060d] min-w-0 focus:ring-1 focus:ring-[rgba(140,45,25,0.5)]"
+                />
+                <button
+                  type="button"
+                  onClick={handleRename}
+                  className="text-green-600 hover:text-green-800 transition-colors bg-transparent border-none cursor-pointer p-0 flex-shrink-0"
+                  title="Guardar"
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditing(false);
+                    setEditName(project.name);
+                    setRenameError(null);
+                  }}
+                  className="text-[#6b6375] hover:text-[#08060d] transition-colors bg-transparent border-none cursor-pointer p-0 flex-shrink-0"
+                  title="Cancelar"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              {renameError && <p className="text-red-600 text-xs m-0">{renameError}</p>}
+            </div>
+          ) : (
+            <div className="flex items-center justify-between group">
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="text-[#08060d] font-medium text-sm truncate">{project.name}</span>
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-[#6b6375] hover:text-[#08060d] bg-transparent border-none cursor-pointer p-0 flex-shrink-0"
+                  title="Renomear"
+                >
+                  <Pencil className="w-3 h-3" />
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                className="text-[#6b6375] hover:text-[#8c2d19] transition-colors bg-transparent border-none cursor-pointer p-0 flex-shrink-0 ml-1"
+                title="Apagar"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+          <IngestionStatus project={project} />
+        </div>
       </div>
-    </button>
+    </div>
   );
 }
