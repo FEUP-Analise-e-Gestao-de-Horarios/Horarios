@@ -7,12 +7,12 @@ from sqlalchemy.orm import Session as DBSession
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.models._secondary_tables import (
-    session_classes,
     session_rooms,
-    session_subjects,
     session_teachers,
 )
+from src.projects.projects_db.models.class_ import Class
 from src.projects.projects_db.models.session import Session
+from src.projects.projects_db.models.session_class_subject import SessionClassSubject
 from src.projects.projects_db.models.subject import Subject
 from src.projects.projects_db.schemas.weekday import WeekDay
 
@@ -34,9 +34,7 @@ class SessionDAO(BaseDAO[Session]):
         duration: int,
         type_: str,
         original_block_id: UUID,
-        subject_ids: set[UUID],
         teacher_ids: set[UUID],
-        class_ids: set[UUID],
         room_ids: set[UUID],
     ) -> Session:
         session = self._create(
@@ -48,22 +46,10 @@ class SessionDAO(BaseDAO[Session]):
             original_block_id=original_block_id,
         )
 
-        if subject_ids:
-            self.session.execute(
-                session_subjects.insert(),
-                [{"session_id": session.id, "subject_id": sid} for sid in subject_ids],
-            )
-
         if teacher_ids:
             self.session.execute(
                 session_teachers.insert(),
                 [{"session_id": session.id, "teacher_id": tid} for tid in teacher_ids],
-            )
-
-        if class_ids:
-            self.session.execute(
-                session_classes.insert(),
-                [{"session_id": session.id, "class_id": cid} for cid in class_ids],
             )
 
         if room_ids:
@@ -75,8 +61,11 @@ class SessionDAO(BaseDAO[Session]):
         return session
 
     # -------------------------------------------------------------------
-    # -- Get
+    # -- Get Sessions
     # -------------------------------------------------------------------
+
+    def get(self, session_id: UUID) -> Session | None:
+        return self.session.scalars(select(Session).where(Session.id == session_id)).one_or_none()
 
     def get_by_subject_type(
         self,
@@ -85,9 +74,9 @@ class SessionDAO(BaseDAO[Session]):
     ) -> Sequence[Session]:
         return self.session.scalars(
             select(Session)
-            .join(Session.classes)
+            .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
             .where(
-                Session.subjects.contains(subject),
+                SessionClassSubject.subject_id == subject.id,
                 Session.type == type_,
             ),
         ).fetchall()
@@ -102,12 +91,12 @@ class SessionDAO(BaseDAO[Session]):
     ) -> Session | None:
         query = (
             select(Session)
-            .join(session_classes, session_classes.c.session_id == Session.id)
+            .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
             .where(
                 Session.week == week,
                 Session.weekday == weekday,
                 Session.start_time == start_time,
-                session_classes.c.class_id == class_id,
+                SessionClassSubject.class_id == class_id,
             )
         )
         return self.session.scalars(query).first()
@@ -125,9 +114,37 @@ class SessionDAO(BaseDAO[Session]):
         return self.session.scalars(query).one_or_none()
 
     def has_subject(self, session: Session, subject_code: str) -> bool:
-        query = select(Session).where(
-            Session.id == session.id,
-            Session.subjects.any(Subject.code.in_([subject_code])),
+        query = (
+            select(Session)
+            .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
+            .join(Subject, Subject.id == SessionClassSubject.subject_id)
+            .where(
+                Session.id == session.id,
+                Subject.code == subject_code,
+            )
+        )
+        return self.session.scalar(query) is not None
+
+    # -------------------------------------------------------------------
+    # -- Get Others
+    # -------------------------------------------------------------------
+
+    def get_subjects(self, session_id: UUID) -> list[Subject]:
+        return list(
+            self.session.scalars(
+                select(Subject)
+                .join(SessionClassSubject, SessionClassSubject.subject_id == Subject.id)
+                .where(SessionClassSubject.session_id == session_id)
+                .distinct(),
+            ).all(),
         )
 
-        return self.session.scalar(query) is not None
+    def get_classes(self, session_id: UUID) -> list[Class]:
+        return list(
+            self.session.scalars(
+                select(Class)
+                .join(SessionClassSubject, SessionClassSubject.class_id == Class.id)
+                .where(SessionClassSubject.session_id == session_id)
+                .distinct(),
+            ).all(),
+        )

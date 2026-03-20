@@ -1,17 +1,20 @@
 from uuid import UUID
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session as DBSession
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.dao.exceptions import MultipleNotFoundError
 from src.projects.projects_db.models.class_ import Class
 from src.projects.projects_db.models.degree import Degree
+from src.projects.projects_db.models.session import Session
+from src.projects.projects_db.models.session_class_subject import SessionClassSubject
+from src.projects.projects_db.models.subject import Subject
 from src.projects.projects_db.models.year import Year
 
 
 class ClassDAO(BaseDAO[Class]):
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: DBSession) -> None:
         super().__init__(Class, session)
 
     # -------------------------------------------------------------------
@@ -22,8 +25,13 @@ class ClassDAO(BaseDAO[Class]):
         return self._create(year_id=year_id, code=code, shift=shift)
 
     # -------------------------------------------------------------------
-    # -- Get
+    # -- Get Classes
     # -------------------------------------------------------------------
+
+    def get(self, class_id: UUID) -> Class | None:
+        return self.session.scalars(
+            select(Class).where(Class.id == class_id),
+        ).one_or_none()
 
     def get_by_code(self, code: str) -> Class | None:
         return self.session.scalars(
@@ -51,3 +59,27 @@ class ClassDAO(BaseDAO[Class]):
             raise MultipleNotFoundError("code", missing)
 
         return classes
+
+    # -------------------------------------------------------------------
+    # -- Get Others
+    # -------------------------------------------------------------------
+
+    def get_subjects(self, class_id: UUID) -> list[Subject]:
+        return list(
+            self.session.scalars(
+                select(Subject)
+                .join(SessionClassSubject, SessionClassSubject.subject_id == Subject.id)
+                .where(SessionClassSubject.class_id == class_id)
+                .distinct(),
+            ).all(),
+        )
+
+    def get_sessions(self, class_id: UUID) -> list[Session]:
+        return list(
+            self.session.scalars(
+                select(Session)
+                .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
+                .where(SessionClassSubject.class_id == class_id)
+                .distinct(),
+            ).all(),
+        )
