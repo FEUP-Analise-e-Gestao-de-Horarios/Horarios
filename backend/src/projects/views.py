@@ -12,6 +12,7 @@ from src.projects.models import Project
 from src.projects.schemas import (
     CreateProjectRequest,
     CreateProjectResponse,
+    ProjectResponse,
     ProjectsResponse,
     RenameProjectRequest,
 )
@@ -22,6 +23,14 @@ logger = logging.getLogger(__name__)
 
 class ProjectsView(View):
     def get(self, request: HttpRequest) -> HttpResponse:
+        # -- Check user auth ---------------------------------------------------
+        if not request.user.is_authenticated:
+            return JsonResponse(
+                {"error": "User is not authenticated"},
+                status=HTTPStatus.UNAUTHORIZED,
+            )
+
+        # -- Fetch all projects ------------------------------------------------
         projects = list(Project.objects.all())
         response = SuccessResponse(
             message="Projects retrieved successfully",
@@ -88,18 +97,15 @@ class ProjectsView(View):
 
 
 class ProjectView(View):
-    def patch(self, request: HttpRequest, project_id: int) -> HttpResponse:
+    def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
+        # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:
             return JsonResponse(
                 {"error": "User is not authenticated"},
                 status=HTTPStatus.UNAUTHORIZED,
             )
 
-        validated, err = validate_request_body(RenameProjectRequest, request.body)
-        if err:
-            return err
-        assert validated is not None
-
+        # -- Fetch project -----------------------------------------------------
         try:
             project = Project.objects.get(pk=project_id)
         except Project.DoesNotExist:
@@ -108,6 +114,37 @@ class ProjectView(View):
                 status=HTTPStatus.NOT_FOUND,
             )
 
+        # -- Return project ----------------------------------------------------
+        response = SuccessResponse(
+            message="Project retrieved successfully",
+            data=ProjectResponse.model_validate(project),
+        )
+        return JsonResponse(response.model_dump())
+
+    def patch(self, request: HttpRequest, project_id: int) -> HttpResponse:
+        # -- Check user auth ---------------------------------------------------
+        if not request.user.is_authenticated:
+            return JsonResponse(
+                {"error": "User is not authenticated"},
+                status=HTTPStatus.UNAUTHORIZED,
+            )
+
+        # -- Validate and extract input ----------------------------------------
+        validated, err = validate_request_body(RenameProjectRequest, request.body)
+        if err:
+            return err
+        assert validated is not None
+
+        # -- Fetch project -----------------------------------------------------
+        try:
+            project = Project.objects.get(pk=project_id)
+        except Project.DoesNotExist:
+            return JsonResponse(
+                {"error": "Project not found"},
+                status=HTTPStatus.NOT_FOUND,
+            )
+
+        # -- Check if name is taken --------------------------------------------
         new_name = validated.name
         if Project.objects.filter(name=new_name).exclude(pk=project_id).exists():
             return JsonResponse(
@@ -115,6 +152,7 @@ class ProjectView(View):
                 status=HTTPStatus.BAD_REQUEST,
             )
 
+        # -- Rename and return -------------------------------------------------
         project.name = new_name
         project.save(update_fields=["name"])
 
@@ -126,12 +164,14 @@ class ProjectView(View):
         )
 
     def delete(self, request: HttpRequest, project_id: int) -> HttpResponse:
+        # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:
             return JsonResponse(
                 {"error": "User is not authenticated"},
                 status=HTTPStatus.UNAUTHORIZED,
             )
 
+        # -- Fetch project -----------------------------------------------------
         try:
             project = Project.objects.get(pk=project_id)
         except Project.DoesNotExist:
@@ -140,6 +180,7 @@ class ProjectView(View):
                 status=HTTPStatus.NOT_FOUND,
             )
 
+        # -- Delete project and its DB -----------------------------------------
         delete_project_db(project.pk)
         project.delete()
 
