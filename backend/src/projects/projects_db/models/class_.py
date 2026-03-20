@@ -6,10 +6,10 @@ from sqlalchemy import ForeignKey, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.projects.projects_db.base import Base
-from src.projects.projects_db.models.session import sessions_classes_subject
 
 if TYPE_CHECKING:
-    from src.projects.projects_db.models import ClassRedBlock, Session, Subject, Year
+    from src.projects.projects_db.models import ClassRedBlock, Year
+    from src.projects.projects_db.models.session_class_subject import SessionClassSubject
 
 
 class Class(Base):
@@ -26,17 +26,8 @@ class Class(Base):
     # Relationships
     year: Mapped[Year] = relationship(back_populates="classes")
     red_blocks: Mapped[list[ClassRedBlock]] = relationship(back_populates="class_")
-    sessions: Mapped[list[Session]] = relationship(
-        secondary=sessions_classes_subject,
-        primaryjoin="classes.id == sessions_classes_subject.c.class_id",
-        secondaryjoin="sessions.id == sessions_classes_subject.c.session_id",
-        back_populates="classes",
-    )
-    subjects: Mapped[list[Subject]] = relationship(
-        secondary=sessions_classes_subject,
-        primaryjoin="classes.id == sessions_classes_subject.c.class_id",
-        secondaryjoin="subjects.id == sessions_classes_subject.c.subject_id",
-        back_populates="classes",
+    session_class_subjects: Mapped[list[SessionClassSubject]] = relationship(
+        back_populates="class_",
     )
 
     def __str__(self) -> str:

@@ -10,12 +10,12 @@ from src.projects.projects_db.base import Base
 from src.projects.projects_db.models._secondary_tables import (
     session_rooms,
     session_teachers,
-    sessions_classes_subject,
 )
 from src.projects.projects_db.schemas.weekday import WeekDay
 
 if TYPE_CHECKING:
-    from src.projects.projects_db.models import Class, Room, Subject, Teacher
+    from src.projects.projects_db.models import Room, Teacher
+    from src.projects.projects_db.models.session_class_subject import SessionClassSubject
 
 
 class Session(Base):
@@ -42,17 +42,8 @@ class Session(Base):
         secondary=session_teachers,
         back_populates="sessions",
     )
-    subjects: Mapped[list[Subject]] = relationship(
-        secondary=sessions_classes_subject,
-        primaryjoin="sessions.id == sessions_classes_subject.c.session_id",
-        secondaryjoin="subjects.id == sessions_classes_subject.c.subject_id",
-        back_populates="sessions",
-    )
-    classes: Mapped[list[Class]] = relationship(
-        secondary=sessions_classes_subject,
-        primaryjoin="sessions.id == sessions_classes_subject.c.session_id",
-        secondaryjoin="classes.id == sessions_classes_subject.c.class_id",
-        back_populates="sessions",
+    session_class_subjects: Mapped[list[SessionClassSubject]] = relationship(
+        back_populates="session",
     )
 
     def __str__(self) -> str:
