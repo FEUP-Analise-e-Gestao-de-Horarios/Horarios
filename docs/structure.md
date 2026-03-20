@@ -9,7 +9,6 @@ Horarios/
 ├── docs/                     # Project documentation
 ├── databases/                # SQLite databases
 │   ├── db.sqlite3            # Django meta-database (users, projects, groups)
-│   ├── init_project_db.sql   # DDL for a project's schedule database
 │   └── projects/             # Per-project schedule databases
 │       └── <id>/
 │           ├── general_database.db   # Live working database

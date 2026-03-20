@@ -8,7 +8,6 @@
 
 # Database
 databases/*
-!databases/init_project_db.sql
 *.sqlite3
 *.db
 *.db-shm

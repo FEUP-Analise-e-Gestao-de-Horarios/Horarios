@@ -10,9 +10,9 @@ COPY backend/Pipfile backend/Pipfile.lock ./backend/
 RUN cd backend && pipenv install --system --dev
 
 COPY backend/ ./backend/
-COPY databases/ ./databases/
 
-RUN chown -R appuser /workspace
+RUN mkdir -p /workspace/databases/projects \
+ && chown -R appuser /workspace
 USER appuser
 
 WORKDIR /workspace/backend
