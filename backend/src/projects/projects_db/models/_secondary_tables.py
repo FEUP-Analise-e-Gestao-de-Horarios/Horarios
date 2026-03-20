@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, Table, UniqueConstraint, Uuid
+from sqlalchemy import Column, ForeignKey, Table, Uuid
 
 from src.projects.projects_db.base import Base
 
@@ -34,13 +34,4 @@ session_teachers = Table(
         ForeignKey("teachers.id"),
         primary_key=True,
     ),
-)
-
-sessions_classes_subject = Table(
-    "sessions_classes_subject",
-    Base.metadata,
-    Column("session_id", Uuid(as_uuid=True), ForeignKey("sessions.id"), primary_key=True),
-    Column("class_id", Uuid(as_uuid=True), ForeignKey("classes.id"), primary_key=True),
-    Column("subject_id", Uuid(as_uuid=True), ForeignKey("subjects.id"), primary_key=True),
-    UniqueConstraint("session_id", "class_id", name="uq_session_class"),
 )
