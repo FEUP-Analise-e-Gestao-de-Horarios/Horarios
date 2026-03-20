@@ -29,7 +29,9 @@ async function request<T>(
       const body = (await res.json()) as { error?: string; message?: string };
       code = body.error;
       apiMessage = body.message;
-    } catch {}
+    } catch {
+      /* response body may not be JSON */
+    }
     throw Object.assign(new Error(`HTTP ${res.status}`), { code, apiMessage, status: res.status });
   }
   return res.json() as Promise<T>;

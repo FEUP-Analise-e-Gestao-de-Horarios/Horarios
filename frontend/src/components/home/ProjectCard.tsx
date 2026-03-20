@@ -159,7 +159,7 @@ export default function ProjectCard({ project, onProjectsUpdated }: ProjectCardP
         <button
           type="button"
           disabled={!isReady}
-          onClick={() => void navigate(`/editturnos/${project.id}`)}
+          onClick={() => void navigate(`/projects/${project.id}`)}
           className={`w-full flex-1 flex items-center justify-center bg-[#f9f7f4] rounded-t-lg text-[64px] border-none bg-none ${isReady ? "cursor-pointer" : "cursor-default"}`}
         >
           🗄️
