@@ -22,5 +22,5 @@ class ApiError(StrEnum):
     INVALID_BODY = "generic.invalid_body"
 
 
-def error_response(*, status: int, code: ApiError, message: str) -> JsonResponse:
+def ErrorResponse(*, status: int, code: ApiError, message: str) -> JsonResponse:
     return JsonResponse({"error": str(code), "message": message}, status=status)
