@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 # -- Get
 # -------------------------------------------------------------------
 
+
 class ProjectResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -24,9 +25,11 @@ class ProjectsResponse(BaseModel):
     projects: list[ProjectResponse]
     count: int
 
+
 # -------------------------------------------------------------------
 # -- Create
 # -------------------------------------------------------------------
+
 
 class CreateProjectRequest(BaseModel):
     name: str = Field(max_length=30)
@@ -44,9 +47,31 @@ class CreateProjectResponse(BaseModel):
     id: int
     name: str
 
+
+# -------------------------------------------------------------------
+# -- Degrees
+# -------------------------------------------------------------------
+
+
+class DegreeStatsResponse(BaseModel):
+    id: str
+    acronym: str
+    name: str
+    num_years: int
+    num_subjects: int
+    num_classes: int
+    num_sessions: int
+
+
+class ProjectDegreesResponse(BaseModel):
+    degrees: list[DegreeStatsResponse]
+    count: int
+
+
 # -------------------------------------------------------------------
 # -- Edit
 # -------------------------------------------------------------------
+
 
 class RenameProjectRequest(BaseModel):
     name: str = Field(max_length=30)
