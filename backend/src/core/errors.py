@@ -9,6 +9,7 @@ class ApiError(StrEnum):
     PROJECTS_CREATE_FAILED = "projects.create.failed"
     PROJECTS_NOT_FOUND = "projects.not_found"
     PROJECTS_RENAME_DUPLICATED_NAME = "projects.rename.duplicated_name"
+    PROJECTS_ROOMS_NOT_FOUND = "projects.rooms.not_found"
 
     # Auth
     AUTH_NOT_AUTHENTICATED = "auth.not_authenticated"

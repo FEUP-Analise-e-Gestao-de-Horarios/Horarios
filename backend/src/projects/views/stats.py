@@ -32,17 +32,9 @@ class ProjectStatsView(View):
         with get_project_session(general_db(project_id)) as db_session:
             overview = StatsDAO(db_session).get_overview()
 
-        return JsonResponse(
-            SuccessResponse(
-                message="Stats retrieved successfully",
-                data=ProjectStatsResponse(
-                    degrees=overview.degrees,
-                    years=overview.years,
-                    subjects=overview.subjects,
-                    classes=overview.classes,
-                    teachers=overview.teachers,
-                    rooms=overview.rooms,
-                    sessions=overview.sessions,
-                ),
-            ).model_dump(),
-        )
+            return JsonResponse(
+                SuccessResponse(
+                    message="Stats retrieved successfully",
+                    data=ProjectStatsResponse.model_validate(overview, from_attributes=True),
+                ).model_dump(),
+            )

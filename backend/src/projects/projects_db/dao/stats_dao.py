@@ -16,6 +16,15 @@ class StatsDAO:
         self.session = session
 
     def get_overview(self) -> ProjectOverviewStats:
+        """Return a snapshot of total entity counts across the project database.
+
+        Each count is computed as a correlated scalar subquery, so this always
+        issues a single SQL statement that returns exactly one row.
+
+        Returns:
+            A ProjectOverviewStats instance with counts for degrees, years,
+            subjects, classes, teachers, rooms, and sessions.
+        """
         counts = self.session.execute(
             select(
                 select(func.count(Degree.id)).scalar_subquery().label("degrees"),

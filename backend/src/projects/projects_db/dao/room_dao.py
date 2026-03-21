@@ -5,6 +5,7 @@ from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.dao.exceptions import MultipleNotFoundError
 from src.projects.projects_db.models._secondary_tables import session_rooms
 from src.projects.projects_db.models.room import Room
+from src.projects.projects_db.models.room_red_block import RoomRedBlock
 from src.projects.projects_db.models.session import Session as SessionModel
 from src.projects.projects_db.schemas.room import RoomStats
 
@@ -25,6 +26,17 @@ class RoomDAO(BaseDAO[Room]):
         size: str | None = None,
         seats: str | None = None,
     ) -> Room:
+        """Create and persist a new room.
+
+        Args:
+            name: Unique display name of the room.
+            type: Optional room type (e.g. "Laboratório", "Anfiteatro").
+            size: Optional room size descriptor.
+            seats: Optional seating capacity descriptor.
+
+        Returns:
+            The newly created Room instance, flushed to the session.
+        """
         return self._create(name=name, type=type, size=size, seats=seats)
 
     # -------------------------------------------------------------------
@@ -32,13 +44,34 @@ class RoomDAO(BaseDAO[Room]):
     # -------------------------------------------------------------------
 
     def get_by_name(self, name: str) -> Room | None:
+        """Return the room with the given name, or None if not found.
+
+        Args:
+            name: The room name to look up.
+
+        Returns:
+            The matching Room, or None if no room has that name.
+        """
         return self.session.scalars(select(Room).where(Room.name == name)).first()
 
     def get_all_with_stats(self) -> list[RoomStats]:
+        """Return all rooms with their session and red-block counts.
+
+        Counts are computed via subqueries and default to 0 when a room has
+        no sessions or red blocks.
+
+        Returns:
+            A list of RoomStats, one per room, in an unspecified order.
+        """
         sessions_sq = (
             select(session_rooms.c.room_id, func.count(SessionModel.id).label("cnt"))
             .join(SessionModel, SessionModel.id == session_rooms.c.session_id)
             .group_by(session_rooms.c.room_id)
+            .subquery()
+        )
+        red_blocks_sq = (
+            select(RoomRedBlock.room_id, func.count(RoomRedBlock.id).label("cnt"))
+            .group_by(RoomRedBlock.room_id)
             .subquery()
         )
 
@@ -49,23 +82,29 @@ class RoomDAO(BaseDAO[Room]):
                 Room.type,
                 Room.size,
                 Room.seats,
-                func.coalesce(sessions_sq.c.cnt, 0).label("num_sessions"),
-            ).outerjoin(sessions_sq, sessions_sq.c.room_id == Room.id),
+                func.coalesce(sessions_sq.c.cnt, 0).label("sessions"),
+                func.coalesce(red_blocks_sq.c.cnt, 0).label("red_blocks"),
+            )
+            .outerjoin(sessions_sq, sessions_sq.c.room_id == Room.id)
+            .outerjoin(red_blocks_sq, red_blocks_sq.c.room_id == Room.id),
         ).all()
 
-        return [
-            RoomStats(
-                id=row.id,
-                name=row.name,
-                type=row.type,
-                size=row.size,
-                seats=row.seats,
-                num_sessions=row.num_sessions,
-            )
-            for row in rows
-        ]
+        return [RoomStats.model_validate(row, from_attributes=True) for row in rows]
 
     def get_by_names(self, names: set[str], *, check_count: bool = True) -> list[Room]:
+        """Return rooms matching the given names.
+
+        Args:
+            names: Set of room names to fetch.
+            check_count: When True, raises if any name has no matching room.
+
+        Returns:
+            List of Room instances corresponding to the requested names.
+
+        Raises:
+            MultipleNotFoundError: If check_count is True and one or more names
+                have no matching room.
+        """
         if not names:
             return []
 
