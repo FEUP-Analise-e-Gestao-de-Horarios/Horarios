@@ -23,3 +23,9 @@ export interface ApiErrorResponse {
   error: ApiErrorCode;
   message: string;
 }
+
+export interface ApiRequestError extends Error {
+  code?: string;
+  apiMessage?: string;
+  status?: number;
+}
