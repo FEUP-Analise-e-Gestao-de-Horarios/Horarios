@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 # -- Get
 # -------------------------------------------------------------------
 
+
 class ProjectResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -15,18 +16,20 @@ class ProjectResponse(BaseModel):
     url: str
 
     has_selected_aulas_em_paralelo: bool
-    started_ingestion_at: datetime | None
-    finished_ingestion_at: datetime | None
-    failed_ingestion_at: datetime | None
+    ingestion_started_at: datetime | None
+    ingestion_finished_at: datetime | None
+    ingestion_failed_at: datetime | None
 
 
 class ProjectsResponse(BaseModel):
     projects: list[ProjectResponse]
     count: int
 
+
 # -------------------------------------------------------------------
 # -- Create
 # -------------------------------------------------------------------
+
 
 class CreateProjectRequest(BaseModel):
     name: str = Field(max_length=30)
@@ -44,9 +47,11 @@ class CreateProjectResponse(BaseModel):
     id: int
     name: str
 
+
 # -------------------------------------------------------------------
 # -- Edit
 # -------------------------------------------------------------------
+
 
 class RenameProjectRequest(BaseModel):
     name: str = Field(max_length=30)

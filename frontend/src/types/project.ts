@@ -2,9 +2,9 @@ export interface Project {
   id: string;
   name: string;
   url: string;
-  started_ingestion_at: string | null;
-  finished_ingestion_at: string | null;
-  failed_ingestion_at: string | null;
+  ingestion_started_at: string | null;
+  ingestion_finished_at: string | null;
+  ingestion_failed_at: string | null;
 }
 
 export interface ProjectsResponse {
