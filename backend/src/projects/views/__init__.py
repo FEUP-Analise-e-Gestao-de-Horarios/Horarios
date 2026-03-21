@@ -1,0 +1,18 @@
+from src.projects.views.degrees import ProjectDegreesView, ProjectYearsView
+from src.projects.views.project import ProjectsView, ProjectView
+from src.projects.views.rooms import ProjectRoomsView
+from src.projects.views.stats import ProjectStatsView
+from src.projects.views.subjects import ProjectClassesView, ProjectSubjectsView
+from src.projects.views.teachers import ProjectTeachersView
+
+__all__ = [
+    "ProjectClassesView",
+    "ProjectDegreesView",
+    "ProjectRoomsView",
+    "ProjectStatsView",
+    "ProjectSubjectsView",
+    "ProjectTeachersView",
+    "ProjectView",
+    "ProjectYearsView",
+    "ProjectsView",
+]
