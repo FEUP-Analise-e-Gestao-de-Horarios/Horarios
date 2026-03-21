@@ -78,6 +78,23 @@ class SessionDAO(BaseDAO[Session]):
     # -- Get
     # -------------------------------------------------------------------
 
+    def get_by_teacher(self, teacher_id: UUID) -> list[Session]:
+        """Return all sessions taught by the given teacher.
+
+        Args:
+            teacher_id: UUID of the teacher to filter by.
+
+        Returns:
+            List of Session instances, in an unspecified order.
+        """
+        return list(
+            self.session.scalars(
+                select(Session)
+                .join(session_teachers, session_teachers.c.session_id == Session.id)
+                .where(session_teachers.c.teacher_id == teacher_id),
+            ).all(),
+        )
+
     def get_by_room(self, room_id: UUID) -> list[Session]:
         """Return all sessions that take place in the given room.
 

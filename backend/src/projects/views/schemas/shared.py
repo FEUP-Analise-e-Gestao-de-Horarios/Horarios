@@ -14,6 +14,28 @@ class RedBlockResponse(BaseModel):
     weekday: WeekDay
 
 
+class SubjectResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    year_id: UUID
+
+    number: int
+    code: str
+    acronym: str
+    name: str
+
+
+class ClassResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    year_id: UUID
+
+    code: str
+    shift: int
+
+
 class SessionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

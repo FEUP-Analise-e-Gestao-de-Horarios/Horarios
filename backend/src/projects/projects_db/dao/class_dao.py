@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.dao.exceptions import MultipleNotFoundError
-from src.projects.projects_db.models._secondary_tables import session_classes
+from src.projects.projects_db.models._secondary_tables import session_classes, session_teachers
 from src.projects.projects_db.models.class_ import Class
 from src.projects.projects_db.models.degree import Degree
 from src.projects.projects_db.models.session import Session as SessionModel
@@ -79,6 +79,21 @@ class ClassDAO(BaseDAO[Class]):
             )
             for row in rows
         ]
+
+    def get_by_teacher(self, teacher_id: UUID) -> list[Class]:
+        """Return distinct classes taught by the given teacher across all their sessions."""
+        return list(
+            self.session.scalars(
+                select(Class)
+                .join(session_classes, session_classes.c.class_id == Class.id)
+                .join(
+                    session_teachers,
+                    session_teachers.c.session_id == session_classes.c.session_id,
+                )
+                .where(session_teachers.c.teacher_id == teacher_id)
+                .distinct(),
+            ).all(),
+        )
 
     def get_by_degree_and_year(self, *, degree_acronym: str, year_number: int) -> list[Class]:
         return list(

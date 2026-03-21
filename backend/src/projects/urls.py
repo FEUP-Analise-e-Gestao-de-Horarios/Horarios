@@ -9,6 +9,7 @@ from src.projects.views import (
     ProjectSubjectsView,
     ProjectsView,
     ProjectTeachersView,
+    ProjectTeacherView,
     ProjectView,
     ProjectYearsView,
 )
@@ -22,6 +23,7 @@ urlpatterns = [
     path("<int:project_id>/rooms/", ProjectRoomsView.as_view()),
     path("<int:project_id>/rooms/<uuid:room_id>", ProjectRoomView.as_view()),
     path("<int:project_id>/teachers/", ProjectTeachersView.as_view()),
+    path("<int:project_id>/teachers/<uuid:teacher_id>", ProjectTeacherView.as_view()),
     path("<int:project_id>/degrees/", ProjectDegreesView.as_view()),
     path("<int:project_id>/degrees/<uuid:degree_id>/years/", ProjectYearsView.as_view()),
     path(

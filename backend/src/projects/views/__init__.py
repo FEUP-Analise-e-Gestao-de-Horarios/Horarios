@@ -3,7 +3,7 @@ from src.projects.views.project import ProjectsView, ProjectView
 from src.projects.views.rooms import ProjectRoomsView, ProjectRoomView
 from src.projects.views.stats import ProjectStatsView
 from src.projects.views.subjects import ProjectClassesView, ProjectSubjectsView
-from src.projects.views.teachers import ProjectTeachersView
+from src.projects.views.teachers import ProjectTeachersView, ProjectTeacherView
 
 __all__ = [
     "ProjectClassesView",
@@ -12,6 +12,7 @@ __all__ = [
     "ProjectRoomsView",
     "ProjectStatsView",
     "ProjectSubjectsView",
+    "ProjectTeacherView",
     "ProjectTeachersView",
     "ProjectView",
     "ProjectYearsView",
