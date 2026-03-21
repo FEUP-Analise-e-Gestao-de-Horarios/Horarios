@@ -4,8 +4,9 @@ import { queryKeys } from "@/api/queryKeys";
 import type { Project, ProjectsResponse } from "@/types/project";
 import type { ApiRequestError } from "@/types/api";
 
-function fetchProjects(): Promise<Project[]> {
-  return api.get<ProjectsResponse>("/api/projects/").then((res) => res.data.projects);
+async function fetchProjects(): Promise<Project[]> {
+  const res = await api.get<ProjectsResponse>("/api/projects/");
+  return res.data.projects;
 }
 
 export function useProjects() {
