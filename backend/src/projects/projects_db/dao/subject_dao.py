@@ -48,7 +48,10 @@ class SubjectDAO(BaseDAO[Subject]):
 
         return subjects
 
-    def get_all_with_stats(self) -> list[SubjectStats]:
+    def get_by_year_with_stats(self, year_id: UUID) -> list[SubjectStats]:
+        return self.get_all_with_stats(year_id=year_id)
+
+    def get_all_with_stats(self, year_id: UUID | None = None) -> list[SubjectStats]:
         sessions_sq = (
             select(session_subjects.c.subject_id, func.count(SessionModel.id).label("cnt"))
             .join(SessionModel, SessionModel.id == session_subjects.c.session_id)
@@ -56,7 +59,7 @@ class SubjectDAO(BaseDAO[Subject]):
             .subquery()
         )
 
-        rows = self.session.execute(
+        stmt = (
             select(
                 Subject.id,
                 Subject.number,
@@ -72,8 +75,12 @@ class SubjectDAO(BaseDAO[Subject]):
             )
             .join(Year, Year.id == Subject.year_id)
             .join(Degree, Degree.id == Year.degree_id)
-            .outerjoin(sessions_sq, sessions_sq.c.subject_id == Subject.id),
-        ).all()
+            .outerjoin(sessions_sq, sessions_sq.c.subject_id == Subject.id)
+        )
+        if year_id is not None:
+            stmt = stmt.where(Subject.year_id == year_id)
+
+        rows = self.session.execute(stmt).all()
 
         return [
             SubjectStats(

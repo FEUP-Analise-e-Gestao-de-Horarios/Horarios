@@ -1,4 +1,5 @@
 from http import HTTPStatus
+from uuid import UUID
 
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views import View
@@ -18,7 +19,13 @@ from src.projects.views.schemas.subjects import (
 
 
 class ProjectSubjectsView(View):
-    def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
+    def get(
+        self,
+        request: HttpRequest,
+        project_id: int,
+        degree_id: UUID,
+        year_id: UUID,
+    ) -> HttpResponse:
         # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:
             return NotAuthenticatedResponse()
@@ -35,7 +42,7 @@ class ProjectSubjectsView(View):
 
         # -- Query subjects with stats from project DB -------------------------
         with get_project_session(general_db(project_id)) as db_session:
-            stats = SubjectDAO(db_session).get_all_with_stats()
+            stats = SubjectDAO(db_session).get_by_year_with_stats(year_id)
             result = [
                 SubjectStatsResponse(
                     id=str(s.id),
@@ -62,7 +69,13 @@ class ProjectSubjectsView(View):
 
 
 class ProjectClassesView(View):
-    def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
+    def get(
+        self,
+        request: HttpRequest,
+        project_id: int,
+        degree_id: UUID,
+        year_id: UUID,
+    ) -> HttpResponse:
         # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:
             return NotAuthenticatedResponse()
@@ -79,7 +92,7 @@ class ProjectClassesView(View):
 
         # -- Query classes with stats from project DB --------------------------
         with get_project_session(general_db(project_id)) as db_session:
-            stats = ClassDAO(db_session).get_all_with_stats()
+            stats = ClassDAO(db_session).get_by_year_with_stats(year_id)
             result = [
                 ClassStatsResponse(
                     id=str(s.id),
