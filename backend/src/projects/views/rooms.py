@@ -65,7 +65,7 @@ class ProjectRoomView(View):
             if room is None:
                 return ErrorResponse(
                     status=HTTPStatus.NOT_FOUND,
-                    code=ApiError.ROOMS_NOT_FOUND,
+                    code=ApiError.PROJECTS_ROOMS_NOT_FOUND,
                     message="Room not found.",
                 )
             sessions = SessionDAO(db_session).get_by_room(room_id)

@@ -43,17 +43,6 @@ class RoomDAO(BaseDAO[Room]):
     # -- Get
     # -------------------------------------------------------------------
 
-    def get_by_name(self, name: str) -> Room | None:
-        """Return the room with the given name, or None if not found.
-
-        Args:
-            name: The room name to look up.
-
-        Returns:
-            The matching Room, or None if no room has that name.
-        """
-        return self.session.scalars(select(Room).where(Room.name == name)).first()
-
     def get_all_with_stats(self) -> list[RoomStats]:
         """Return all rooms with their session and red-block counts.
 
