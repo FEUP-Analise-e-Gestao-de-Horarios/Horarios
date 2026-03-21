@@ -1,13 +1,16 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.dao.exceptions import MultipleNotFoundError
+from src.projects.projects_db.models._secondary_tables import session_subjects
 from src.projects.projects_db.models.degree import Degree
+from src.projects.projects_db.models.session import Session as SessionModel
 from src.projects.projects_db.models.subject import Subject
 from src.projects.projects_db.models.year import Year
+from src.projects.projects_db.schemas.subject import SubjectStats
 
 
 class SubjectDAO(BaseDAO[Subject]):
@@ -44,6 +47,50 @@ class SubjectDAO(BaseDAO[Subject]):
             raise MultipleNotFoundError("number", missing)
 
         return subjects
+
+    def get_all_with_stats(self) -> list[SubjectStats]:
+        sessions_sq = (
+            select(session_subjects.c.subject_id, func.count(SessionModel.id).label("cnt"))
+            .join(SessionModel, SessionModel.id == session_subjects.c.session_id)
+            .group_by(session_subjects.c.subject_id)
+            .subquery()
+        )
+
+        rows = self.session.execute(
+            select(
+                Subject.id,
+                Subject.number,
+                Subject.code,
+                Subject.acronym,
+                Subject.name,
+                Year.id.label("year_id"),
+                Year.number.label("year_number"),
+                Degree.id.label("degree_id"),
+                Degree.acronym.label("degree_acronym"),
+                Degree.name.label("degree_name"),
+                func.coalesce(sessions_sq.c.cnt, 0).label("num_sessions"),
+            )
+            .join(Year, Year.id == Subject.year_id)
+            .join(Degree, Degree.id == Year.degree_id)
+            .outerjoin(sessions_sq, sessions_sq.c.subject_id == Subject.id),
+        ).all()
+
+        return [
+            SubjectStats(
+                id=row.id,
+                number=row.number,
+                code=row.code,
+                acronym=row.acronym,
+                name=row.name,
+                year_id=row.year_id,
+                year_number=row.year_number,
+                degree_id=row.degree_id,
+                degree_acronym=row.degree_acronym,
+                degree_name=row.degree_name,
+                num_sessions=row.num_sessions,
+            )
+            for row in rows
+        ]
 
     def get_by_degree_and_year(self, *, degree_acronym: str, year_number: int) -> list[Subject]:
         return list(
