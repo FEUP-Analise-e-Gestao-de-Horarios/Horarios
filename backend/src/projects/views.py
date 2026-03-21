@@ -10,7 +10,7 @@ from src.core.schemas import SuccessResponse
 from src.ingestion.manager import IngestionManager
 from src.parser.utils import validate_request_body
 from src.projects.models import Project
-from src.projects.projects_db.dao import DegreeDAO, RoomDAO, YearDAO
+from src.projects.projects_db.dao import DegreeDAO, RoomDAO, TeacherDAO, YearDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
 from src.projects.schemas import (
@@ -21,9 +21,11 @@ from src.projects.schemas import (
     ProjectResponse,
     ProjectRoomsResponse,
     ProjectsResponse,
+    ProjectTeachersResponse,
     ProjectYearsResponse,
     RenameProjectRequest,
     RoomStatsResponse,
+    TeacherStatsResponse,
     YearStatsResponse,
 )
 from src.projects.services.project_db import create_project_db, delete_project_db
@@ -339,5 +341,47 @@ class ProjectRoomsView(View):
             SuccessResponse(
                 message="Rooms retrieved successfully",
                 data=ProjectRoomsResponse(rooms=result, count=len(result)),
+            ).model_dump(),
+        )
+
+
+class ProjectTeachersView(View):
+    def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
+        # -- Check user auth ---------------------------------------------------
+        if not request.user.is_authenticated:
+            return ErrorResponse(
+                status=HTTPStatus.UNAUTHORIZED,
+                code=ApiError.AUTH_NOT_AUTHENTICATED,
+                message="User is not authenticated.",
+            )
+
+        # -- Fetch project -----------------------------------------------------
+        try:
+            Project.objects.get(pk=project_id)
+        except Project.DoesNotExist:
+            return ErrorResponse(
+                status=HTTPStatus.NOT_FOUND,
+                code=ApiError.PROJECTS_NOT_FOUND,
+                message="Project not found.",
+            )
+
+        # -- Query teachers with stats from project DB -------------------------
+        with get_project_session(general_db(project_id)) as db_session:
+            stats = TeacherDAO(db_session).get_all_with_stats()
+            result = [
+                TeacherStatsResponse(
+                    id=str(s.id),
+                    number=s.number,
+                    acronym=s.acronym,
+                    name=s.name,
+                    num_sessions=s.num_sessions,
+                )
+                for s in stats
+            ]
+
+        return JsonResponse(
+            SuccessResponse(
+                message="Teachers retrieved successfully",
+                data=ProjectTeachersResponse(teachers=result, count=len(result)),
             ).model_dump(),
         )
