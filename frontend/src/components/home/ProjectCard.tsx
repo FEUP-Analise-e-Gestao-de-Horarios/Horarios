@@ -119,7 +119,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
     setDeleteError(null);
     deleteProject.mutate(project.id, {
       onSuccess: () => setShowDeleteConfirm(false),
-      onError: (err: { code?: string }) => {
+      onError: (err) => {
         if (err.code === ApiError.PROJECTS_NOT_FOUND) {
           setDeleteError("Projeto não encontrado.");
         } else {
