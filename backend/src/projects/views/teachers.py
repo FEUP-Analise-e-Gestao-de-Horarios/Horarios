@@ -67,12 +67,12 @@ class ProjectTeacherView(View):
             classes = ClassDAO(db_session).get_by_teacher(teacher_id)
             sessions = SessionDAO(db_session).get_by_teacher(teacher_id)
 
-        return JsonResponse(
-            SuccessResponse(
-                message="Teacher retrieved successfully",
-                data=TeacherDetailResponse.model_validate_with_extras(
-                    teacher,
-                    extras={"subjects": subjects, "classes": classes, "sessions": sessions},
-                ),
-            ).model_dump(),
-        )
+            return JsonResponse(
+                SuccessResponse(
+                    message="Teacher retrieved successfully",
+                    data=TeacherDetailResponse.model_validate_with_extras(
+                        teacher,
+                        extras={"subjects": subjects, "classes": classes, "sessions": sessions},
+                    ),
+                ).model_dump(),
+            )
