@@ -46,7 +46,7 @@ export function useRenameProject() {
       | typeof ApiError.PROJECTS_NOT_FOUND
       | typeof ApiError.PROJECTS_RENAME_DUPLICATED_NAME
     >,
-    { id: string; name: string }
+    { id: number; name: string }
   >({
     mutationFn: (params) => api.patch<void>(`/api/projects/${params.id}/`, { name: params.name }),
     onSuccess: () => {
@@ -60,7 +60,7 @@ export function useDeleteProject() {
   return useMutation<
     void,
     ApiRequestError<typeof ApiError.AUTH_NOT_AUTHENTICATED | typeof ApiError.PROJECTS_NOT_FOUND>,
-    string
+    number
   >({
     mutationFn: (id) => api.delete<void>(`/api/projects/${id}/`),
     onSuccess: () => {
