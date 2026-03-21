@@ -1,4 +1,4 @@
-import { api } from "@/api/client";
+import { useLogin } from "@/api/hooks/useAuth";
 import AuthPageLayout from "@/components/auth/AuthPageLayout";
 import FormCard from "@/components/auth/FormCard";
 import FormField from "@/components/auth/FormField";
@@ -15,7 +15,7 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
-  const [loading, setLoading] = useState(false);
+  const login = useLogin();
   const { shake, isShaking } = useShake<Field>();
   const usernameRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
@@ -53,19 +53,18 @@ export default function LoginPage() {
       return;
     }
 
-    setLoading(true);
-    api
-      .post("/api/auth/login", { username, password })
-      .then(() => {
-        window.location.href = ROUTES.HOME;
-      })
-      .catch(() => {
-        setErrors({ password: "Credenciais inválidas." });
-        shake("password");
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+    login.mutate(
+      { username, password },
+      {
+        onSuccess: () => {
+          window.location.href = ROUTES.HOME;
+        },
+        onError: () => {
+          setErrors({ password: "Credenciais inválidas." });
+          shake("password");
+        },
+      },
+    );
   };
 
   return (
@@ -103,7 +102,7 @@ export default function LoginPage() {
           Esqueci-me da palavra-passe
         </Link>
 
-        <SubmitButton loading={loading} label="Entrar" loadingLabel="A entrar..." />
+        <SubmitButton loading={login.isPending} label="Entrar" loadingLabel="A entrar..." />
       </FormCard>
     </AuthPageLayout>
   );

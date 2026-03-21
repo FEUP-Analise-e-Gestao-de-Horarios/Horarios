@@ -1,4 +1,4 @@
-import { api } from "@/api/client";
+import { useChangePassword } from "@/api/hooks/useAuth";
 import { ApiError } from "@/types/api";
 import AuthPageLayout from "@/components/auth/AuthPageLayout";
 import BackLink from "@/components/auth/BackLink";
@@ -20,7 +20,7 @@ export default function ChangePasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
   const [countdown, setCountdown] = useState<number | null>(null);
-  const [loading, setLoading] = useState(false);
+  const changePassword = useChangePassword();
   const { shake, isShaking } = useShake<Field>();
   const oldPasswordRef = useRef<HTMLInputElement>(null);
   const newPasswordRef = useRef<HTMLInputElement>(null);
@@ -123,30 +123,26 @@ export default function ChangePasswordPage() {
     if (!validateNewPassword()) return;
     if (!validateConfirmPassword()) return;
 
-    setLoading(true);
-    api
-      .post("/api/auth/change_password", {
-        old_password: oldPassword,
-        new_password: newPassword,
-      })
-      .then(() => {
-        setCountdown(3);
-      })
-      .catch((err: { code?: string; apiMessage?: string }) => {
-        if (err.code === ApiError.AUTH_INVALID_OLD_PASSWORD) {
-          setFieldError("oldPassword", "Palavra-passe antiga incorreta.");
-        } else if (err.code === ApiError.AUTH_PASSWORD_POLICY_VIOLATION) {
-          setFieldError(
-            "newPassword",
-            err.apiMessage ?? "A palavra-passe não cumpre os requisitos de segurança.",
-          );
-        } else {
-          setFieldError("oldPassword", "Ocorreu um erro. Tente novamente.");
-        }
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+    changePassword.mutate(
+      { old_password: oldPassword, new_password: newPassword },
+      {
+        onSuccess: () => {
+          setCountdown(3);
+        },
+        onError: (err) => {
+          if (err.code === ApiError.AUTH_INVALID_OLD_PASSWORD) {
+            setFieldError("oldPassword", "Palavra-passe antiga incorreta.");
+          } else if (err.code === ApiError.AUTH_PASSWORD_POLICY_VIOLATION) {
+            setFieldError(
+              "newPassword",
+              err.apiMessage ?? "A palavra-passe não cumpre os requisitos de segurança.",
+            );
+          } else {
+            setFieldError("oldPassword", "Ocorreu um erro. Tente novamente.");
+          }
+        },
+      },
+    );
   };
 
   if (countdown !== null) {
@@ -219,7 +215,11 @@ export default function ChangePasswordPage() {
           shake={isShaking("confirmPassword")}
         />
 
-        <SubmitButton loading={loading} label="Guardar mudanças" loadingLabel="A guardar..." />
+        <SubmitButton
+          loading={changePassword.isPending}
+          label="Guardar mudanças"
+          loadingLabel="A guardar..."
+        />
         <BackLink to={ROUTES.HOME}>Voltar à página inicial</BackLink>
       </FormCard>
     </AuthPageLayout>
