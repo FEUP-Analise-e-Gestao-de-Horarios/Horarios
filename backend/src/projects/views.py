@@ -10,7 +10,7 @@ from src.core.schemas import SuccessResponse
 from src.ingestion.manager import IngestionManager
 from src.parser.utils import validate_request_body
 from src.projects.models import Project
-from src.projects.projects_db.dao import DegreeDAO
+from src.projects.projects_db.dao import DegreeDAO, YearDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
 from src.projects.schemas import (
@@ -20,7 +20,9 @@ from src.projects.schemas import (
     ProjectDegreesResponse,
     ProjectResponse,
     ProjectsResponse,
+    ProjectYearsResponse,
     RenameProjectRequest,
+    YearStatsResponse,
 )
 from src.projects.services.project_db import create_project_db, delete_project_db
 
@@ -247,5 +249,50 @@ class ProjectDegreesView(View):
             SuccessResponse(
                 message="Degrees retrieved successfully",
                 data=ProjectDegreesResponse(degrees=result, count=len(result)),
+            ).model_dump(),
+        )
+
+
+class ProjectYearsView(View):
+    def get(self, request: HttpRequest, project_id: int, degree_id: str) -> HttpResponse:
+        # -- Check user auth ---------------------------------------------------
+        if not request.user.is_authenticated:
+            return ErrorResponse(
+                status=HTTPStatus.UNAUTHORIZED,
+                code=ApiError.AUTH_NOT_AUTHENTICATED,
+                message="User is not authenticated.",
+            )
+
+        # -- Fetch project -----------------------------------------------------
+        try:
+            Project.objects.get(pk=project_id)
+        except Project.DoesNotExist:
+            return ErrorResponse(
+                status=HTTPStatus.NOT_FOUND,
+                code=ApiError.PROJECTS_NOT_FOUND,
+                message="Project not found.",
+            )
+
+        # -- Query years with stats from project DB ----------------------------
+        with get_project_session(general_db(project_id)) as db_session:
+            stats = YearDAO(db_session).get_by_degree_with_stats(degree_id)
+            result = [
+                YearStatsResponse(
+                    id=str(s.id),
+                    number=s.number,
+                    degree_id=str(s.degree_id),
+                    degree_acronym=s.degree_acronym,
+                    degree_name=s.degree_name,
+                    num_subjects=s.num_subjects,
+                    num_classes=s.num_classes,
+                    num_sessions=s.num_sessions,
+                )
+                for s in stats
+            ]
+
+        return JsonResponse(
+            SuccessResponse(
+                message="Years retrieved successfully",
+                data=ProjectYearsResponse(years=result, count=len(result)),
             ).model_dump(),
         )
