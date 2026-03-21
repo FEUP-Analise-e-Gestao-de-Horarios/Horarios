@@ -10,14 +10,14 @@ from src.core.schemas import SuccessResponse
 from src.ingestion.manager import IngestionManager
 from src.parser.utils import validate_request_body
 from src.projects.models import Project
-from src.projects.schemas import (
+from src.projects.services.project_db import create_project_db, delete_project_db
+from src.projects.views.schemas.project import (
     CreateProjectRequest,
     CreateProjectResponse,
     ProjectResponse,
     ProjectsResponse,
     RenameProjectRequest,
 )
-from src.projects.services.project_db import create_project_db, delete_project_db
 
 logger = logging.getLogger(__name__)
 

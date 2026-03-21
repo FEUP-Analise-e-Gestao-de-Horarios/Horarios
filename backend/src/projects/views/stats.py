@@ -9,7 +9,7 @@ from src.projects.models import Project
 from src.projects.projects_db.dao import StatsDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
-from src.projects.schemas import ProjectStatsResponse
+from src.projects.views.schemas.stats import ProjectStatsResponse
 
 
 class ProjectStatsView(View):

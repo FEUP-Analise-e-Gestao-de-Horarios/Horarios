@@ -9,7 +9,7 @@ from src.projects.models import Project
 from src.projects.projects_db.dao import TeacherDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
-from src.projects.schemas import ProjectTeachersResponse, TeacherStatsResponse
+from src.projects.views.schemas.teachers import ProjectTeachersResponse, TeacherStatsResponse
 
 
 class ProjectTeachersView(View):
