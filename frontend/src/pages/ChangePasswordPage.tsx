@@ -1,5 +1,7 @@
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 import { useChangePassword } from "@/api/hooks/useAuth";
-import { ApiError } from "@/types/api";
 import AuthPageLayout from "@/components/auth/AuthPageLayout";
 import BackLink from "@/components/auth/BackLink";
 import FormCard from "@/components/auth/FormCard";
@@ -8,23 +10,32 @@ import PasswordStrength from "@/components/auth/PasswordStrength";
 import SubmitButton from "@/components/auth/SubmitButton";
 import useShake from "@/components/auth/useShake";
 import { ROUTES } from "@/routes";
-import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { ApiError } from "@/types/api";
 
 type Field = "oldPassword" | "newPassword" | "confirmPassword";
 
 export default function ChangePasswordPage() {
   const navigate = useNavigate();
+
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
   const [countdown, setCountdown] = useState<number | null>(null);
-  const changePassword = useChangePassword();
-  const { shake, isShaking } = useShake<Field>();
+
   const oldPasswordRef = useRef<HTMLInputElement>(null);
   const newPasswordRef = useRef<HTMLInputElement>(null);
   const confirmPasswordRef = useRef<HTMLInputElement>(null);
+
+  const changePassword = useChangePassword();
+  const { shake, isShaking } = useShake<Field>();
+
+  useEffect(() => {
+    if (!changePassword.isPending && changePassword.isError) {
+      if (errors.newPassword) newPasswordRef.current?.focus();
+      else oldPasswordRef.current?.focus();
+    }
+  }, [changePassword.isPending, changePassword.isError, errors.newPassword]);
 
   useEffect(() => {
     if (countdown === null) return;
@@ -41,17 +52,12 @@ export default function ChangePasswordPage() {
     shake(field);
   };
 
-  const validateOldPassword = (): boolean => {
-    if (!oldPassword) {
-      setFieldError("oldPassword", "Preencha este campo.");
-      return false;
-    }
+  const clearFieldError = (field: Field) => {
     setErrors((prev) => {
-      const { oldPassword: _old, ...rest } = prev;
-      void _old;
-      return rest;
+      const next = { ...prev };
+      delete next[field];
+      return next;
     });
-    return true;
   };
 
   const validateNewPassword = (): boolean => {
@@ -75,11 +81,7 @@ export default function ChangePasswordPage() {
       setFieldError("newPassword", "Deve ter pelo menos um caractere especial (!@#$%^&*).");
       return false;
     }
-    setErrors((prev) => {
-      const { newPassword: _new, ...rest } = prev;
-      void _new;
-      return rest;
-    });
+    clearFieldError("newPassword");
     return true;
   };
 
@@ -92,26 +94,28 @@ export default function ChangePasswordPage() {
       setFieldError("confirmPassword", "As palavras-passe não coincidem.");
       return false;
     }
-    setErrors((prev) => {
-      const { confirmPassword: _confirm, ...rest } = prev;
-      void _confirm;
-      return rest;
-    });
+    clearFieldError("confirmPassword");
     return true;
   };
 
-  const handleKeyDown = (field: "old" | "new" | "confirm") => (e: React.KeyboardEvent) => {
+  const validateOldPassword = (): boolean => {
+    if (!oldPassword) {
+      setFieldError("oldPassword", "Preencha este campo.");
+      return false;
+    }
+    clearFieldError("oldPassword");
+    return true;
+  };
+
+  const handleKeyDown = (field: "new" | "confirm" | "old") => (e: React.KeyboardEvent) => {
     if (e.key !== "Enter") return;
     e.preventDefault();
-    if (field === "old") {
-      if (validateOldPassword()) newPasswordRef.current?.focus();
-    } else if (field === "new") {
+    if (field === "new") {
       if (validateNewPassword()) confirmPasswordRef.current?.focus();
+    } else if (field === "confirm") {
+      if (validateConfirmPassword()) oldPasswordRef.current?.focus();
     } else {
-      if (validateConfirmPassword()) {
-        const form = confirmPasswordRef.current?.closest("form");
-        form?.requestSubmit();
-      }
+      if (validateOldPassword()) oldPasswordRef.current?.closest("form")?.requestSubmit();
     }
   };
 
@@ -119,9 +123,9 @@ export default function ChangePasswordPage() {
     e.preventDefault();
     setErrors({});
 
-    if (!validateOldPassword()) return;
     if (!validateNewPassword()) return;
     if (!validateConfirmPassword()) return;
+    if (!validateOldPassword()) return;
 
     changePassword.mutate(
       { old_password: oldPassword, new_password: newPassword },
@@ -181,17 +185,6 @@ export default function ChangePasswordPage() {
         <h1 className="text-[#08060d] text-2xl font-bold m-0">Mudar palavra-passe</h1>
 
         <PasswordField
-          ref={oldPasswordRef}
-          id="old-password"
-          label="Palavra-passe antiga"
-          value={oldPassword}
-          onChange={setOldPassword}
-          onKeyDown={handleKeyDown("old")}
-          error={errors.oldPassword}
-          shake={isShaking("oldPassword")}
-        />
-
-        <PasswordField
           ref={newPasswordRef}
           id="new-password"
           label="Palavra-passe nova"
@@ -200,6 +193,7 @@ export default function ChangePasswordPage() {
           onKeyDown={handleKeyDown("new")}
           error={errors.newPassword}
           shake={isShaking("newPassword")}
+          disabled={changePassword.isPending}
         >
           <PasswordStrength password={newPassword} />
         </PasswordField>
@@ -213,6 +207,19 @@ export default function ChangePasswordPage() {
           onKeyDown={handleKeyDown("confirm")}
           error={errors.confirmPassword}
           shake={isShaking("confirmPassword")}
+          disabled={changePassword.isPending}
+        />
+
+        <PasswordField
+          ref={oldPasswordRef}
+          id="old-password"
+          label="Palavra-passe antiga"
+          value={oldPassword}
+          onChange={setOldPassword}
+          onKeyDown={handleKeyDown("old")}
+          error={errors.oldPassword}
+          shake={isShaking("oldPassword")}
+          disabled={changePassword.isPending}
         />
 
         <SubmitButton
