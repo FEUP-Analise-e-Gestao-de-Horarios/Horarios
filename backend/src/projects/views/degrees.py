@@ -3,7 +3,7 @@ from http import HTTPStatus
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views import View
 
-from src.core.errors import ApiError, ErrorResponse
+from src.core.errors import ApiError, ErrorResponse, NotAuthenticatedResponse
 from src.core.schemas import SuccessResponse
 from src.projects.models import Project
 from src.projects.projects_db.dao import DegreeDAO, YearDAO
@@ -21,11 +21,7 @@ class ProjectDegreesView(View):
     def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
         # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:
-            return ErrorResponse(
-                status=HTTPStatus.UNAUTHORIZED,
-                code=ApiError.AUTH_NOT_AUTHENTICATED,
-                message="User is not authenticated.",
-            )
+            return NotAuthenticatedResponse()
 
         # -- Fetch project -----------------------------------------------------
         try:
@@ -65,11 +61,7 @@ class ProjectYearsView(View):
     def get(self, request: HttpRequest, project_id: int, degree_id: str) -> HttpResponse:
         # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:
-            return ErrorResponse(
-                status=HTTPStatus.UNAUTHORIZED,
-                code=ApiError.AUTH_NOT_AUTHENTICATED,
-                message="User is not authenticated.",
-            )
+            return NotAuthenticatedResponse()
 
         # -- Fetch project -----------------------------------------------------
         try:

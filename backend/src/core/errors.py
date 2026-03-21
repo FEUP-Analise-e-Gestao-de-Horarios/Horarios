@@ -24,3 +24,11 @@ class ApiError(StrEnum):
 
 def ErrorResponse(*, status: int, code: ApiError, message: str) -> JsonResponse:
     return JsonResponse({"error": str(code), "message": message}, status=status)
+
+
+def NotAuthenticatedResponse() -> JsonResponse:
+    return ErrorResponse(
+        status=401,
+        code=ApiError.AUTH_NOT_AUTHENTICATED,
+        message="User is not authenticated.",
+    )
