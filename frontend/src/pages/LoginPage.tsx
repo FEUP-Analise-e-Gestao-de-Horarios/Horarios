@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useLogin } from "@/api/hooks/useAuth";
+import { ApiError } from "@/types/api";
 import AuthPageLayout from "@/components/auth/AuthPageLayout";
 import FormCard from "@/components/auth/FormCard";
 import FormField from "@/components/auth/FormField";
@@ -68,8 +69,12 @@ export default function LoginPage() {
         onSuccess: () => {
           window.location.href = ROUTES.HOME;
         },
-        onError: () => {
-          setErrors({ password: "Credenciais inválidas." });
+        onError: (err) => {
+          if (err.code === ApiError.AUTH_BAD_CREDENTIALS) {
+            setErrors({ password: "Credenciais inválidas." });
+          } else {
+            setErrors({ password: "Ocorreu um erro. Tente novamente." });
+          }
           shake("password");
         },
       },
