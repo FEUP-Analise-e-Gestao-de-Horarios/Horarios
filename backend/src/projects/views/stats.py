@@ -36,13 +36,13 @@ class ProjectStatsView(View):
             SuccessResponse(
                 message="Stats retrieved successfully",
                 data=ProjectStatsResponse(
-                    num_degrees=overview.num_degrees,
-                    num_years=overview.num_years,
-                    num_subjects=overview.num_subjects,
-                    num_classes=overview.num_classes,
-                    num_teachers=overview.num_teachers,
-                    num_rooms=overview.num_rooms,
-                    num_sessions=overview.num_sessions,
+                    degrees=overview.degrees,
+                    years=overview.years,
+                    subjects=overview.subjects,
+                    classes=overview.classes,
+                    teachers=overview.teachers,
+                    rooms=overview.rooms,
+                    sessions=overview.sessions,
                 ),
             ).model_dump(),
         )
