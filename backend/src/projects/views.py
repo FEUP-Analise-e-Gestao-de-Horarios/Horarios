@@ -164,7 +164,7 @@ class ProjectView(View):
 
         # -- Rename and return -------------------------------------------------
         project.name = new_name
-        project.save(update_fields=["name"])
+        project.save()
 
         return JsonResponse(
             SuccessResponse(
