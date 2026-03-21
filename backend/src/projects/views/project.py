@@ -5,7 +5,12 @@ from http import HTTPStatus
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views import View
 
-from src.core.errors import ApiError, ErrorResponse, NotAuthenticatedResponse
+from src.core.errors import (
+    ApiError,
+    ErrorResponse,
+    NotAuthenticatedResponse,
+    ProjectNotFoundResponse,
+)
 from src.core.schemas import SuccessResponse
 from src.ingestion.manager import IngestionManager
 from src.parser.utils import validate_request_body
@@ -103,11 +108,7 @@ class ProjectView(View):
         try:
             project = Project.objects.get(pk=project_id)
         except Project.DoesNotExist:
-            return ErrorResponse(
-                status=HTTPStatus.NOT_FOUND,
-                code=ApiError.PROJECTS_NOT_FOUND,
-                message="Project not found.",
-            )
+            return ProjectNotFoundResponse()
 
         # -- Return project ----------------------------------------------------
         response = SuccessResponse(
@@ -131,11 +132,7 @@ class ProjectView(View):
         try:
             project = Project.objects.get(pk=project_id)
         except Project.DoesNotExist:
-            return ErrorResponse(
-                status=HTTPStatus.NOT_FOUND,
-                code=ApiError.PROJECTS_NOT_FOUND,
-                message="Project not found.",
-            )
+            return ProjectNotFoundResponse()
 
         # -- Check if name is taken --------------------------------------------
         new_name = validated.name
@@ -166,11 +163,7 @@ class ProjectView(View):
         try:
             project = Project.objects.get(pk=project_id)
         except Project.DoesNotExist:
-            return ErrorResponse(
-                status=HTTPStatus.NOT_FOUND,
-                code=ApiError.PROJECTS_NOT_FOUND,
-                message="Project not found.",
-            )
+            return ProjectNotFoundResponse()
 
         # -- Delete project and its DB -----------------------------------------
         delete_project_db(project.pk)

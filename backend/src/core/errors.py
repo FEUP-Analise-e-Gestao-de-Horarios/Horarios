@@ -33,3 +33,11 @@ def NotAuthenticatedResponse() -> JsonResponse:
         code=ApiError.AUTH_NOT_AUTHENTICATED,
         message="User is not authenticated.",
     )
+
+
+def ProjectNotFoundResponse() -> JsonResponse:
+    return ErrorResponse(
+        status=404,
+        code=ApiError.PROJECTS_NOT_FOUND,
+        message="Project not found.",
+    )

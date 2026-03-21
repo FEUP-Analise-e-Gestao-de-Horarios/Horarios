@@ -1,9 +1,7 @@
-from http import HTTPStatus
-
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views import View
 
-from src.core.errors import ApiError, ErrorResponse, NotAuthenticatedResponse
+from src.core.errors import NotAuthenticatedResponse, ProjectNotFoundResponse
 from src.core.schemas import SuccessResponse
 from src.projects.models import Project
 from src.projects.projects_db.dao import StatsDAO
@@ -22,11 +20,7 @@ class ProjectStatsView(View):
         try:
             Project.objects.get(pk=project_id)
         except Project.DoesNotExist:
-            return ErrorResponse(
-                status=HTTPStatus.NOT_FOUND,
-                code=ApiError.PROJECTS_NOT_FOUND,
-                message="Project not found.",
-            )
+            return ProjectNotFoundResponse()
 
         # -- Query overview stats from project DB ------------------------------
         with get_project_session(general_db(project_id)) as db_session:
