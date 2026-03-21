@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+
 import { useRenameProject, useDeleteProject } from "@/api/hooks/useProjects";
 import { ApiError } from "@/types/api";
 import type { Project } from "@/types/project";
@@ -73,15 +74,18 @@ function IngestionStatus({ project }: { project: Project }) {
 
 export default function ProjectCard({ project }: ProjectCardProps) {
   const navigate = useNavigate();
-  const renameProject = useRenameProject();
-  const deleteProject = useDeleteProject();
-  const isReady = !!project.finished_ingestion_at;
+
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(project.name);
   const [renameError, setRenameError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const renameProject = useRenameProject();
+  const deleteProject = useDeleteProject();
+  const isReady = !!project.finished_ingestion_at;
 
   useEffect(() => {
     if (isEditing) inputRef.current?.focus();
@@ -114,6 +118,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
   const handleDelete = () => {
     setDeleteError(null);
     deleteProject.mutate(project.id, {
+      onSuccess: () => setShowDeleteConfirm(false),
       onError: (err: { code?: string }) => {
         if (err.code === ApiError.PROJECTS_NOT_FOUND) {
           setDeleteError("Projeto não encontrado.");
@@ -136,15 +141,18 @@ export default function ProjectCard({ project }: ProjectCardProps) {
             <button
               type="button"
               onClick={() => setShowDeleteConfirm(false)}
-              className="px-4 py-1.5 rounded border-none bg-[#6b7280] text-white cursor-pointer text-sm hover:bg-[#555b66] transition-colors"
+              disabled={deleteProject.isPending}
+              className="px-4 py-1.5 rounded border-none bg-[#6b7280] text-white cursor-pointer text-sm hover:bg-[#555b66] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancelar
             </button>
             <button
               type="button"
               onClick={handleDelete}
-              className="px-4 py-1.5 rounded border-none bg-[#8c2d19] text-white cursor-pointer text-sm font-semibold hover:bg-[#722415] transition-colors"
+              disabled={deleteProject.isPending}
+              className="px-4 py-1.5 rounded border-none bg-[#8c2d19] text-white cursor-pointer text-sm font-semibold hover:bg-[#722415] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
             >
+              {deleteProject.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               Apagar
             </button>
           </div>
@@ -177,16 +185,21 @@ export default function ProjectCard({ project }: ProjectCardProps) {
                       setEditName(project.name);
                     }
                   }}
-                  className="flex-1 text-sm px-1.5 py-0.5 border border-[#8c2d19] rounded outline-none text-[#08060d] min-w-0 focus:ring-1 focus:ring-[rgba(140,45,25,0.5)]"
+                  disabled={renameProject.isPending}
+                  className="flex-1 text-sm px-1.5 py-0.5 border border-[#8c2d19] rounded outline-none text-[#08060d] min-w-0 focus:ring-1 focus:ring-[rgba(140,45,25,0.5)] disabled:opacity-50 disabled:cursor-not-allowed"
                 />
-                <button
-                  type="button"
-                  onClick={handleRename}
-                  className="text-green-600 hover:text-green-800 transition-colors bg-transparent border-none cursor-pointer p-0 flex-shrink-0"
-                  title="Guardar"
-                >
-                  <Check className="w-4 h-4" />
-                </button>
+                {renameProject.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-[#6b6375] flex-shrink-0" />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleRename}
+                    className="text-green-600 hover:text-green-800 transition-colors bg-transparent border-none cursor-pointer p-0 flex-shrink-0"
+                    title="Guardar"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {
@@ -194,7 +207,8 @@ export default function ProjectCard({ project }: ProjectCardProps) {
                     setEditName(project.name);
                     setRenameError(null);
                   }}
-                  className="text-[#6b6375] hover:text-[#08060d] transition-colors bg-transparent border-none cursor-pointer p-0 flex-shrink-0"
+                  disabled={renameProject.isPending}
+                  className="text-[#6b6375] hover:text-[#08060d] transition-colors bg-transparent border-none cursor-pointer p-0 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Cancelar"
                 >
                   <X className="w-4 h-4" />
