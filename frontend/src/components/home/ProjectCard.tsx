@@ -1,13 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "@/api/client";
+import { useRenameProject, useDeleteProject } from "@/api/hooks/useProjects";
 import { ApiError } from "@/types/api";
-import type { Project, ProjectsResponse } from "@/types/project";
+import type { Project } from "@/types/project";
 import { Pencil, Trash2, Check, X, Loader2 } from "lucide-react";
 
 interface ProjectCardProps {
   project: Project;
-  onProjectsUpdated: (projects: Project[]) => void;
 }
 
 function useElapsedSeconds(since: string | null | undefined): number {
@@ -72,8 +71,10 @@ function IngestionStatus({ project }: { project: Project }) {
   );
 }
 
-export default function ProjectCard({ project, onProjectsUpdated }: ProjectCardProps) {
+export default function ProjectCard({ project }: ProjectCardProps) {
   const navigate = useNavigate();
+  const renameProject = useRenameProject();
+  const deleteProject = useDeleteProject();
   const isReady = !!project.finished_ingestion_at;
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(project.name);
@@ -93,39 +94,34 @@ export default function ProjectCard({ project, onProjectsUpdated }: ProjectCardP
       return;
     }
     setRenameError(null);
-    api
-      .patch(`/api/projects/${project.id}/`, { name: editName })
-      .then(() => api.get<ProjectsResponse>("/api/projects/"))
-      .then((res) => {
-        onProjectsUpdated(res.data.projects);
-        setIsEditing(false);
-      })
-      .catch((err: { code?: string }) => {
-        if (err.code === ApiError.PROJECTS_RENAME_DUPLICATED_NAME) {
-          setRenameError("Nome já existe.");
-        } else if (err.code === ApiError.INVALID_BODY) {
-          setRenameError("Nome inválido.");
-        } else {
-          setRenameError("Erro ao renomear.");
-        }
-      });
+    renameProject.mutate(
+      { id: project.id, name: editName },
+      {
+        onSuccess: () => setIsEditing(false),
+        onError: (err) => {
+          if (err.code === ApiError.PROJECTS_RENAME_DUPLICATED_NAME) {
+            setRenameError("Nome já existe.");
+          } else if (err.code === ApiError.INVALID_BODY) {
+            setRenameError("Nome inválido.");
+          } else {
+            setRenameError("Erro ao renomear.");
+          }
+        },
+      },
+    );
   };
 
   const handleDelete = () => {
     setDeleteError(null);
-    api
-      .delete(`/api/projects/${project.id}/`)
-      .then(() => api.get<ProjectsResponse>("/api/projects/"))
-      .then((res) => {
-        onProjectsUpdated(res.data.projects);
-      })
-      .catch((err: { code?: string }) => {
+    deleteProject.mutate(project.id, {
+      onError: (err: { code?: string }) => {
         if (err.code === ApiError.PROJECTS_NOT_FOUND) {
           setDeleteError("Projeto não encontrado.");
         } else {
           setDeleteError("Erro ao apagar. Tente novamente.");
         }
-      });
+      },
+    });
   };
 
   return (

@@ -1,36 +1,34 @@
 import { useState } from "react";
-import { api } from "@/api/client";
+import { useCreateProject } from "@/api/hooks/useProjects";
 import { ApiError } from "@/types/api";
-import type { Project, ProjectsResponse } from "@/types/project";
 
 interface NewProjectModalProps {
   onClose: () => void;
-  onProjectsUpdated: (projects: Project[]) => void;
 }
 
-export default function NewProjectModal({ onClose, onProjectsUpdated }: NewProjectModalProps) {
+export default function NewProjectModal({ onClose }: NewProjectModalProps) {
   const [projectName, setProjectName] = useState("");
   const [scheduleLink, setScheduleLink] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const createProject = useCreateProject();
 
   const handleCreate = () => {
     setError(null);
-    api
-      .post("/api/projects/", { name: projectName, url: scheduleLink })
-      .then(() => api.get<ProjectsResponse>("/api/projects/"))
-      .then((res) => {
-        onProjectsUpdated(res.data.projects);
-        onClose();
-      })
-      .catch((err: { code?: string }) => {
-        if (err.code === ApiError.PROJECTS_CREATE_DUPLICATED_NAME) {
-          setError("Já existe um projeto com esse nome.");
-        } else if (err.code === ApiError.INVALID_BODY) {
-          setError("Link inválido.");
-        } else {
-          setError("Ocorreu um erro. Tente novamente.");
-        }
-      });
+    createProject.mutate(
+      { name: projectName, url: scheduleLink },
+      {
+        onSuccess: () => onClose(),
+        onError: (err) => {
+          if (err.code === ApiError.PROJECTS_CREATE_DUPLICATED_NAME) {
+            setError("Já existe um projeto com esse nome.");
+          } else if (err.code === ApiError.INVALID_BODY) {
+            setError("Link inválido.");
+          } else {
+            setError("Ocorreu um erro. Tente novamente.");
+          }
+        },
+      },
+    );
   };
 
   return (
