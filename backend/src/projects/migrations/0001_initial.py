@@ -54,9 +54,9 @@ class Migration(migrations.Migration):
                 ("name", models.TextField(unique=True)),
                 ("url", models.TextField()),
                 ("has_selected_aulas_em_paralelo", models.BooleanField(default=False)),
-                ("started_ingestion_at", models.DateTimeField(blank=True, null=True)),
-                ("finished_ingestion_at", models.DateTimeField(blank=True, null=True)),
-                ("failed_ingestion_at", models.DateTimeField(blank=True, null=True)),
+                ("ingestion_started_at", models.DateTimeField(blank=True, null=True)),
+                ("ingestion_finished_at", models.DateTimeField(blank=True, null=True)),
+                ("ingestion_failed_at", models.DateTimeField(blank=True, null=True)),
                 (
                     "creator",
                     models.ForeignKey(

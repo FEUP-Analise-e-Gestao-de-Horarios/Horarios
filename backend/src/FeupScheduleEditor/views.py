@@ -164,7 +164,7 @@ def getProjetosListAux(request, userId):
         "people",
         "pk",
         "name",
-        "finished_ingestion_at",
+        "ingestion_finished_at",
     )
     related = []
 
@@ -189,7 +189,7 @@ def getProjetosListAux(request, userId):
         ):
             ids.append(project[3])
             related.append(
-                {"id": project[3], "nome": project[4], "finished_ingestion_at": project[5]},
+                {"id": project[3], "nome": project[4], "ingestion_finished_at": project[5]},
             )
     related.reverse()
     return related

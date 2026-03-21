@@ -16,9 +16,13 @@ class ProjectResponse(BaseModel):
     url: str
 
     has_selected_aulas_em_paralelo: bool
-    started_ingestion_at: datetime | None
-    finished_ingestion_at: datetime | None
-    failed_ingestion_at: datetime | None
+
+    ingestion_started_at: datetime | None
+    ingestion_finished_at: datetime | None
+    ingestion_failed_at: datetime | None
+
+    created_at: datetime
+    updated_at: datetime
 
 
 class ProjectsResponse(BaseModel):

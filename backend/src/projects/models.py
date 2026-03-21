@@ -38,21 +38,29 @@ class Project(models.Model):
     )
 
     # Timestamps
-    started_ingestion_at: DateTimeField[
+    created_at: DateTimeField[
+        datetime | str | Combinable,
+        datetime,
+    ] = DateTimeField(auto_now_add=True)
+    updated_at: DateTimeField[
+        datetime | str | Combinable,
+        datetime,
+    ] = DateTimeField(auto_now=True)
+    ingestion_started_at: DateTimeField[
         datetime | str | Combinable | None,
         datetime | None,
     ] = DateTimeField(
         null=True,
         blank=True,
     )
-    finished_ingestion_at: DateTimeField[
+    ingestion_finished_at: DateTimeField[
         datetime | str | Combinable | None,
         datetime | None,
     ] = DateTimeField(
         null=True,
         blank=True,
     )
-    failed_ingestion_at: DateTimeField[
+    ingestion_failed_at: DateTimeField[
         datetime | str | Combinable | None,
         datetime | None,
     ] = DateTimeField(

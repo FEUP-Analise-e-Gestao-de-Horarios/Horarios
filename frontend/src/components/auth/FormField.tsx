@@ -10,12 +10,25 @@ type FormFieldProps = {
   onKeyDown?: (e: React.KeyboardEvent) => void;
   error?: string;
   shake?: boolean;
+  disabled?: boolean;
   children?: ReactNode;
 };
 
 const FormField = forwardRef<HTMLInputElement, FormFieldProps>(
   (
-    { id, label, type = "text", placeholder, value, onChange, onKeyDown, error, shake, children },
+    {
+      id,
+      label,
+      type = "text",
+      placeholder,
+      value,
+      onChange,
+      onKeyDown,
+      error,
+      shake,
+      disabled,
+      children,
+    },
     ref,
   ) => {
     return (
@@ -31,7 +44,8 @@ const FormField = forwardRef<HTMLInputElement, FormFieldProps>(
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}
-          className={`px-3 py-2 rounded border outline-none bg-[#f4f3ec] text-[#08060d] focus:border-[rgba(140,45,25,0.5)] focus:ring-1 focus:ring-[rgba(140,45,25,0.5)] placeholder:text-[#c5c1ca] ${
+          disabled={disabled}
+          className={`px-3 py-2 rounded border outline-none bg-[#f4f3ec] text-[#08060d] focus:border-[rgba(140,45,25,0.5)] focus:ring-1 focus:ring-[rgba(140,45,25,0.5)] placeholder:text-[#c5c1ca] disabled:opacity-50 disabled:cursor-not-allowed ${
             error ? "border-[#8c2d19]" : "border-[#e5e4e7]"
           }`}
         />
