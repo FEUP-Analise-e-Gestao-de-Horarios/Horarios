@@ -31,9 +31,6 @@ class SubjectDAO(BaseDAO[Subject]):
     def get_by_number(self, number: int) -> Subject | None:
         return self.session.scalars(select(Subject).where(Subject.number == number)).first()
 
-    def get_by_code(self, code: str) -> Subject | None:
-        return self.session.scalars(select(Subject).where(Subject.code == code)).one_or_none()
-
     def get_by_numbers(self, numbers: set[int], *, check_count: bool = True) -> list[Subject]:
         if not numbers:
             return []
@@ -49,9 +46,6 @@ class SubjectDAO(BaseDAO[Subject]):
         return subjects
 
     def get_by_year_with_stats(self, year_id: UUID) -> list[SubjectStats]:
-        return self.get_all_with_stats(year_id=year_id)
-
-    def get_all_with_stats(self, year_id: UUID | None = None) -> list[SubjectStats]:
         sessions_sq = (
             select(session_subjects.c.subject_id, func.count(SessionModel.id).label("cnt"))
             .join(SessionModel, SessionModel.id == session_subjects.c.session_id)
@@ -76,28 +70,12 @@ class SubjectDAO(BaseDAO[Subject]):
             .join(Year, Year.id == Subject.year_id)
             .join(Degree, Degree.id == Year.degree_id)
             .outerjoin(sessions_sq, sessions_sq.c.subject_id == Subject.id)
+            .where(Subject.year_id == year_id)
         )
-        if year_id is not None:
-            stmt = stmt.where(Subject.year_id == year_id)
 
         rows = self.session.execute(stmt).all()
 
-        return [
-            SubjectStats(
-                id=row.id,
-                number=row.number,
-                code=row.code,
-                acronym=row.acronym,
-                name=row.name,
-                year_id=row.year_id,
-                year_number=row.year_number,
-                degree_id=row.degree_id,
-                degree_acronym=row.degree_acronym,
-                degree_name=row.degree_name,
-                num_sessions=row.num_sessions,
-            )
-            for row in rows
-        ]
+        return [SubjectStats.model_validate(row, from_attributes=True) for row in rows]
 
     def get_by_teacher(self, teacher_id: UUID) -> list[Subject]:
         """Return distinct subjects taught by the given teacher across all their sessions."""
@@ -111,15 +89,5 @@ class SubjectDAO(BaseDAO[Subject]):
                 )
                 .where(session_teachers.c.teacher_id == teacher_id)
                 .distinct(),
-            ).all(),
-        )
-
-    def get_by_degree_and_year(self, *, degree_acronym: str, year_number: int) -> list[Subject]:
-        return list(
-            self.session.scalars(
-                select(Subject)
-                .join(Subject.year)
-                .join(Year.degree)
-                .where(Degree.acronym == degree_acronym, Year.number == year_number),
             ).all(),
         )

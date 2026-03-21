@@ -157,11 +157,3 @@ class SessionDAO(BaseDAO[Session]):
             Session.original_block_id == original_block_id,
         )
         return self.session.scalars(query).one_or_none()
-
-    def has_subject(self, session: Session, subject_code: str) -> bool:
-        query = select(Session).where(
-            Session.id == session.id,
-            Session.subjects.any(Subject.code.in_([subject_code])),
-        )
-
-        return self.session.scalar(query) is not None

@@ -33,10 +33,19 @@ class ClassDAO(BaseDAO[Class]):
             select(Class).where(Class.code == code),
         ).one_or_none()
 
-    def get_by_year_with_stats(self, year_id: UUID) -> list[ClassStats]:
-        return self.get_all_with_stats(year_id=year_id)
+    def get_by_codes(self, codes: set[str], *, check_count: bool = True) -> list[Class]:
+        if not codes:
+            return []
 
-    def get_all_with_stats(self, year_id: UUID | None = None) -> list[ClassStats]:
+        classes = list(self.session.scalars(select(Class).where(Class.code.in_(codes))).all())
+        if check_count and len(codes) != len(classes):
+            found = {c.code for c in classes}
+            missing = codes - found
+            raise MultipleNotFoundError("code", missing)
+
+        return classes
+
+    def get_by_year_with_stats(self, year_id: UUID) -> list[ClassStats]:
         sessions_sq = (
             select(session_classes.c.class_id, func.count(SessionModel.id).label("cnt"))
             .join(SessionModel, SessionModel.id == session_classes.c.session_id)
@@ -59,26 +68,12 @@ class ClassDAO(BaseDAO[Class]):
             .join(Year, Year.id == Class.year_id)
             .join(Degree, Degree.id == Year.degree_id)
             .outerjoin(sessions_sq, sessions_sq.c.class_id == Class.id)
+            .where(Class.year_id == year_id)
         )
-        if year_id is not None:
-            stmt = stmt.where(Class.year_id == year_id)
 
         rows = self.session.execute(stmt).all()
 
-        return [
-            ClassStats(
-                id=row.id,
-                code=row.code,
-                shift=row.shift,
-                year_id=row.year_id,
-                year_number=row.year_number,
-                degree_id=row.degree_id,
-                degree_acronym=row.degree_acronym,
-                degree_name=row.degree_name,
-                num_sessions=row.num_sessions,
-            )
-            for row in rows
-        ]
+        return [ClassStats.model_validate(row, from_attributes=True) for row in rows]
 
     def get_by_teacher(self, teacher_id: UUID) -> list[Class]:
         """Return distinct classes taught by the given teacher across all their sessions."""
@@ -94,25 +89,3 @@ class ClassDAO(BaseDAO[Class]):
                 .distinct(),
             ).all(),
         )
-
-    def get_by_degree_and_year(self, *, degree_acronym: str, year_number: int) -> list[Class]:
-        return list(
-            self.session.scalars(
-                select(Class)
-                .join(Class.year)
-                .join(Year.degree)
-                .where(Degree.acronym == degree_acronym, Year.number == year_number),
-            ).all(),
-        )
-
-    def get_by_codes(self, codes: set[str], *, check_count: bool = True) -> list[Class]:
-        if not codes:
-            return []
-
-        classes = list(self.session.scalars(select(Class).where(Class.code.in_(codes))).all())
-        if check_count and len(codes) != len(classes):
-            found = {c.code for c in classes}
-            missing = codes - found
-            raise MultipleNotFoundError("code", missing)
-
-        return classes
