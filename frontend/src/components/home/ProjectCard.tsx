@@ -36,9 +36,9 @@ function formatElapsed(totalSeconds: number): string {
 }
 
 function IngestionStatus({ project }: { project: Project }) {
-  const elapsed = useElapsedSeconds(project.started_ingestion_at);
+  const elapsed = useElapsedSeconds(project.ingestion_started_at);
 
-  if (project.failed_ingestion_at) {
+  if (project.ingestion_failed_at) {
     return (
       <div className="flex items-center gap-1.5 text-xs text-red-600">
         <span className="inline-block w-2 h-2 rounded-full bg-red-500" />
@@ -47,7 +47,7 @@ function IngestionStatus({ project }: { project: Project }) {
     );
   }
 
-  if (project.finished_ingestion_at) {
+  if (project.ingestion_finished_at) {
     return (
       <div className="flex items-center gap-1.5 text-xs text-green-700">
         <span className="inline-block w-2 h-2 rounded-full bg-green-500" />
@@ -56,7 +56,7 @@ function IngestionStatus({ project }: { project: Project }) {
     );
   }
 
-  if (project.started_ingestion_at) {
+  if (project.ingestion_started_at) {
     return (
       <div className="flex items-center gap-1.5 text-xs text-amber-600">
         <Loader2 className="w-3 h-3 animate-spin" />A processar — {formatElapsed(elapsed)}
@@ -85,7 +85,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
 
   const renameProject = useRenameProject();
   const deleteProject = useDeleteProject();
-  const isReady = !!project.finished_ingestion_at;
+  const isReady = !!project.ingestion_finished_at;
 
   useEffect(() => {
     if (isEditing) inputRef.current?.focus();
