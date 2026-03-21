@@ -1,3 +1,6 @@
+import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+
 import { useLogin } from "@/api/hooks/useAuth";
 import AuthPageLayout from "@/components/auth/AuthPageLayout";
 import FormCard from "@/components/auth/FormCard";
@@ -6,8 +9,6 @@ import PasswordField from "@/components/auth/PasswordField";
 import SubmitButton from "@/components/auth/SubmitButton";
 import useShake from "@/components/auth/useShake";
 import { ROUTES } from "@/routes";
-import { useRef, useState } from "react";
-import { Link } from "react-router-dom";
 
 type Field = "username" | "password";
 
@@ -15,14 +16,23 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
-  const login = useLogin();
-  const { shake, isShaking } = useShake<Field>();
+
   const usernameRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
+
+  const login = useLogin();
+  const { shake, isShaking } = useShake<Field>();
+
+  useEffect(() => {
+    if (!login.isPending && login.isError) {
+      passwordRef.current?.focus();
+    }
+  }, [login.isPending, login.isError]);
 
   const handleKeyDown = (field: Field) => (e: React.KeyboardEvent) => {
     if (e.key !== "Enter") return;
     e.preventDefault();
+
     if (field === "username") {
       if (!username) {
         setErrors({ username: "Preencha este campo." });
@@ -32,8 +42,7 @@ export default function LoginPage() {
         passwordRef.current?.focus();
       }
     } else {
-      const form = passwordRef.current?.closest("form");
-      form?.requestSubmit();
+      passwordRef.current?.closest("form")?.requestSubmit();
     }
   };
 
@@ -82,6 +91,7 @@ export default function LoginPage() {
           onKeyDown={handleKeyDown("username")}
           error={errors.username}
           shake={isShaking("username")}
+          disabled={login.isPending}
         />
 
         <PasswordField
@@ -93,6 +103,7 @@ export default function LoginPage() {
           onKeyDown={handleKeyDown("password")}
           error={errors.password}
           shake={isShaking("password")}
+          disabled={login.isPending}
         />
 
         <Link
