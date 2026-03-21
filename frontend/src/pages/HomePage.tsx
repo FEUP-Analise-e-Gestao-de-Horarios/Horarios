@@ -1,6 +1,5 @@
-import { api } from "@/api/client";
-import { useEffect, useState } from "react";
-import type { Project, ProjectsResponse } from "@/types/project";
+import { useProjects } from "@/api/hooks/useProjects";
+import { useState } from "react";
 import Navbar from "@/components/layout/Navbar";
 import NewProjectCard from "@/components/home/NewProjectCard";
 import ProjectCard from "@/components/home/ProjectCard";
@@ -8,14 +7,7 @@ import NewProjectModal from "@/components/home/NewProjectModal";
 
 export default function HomePage() {
   const [showNewProject, setShowNewProject] = useState(false);
-  const [projects, setProjects] = useState<Project[]>([]);
-
-  useEffect(() => {
-    api
-      .get<ProjectsResponse>("/api/projects/")
-      .then((res) => setProjects(res.data.projects))
-      .catch(() => {});
-  }, []);
+  const { data: projects = [] } = useProjects();
 
   return (
     <div className="min-h-svh bg-[#f0eeeb] font-[system-ui,'Segoe_UI',Roboto,sans-serif]">
@@ -25,13 +17,11 @@ export default function HomePage() {
         <NewProjectCard onClick={() => setShowNewProject(true)} />
 
         {projects.map((project) => (
-          <ProjectCard key={project.id} project={project} onProjectsUpdated={setProjects} />
+          <ProjectCard key={project.id} project={project} />
         ))}
       </div>
 
-      {showNewProject && (
-        <NewProjectModal onClose={() => setShowNewProject(false)} onProjectsUpdated={setProjects} />
-      )}
+      {showNewProject && <NewProjectModal onClose={() => setShowNewProject(false)} />}
     </div>
   );
 }

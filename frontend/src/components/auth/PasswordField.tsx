@@ -10,6 +10,7 @@ type PasswordFieldProps = {
   onKeyDown?: (e: React.KeyboardEvent) => void;
   error?: string;
   shake?: boolean;
+  disabled?: boolean;
   children?: ReactNode;
 };
 
@@ -25,6 +26,7 @@ const PasswordField = forwardRef<HTMLInputElement, PasswordFieldProps>(
       onKeyDown,
       error,
       shake,
+      disabled,
       children,
     },
     ref,
@@ -45,14 +47,16 @@ const PasswordField = forwardRef<HTMLInputElement, PasswordFieldProps>(
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={onKeyDown}
-            className={`w-full px-3 py-2 pr-10 rounded border outline-none bg-[#f4f3ec] text-[#08060d] focus:border-[rgba(140,45,25,0.5)] focus:ring-1 focus:ring-[rgba(140,45,25,0.5)] placeholder:text-[#c5c1ca] ${
+            disabled={disabled}
+            className={`w-full px-3 py-2 pr-10 rounded border outline-none bg-[#f4f3ec] text-[#08060d] focus:border-[rgba(140,45,25,0.5)] focus:ring-1 focus:ring-[rgba(140,45,25,0.5)] placeholder:text-[#c5c1ca] disabled:opacity-50 disabled:cursor-not-allowed ${
               error ? "border-[#8c2d19]" : "border-[#e5e4e7]"
             }`}
           />
           <button
             type="button"
             onClick={() => setVisible((v) => !v)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer text-[#9b95a3] hover:text-[#08060d] text-sm p-0.5"
+            disabled={disabled}
+            className="absolute right-2 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer text-[#9b95a3] hover:text-[#08060d] text-sm p-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {visible ? "Ocultar" : "Mostrar"}
           </button>

@@ -1,4 +1,4 @@
-import { api } from "@/api/client";
+import { useForgotPassword } from "@/api/hooks/useAuth";
 import { ApiError } from "@/types/api";
 import AuthPageLayout from "@/components/auth/AuthPageLayout";
 import BackLink from "@/components/auth/BackLink";
@@ -11,9 +11,9 @@ import { useState } from "react";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
+  const forgotPassword = useForgotPassword();
   const { shake, isShaking } = useShake<"email">();
 
   const handleSubmit = (e: React.SyntheticEvent) => {
@@ -26,23 +26,22 @@ export default function ForgotPasswordPage() {
       return;
     }
 
-    setLoading(true);
-    api
-      .post("/api/auth/forgot-password", { email })
-      .then(() => {
-        setSubmitted(true);
-      })
-      .catch((err: { code?: string }) => {
-        if (err.code === ApiError.AUTH_ALREADY_AUTHENTICATED) {
-          setError("Já tem sessão iniciada.");
-        } else {
-          setError("Ocorreu um erro. Tente novamente mais tarde.");
-        }
-        shake("email");
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+    forgotPassword.mutate(
+      { email },
+      {
+        onSuccess: () => {
+          setSubmitted(true);
+        },
+        onError: (err) => {
+          if (err.code === ApiError.AUTH_ALREADY_AUTHENTICATED) {
+            setError("Já tem sessão iniciada.");
+          } else {
+            setError("Ocorreu um erro. Tente novamente mais tarde.");
+          }
+          shake("email");
+        },
+      },
+    );
   };
 
   return (
@@ -75,7 +74,11 @@ export default function ForgotPasswordPage() {
               shake={isShaking("email")}
             />
 
-            <SubmitButton loading={loading} label="Enviar e-mail" loadingLabel="A enviar..." />
+            <SubmitButton
+              loading={forgotPassword.isPending}
+              label="Enviar e-mail"
+              loadingLabel="A enviar..."
+            />
             <BackLink to={ROUTES.LOGIN}>Voltar ao início de sessão</BackLink>
           </>
         )}

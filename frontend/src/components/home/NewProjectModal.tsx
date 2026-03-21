@@ -1,44 +1,45 @@
 import { useState } from "react";
-import { api } from "@/api/client";
+
+import { useCreateProject } from "@/api/hooks/useProjects";
 import { ApiError } from "@/types/api";
-import type { Project, ProjectsResponse } from "@/types/project";
+import { Loader2 } from "lucide-react";
 
 interface NewProjectModalProps {
   onClose: () => void;
-  onProjectsUpdated: (projects: Project[]) => void;
 }
 
-export default function NewProjectModal({ onClose, onProjectsUpdated }: NewProjectModalProps) {
+export default function NewProjectModal({ onClose }: NewProjectModalProps) {
   const [projectName, setProjectName] = useState("");
   const [scheduleLink, setScheduleLink] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const createProject = useCreateProject();
 
   const handleCreate = () => {
     setError(null);
-    api
-      .post("/api/projects/", { name: projectName, url: scheduleLink })
-      .then(() => api.get<ProjectsResponse>("/api/projects/"))
-      .then((res) => {
-        onProjectsUpdated(res.data.projects);
-        onClose();
-      })
-      .catch((err: { code?: string }) => {
-        if (err.code === ApiError.PROJECTS_CREATE_DUPLICATED_NAME) {
-          setError("Já existe um projeto com esse nome.");
-        } else if (err.code === ApiError.INVALID_BODY) {
-          setError("Link inválido.");
-        } else {
-          setError("Ocorreu um erro. Tente novamente.");
-        }
-      });
+    createProject.mutate(
+      { name: projectName, url: scheduleLink },
+      {
+        onSuccess: () => onClose(),
+        onError: (err) => {
+          if (err.code === ApiError.PROJECTS_CREATE_DUPLICATED_NAME) {
+            setError("Já existe um projeto com esse nome.");
+          } else if (err.code === ApiError.INVALID_BODY) {
+            setError("Link inválido.");
+          } else {
+            setError("Ocorreu um erro. Tente novamente.");
+          }
+        },
+      },
+    );
   };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
       <button
         type="button"
-        onClick={onClose}
-        className="absolute inset-0 bg-black/40 border-none cursor-default"
+        onClick={createProject.isPending ? undefined : onClose}
+        disabled={createProject.isPending}
+        className="absolute inset-0 bg-black/40 border-none cursor-default disabled:cursor-default"
         aria-label="Fechar"
       />
       <div
@@ -51,7 +52,8 @@ export default function NewProjectModal({ onClose, onProjectsUpdated }: NewProje
           <button
             type="button"
             onClick={onClose}
-            className="cursor-pointer text-xl text-[#6b6375] hover:text-[#08060d] transition-colors bg-transparent border-none p-0"
+            disabled={createProject.isPending}
+            className="cursor-pointer text-xl text-[#6b6375] hover:text-[#08060d] transition-colors bg-transparent border-none p-0 disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Fechar"
           >
             ✕
@@ -67,7 +69,8 @@ export default function NewProjectModal({ onClose, onProjectsUpdated }: NewProje
             type="text"
             value={projectName}
             onChange={(e) => setProjectName(e.target.value)}
-            className="px-3 py-2.5 rounded border border-[#8c2d19] text-[15px] outline-none bg-white text-[#08060d] focus:ring-1 focus:ring-[rgba(140,45,25,0.5)]"
+            disabled={createProject.isPending}
+            className="px-3 py-2.5 rounded border border-[#8c2d19] text-[15px] outline-none bg-white text-[#08060d] focus:ring-1 focus:ring-[rgba(140,45,25,0.5)] disabled:opacity-50 disabled:cursor-not-allowed"
           />
         </div>
 
@@ -80,7 +83,8 @@ export default function NewProjectModal({ onClose, onProjectsUpdated }: NewProje
             type="text"
             value={scheduleLink}
             onChange={(e) => setScheduleLink(e.target.value)}
-            className="px-3 py-2.5 rounded border border-[#8c2d19] text-[15px] outline-none bg-white text-[#08060d] focus:ring-1 focus:ring-[rgba(140,45,25,0.5)]"
+            disabled={createProject.isPending}
+            className="px-3 py-2.5 rounded border border-[#8c2d19] text-[15px] outline-none bg-white text-[#08060d] focus:ring-1 focus:ring-[rgba(140,45,25,0.5)] disabled:opacity-50 disabled:cursor-not-allowed"
           />
         </div>
 
@@ -89,14 +93,17 @@ export default function NewProjectModal({ onClose, onProjectsUpdated }: NewProje
         <div className="flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded border-none bg-[#6b7280] text-white cursor-pointer text-sm text-center hover:bg-[#555b66] transition-colors"
+            disabled={createProject.isPending}
+            className="px-5 py-2 rounded border-none bg-[#6b7280] text-white cursor-pointer text-sm text-center hover:bg-[#555b66] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancelar
           </button>
           <button
             onClick={handleCreate}
-            className="px-5 py-2 rounded border-none bg-[#8c2d19] text-white cursor-pointer text-sm text-center font-semibold hover:bg-[#722415] transition-colors"
+            disabled={createProject.isPending}
+            className="px-5 py-2 rounded border-none bg-[#8c2d19] text-white cursor-pointer text-sm text-center font-semibold hover:bg-[#722415] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
           >
+            {createProject.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
             Criar
           </button>
         </div>

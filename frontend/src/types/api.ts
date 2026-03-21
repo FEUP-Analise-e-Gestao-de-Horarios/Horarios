@@ -19,7 +19,8 @@ export const ApiError = {
 
 export type ApiErrorCode = (typeof ApiError)[keyof typeof ApiError];
 
-export interface ApiErrorResponse {
-  error: ApiErrorCode;
-  message: string;
+export interface ApiRequestError extends Error {
+  code?: ApiErrorCode;
+  apiMessage?: string;
+  status?: number;
 }

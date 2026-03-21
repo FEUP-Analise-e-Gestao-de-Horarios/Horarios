@@ -1,10 +1,11 @@
-import { api } from "@/api/client";
+import { useLogout } from "@/api/hooks/useAuth";
 import { ROUTES } from "@/routes";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 export default function Navbar() {
   const navigate = useNavigate();
+  const logout = useLogout();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -50,10 +51,9 @@ export default function Navbar() {
             <button
               onClick={() => {
                 setDropdownOpen(false);
-                void api
-                  .post("/api/auth/logout", {})
-                  .then(() => navigate(ROUTES.HOME))
-                  .catch(() => {});
+                logout.mutate(undefined, {
+                  onSuccess: () => void navigate(ROUTES.HOME),
+                });
               }}
               className="w-full text-left px-4 py-2.5 text-sm text-[#8c2d19] bg-transparent border-none cursor-pointer hover:bg-[#8c2d19] hover:text-white transition-colors"
             >
