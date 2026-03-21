@@ -38,6 +38,14 @@ class Project(models.Model):
     )
 
     # Timestamps
+    created_at: DateTimeField[
+        datetime | str | Combinable,
+        datetime,
+    ] = DateTimeField(auto_now_add=True)
+    updated_at: DateTimeField[
+        datetime | str | Combinable,
+        datetime,
+    ] = DateTimeField(auto_now=True)
     ingestion_started_at: DateTimeField[
         datetime | str | Combinable | None,
         datetime | None,

@@ -33,7 +33,7 @@ class ProjectsView(View):
             )
 
         # -- Fetch all projects ------------------------------------------------
-        projects = list(Project.objects.all())
+        projects = list(Project.objects.order_by("-created_at"))
         response = SuccessResponse(
             message="Projects retrieved successfully",
             data=ProjectsResponse(projects=projects, count=len(projects)),
