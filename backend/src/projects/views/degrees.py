@@ -73,7 +73,7 @@ class ProjectDegreeView(View):
 
 
 class ProjectYearsView(View):
-    def get(self, request: HttpRequest, project_id: int, degree_id: str) -> HttpResponse:
+    def get(self, request: HttpRequest, project_id: int, degree_id: UUID) -> HttpResponse:
         # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:
             return NotAuthenticatedResponse()
