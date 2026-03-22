@@ -11,16 +11,16 @@ from src.core.errors import (
 )
 from src.core.schemas import SuccessResponse
 from src.projects.models import Project
-from src.projects.projects_db.dao import DegreeDAO, SubjectDAO, YearDAO
+from src.projects.projects_db.dao import ClassDAO, DegreeDAO, YearDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
 from src.projects.views.schemas.subjects import (
-    ProjectSubjectsResponse,
-    SubjectStatsResponse,
+    ClassStatsResponse,
+    ProjectClassesResponse,
 )
 
 
-class ProjectSubjectsView(View):
+class ProjectClassesView(View):
     def get(
         self,
         request: HttpRequest,
@@ -38,7 +38,7 @@ class ProjectSubjectsView(View):
         except Project.DoesNotExist:
             return ProjectNotFoundResponse()
 
-        # -- Query subjects with stats from project DB -------------------------
+        # -- Query classes with stats from project DB --------------------------
         with get_project_session(general_db(project_id)) as db_session:
             if DegreeDAO(db_session).get(degree_id) is None:
                 return DegreeNotFoundResponse()
@@ -47,12 +47,12 @@ class ProjectSubjectsView(View):
             if year is None or year.degree_id != degree_id:
                 return YearNotFoundResponse()
 
-            stats = SubjectDAO(db_session).get_by_year_with_stats(year_id)
-            result = [SubjectStatsResponse.model_validate(s, from_attributes=True) for s in stats]
+            stats = ClassDAO(db_session).get_by_year_with_stats(year_id)
+            result = [ClassStatsResponse.model_validate(s, from_attributes=True) for s in stats]
 
         return JsonResponse(
             SuccessResponse(
-                message="Subjects retrieved successfully",
-                data=ProjectSubjectsResponse(subjects=result, count=len(result)),
+                message="Classes retrieved successfully",
+                data=ProjectClassesResponse(classes=result, count=len(result)),
             ).model_dump(),
         )

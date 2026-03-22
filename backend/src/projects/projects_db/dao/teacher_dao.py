@@ -22,6 +22,16 @@ class TeacherDAO(BaseDAO[Teacher]):
     # -------------------------------------------------------------------
 
     def create(self, *, number: int, acronym: str, name: str) -> Teacher:
+        """Create and persist a new teacher.
+
+        Args:
+            number: Unique institutional number of the teacher.
+            acronym: Short abbreviation identifying the teacher.
+            name: Full name of the teacher.
+
+        Returns:
+            The newly created Teacher instance, flushed to the session.
+        """
         return self._create(number=number, acronym=acronym, name=name)
 
     # -------------------------------------------------------------------
@@ -29,6 +39,14 @@ class TeacherDAO(BaseDAO[Teacher]):
     # -------------------------------------------------------------------
 
     def get_all_with_stats(self) -> list[TeacherStats]:
+        """Return all teachers with their subject, class, and session counts.
+
+        Counts are computed via subqueries and default to 0 when a teacher
+        has no associated records.
+
+        Returns:
+            A list of TeacherStats, one per teacher, in an unspecified order.
+        """
         subjects_sq = (
             select(
                 session_teachers.c.teacher_id,
@@ -72,6 +90,19 @@ class TeacherDAO(BaseDAO[Teacher]):
         return [TeacherStats.model_validate(row, from_attributes=True) for row in rows]
 
     def get_by_numbers(self, numbers: set[int], *, check_count: bool = True) -> list[Teacher]:
+        """Return teachers matching the given institutional numbers.
+
+        Args:
+            numbers: Set of teacher numbers to fetch.
+            check_count: When True, raises if any number has no matching teacher.
+
+        Returns:
+            List of Teacher instances corresponding to the requested numbers.
+
+        Raises:
+            MultipleNotFoundError: If check_count is True and one or more
+                numbers have no matching teacher.
+        """
         if not numbers:
             return []
 
