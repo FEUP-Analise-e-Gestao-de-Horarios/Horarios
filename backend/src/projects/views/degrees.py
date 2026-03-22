@@ -86,6 +86,9 @@ class ProjectYearsView(View):
 
         # -- Query years with stats from project DB ----------------------------
         with get_project_session(general_db(project_id)) as db_session:
+            if DegreeDAO(db_session).get(degree_id) is None:
+                return DegreeNotFoundResponse()
+
             stats = YearDAO(db_session).get_by_degree_with_stats(degree_id)
             result = [YearStatsResponse.model_validate(s, from_attributes=True) for s in stats]
 

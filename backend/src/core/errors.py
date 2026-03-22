@@ -12,6 +12,7 @@ class ApiError(StrEnum):
     PROJECTS_ROOMS_NOT_FOUND = "projects.rooms.not_found"
     PROJECTS_TEACHERS_NOT_FOUND = "projects.teachers.not_found"
     PROJECTS_DEGREES_NOT_FOUND = "projects.degrees.not_found"
+    PROJECTS_YEARS_NOT_FOUND = "projects.years.not_found"
 
     # Auth
     AUTH_NOT_AUTHENTICATED = "auth.not_authenticated"
@@ -66,4 +67,12 @@ def DegreeNotFoundResponse() -> JsonResponse:
         status=404,
         code=ApiError.PROJECTS_DEGREES_NOT_FOUND,
         message="Degree not found.",
+    )
+
+
+def YearNotFoundResponse() -> JsonResponse:
+    return ErrorResponse(
+        status=404,
+        code=ApiError.PROJECTS_YEARS_NOT_FOUND,
+        message="Year not found.",
     )
