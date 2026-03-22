@@ -1,10 +1,21 @@
-import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import ScheduleNavbar from "@/components/schedule/ScheduleNavbar";
 import { UCS_POR_CURSO, TURMAS_POR_UC } from "@/components/schedule/data";
+import { useProject } from "@/api/hooks/useDashboard";
+import { ROUTES } from "@/routes";
 
 export default function SchedulePage() {
   const { projectId } = useParams<{ projectId: string }>();
+  const navigate = useNavigate();
+  const { data: project } = useProject(projectId ?? "");
+
+  useEffect(() => {
+    if (!project) return;
+    const isReady = !!project.ingestion_finished_at;
+    if (!isReady)
+      void navigate(ROUTES.DASHBOARD.replace(":projectId", projectId ?? ""), { replace: true });
+  }, [project, projectId, navigate]);
 
   const [curso, setCurso] = useState("");
   const [anos, setAnos] = useState<string[]>([]);

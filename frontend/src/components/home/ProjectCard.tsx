@@ -86,6 +86,15 @@ export default function ProjectCard({ project }: ProjectCardProps) {
   const renameProject = useRenameProject();
   const deleteProject = useDeleteProject();
   const isReady = !!project.ingestion_finished_at;
+  const isProcessing =
+    !!project.ingestion_started_at &&
+    !project.ingestion_finished_at &&
+    !project.ingestion_failed_at;
+
+  function handleCardClick() {
+    if (isReady) void navigate(`/projects/${project.id}`);
+    else if (isProcessing) void navigate(`/projects/${project.id}/dashboard`);
+  }
 
   useEffect(() => {
     if (isEditing) inputRef.current?.focus();
@@ -162,9 +171,9 @@ export default function ProjectCard({ project }: ProjectCardProps) {
       <div className="w-full h-full bg-white border border-[#e5e4e7] rounded-lg flex flex-col shadow-[0_2px_8px_rgba(0,0,0,0.08)] overflow-hidden hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)] transition-shadow">
         <button
           type="button"
-          disabled={!isReady}
-          onClick={() => void navigate(`/projects/${project.id}`)}
-          className={`w-full flex-1 flex items-center justify-center bg-[#f9f7f4] rounded-t-lg text-[64px] border-none bg-none ${isReady ? "cursor-pointer" : "cursor-default"}`}
+          disabled={!isReady && !isProcessing}
+          onClick={handleCardClick}
+          className={`w-full flex-1 flex items-center justify-center bg-[#f9f7f4] rounded-t-lg text-[64px] border-none bg-none ${isReady || isProcessing ? "cursor-pointer" : "cursor-default"}`}
         >
           🗄️
         </button>
