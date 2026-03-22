@@ -38,22 +38,7 @@ class ProjectSubjectsView(View):
         # -- Query subjects with stats from project DB -------------------------
         with get_project_session(general_db(project_id)) as db_session:
             stats = SubjectDAO(db_session).get_by_year_with_stats(year_id)
-            result = [
-                SubjectStatsResponse(
-                    id=str(s.id),
-                    number=s.number,
-                    code=s.code,
-                    acronym=s.acronym,
-                    name=s.name,
-                    year_id=str(s.year_id),
-                    year_number=s.year_number,
-                    degree_id=str(s.degree_id),
-                    degree_acronym=s.degree_acronym,
-                    degree_name=s.degree_name,
-                    num_sessions=s.num_sessions,
-                )
-                for s in stats
-            ]
+            result = [SubjectStatsResponse.model_validate(s, from_attributes=True) for s in stats]
 
         return JsonResponse(
             SuccessResponse(
@@ -84,20 +69,7 @@ class ProjectClassesView(View):
         # -- Query classes with stats from project DB --------------------------
         with get_project_session(general_db(project_id)) as db_session:
             stats = ClassDAO(db_session).get_by_year_with_stats(year_id)
-            result = [
-                ClassStatsResponse(
-                    id=str(s.id),
-                    code=s.code,
-                    shift=s.shift,
-                    year_id=str(s.year_id),
-                    year_number=s.year_number,
-                    degree_id=str(s.degree_id),
-                    degree_acronym=s.degree_acronym,
-                    degree_name=s.degree_name,
-                    num_sessions=s.num_sessions,
-                )
-                for s in stats
-            ]
+            result = [ClassStatsResponse.model_validate(s, from_attributes=True) for s in stats]
 
         return JsonResponse(
             SuccessResponse(
