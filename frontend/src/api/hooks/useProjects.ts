@@ -10,10 +10,18 @@ async function fetchProjects(): Promise<Project[]> {
   return res.data.projects;
 }
 
+function hasProcessingProject(projects: Project[]): boolean {
+  return projects.some(
+    (p) => !!p.ingestion_started_at && !p.ingestion_finished_at && !p.ingestion_failed_at,
+  );
+}
+
 export function useProjects() {
   return useQuery({
     queryKey: queryKeys.projects.all,
     queryFn: fetchProjects,
+    refetchInterval: (query) =>
+      query.state.data && hasProcessingProject(query.state.data) ? 5000 : false,
   });
 }
 
