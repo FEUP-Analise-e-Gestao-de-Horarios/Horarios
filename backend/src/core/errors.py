@@ -11,6 +11,7 @@ class ApiError(StrEnum):
     PROJECTS_RENAME_DUPLICATED_NAME = "projects.rename.duplicated_name"
     PROJECTS_ROOMS_NOT_FOUND = "projects.rooms.not_found"
     PROJECTS_TEACHERS_NOT_FOUND = "projects.teachers.not_found"
+    PROJECTS_DEGREES_NOT_FOUND = "projects.degrees.not_found"
 
     # Auth
     AUTH_NOT_AUTHENTICATED = "auth.not_authenticated"
@@ -57,4 +58,12 @@ def TeacherNotFoundResponse() -> JsonResponse:
         status=404,
         code=ApiError.PROJECTS_TEACHERS_NOT_FOUND,
         message="Teacher not found.",
+    )
+
+
+def DegreeNotFoundResponse() -> JsonResponse:
+    return ErrorResponse(
+        status=404,
+        code=ApiError.PROJECTS_DEGREES_NOT_FOUND,
+        message="Degree not found.",
     )

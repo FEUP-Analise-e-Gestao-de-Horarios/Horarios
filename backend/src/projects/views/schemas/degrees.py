@@ -1,14 +1,6 @@
-from pydantic import BaseModel
+from uuid import UUID
 
-
-class DegreeStatsResponse(BaseModel):
-    id: str
-    acronym: str
-    name: str
-    num_years: int
-    num_subjects: int
-    num_classes: int
-    num_sessions: int
+from pydantic import BaseModel, ConfigDict
 
 
 class ProjectDegreesResponse(BaseModel):
@@ -16,17 +8,36 @@ class ProjectDegreesResponse(BaseModel):
     count: int
 
 
-class YearStatsResponse(BaseModel):
-    id: str
-    number: int
-    degree_id: str
-    degree_acronym: str
-    degree_name: str
-    num_subjects: int
-    num_classes: int
-    num_sessions: int
+class DegreeStatsResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+
+    acronym: str
+    name: str
+
+    years: int
+    subjects: int
+    classes: int
+    sessions: int
 
 
 class ProjectYearsResponse(BaseModel):
     years: list[YearStatsResponse]
     count: int
+
+
+class YearStatsResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    degree_id: UUID
+
+    number: int
+
+    degree_acronym: str
+    degree_name: str
+
+    subjects: int
+    classes: int
+    sessions: int

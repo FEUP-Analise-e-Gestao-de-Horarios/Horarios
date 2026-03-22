@@ -68,9 +68,9 @@ class YearDAO(BaseDAO[Year]):
                 Year.degree_id,
                 Degree.acronym.label("degree_acronym"),
                 Degree.name.label("degree_name"),
-                func.coalesce(subjects_sq.c.cnt, 0).label("num_subjects"),
-                func.coalesce(classes_sq.c.cnt, 0).label("num_classes"),
-                func.coalesce(sessions_sq.c.cnt, 0).label("num_sessions"),
+                func.coalesce(subjects_sq.c.cnt, 0).label("subjects"),
+                func.coalesce(classes_sq.c.cnt, 0).label("classes"),
+                func.coalesce(sessions_sq.c.cnt, 0).label("sessions"),
             )
             .join(Degree, Degree.id == Year.degree_id)
             .outerjoin(subjects_sq, subjects_sq.c.year_id == Year.id)
@@ -79,16 +79,4 @@ class YearDAO(BaseDAO[Year]):
             .where(Year.degree_id == degree_id),
         ).all()
 
-        return [
-            YearStats(
-                id=row.id,
-                number=row.number,
-                degree_id=row.degree_id,
-                degree_acronym=row.degree_acronym,
-                degree_name=row.degree_name,
-                num_subjects=row.num_subjects,
-                num_classes=row.num_classes,
-                num_sessions=row.num_sessions,
-            )
-            for row in rows
-        ]
+        return [YearStats.model_validate(row, from_attributes=True) for row in rows]

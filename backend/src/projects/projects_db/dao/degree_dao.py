@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session
 
@@ -25,9 +27,6 @@ class DegreeDAO(BaseDAO[Degree]):
     # -------------------------------------------------------------------
     # -- Get
     # -------------------------------------------------------------------
-
-    def get_by_acronym(self, acronym: str) -> Degree | None:
-        return self.session.scalars(select(Degree).where(Degree.acronym == acronym)).first()
 
     def get_all_with_stats(self) -> list[DegreeStats]:
         years_sq = (
@@ -61,10 +60,10 @@ class DegreeDAO(BaseDAO[Degree]):
                 Degree.id,
                 Degree.acronym,
                 Degree.name,
-                func.coalesce(years_sq.c.cnt, 0).label("num_years"),
-                func.coalesce(subjects_sq.c.cnt, 0).label("num_subjects"),
-                func.coalesce(classes_sq.c.cnt, 0).label("num_classes"),
-                func.coalesce(sessions_sq.c.cnt, 0).label("num_sessions"),
+                func.coalesce(years_sq.c.cnt, 0).label("years"),
+                func.coalesce(subjects_sq.c.cnt, 0).label("subjects"),
+                func.coalesce(classes_sq.c.cnt, 0).label("classes"),
+                func.coalesce(sessions_sq.c.cnt, 0).label("sessions"),
             )
             .outerjoin(years_sq, years_sq.c.degree_id == Degree.id)
             .outerjoin(subjects_sq, subjects_sq.c.degree_id == Degree.id)
@@ -72,15 +71,50 @@ class DegreeDAO(BaseDAO[Degree]):
             .outerjoin(sessions_sq, sessions_sq.c.degree_id == Degree.id),
         ).all()
 
-        return [
-            DegreeStats(
-                id=row.id,
-                acronym=row.acronym,
-                name=row.name,
-                num_years=row.num_years,
-                num_subjects=row.num_subjects,
-                num_classes=row.num_classes,
-                num_sessions=row.num_sessions,
+        return [DegreeStats.model_validate(row, from_attributes=True) for row in rows]
+
+    def get_with_stats(self, degree_id: UUID) -> DegreeStats | None:
+        years_sq = (
+            select(Year.degree_id, func.count(Year.id).label("cnt"))
+            .group_by(Year.degree_id)
+            .subquery()
+        )
+        subjects_sq = (
+            select(Year.degree_id, func.count(Subject.id).label("cnt"))
+            .join(Subject, Subject.year_id == Year.id)
+            .group_by(Year.degree_id)
+            .subquery()
+        )
+        classes_sq = (
+            select(Year.degree_id, func.count(Class.id).label("cnt"))
+            .join(Class, Class.year_id == Year.id)
+            .group_by(Year.degree_id)
+            .subquery()
+        )
+        sessions_sq = (
+            select(Year.degree_id, func.count(distinct(SessionModel.id)).label("cnt"))
+            .join(Subject, Subject.year_id == Year.id)
+            .join(session_subjects, session_subjects.c.subject_id == Subject.id)
+            .join(SessionModel, SessionModel.id == session_subjects.c.session_id)
+            .group_by(Year.degree_id)
+            .subquery()
+        )
+
+        row = self.session.execute(
+            select(
+                Degree.id,
+                Degree.acronym,
+                Degree.name,
+                func.coalesce(years_sq.c.cnt, 0).label("years"),
+                func.coalesce(subjects_sq.c.cnt, 0).label("subjects"),
+                func.coalesce(classes_sq.c.cnt, 0).label("classes"),
+                func.coalesce(sessions_sq.c.cnt, 0).label("sessions"),
             )
-            for row in rows
-        ]
+            .where(Degree.id == degree_id)
+            .outerjoin(years_sq, years_sq.c.degree_id == Degree.id)
+            .outerjoin(subjects_sq, subjects_sq.c.degree_id == Degree.id)
+            .outerjoin(classes_sq, classes_sq.c.degree_id == Degree.id)
+            .outerjoin(sessions_sq, sessions_sq.c.degree_id == Degree.id),
+        ).one_or_none()
+
+        return DegreeStats.model_validate(row, from_attributes=True) if row is not None else None

@@ -3,6 +3,7 @@ from django.urls import include, path
 from src.projects.views import (
     ProjectClassesView,
     ProjectDegreesView,
+    ProjectDegreeView,
     ProjectRoomsView,
     ProjectRoomView,
     ProjectStatsView,
@@ -24,6 +25,7 @@ year_patterns = [
 
 degree_patterns = [
     path("", ProjectDegreesView.as_view()),
+    path("<uuid:degree_id>", ProjectDegreeView.as_view()),
     path("<uuid:degree_id>/years/", include(year_patterns)),
 ]
 
@@ -39,10 +41,10 @@ room_patterns = [
 
 project_patterns = [
     path("", ProjectView.as_view()),
-    path("stats", ProjectStatsView.as_view()),
-    path("rooms/", include(room_patterns)),
-    path("teachers/", include(teacher_patterns)),
-    path("degrees/", include(degree_patterns)),
+    path("/stats", ProjectStatsView.as_view()),
+    path("/rooms/", include(room_patterns)),
+    path("/teachers/", include(teacher_patterns)),
+    path("/degrees/", include(degree_patterns)),
 ]
 
 urlpatterns = [
