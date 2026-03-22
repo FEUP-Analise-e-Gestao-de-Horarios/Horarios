@@ -39,6 +39,23 @@ class SessionDAO(BaseDAO[Session]):
         class_ids: set[UUID],
         room_ids: set[UUID],
     ) -> Session:
+        """Create a new session with its many-to-many associations.
+
+        Args:
+            week: The date representing the week of the session.
+            weekday: The day of the week the session takes place.
+            start_time: The starting timeslot of the session.
+            duration: The duration of the session in timeslot units.
+            type_: The session type (e.g. "T", "TP", "PL").
+            original_block_id: UUID of the originating timetable block.
+            subject_ids: UUIDs of subjects to associate with this session.
+            teacher_ids: UUIDs of teachers to associate with this session.
+            class_ids: UUIDs of classes to associate with this session.
+            room_ids: UUIDs of rooms to associate with this session.
+
+        Returns:
+            The newly created Session instance, flushed to the session.
+        """
         session = self._create(
             week=week,
             weekday=weekday,
@@ -78,11 +95,54 @@ class SessionDAO(BaseDAO[Session]):
     # -- Get
     # -------------------------------------------------------------------
 
+    def get_by_teacher(self, teacher_id: UUID) -> list[Session]:
+        """Return all sessions taught by the given teacher.
+
+        Args:
+            teacher_id: UUID of the teacher to filter by.
+
+        Returns:
+            List of Session instances, in an unspecified order.
+        """
+        return list(
+            self.session.scalars(
+                select(Session)
+                .join(session_teachers, session_teachers.c.session_id == Session.id)
+                .where(session_teachers.c.teacher_id == teacher_id),
+            ).all(),
+        )
+
+    def get_by_room(self, room_id: UUID) -> list[Session]:
+        """Return all sessions that take place in the given room.
+
+        Args:
+            room_id: UUID of the room to filter by.
+
+        Returns:
+            List of Session instances, in an unspecified order.
+        """
+        return list(
+            self.session.scalars(
+                select(Session)
+                .join(session_rooms, session_rooms.c.session_id == Session.id)
+                .where(session_rooms.c.room_id == room_id),
+            ).all(),
+        )
+
     def get_by_subject_type(
         self,
         subject: Subject,
         type_: str,
     ) -> Sequence[Session]:
+        """Return all sessions for a given subject and session type.
+
+        Args:
+            subject: The Subject instance to filter by.
+            type_: The session type to filter by (e.g. "T", "TP", "PL").
+
+        Returns:
+            A sequence of matching Session instances.
+        """
         return self.session.scalars(
             select(Session)
             .join(Session.classes)
@@ -100,6 +160,17 @@ class SessionDAO(BaseDAO[Session]):
         start_time: int,
         class_id: UUID,
     ) -> Session | None:
+        """Find a session by its week, weekday, start time, and class.
+
+        Args:
+            week: The date representing the week of the session.
+            weekday: The day of the week.
+            start_time: The starting timeslot.
+            class_id: UUID of the class to filter by.
+
+        Returns:
+            The matching Session instance, or None if not found.
+        """
         query = (
             select(Session)
             .join(session_classes, session_classes.c.session_id == Session.id)
@@ -118,16 +189,17 @@ class SessionDAO(BaseDAO[Session]):
         week: datetime.date,
         original_block_id: UUID,
     ) -> Session | None:
+        """Find a session by its week and originating timetable block.
+
+        Args:
+            week: The date representing the week of the session.
+            original_block_id: UUID of the originating timetable block.
+
+        Returns:
+            The matching Session instance, or None if not found.
+        """
         query = select(Session).where(
             Session.week == week,
             Session.original_block_id == original_block_id,
         )
         return self.session.scalars(query).one_or_none()
-
-    def has_subject(self, session: Session, subject_code: str) -> bool:
-        query = select(Session).where(
-            Session.id == session.id,
-            Session.subjects.any(Subject.code.in_([subject_code])),
-        )
-
-        return self.session.scalar(query) is not None

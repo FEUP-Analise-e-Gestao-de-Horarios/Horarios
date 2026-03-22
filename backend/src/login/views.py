@@ -12,7 +12,7 @@ from django.utils.http import urlsafe_base64_encode
 from django.views.decorators.http import require_GET, require_POST
 
 from src.config.settings import base
-from src.core.errors import ApiError, ErrorResponse
+from src.core.errors import ApiError, ErrorResponse, NotAuthenticatedResponse
 from src.login.tokens import generate_token
 from src.users.models import User
 
@@ -20,11 +20,7 @@ from src.users.models import User
 @require_GET
 def me(request) -> JsonResponse:
     if not request.user.is_authenticated:
-        return ErrorResponse(
-            status=401,
-            code=ApiError.AUTH_NOT_AUTHENTICATED,
-            message="Not authenticated.",
-        )
+        return NotAuthenticatedResponse()
 
     user = request.user
     return JsonResponse(
@@ -108,11 +104,7 @@ def forgot_password(request) -> JsonResponse:
 @require_POST
 def change_password(request) -> JsonResponse:
     if not request.user.is_authenticated:
-        return ErrorResponse(
-            status=401,
-            code=ApiError.AUTH_NOT_AUTHENTICATED,
-            message="Not authenticated.",
-        )
+        return NotAuthenticatedResponse()
 
     try:
         data = json.loads(request.body)

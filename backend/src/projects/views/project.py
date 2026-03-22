@@ -5,19 +5,24 @@ from http import HTTPStatus
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views import View
 
-from src.core.errors import ApiError, ErrorResponse
+from src.core.errors import (
+    ApiError,
+    ErrorResponse,
+    NotAuthenticatedResponse,
+    ProjectNotFoundResponse,
+)
 from src.core.schemas import SuccessResponse
 from src.ingestion.manager import IngestionManager
 from src.parser.utils import validate_request_body
 from src.projects.models import Project
-from src.projects.schemas import (
+from src.projects.services.project_db import create_project_db, delete_project_db
+from src.projects.views.schemas.project import (
     CreateProjectRequest,
     CreateProjectResponse,
     ProjectResponse,
     ProjectsResponse,
     RenameProjectRequest,
 )
-from src.projects.services.project_db import create_project_db, delete_project_db
 
 logger = logging.getLogger(__name__)
 
@@ -26,11 +31,7 @@ class ProjectsView(View):
     def get(self, request: HttpRequest) -> HttpResponse:
         # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:
-            return ErrorResponse(
-                status=HTTPStatus.UNAUTHORIZED,
-                code=ApiError.AUTH_NOT_AUTHENTICATED,
-                message="User is not authenticated.",
-            )
+            return NotAuthenticatedResponse()
 
         # -- Fetch all projects ------------------------------------------------
         projects = list(Project.objects.order_by("-created_at"))
@@ -43,11 +44,7 @@ class ProjectsView(View):
     def post(self, request: HttpRequest) -> HttpResponse:
         # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:
-            return ErrorResponse(
-                status=HTTPStatus.UNAUTHORIZED,
-                code=ApiError.AUTH_NOT_AUTHENTICATED,
-                message="User is not authenticated.",
-            )
+            return NotAuthenticatedResponse()
 
         # -- Validate and extract input ----------------------------------------
         validated, err = validate_request_body(CreateProjectRequest, request.body)
@@ -105,21 +102,13 @@ class ProjectView(View):
     def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
         # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:
-            return ErrorResponse(
-                status=HTTPStatus.UNAUTHORIZED,
-                code=ApiError.AUTH_NOT_AUTHENTICATED,
-                message="User is not authenticated.",
-            )
+            return NotAuthenticatedResponse()
 
         # -- Fetch project -----------------------------------------------------
         try:
             project = Project.objects.get(pk=project_id)
         except Project.DoesNotExist:
-            return ErrorResponse(
-                status=HTTPStatus.NOT_FOUND,
-                code=ApiError.PROJECTS_NOT_FOUND,
-                message="Project not found.",
-            )
+            return ProjectNotFoundResponse()
 
         # -- Return project ----------------------------------------------------
         response = SuccessResponse(
@@ -131,11 +120,7 @@ class ProjectView(View):
     def patch(self, request: HttpRequest, project_id: int) -> HttpResponse:
         # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:
-            return ErrorResponse(
-                status=HTTPStatus.UNAUTHORIZED,
-                code=ApiError.AUTH_NOT_AUTHENTICATED,
-                message="User is not authenticated.",
-            )
+            return NotAuthenticatedResponse()
 
         # -- Validate and extract input ----------------------------------------
         validated, err = validate_request_body(RenameProjectRequest, request.body)
@@ -147,11 +132,7 @@ class ProjectView(View):
         try:
             project = Project.objects.get(pk=project_id)
         except Project.DoesNotExist:
-            return ErrorResponse(
-                status=HTTPStatus.NOT_FOUND,
-                code=ApiError.PROJECTS_NOT_FOUND,
-                message="Project not found.",
-            )
+            return ProjectNotFoundResponse()
 
         # -- Check if name is taken --------------------------------------------
         new_name = validated.name
@@ -176,21 +157,13 @@ class ProjectView(View):
     def delete(self, request: HttpRequest, project_id: int) -> HttpResponse:
         # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:
-            return ErrorResponse(
-                status=HTTPStatus.UNAUTHORIZED,
-                code=ApiError.AUTH_NOT_AUTHENTICATED,
-                message="User is not authenticated.",
-            )
+            return NotAuthenticatedResponse()
 
         # -- Fetch project -----------------------------------------------------
         try:
             project = Project.objects.get(pk=project_id)
         except Project.DoesNotExist:
-            return ErrorResponse(
-                status=HTTPStatus.NOT_FOUND,
-                code=ApiError.PROJECTS_NOT_FOUND,
-                message="Project not found.",
-            )
+            return ProjectNotFoundResponse()
 
         # -- Delete project and its DB -----------------------------------------
         delete_project_db(project.pk)

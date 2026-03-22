@@ -3,10 +3,6 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
-# -------------------------------------------------------------------
-# -- Get
-# -------------------------------------------------------------------
-
 
 class ProjectResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -30,11 +26,6 @@ class ProjectsResponse(BaseModel):
     count: int
 
 
-# -------------------------------------------------------------------
-# -- Create
-# -------------------------------------------------------------------
-
-
 class CreateProjectRequest(BaseModel):
     name: str = Field(max_length=30)
     url: HttpUrl
@@ -50,11 +41,6 @@ class CreateProjectRequest(BaseModel):
 class CreateProjectResponse(BaseModel):
     id: int
     name: str
-
-
-# -------------------------------------------------------------------
-# -- Edit
-# -------------------------------------------------------------------
 
 
 class RenameProjectRequest(BaseModel):

@@ -30,6 +30,7 @@
     "mypy",
     "networkx",
     "noinput",
+    "outerjoin",
     "Pipenv",
     "Pipfile",
     "popleft",
