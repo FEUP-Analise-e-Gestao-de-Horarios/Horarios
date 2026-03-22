@@ -32,6 +32,7 @@ export function useProject(projectId: string) {
       const res = await api.get<ProjectDetailResponse>(`/api/projects/${projectId}`);
       return res.data;
     },
+    enabled: !!projectId,
     refetchInterval: (query) =>
       query.state.data && !isProcessing(query.state.data) ? false : POLL_INTERVAL,
   });
@@ -44,6 +45,7 @@ export function useProjectStats(projectId: string, refetchInterval: number | fal
       const res = await api.get<StatsApiResponse>(`/api/projects/${projectId}/stats`);
       return res.data;
     },
+    enabled: !!projectId,
     refetchInterval,
   });
 }
@@ -55,6 +57,7 @@ export function useProjectDegrees(projectId: string, refetchInterval: number | f
       const res = await api.get<DegreesApiResponse>(`/api/projects/${projectId}/degrees/`);
       return res.data.degrees;
     },
+    enabled: !!projectId,
     refetchInterval,
   });
 }
@@ -66,6 +69,7 @@ export function useProjectTeachers(projectId: string, refetchInterval: number | 
       const res = await api.get<TeachersApiResponse>(`/api/projects/${projectId}/teachers/`);
       return res.data.teachers;
     },
+    enabled: !!projectId,
     refetchInterval,
   });
 }
@@ -77,6 +81,7 @@ export function useProjectRooms(projectId: string, refetchInterval: number | fal
       const res = await api.get<RoomsApiResponse>(`/api/projects/${projectId}/rooms/`);
       return res.data.rooms;
     },
+    enabled: !!projectId,
     refetchInterval,
   });
 }
