@@ -13,6 +13,11 @@ from src.projects.projects_db.schemas.stats import ProjectOverviewStats
 
 class StatsDAO:
     def __init__(self, session: Session) -> None:
+        """Initialize the stats DAO.
+
+        Args:
+            session: The SQLAlchemy session used for database operations.
+        """
         self.session = session
 
     def get_overview(self) -> ProjectOverviewStats:

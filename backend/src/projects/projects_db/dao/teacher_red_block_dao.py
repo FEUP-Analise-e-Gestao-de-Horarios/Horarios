@@ -17,6 +17,16 @@ class TeacherRedBlockDAO(BaseDAO[TeacherRedBlock]):
     # -------------------------------------------------------------------
 
     def create(self, *, teacher_id: UUID, hour: int, weekday: WeekDay) -> TeacherRedBlock:
+        """Create and persist a new teacher red block.
+
+        Args:
+            teacher_id: UUID of the teacher this red block applies to.
+            hour: The hour timeslot that is blocked.
+            weekday: The day of the week that is blocked.
+
+        Returns:
+            The newly created TeacherRedBlock instance, flushed to the session.
+        """
         return self._create(teacher_id=teacher_id, hour=hour, weekday=weekday)
 
     # -------------------------------------------------------------------
@@ -24,6 +34,14 @@ class TeacherRedBlockDAO(BaseDAO[TeacherRedBlock]):
     # -------------------------------------------------------------------
 
     def get_by_teacher(self, teacher_id: UUID) -> list[TeacherRedBlock]:
+        """Return all red blocks for the given teacher.
+
+        Args:
+            teacher_id: UUID of the teacher to filter by.
+
+        Returns:
+            List of TeacherRedBlock instances for the teacher.
+        """
         return list(
             self.session.scalars(
                 select(TeacherRedBlock).where(TeacherRedBlock.teacher_id == teacher_id),

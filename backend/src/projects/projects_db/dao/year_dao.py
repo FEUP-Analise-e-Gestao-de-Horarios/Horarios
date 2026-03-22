@@ -22,6 +22,15 @@ class YearDAO(BaseDAO[Year]):
     # -------------------------------------------------------------------
 
     def create(self, *, degree_id: UUID, number: int) -> Year:
+        """Create and persist a new year.
+
+        Args:
+            degree_id: UUID of the degree this year belongs to.
+            number: The year number within the degree (e.g. 1, 2, 3).
+
+        Returns:
+            The newly created Year instance, flushed to the session.
+        """
         return self._create(degree_id=degree_id, number=number)
 
     # -------------------------------------------------------------------
@@ -36,6 +45,15 @@ class YearDAO(BaseDAO[Year]):
         )
 
     def get_by_degree_and_number(self, *, degree_acronym: str, number: int) -> Year | None:
+        """Retrieve a year by its degree acronym and year number.
+
+        Args:
+            degree_acronym: The acronym of the parent degree.
+            number: The year number within the degree.
+
+        Returns:
+            The matching Year instance, or None if not found.
+        """
         return self.session.scalars(
             select(Year)
             .join(Year.degree)
@@ -43,6 +61,14 @@ class YearDAO(BaseDAO[Year]):
         ).first()
 
     def get_by_degree_with_stats(self, degree_id: UUID) -> list[YearStats]:
+        """Return all years for a degree with their subject, class, and session counts.
+
+        Args:
+            degree_id: UUID of the degree to filter years by.
+
+        Returns:
+            A list of YearStats, one per year in the given degree.
+        """
         subjects_sq = (
             select(Subject.year_id, func.count(Subject.id).label("cnt"))
             .group_by(Subject.year_id)

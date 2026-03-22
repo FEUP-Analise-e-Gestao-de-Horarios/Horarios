@@ -22,6 +22,15 @@ class DegreeDAO(BaseDAO[Degree]):
     # -------------------------------------------------------------------
 
     def create(self, *, acronym: str, name: str) -> Degree:
+        """Create and persist a new degree.
+
+        Args:
+            acronym: Short abbreviation for the degree.
+            name: Full name of the degree.
+
+        Returns:
+            The newly created Degree instance, flushed to the session.
+        """
         return self._create(acronym=acronym, name=name)
 
     # -------------------------------------------------------------------
@@ -29,6 +38,14 @@ class DegreeDAO(BaseDAO[Degree]):
     # -------------------------------------------------------------------
 
     def get_all_with_stats(self) -> list[DegreeStats]:
+        """Return all degrees with their year, subject, class, and session counts.
+
+        Counts are computed via subqueries and default to 0 when a degree
+        has no associated records.
+
+        Returns:
+            A list of DegreeStats, one per degree, in an unspecified order.
+        """
         years_sq = (
             select(Year.degree_id, func.count(Year.id).label("cnt"))
             .group_by(Year.degree_id)
@@ -74,6 +91,14 @@ class DegreeDAO(BaseDAO[Degree]):
         return [DegreeStats.model_validate(row, from_attributes=True) for row in rows]
 
     def get_with_stats(self, degree_id: UUID) -> DegreeStats | None:
+        """Return a single degree with its aggregated stats.
+
+        Args:
+            degree_id: UUID of the degree to retrieve.
+
+        Returns:
+            A DegreeStats instance, or None if the degree does not exist.
+        """
         years_sq = (
             select(Year.degree_id, func.count(Year.id).label("cnt"))
             .group_by(Year.degree_id)
