@@ -22,6 +22,8 @@ from src.projects.projects_db.dao.teacher_dao import TeacherDAO
 from src.projects.projects_db.dao.teacher_red_block_dao import TeacherRedBlockDAO
 from src.projects.projects_db.dao.year_dao import YearDAO
 from src.projects.projects_db.models.class_ import Class
+from src.projects.projects_db.models.subject import Subject
+from src.projects.projects_db.models.year import Year
 from src.projects.projects_db.paths import general_db, initial_db
 from src.projects.projects_db.registry import get_session
 
@@ -272,11 +274,12 @@ class IngestionManager:
         """Ingest session records from all class pages into the database.
 
         Iterates over every class page within the degree hierarchy. For each
-        session, resolves its subject, teachers, classes, and rooms to database
-        entries, then creates weekly session records spanning the page's date
-        range. If a session already exists for the same week, weekday, time,
-        and classes, its subject list is extended rather than creating a
-        duplicate.
+        session, resolves its subject, teachers, classes, and rooms using
+        cached database entries, then creates weekly session records spanning
+        the page's date range. If a multi-class session already exists for the
+        same week, weekday, time, and class, the existing session-class
+        relation is updated to point at the correct subject instead of creating
+        a duplicate.
 
         Args:
             degrees: Structured degree hierarchy with populated ``pages``.
@@ -294,8 +297,16 @@ class IngestionManager:
             class_dao = ClassDAO(db_session)
             room_dao = RoomDAO(db_session)
             session_class_subject_dao = SessionClassSubjectDAO(db_session)
+
+            year_cache: dict[tuple[str, int], Year] = {}
+            subject_cache: dict[int, Subject] = {}
+            class_codes_to_load: set[str] = set()
+            teacher_numbers_to_load: set[int] = set()
+            room_names_to_load: set[str] = set()
+
             for degree in degrees:
                 for year in degree["years"]:
+                    year_key = (degree["acronym"], year["number"])
                     year_db_entry = year_dao.get_by_degree_and_number(
                         degree_acronym=degree["acronym"],
                         number=year["number"],
@@ -304,9 +315,37 @@ class IngestionManager:
                         raise ValueError(
                             f"Year {year['number']} not found for degree {degree['acronym']}",
                         )
+                    year_cache[year_key] = year_db_entry
 
                     for class_ in year["classes"]:
-                        class_db_entry = class_dao.get_by_code(class_["code"])
+                        class_codes_to_load.add(class_["code"])
+
+                        for class_page in class_["pages"]:
+                            for scraped_session in class_page["sessions"]:
+                                teacher_numbers_to_load.update(scraped_session["teachers"])
+                                class_codes_to_load.update(scraped_session["classes"])
+                                room_names_to_load.update(
+                                    room_name
+                                    for room_name in scraped_session["rooms"]
+                                    if room_name != "Online"
+                                )
+
+            class_cache = {
+                class_entry.code: class_entry
+                for class_entry in class_dao.get_by_codes(class_codes_to_load)
+            }
+            teacher_cache = {
+                teacher.number: teacher
+                for teacher in teacher_dao.get_by_numbers(teacher_numbers_to_load)
+            }
+            room_cache = {room.name: room for room in room_dao.get_by_names(room_names_to_load)}
+
+            for degree in degrees:
+                for year in degree["years"]:
+                    year_db_entry = year_cache[(degree["acronym"], year["number"])]
+
+                    for class_ in year["classes"]:
+                        class_db_entry = class_cache.get(class_["code"])
                         if not class_db_entry:
                             raise ValueError(f"Class {class_['code']} not found")
 
@@ -322,56 +361,57 @@ class IngestionManager:
                             )
 
                         for class_page in class_["pages"]:
-                            subjects_by_acronym = {s["acronym"]: s for s in class_page["subjects"]}
-
-                            subjects_db_entries = subject_dao.get_by_numbers(
-                                {s["number"] for s in class_page["subjects"]},
-                                check_count=False,
-                            )
-                            subjects_db_numbers = {s.number for s in subjects_db_entries}
-                            for subject in subjects_by_acronym.values():
-                                if subject["number"] not in subjects_db_numbers:
-                                    subject_dao.create(
+                            subjects_by_acronym = {}
+                            for subject in class_page["subjects"]:
+                                subject_db_entry = subject_cache.get(subject["number"])
+                                if subject_db_entry is None:
+                                    subject_db_entry = subject_dao.create(
                                         year_id=year_db_entry.id,
                                         number=subject["number"],
                                         code=subject["code"],
                                         acronym=subject["acronym"],
                                         name=subject["name"],
                                     )
+                                    subject_cache[subject["number"]] = subject_db_entry
 
-                            for session in class_page["sessions"]:
+                                subjects_by_acronym[subject["acronym"]] = subject_db_entry
+
+                            for scraped_session in class_page["sessions"]:
                                 current_date = class_page["start_date"]
                                 original_block_id = uuid.uuid7()
 
-                                subject_number = subjects_by_acronym[session["subject_acronym"]][
-                                    "number"
-                                ]
-                                subject_db_entry = subject_dao.get_by_number(subject_number)
+                                subject_db_entry = subjects_by_acronym.get(
+                                    scraped_session["subject_acronym"],
+                                )
                                 if not subject_db_entry:
                                     raise ValueError(
-                                        f"Subject {subject_number} not found for year {year['number']} of degree {degree['acronym']}",
+                                        f"Subject acronym {scraped_session['subject_acronym']} not found for year {year['number']} of degree {degree['acronym']}",
                                     )
 
-                                teachers = teacher_dao.get_by_numbers(set(session["teachers"]))
-                                teacher_ids = {teacher.id for teacher in teachers}
-
-                                classes = class_dao.get_by_codes(set(session["classes"]))
-                                class_ids = {class_.id for class_ in classes}
-
-                                rooms = (
-                                    room_dao.get_by_names(set(session["rooms"]))
-                                    if session["rooms"][0] != "Online"
-                                    else []
+                                teacher_ids = {
+                                    teacher_cache[teacher_number].id
+                                    for teacher_number in set(scraped_session["teachers"])
+                                }
+                                class_ids = {
+                                    class_cache[class_code].id
+                                    for class_code in set(scraped_session["classes"])
+                                }
+                                room_ids = (
+                                    set()
+                                    if "Online" in scraped_session["rooms"]
+                                    else {
+                                        room_cache[room_name].id
+                                        for room_name in set(scraped_session["rooms"])
+                                    }
                                 )
-                                room_ids = {room.id for room in rooms}
 
                                 while current_date <= class_page["end_date"]:
                                     if len(class_ids) > 1:
                                         existing = (
                                             session_dao.get_by_week_weekday_start_time_and_class(
                                                 week=current_date,
-                                                weekday=session["weekday"],
-                                                start_time=session["start_time"],
+                                                weekday=scraped_session["weekday"],
+                                                start_time=scraped_session["start_time"],
                                                 class_id=class_db_entry.id,
                                             )
                                         )
@@ -386,12 +426,12 @@ class IngestionManager:
                                                     session_class_subject_db_entry.subject_id
                                                     != subject_db_entry.id
                                                 ):
-                                                    session_class_subject_db_entry.subject = (
-                                                        subject_db_entry
+                                                    session_class_subject_db_entry.subject_id = (
+                                                        subject_db_entry.id
                                                     )
                                             else:
                                                 raise ValueError(
-                                                    f"Relation session-class-subject not found for class {class_db_entry.code} with session at week: {current_date}, weekday: {session['weekday']}, starting hour: {session['start_time']}",
+                                                    f"Relation session-class-subject not found for class {class_db_entry.code} with session at week: {current_date}, weekday: {scraped_session['weekday']}, starting hour: {scraped_session['start_time']}",
                                                 )
 
                                             current_date += timedelta(weeks=1)
@@ -400,21 +440,23 @@ class IngestionManager:
                                     with db_session.begin_nested():
                                         session_entry_db = session_dao.create(
                                             week=current_date,
-                                            weekday=session["weekday"],
-                                            start_time=session["start_time"],
-                                            duration=session["duration"],
-                                            type_=("T" if session["is_theoretical"] else "TP"),
+                                            weekday=scraped_session["weekday"],
+                                            start_time=scraped_session["start_time"],
+                                            duration=scraped_session["duration"],
+                                            type_=(
+                                                "T" if scraped_session["is_theoretical"] else "TP"
+                                            ),
                                             original_block_id=original_block_id,
                                             teacher_ids=teacher_ids,
                                             room_ids=room_ids,
                                         )
 
-                                    for class_id in class_ids:
-                                        session_class_subject_dao.create(
-                                            session_id=session_entry_db.id,
-                                            class_id=class_id,
-                                            subject_id=subject_db_entry.id,
-                                        )
+                                        for class_id in class_ids:
+                                            session_class_subject_dao.create(
+                                                session_id=session_entry_db.id,
+                                                class_id=class_id,
+                                                subject_id=subject_db_entry.id,
+                                            )
 
                                     current_date += timedelta(weeks=1)
 
@@ -443,17 +485,23 @@ class IngestionManager:
         with get_session(general_db(self.proj_id)) as session_db:
             session_dao = SessionDAO(session_db)
             subject_dao = SubjectDAO(session_db)
+            session_class_subject_dao = SessionClassSubjectDAO(session_db)
 
             subjects = subject_dao.get_all()
             visited_classes: set[Class] = set()
 
             for subject in subjects:
                 shift = 1
-                sessions = session_dao.get_by_subject_type(subject, "T")
+                sessions_db_entries = session_dao.get_by_subject_type(subject, "T")
 
-                for session in sessions:
-                    classes = set(session.classes)
-                    classes_no_shift = classes.difference(visited_classes)
+                for session_db_entry in sessions_db_entries:
+                    classes: set[Class] = {
+                        session_class_subject.class_
+                        for session_class_subject in session_class_subject_dao.get_by_session(
+                            session_id=session_db_entry.id,
+                        )
+                    }
+                    classes_no_shift: set[Class] = classes.difference(visited_classes)
 
                     if len(classes_no_shift) == 0:
                         continue
