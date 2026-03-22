@@ -32,11 +32,10 @@ class YearStatsResponse(BaseModel):
 
     id: UUID
     degree_id: UUID
-
-    number: int
-
     degree_acronym: str
     degree_name: str
+
+    number: int
 
     subjects: int
     classes: int

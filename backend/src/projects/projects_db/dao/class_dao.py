@@ -102,7 +102,7 @@ class ClassDAO(BaseDAO[Class]):
                 Degree.id.label("degree_id"),
                 Degree.acronym.label("degree_acronym"),
                 Degree.name.label("degree_name"),
-                func.coalesce(sessions_sq.c.cnt, 0).label("num_sessions"),
+                func.coalesce(sessions_sq.c.cnt, 0).label("sessions"),
             )
             .join(Year, Year.id == Class.year_id)
             .join(Degree, Degree.id == Year.degree_id)
