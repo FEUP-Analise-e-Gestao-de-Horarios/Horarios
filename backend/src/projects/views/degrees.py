@@ -89,9 +89,9 @@ class ProjectYearsView(View):
             stats = YearDAO(db_session).get_by_degree_with_stats(degree_id)
             result = [YearStatsResponse.model_validate(s, from_attributes=True) for s in stats]
 
-        return JsonResponse(
-            SuccessResponse(
-                message="Years retrieved successfully",
-                data=ProjectYearsResponse(years=result, count=len(result)),
-            ).model_dump(),
-        )
+            return JsonResponse(
+                SuccessResponse(
+                    message="Years retrieved successfully",
+                    data=ProjectYearsResponse(years=result, count=len(result)),
+                ).model_dump(),
+            )
