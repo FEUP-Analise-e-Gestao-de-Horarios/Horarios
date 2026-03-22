@@ -26,6 +26,7 @@ export default function SchedulePage() {
   return (
     <div className="min-h-screen bg-[#f0eeeb]">
       <ScheduleNavbar
+        projectId={projectId}
         curso={curso}
         setCurso={setCurso}
         anos={anos}
