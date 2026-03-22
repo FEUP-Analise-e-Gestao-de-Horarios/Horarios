@@ -44,6 +44,14 @@ def ProjectNotFoundResponse() -> JsonResponse:
     )
 
 
+def RoomNotFoundResponse() -> JsonResponse:
+    return ErrorResponse(
+        status=404,
+        code=ApiError.PROJECTS_ROOMS_NOT_FOUND,
+        message="Room not found.",
+    )
+
+
 def TeacherNotFoundResponse() -> JsonResponse:
     return ErrorResponse(
         status=404,

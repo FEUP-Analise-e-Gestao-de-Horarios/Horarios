@@ -1,14 +1,12 @@
-from http import HTTPStatus
 from uuid import UUID
 
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views import View
 
 from src.core.errors import (
-    ApiError,
-    ErrorResponse,
     NotAuthenticatedResponse,
     ProjectNotFoundResponse,
+    RoomNotFoundResponse,
 )
 from src.core.schemas import SuccessResponse
 from src.projects.models import Project
@@ -63,11 +61,8 @@ class ProjectRoomView(View):
         with get_project_session(general_db(project_id)) as db_session:
             room = RoomDAO(db_session).get(room_id)
             if room is None:
-                return ErrorResponse(
-                    status=HTTPStatus.NOT_FOUND,
-                    code=ApiError.PROJECTS_ROOMS_NOT_FOUND,
-                    message="Room not found.",
-                )
+                return RoomNotFoundResponse()
+
             sessions = SessionDAO(db_session).get_by_room(room_id)
             red_blocks = RoomRedBlockDAO(db_session).get_by_room(room_id)
 
