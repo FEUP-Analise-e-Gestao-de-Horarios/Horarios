@@ -31,9 +31,9 @@ export interface TeacherStats {
 export interface RoomStats {
   id: string;
   name: string;
-  type: string;
-  size: string;
-  seats: string;
+  type: string | null;
+  size: string | null;
+  seats: string | null;
   sessions: number;
   red_blocks: number;
 }
