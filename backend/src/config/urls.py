@@ -29,9 +29,9 @@ urlpatterns = [
     # React URLs
     path("", spa_view, name="dashboard"),
     path("login", spa_view, name="login"),
-    path("/forgot-password", spa_view, name="forgot-password"),
-    path("/change-password", spa_view, name="change-password"),
-    path("/projects/<int:project_id>/", spa_view, name="react-schedule"),
+    path("forgot-password", spa_view, name="forgot-password"),
+    path("change-password", spa_view, name="change-password"),
+    path("projects/<int:project_id>/", spa_view, name="react-schedule"),
     # API endpoints
     path("api/projects/", include("src.projects.urls")),
     path("api/auth/", include("src.login.urls")),
