@@ -11,10 +11,14 @@ export default function SchedulePage() {
   const { data: project } = useProject(projectId ?? "");
 
   useEffect(() => {
+    if (!projectId) {
+      void navigate(ROUTES.HOME, { replace: true });
+      return;
+    }
     if (!project) return;
     const isReady = !!project.ingestion_finished_at;
     if (!isReady)
-      void navigate(ROUTES.DASHBOARD.replace(":projectId", projectId ?? ""), { replace: true });
+      void navigate(ROUTES.DASHBOARD.replace(":projectId", projectId), { replace: true });
   }, [project, projectId, navigate]);
 
   const [curso, setCurso] = useState("");
@@ -22,6 +26,8 @@ export default function SchedulePage() {
   const [ucs, setUcs] = useState<string[]>([]);
   const [turmas, setTurmas] = useState<string[]>([]);
   const [semanas, setSemanas] = useState<string[]>([]);
+
+  if (!projectId) return null;
 
   const canShowSchedule = curso !== "" && anos.length > 0;
 
