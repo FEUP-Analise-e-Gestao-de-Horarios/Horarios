@@ -4,18 +4,18 @@ from collections import defaultdict
 from datetime import timedelta
 
 from django.utils import timezone
-from sqlalchemy.exc import IntegrityError
 
 from src.ingestion.schemas.classes import Degree, Teacher
 from src.ingestion.schemas.misc import TurnosMap
 from src.ingestion.schemas.rooms import RoomInfo
 from src.ingestion.scraper import Scraper
 from src.projects.models import Project
-from src.projects.projects_db.dao import ClassRedBlockDAO
 from src.projects.projects_db.dao.class_dao import ClassDAO
+from src.projects.projects_db.dao.class_red_block_dao import ClassRedBlockDAO
 from src.projects.projects_db.dao.degree_dao import DegreeDAO
 from src.projects.projects_db.dao.room_dao import RoomDAO
 from src.projects.projects_db.dao.room_red_block_dao import RoomRedBlockDAO
+from src.projects.projects_db.dao.session_class_subject_dao import SessionClassSubjectDAO
 from src.projects.projects_db.dao.session_dao import SessionDAO
 from src.projects.projects_db.dao.subject_dao import SubjectDAO
 from src.projects.projects_db.dao.teacher_dao import TeacherDAO
@@ -293,6 +293,7 @@ class IngestionManager:
             teacher_dao = TeacherDAO(db_session)
             class_dao = ClassDAO(db_session)
             room_dao = RoomDAO(db_session)
+            session_class_subject_dao = SessionClassSubjectDAO(db_session)
             for degree in degrees:
                 for year in degree["years"]:
                     year_db_entry = year_dao.get_by_degree_and_number(
@@ -350,7 +351,6 @@ class IngestionManager:
                                     raise ValueError(
                                         f"Subject {subject_number} not found for year {year['number']} of degree {degree['acronym']}",
                                     )
-                                subject_ids = {subject_db_entry.id}
 
                                 teachers = teacher_dao.get_by_numbers(set(session["teachers"]))
                                 teacher_ids = {teacher.id for teacher in teachers}
@@ -372,39 +372,49 @@ class IngestionManager:
                                                 week=current_date,
                                                 weekday=session["weekday"],
                                                 start_time=session["start_time"],
-                                                class_id=next(iter(class_ids)),
+                                                class_id=class_db_entry.id,
                                             )
                                         )
                                         if existing is not None:
-                                            if subject_db_entry not in existing.subjects:
-                                                existing.subjects.append(subject_db_entry)
+                                            session_class_subject_db_entry = session_class_subject_dao.get_subject_by_session_and_class(
+                                                session_id=existing.id,
+                                                class_id=class_db_entry.id,
+                                            )
+
+                                            if session_class_subject_db_entry is not None:
+                                                if (
+                                                    session_class_subject_db_entry.subject_id
+                                                    != subject_db_entry.id
+                                                ):
+                                                    session_class_subject_db_entry.subject = (
+                                                        subject_db_entry
+                                                    )
+                                            else:
+                                                raise ValueError(
+                                                    f"Relation session-class-subject not found for class {class_db_entry.code} with session at week: {current_date}, weekday: {session['weekday']}, starting hour: {session['start_time']}",
+                                                )
+
                                             current_date += timedelta(weeks=1)
                                             continue
 
-                                    try:
-                                        with db_session.begin_nested():
-                                            session_dao.create(
-                                                week=current_date,
-                                                weekday=session["weekday"],
-                                                start_time=session["start_time"],
-                                                duration=session["duration"],
-                                                type_=("T" if session["is_theoretical"] else "TP"),
-                                                original_block_id=original_block_id,
-                                                subject_ids=subject_ids,
-                                                teacher_ids=teacher_ids,
-                                                class_ids=class_ids,
-                                                room_ids=room_ids,
-                                            )
-                                    except IntegrityError:
-                                        session_db_entry = session_dao.get_by_week_and_block(
+                                    with db_session.begin_nested():
+                                        session_entry_db = session_dao.create(
                                             week=current_date,
+                                            weekday=session["weekday"],
+                                            start_time=session["start_time"],
+                                            duration=session["duration"],
+                                            type_=("T" if session["is_theoretical"] else "TP"),
                                             original_block_id=original_block_id,
+                                            teacher_ids=teacher_ids,
+                                            room_ids=room_ids,
                                         )
-                                        if session_db_entry is None:
-                                            raise
 
-                                        if subject_db_entry not in session_db_entry.subjects:
-                                            session_db_entry.subjects.append(subject_db_entry)
+                                    for class_id in class_ids:
+                                        session_class_subject_dao.create(
+                                            session_id=session_entry_db.id,
+                                            class_id=class_id,
+                                            subject_id=subject_db_entry.id,
+                                        )
 
                                     current_date += timedelta(weeks=1)
 
