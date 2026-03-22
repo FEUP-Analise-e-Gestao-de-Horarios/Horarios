@@ -6,6 +6,7 @@ import MultiDropdown from "./MultiDropdown";
 import { ANOS } from "./data";
 
 interface ScheduleNavbarProps {
+  projectId: string;
   curso: string;
   setCurso: (v: string) => void;
   anos: string[];
@@ -24,6 +25,7 @@ interface ScheduleNavbarProps {
 type DropdownId = "curso" | "ano" | "uc" | "turma" | "semana";
 
 export default function ScheduleNavbar({
+  projectId,
   curso,
   setCurso,
   anos,
@@ -74,6 +76,12 @@ export default function ScheduleNavbar({
         className="bg-[#8c2d19] text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap hover:bg-[#a33520] transition-colors"
       >
         Início
+      </button>
+      <button
+        onClick={() => void navigate(ROUTES.DASHBOARD.replace(":projectId", projectId))}
+        className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors"
+      >
+        Dashboard
       </button>
       <button className="bg-transparent text-red-400 font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-red-400 hover:bg-red-400/10 transition-colors">
         ⚠ Ver Conflitos

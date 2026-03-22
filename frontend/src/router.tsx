@@ -6,6 +6,7 @@ import HomePage from "./pages/HomePage";
 import ChangePasswordPage from "./pages/ChangePasswordPage";
 import { ROUTES } from "./routes";
 import SchedulePage from "./pages/SchedulePage";
+import DashboardPage from "./pages/DashboardPage";
 
 // Paths here must match what Django delegates to spa_view in urls.py
 export const router = createBrowserRouter([
@@ -16,4 +17,5 @@ export const router = createBrowserRouter([
   { path: ROUTES.CHANGE_PASSWORD, element: <ChangePasswordPage />, loader: requireAuth },
 
   { path: ROUTES.SCHEDULE, element: <SchedulePage />, loader: requireAuth },
+  { path: ROUTES.DASHBOARD, element: <DashboardPage />, loader: requireAuth },
 ]);
