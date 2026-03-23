@@ -1,11 +1,14 @@
 import shutil
 import uuid
 from collections import defaultdict
-from datetime import timedelta
+from datetime import date, timedelta
+from uuid import UUID
 
 from django.utils import timezone
+from sqlalchemy import insert
 
-from src.ingestion.schemas.classes import Degree, Teacher
+from src.ingestion.schemas.classes import ClassPage, Degree, Teacher
+from src.ingestion.schemas.classes import Session as ScrapedSession
 from src.ingestion.schemas.misc import TurnosMap
 from src.ingestion.schemas.rooms import RoomInfo
 from src.ingestion.scraper import Scraper
@@ -24,8 +27,9 @@ from src.projects.projects_db.dao import (
     TeacherRedBlockDAO,
     YearDAO,
 )
-from src.projects.projects_db.models import Class, Room, Subject, Year
+from src.projects.projects_db.models import Class, Room, Session, SessionClassSubject, Subject, Year
 from src.projects.projects_db.models import Teacher as TeacherModel
+from src.projects.projects_db.models._secondary_tables import session_rooms, session_teachers
 from src.projects.projects_db.paths import general_db, initial_db
 from src.projects.projects_db.registry import get_session
 
@@ -193,6 +197,7 @@ class IngestionManager:
         self.db_session.flush()
 
         for teacher in teachers:
+            teacher_entry = self.teacher_entries[teacher["code"]]
             for hour, weekday in teacher["red_blocks"]:
                 teacher_red_block_dao.create(
                     teacher_id=teacher_entry.id,
@@ -288,15 +293,16 @@ class IngestionManager:
         self.db_session.commit()
 
     def _ingest_sessions(self, degrees: list[Degree]) -> None:
-        """Ingest session records from all class pages into the database.
+        """Ingest class red blocks, subjects, and session records into the database.
 
-        Iterates over every class page within the degree hierarchy. For each
-        session, resolves its subject, teachers, classes, and rooms using
-        cached database entries, then creates weekly session records spanning
-        the page's date range. If a multi-class session already exists for the
-        same week, weekday, time, and class, the existing session-class
-        relation is updated to point at the correct subject instead of creating
-        a duplicate.
+        For each class page, inserts red blocks (first page only, as they are
+        week-invariant), resolves subjects, and builds weekly session records
+        with their teacher/room/class-subject associations. All session data is
+        collected in memory and bulk-inserted at the end for performance.
+
+        When a multi-class session has already been created by another class in
+        the same time slot, the existing record is reused and its class-subject
+        mapping is updated instead of creating a duplicate.
 
         Args:
             degrees: Structured degree hierarchy with populated ``pages``.
@@ -305,20 +311,29 @@ class IngestionManager:
             ValueError: If a referenced year, subject, teacher, class, or room
                 cannot be found in the database.
         """
-        session_dao = SessionDAO(self.db_session)
         class_red_block_dao = ClassRedBlockDAO(self.db_session, flush_on_create=False)
         subject_dao = SubjectDAO(self.db_session, flush_on_create=False)
-        session_class_subject_dao = SessionClassSubjectDAO(self.db_session)
 
+        # -- Validate that all years were previously ingested -----------------
         for degree in degrees:
             for year in degree["years"]:
                 year_key = (degree["acronym"], year["number"])
-                year_db_entry = self.year_entries.get(year_key)
-                if not year_db_entry:
+                if year_key not in self.year_entries:
                     raise ValueError(
                         f"Year {year['number']} not found for degree {degree['acronym']}",
                     )
 
+        # -- Pending rows to bulk-insert at the end ---------------------------
+        pending_sessions: list[dict] = []
+        pending_session_teachers: list[dict] = []
+        pending_session_rooms: list[dict] = []
+
+        # Maps (session_id, class_id) -> subject_id for class-subject links
+        class_subject_map: dict[tuple[UUID, UUID], UUID] = {}
+        # Index for duplicate detection: (week, weekday, start_time, class_id) -> session_id
+        session_lookup: dict[tuple[date, int, int, UUID], UUID] = {}
+
+        # -- Process each class across all degrees ----------------------------
         for degree in degrees:
             for year in degree["years"]:
                 year_db_entry = self.year_entries[(degree["acronym"], year["number"])]
@@ -332,6 +347,7 @@ class IngestionManager:
                     if not first_class_page:
                         raise ValueError(f"No pages found for class {class_['code']}")
 
+                    # Red blocks are week-invariant, only insert from first page
                     for hour, weekday in first_class_page["red_blocks"]:
                         class_red_block_dao.create(
                             class_id=class_db_entry.id,
@@ -340,104 +356,35 @@ class IngestionManager:
                         )
 
                     for class_page in class_["pages"]:
-                        subjects_by_acronym = {}
-                        for subject in class_page["subjects"]:
-                            subject_db_entry = self.subject_entries.get(subject["number"])
-                            if subject_db_entry is None:
-                                subject_db_entry = subject_dao.create(
-                                    year_id=year_db_entry.id,
-                                    number=subject["number"],
-                                    code=subject["code"],
-                                    acronym=subject["acronym"],
-                                    name=subject["name"],
-                                )
-                                self.subject_entries[subject["number"]] = subject_db_entry
-
-                            subjects_by_acronym[subject["acronym"]] = subject_db_entry
-                        self.db_session.flush()
+                        subjects_by_acronym = self._resolve_page_subjects(
+                            class_page,
+                            year_db_entry,
+                            subject_dao,
+                        )
+                        weeks = self._compute_weeks(class_page)
 
                         for scraped_session in class_page["sessions"]:
-                            current_date = class_page["start_date"]
-                            original_block_id = uuid.uuid7()
-
-                            subject_db_entry = subjects_by_acronym.get(
-                                scraped_session["subject_acronym"],
-                            )
-                            if not subject_db_entry:
-                                raise ValueError(
-                                    f"Subject acronym {scraped_session['subject_acronym']} not found for year {year['number']} of degree {degree['acronym']}",
-                                )
-
-                            teacher_ids = {
-                                self.teacher_entries[teacher_number].id
-                                for teacher_number in set(scraped_session["teachers"])
-                            }
-                            class_ids = {
-                                self.class_entries[class_code].id
-                                for class_code in set(scraped_session["classes"])
-                            }
-                            room_ids = (
-                                set()
-                                if "Online" in scraped_session["rooms"]
-                                else {
-                                    self.room_entries[room_name].id
-                                    for room_name in set(scraped_session["rooms"])
-                                }
+                            self._process_scraped_session(
+                                scraped_session=scraped_session,
+                                weeks=weeks,
+                                subjects_by_acronym=subjects_by_acronym,
+                                class_db_entry=class_db_entry,
+                                degree_acronym=degree["acronym"],
+                                year_number=year["number"],
+                                pending_sessions=pending_sessions,
+                                pending_session_teachers=pending_session_teachers,
+                                pending_session_rooms=pending_session_rooms,
+                                class_subject_map=class_subject_map,
+                                session_lookup=session_lookup,
                             )
 
-                            while current_date <= class_page["end_date"]:
-                                if len(class_ids) > 1:
-                                    existing = session_dao.get_by_week_weekday_start_time_and_class(
-                                        week=current_date,
-                                        weekday=scraped_session["weekday"],
-                                        start_time=scraped_session["start_time"],
-                                        class_id=class_db_entry.id,
-                                    )
-                                    if existing is not None:
-                                        session_class_subject_db_entry = (
-                                            session_class_subject_dao.get_session_and_class(
-                                                session_id=existing.id,
-                                                class_id=class_db_entry.id,
-                                            )
-                                        )
-
-                                        if session_class_subject_db_entry is not None:
-                                            if (
-                                                session_class_subject_db_entry.subject_id
-                                                != subject_db_entry.id
-                                            ):
-                                                session_class_subject_db_entry.subject_id = (
-                                                    subject_db_entry.id
-                                                )
-                                        else:
-                                            raise ValueError(
-                                                f"Relation session-class-subject not found for class {class_db_entry.code} with session at week: {current_date}, weekday: {scraped_session['weekday']}, starting hour: {scraped_session['start_time']}",
-                                            )
-
-                                        current_date += timedelta(weeks=1)
-                                        continue
-
-                                with self.db_session.begin_nested():
-                                    session_entry_db = session_dao.create(
-                                        week=current_date,
-                                        weekday=scraped_session["weekday"],
-                                        start_time=scraped_session["start_time"],
-                                        duration=scraped_session["duration"],
-                                        type_=("T" if scraped_session["is_theoretical"] else "TP"),
-                                        original_block_id=original_block_id,
-                                        teacher_ids=teacher_ids,
-                                        room_ids=room_ids,
-                                    )
-
-                                    for class_id in class_ids:
-                                        session_class_subject_dao.create(
-                                            session_id=session_entry_db.id,
-                                            class_id=class_id,
-                                            subject_id=subject_db_entry.id,
-                                        )
-
-                                current_date += timedelta(weeks=1)
-
+        # -- Bulk insert and commit -------------------------------------------
+        self._bulk_insert_session_data(
+            pending_sessions,
+            pending_session_teachers,
+            pending_session_rooms,
+            class_subject_map,
+        )
         self.db_session.commit()
 
     def _ingest_shifts(self) -> None:
@@ -489,3 +436,192 @@ class IngestionManager:
                 shift += 1
 
         self.db_session.commit()
+
+    # -----------------------------------------------------------------------
+    # Auxiliar functions
+    # -----------------------------------------------------------------------
+
+    def _resolve_page_subjects(
+        self,
+        class_page: ClassPage,
+        year_db_entry: Year,
+        subject_dao: SubjectDAO,
+    ) -> dict[str, Subject]:
+        """Resolve or create subject DB entries for a single class page.
+
+        Uses the instance-level ``subject_entries`` cache to avoid duplicates
+        across pages. New subjects are flushed so their IDs are available.
+
+        Returns:
+            Mapping of subject acronym to its DB entry.
+        """
+        subjects_by_acronym: dict[str, Subject] = {}
+        for subject in class_page["subjects"]:
+            subject_db_entry = self.subject_entries.get(subject["number"])
+            if subject_db_entry is None:
+                subject_db_entry = subject_dao.create(
+                    year_id=year_db_entry.id,
+                    number=subject["number"],
+                    code=subject["code"],
+                    acronym=subject["acronym"],
+                    name=subject["name"],
+                )
+                self.subject_entries[subject["number"]] = subject_db_entry
+            subjects_by_acronym[subject["acronym"]] = subject_db_entry
+        self.db_session.flush()
+        return subjects_by_acronym
+
+    @staticmethod
+    def _compute_weeks(class_page: ClassPage) -> list[date]:
+        """Return all weekly start dates covered by a class page's date range."""
+        weeks: list[date] = []
+        current = class_page["start_date"]
+        while current <= class_page["end_date"]:
+            weeks.append(current)
+            current += timedelta(weeks=1)
+        return weeks
+
+    def _process_scraped_session(
+        self,
+        scraped_session: ScrapedSession,
+        weeks: list[date],
+        subjects_by_acronym: dict[str, Subject],
+        class_db_entry: Class,
+        degree_acronym: str,
+        year_number: int,
+        pending_sessions: list[dict],
+        pending_session_teachers: list[dict],
+        pending_session_rooms: list[dict],
+        class_subject_map: dict[tuple[UUID, UUID], UUID],
+        session_lookup: dict[tuple[date, int, int, UUID], UUID],
+    ) -> None:
+        """Build weekly session rows for one scraped session block.
+
+        For each week in the page's date range, either creates a new session
+        record or, for multi-class sessions that were already created by
+        another class, updates the existing class-subject mapping.
+        """
+        original_block_id = uuid.uuid7()
+
+        subject_db_entry = subjects_by_acronym.get(
+            scraped_session["subject_acronym"],
+        )
+        if not subject_db_entry:
+            raise ValueError(
+                f"Subject acronym {scraped_session['subject_acronym']} "
+                f"not found for year {year_number} of degree {degree_acronym}",
+            )
+
+        teacher_ids, class_ids, room_ids = self._resolve_session_references(
+            scraped_session,
+        )
+
+        for week in weeks:
+            # -- Multi-class duplicate detection: reuse session already created by another class
+            if len(class_ids) > 1:
+                lookup_key = (
+                    week,
+                    scraped_session["weekday"],
+                    scraped_session["start_time"],
+                    class_db_entry.id,
+                )
+                existing_session_id = session_lookup.get(lookup_key)
+
+                if existing_session_id is not None:
+                    scs_key = (existing_session_id, class_db_entry.id)
+                    if scs_key in class_subject_map:
+                        if class_subject_map[scs_key] != subject_db_entry.id:
+                            class_subject_map[scs_key] = subject_db_entry.id
+                    else:
+                        raise ValueError(
+                            f"Relation session-class-subject not found for "
+                            f"class {class_db_entry.code} with session at "
+                            f"week: {week}, weekday: {scraped_session['weekday']}, "
+                            f"starting hour: {scraped_session['start_time']}",
+                        )
+                    continue
+
+            # -- Create new session record
+            session_id = uuid.uuid7()
+
+            pending_sessions.append(
+                {
+                    "id": session_id,
+                    "week": week,
+                    "weekday": scraped_session["weekday"],
+                    "start_time": scraped_session["start_time"],
+                    "duration": scraped_session["duration"],
+                    "type": "T" if scraped_session["is_theoretical"] else "TP",
+                    "original_block_id": original_block_id,
+                },
+            )
+
+            for teacher_id in teacher_ids:
+                pending_session_teachers.append(
+                    {
+                        "session_id": session_id,
+                        "teacher_id": teacher_id,
+                    },
+                )
+
+            for room_id in room_ids:
+                pending_session_rooms.append(
+                    {
+                        "session_id": session_id,
+                        "room_id": room_id,
+                    },
+                )
+
+            # Register class-subject links and update duplicate detection index
+            for class_id in class_ids:
+                class_subject_map[(session_id, class_id)] = subject_db_entry.id
+                session_lookup[
+                    (week, scraped_session["weekday"], scraped_session["start_time"], class_id)
+                ] = session_id
+
+    def _resolve_session_references(
+        self,
+        scraped_session: ScrapedSession,
+    ) -> tuple[set[UUID], set[UUID], set[UUID]]:
+        """Look up teacher, class, and room DB IDs for a scraped session.
+
+        Returns:
+            ``(teacher_ids, class_ids, room_ids)`` resolved from cached entries.
+        """
+        teacher_ids = {self.teacher_entries[code].id for code in set(scraped_session["teachers"])}
+        class_ids = {self.class_entries[code].id for code in set(scraped_session["classes"])}
+        room_ids = (
+            set()
+            if "Online" in scraped_session["rooms"]
+            else {self.room_entries[name].id for name in set(scraped_session["rooms"])}
+        )
+        return teacher_ids, class_ids, room_ids
+
+    def _bulk_insert_session_data(
+        self,
+        pending_sessions: list[dict],
+        pending_session_teachers: list[dict],
+        pending_session_rooms: list[dict],
+        class_subject_map: dict[tuple[UUID, UUID], UUID],
+    ) -> None:
+        """Execute bulk inserts for all collected session data."""
+        if pending_sessions:
+            self.db_session.execute(insert(Session), pending_sessions)
+        if pending_session_teachers:
+            self.db_session.execute(
+                session_teachers.insert(),
+                pending_session_teachers,
+            )
+        if pending_session_rooms:
+            self.db_session.execute(
+                session_rooms.insert(),
+                pending_session_rooms,
+            )
+        if class_subject_map:
+            self.db_session.execute(
+                insert(SessionClassSubject),
+                [
+                    {"session_id": sid, "class_id": cid, "subject_id": sub_id}
+                    for (sid, cid), sub_id in class_subject_map.items()
+                ],
+            )
