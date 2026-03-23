@@ -5,13 +5,15 @@ from sqlalchemy.orm import Session as DBSession
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.dao.exceptions import MultipleNotFoundError
-from src.projects.projects_db.models._secondary_tables import session_classes, session_teachers
-from src.projects.projects_db.models.class_ import Class
-from src.projects.projects_db.models.degree import Degree
-from src.projects.projects_db.models.session import Session
-from src.projects.projects_db.models.session_class_subject import SessionClassSubject
-from src.projects.projects_db.models.subject import Subject
-from src.projects.projects_db.models.year import Year
+from src.projects.projects_db.models import (
+    Class,
+    Degree,
+    Session,
+    SessionClassSubject,
+    Subject,
+    Year,
+)
+from src.projects.projects_db.models._secondary_tables import session_teachers
 from src.projects.projects_db.schemas.class_ import ClassStats
 
 
@@ -95,10 +97,10 @@ class ClassDAO(BaseDAO[Class]):
         return list(
             self.session.scalars(
                 select(Class)
-                .join(session_classes, session_classes.c.class_id == Class.id)
+                .join(SessionClassSubject, SessionClassSubject.class_id == Class.id)
                 .join(
                     session_teachers,
-                    session_teachers.c.session_id == session_classes.c.session_id,
+                    session_teachers.c.session_id == SessionClassSubject.session_id,
                 )
                 .where(session_teachers.c.teacher_id == teacher_id)
                 .distinct(),
@@ -119,9 +121,9 @@ class ClassDAO(BaseDAO[Class]):
             A list of ClassStats, one per class in the given year.
         """
         sessions_sq = (
-            select(session_classes.c.class_id, func.count(Session.id).label("cnt"))
-            .join(Session, Session.id == session_classes.c.session_id)
-            .group_by(session_classes.c.class_id)
+            select(SessionClassSubject.class_id, func.count(Session.id).label("cnt"))
+            .join(Session, Session.id == SessionClassSubject.session_id)
+            .group_by(SessionClassSubject.class_id)
             .subquery()
         )
 
