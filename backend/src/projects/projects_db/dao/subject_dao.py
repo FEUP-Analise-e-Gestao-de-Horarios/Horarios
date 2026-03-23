@@ -5,13 +5,15 @@ from sqlalchemy.orm import Session as DBSession
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.dao.exceptions import MultipleNotFoundError
+from src.projects.projects_db.models import (
+    Class,
+    Degree,
+    Session,
+    SessionClassSubject,
+    Subject,
+    Year,
+)
 from src.projects.projects_db.models._secondary_tables import session_subjects, session_teachers
-from src.projects.projects_db.models.class_ import Class
-from src.projects.projects_db.models.degree import Degree
-from src.projects.projects_db.models.session import Session
-from src.projects.projects_db.models.session_class_subject import SessionClassSubject
-from src.projects.projects_db.models.subject import Subject
-from src.projects.projects_db.models.year import Year
 from src.projects.projects_db.schemas.subject import SubjectStats
 
 
