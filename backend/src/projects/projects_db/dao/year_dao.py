@@ -4,10 +4,10 @@ from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
-from src.projects.projects_db.models._secondary_tables import session_subjects
 from src.projects.projects_db.models.class_ import Class
 from src.projects.projects_db.models.degree import Degree
 from src.projects.projects_db.models.session import Session as SessionModel
+from src.projects.projects_db.models.session_class_subject import SessionClassSubject
 from src.projects.projects_db.models.subject import Subject
 from src.projects.projects_db.models.year import Year
 from src.projects.projects_db.schemas.year import YearStats
@@ -74,8 +74,8 @@ class YearDAO(BaseDAO[Year]):
         )
         sessions_sq = (
             select(Subject.year_id, func.count(distinct(SessionModel.id)).label("cnt"))
-            .join(session_subjects, session_subjects.c.subject_id == Subject.id)
-            .join(SessionModel, SessionModel.id == session_subjects.c.session_id)
+            .join(SessionClassSubject, SessionClassSubject.subject_id == Subject.id)
+            .join(SessionModel, SessionModel.id == SessionClassSubject.session_id)
             .group_by(Subject.year_id)
             .subquery()
         )

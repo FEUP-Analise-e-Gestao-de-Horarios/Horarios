@@ -13,7 +13,7 @@ from src.projects.projects_db.models import (
     Subject,
     Year,
 )
-from src.projects.projects_db.models._secondary_tables import session_subjects, session_teachers
+from src.projects.projects_db.models._secondary_tables import session_teachers
 from src.projects.projects_db.schemas.subject import SubjectStats
 
 
@@ -97,10 +97,10 @@ class SubjectDAO(BaseDAO[Subject]):
         return list(
             self.session.scalars(
                 select(Subject)
-                .join(session_subjects, session_subjects.c.subject_id == Subject.id)
+                .join(SessionClassSubject, SessionClassSubject.subject_id == Subject.id)
                 .join(
                     session_teachers,
-                    session_teachers.c.session_id == session_subjects.c.session_id,
+                    session_teachers.c.session_id == SessionClassSubject.session_id,
                 )
                 .where(session_teachers.c.teacher_id == teacher_id)
                 .distinct(),
@@ -121,9 +121,9 @@ class SubjectDAO(BaseDAO[Subject]):
             A list of SubjectStats, one per subject in the given year.
         """
         sessions_sq = (
-            select(session_subjects.c.subject_id, func.count(Session.id).label("cnt"))
-            .join(Session, Session.id == session_subjects.c.session_id)
-            .group_by(session_subjects.c.subject_id)
+            select(SessionClassSubject.subject_id, func.count(Session.id).label("cnt"))
+            .join(Session, Session.id == SessionClassSubject.session_id)
+            .group_by(SessionClassSubject.subject_id)
             .subquery()
         )
 
