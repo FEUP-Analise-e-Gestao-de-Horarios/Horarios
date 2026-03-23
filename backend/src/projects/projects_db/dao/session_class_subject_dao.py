@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session as DBSession
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.models.session_class_subject import SessionClassSubject
-from src.projects.projects_db.models.subject import Subject
 
 
 class SessionClassSubjectDAO(BaseDAO[SessionClassSubject]):
@@ -53,15 +52,13 @@ class SessionClassSubjectDAO(BaseDAO[SessionClassSubject]):
             ).all(),
         )
 
-    # -------------------------------------------------------------------
-    # -- Get Others
-    # -------------------------------------------------------------------
-
-    def get_subject_by_session_and_class(self, session_id: UUID, class_id: UUID) -> Subject | None:
+    def get_session_and_class(
+        self,
+        session_id: UUID,
+        class_id: UUID,
+    ) -> SessionClassSubject | None:
         return self.session.scalars(
-            select(Subject)
-            .join(SessionClassSubject)
-            .where(
+            select(SessionClassSubject).where(
                 SessionClassSubject.session_id == session_id,
                 SessionClassSubject.class_id == class_id,
             ),

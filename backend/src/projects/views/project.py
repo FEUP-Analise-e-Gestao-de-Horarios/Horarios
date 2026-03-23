@@ -81,7 +81,8 @@ class ProjectsView(View):
         # -- Run Ingestion in a background thread ------------------------------
         def run() -> None:
             try:
-                IngestionManager(proj_id=proj_id).run()
+                with IngestionManager(proj_id=proj_id) as manager:
+                    manager.run()
             except Exception:
                 logger.exception("Unhandled exception in background parse thread")
 
