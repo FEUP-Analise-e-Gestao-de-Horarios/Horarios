@@ -24,17 +24,18 @@ mirror:
 	docker compose -f docker-compose.dev.yml --profile mirror up --build mirror
 
 dev:
+	mkdir -p databases/projects
 	docker compose -f docker-compose.dev.yml up --build
 
 dev-mirror:
+	mkdir -p databases/projects
 	docker compose -f docker-compose.dev.yml --profile mirror up --build
 
 prod:
 	docker compose -f docker-compose.prod.yml up --build
 
 clean-db:
-	rm -f databases/db.sqlite3
-	rm -rf databases/projects/*
+	rm -rf databases/
 
 clean-db-volume:
 	docker volume rm pi_db_data

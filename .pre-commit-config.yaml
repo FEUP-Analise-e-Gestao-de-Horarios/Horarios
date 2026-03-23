@@ -32,6 +32,6 @@ repos:
       - id: frontend-format
         name: frontend format (prettier)
         language: system
-        entry: bash -c 'cd frontend && npm run format:check'
+        entry: bash -c 'cd frontend && npm run format && git diff --exit-code --quiet'
         pass_filenames: false
         files: ^frontend/

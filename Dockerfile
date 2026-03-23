@@ -23,7 +23,8 @@ COPY backend/Pipfile backend/Pipfile.lock ./backend/
 RUN cd backend && pipenv install --system
 
 COPY backend/ ./backend/
-COPY databases/ ./databases/
+
+RUN mkdir -p /workspace/databases/projects
 
 # Inject the built frontend assets
 COPY --from=frontend-builder /workspace/frontend/dist \
