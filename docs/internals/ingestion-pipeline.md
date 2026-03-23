@@ -92,7 +92,11 @@ For each room entry from the menu:
 
 ### Phase 7 — Ingest Sessions (`_ingest_sessions`)
 
-Iterates over every class page within the degree hierarchy and persists subjects and sessions:
+Iterates over every class page within the degree hierarchy and persists class red blocks, subjects, and sessions:
+
+**Class red blocks:**
+
+- For the first page of each class (red blocks are week-invariant), unavailability slots are inserted via `ClassRedBlockDAO.create()`.
 
 **Subjects:**
 
@@ -100,10 +104,10 @@ Iterates over every class page within the degree hierarchy and persists subjects
 
 **Sessions:**
 
-- For each session on a class page, the method resolves the subject, teachers, classes, and rooms to their database entries via the respective DAOs.
+- For each session on a class page, the method resolves the subject, teachers, classes, and rooms from in-memory lookup maps (`teacher_entries`, `class_entries`, `room_entries`).
 - Weekly session records are created spanning the page's date range (one per week, advancing by 7 days from `start_date` to `end_date`).
 - If a session already exists for the same week, weekday, time, and classes, its subject list is extended rather than creating a duplicate.
-- Sessions are created via `SessionDAO.create()` with linked subject, teacher, class, and room IDs.
+- All session rows, teacher/room associations, and class-subject links are collected in memory and bulk-inserted at the end of the phase for performance.
 - Sessions without a physical room are stored without room associations (the raw data uses `"Online"` as a sentinel).
 - Session type is set to `"T"` for theoretical sessions (CSS class `td_tipologia_19`) and `"TP"` otherwise.
 
@@ -113,7 +117,7 @@ Iterates over every class page within the degree hierarchy and persists subjects
 
 Calculates and assigns shift numbers to classes based on their theoretical sessions:
 
-1. Retrieves all subjects from the database via `SubjectDAO.get_all()`.
+1. Retrieves all subjects from the in-memory `subject_entries` cache.
 2. For each subject, fetches all `"T"` type sessions via `SessionDAO.get_by_subject_type()`.
 3. For each session, identifies classes that have not yet been assigned a shift (tracked via a visited set).
 4. Assigns the current shift counter value to each unvisited class's `shift` attribute.
@@ -124,17 +128,20 @@ Calculates and assigns shift numbers to classes based on their theoretical sessi
 
 ### Phase 9 — Teardown
 
+At the end of `run()`, the database session is closed and `general_database.db` is copied to `initial_database.db` as a baseline snapshot. Then:
+
 **On success (`_teardown_success`):**
 
-- `general_database.db` is copied to `initial_database.db` as a baseline snapshot.
 - `ingestion_finished_at` is stamped on the `Project` record.
+- The HTTP session is closed.
 
 **On failure (`_teardown_failure`, any exception):**
 
 - `ingestion_failed_at` is stamped on the `Project` record.
+- The HTTP session is closed.
 - The exception is re-raised after cleanup.
 
-In both cases the database connection and HTTP session are closed.
+The database session is closed by the context manager's `__exit__` method.
 
 ---
 
@@ -171,14 +178,16 @@ src/ingestion/
 
 Persistence is handled through DAO (Data Access Object) classes from `src/projects/projects_db/dao/`, each accessed via a SQLAlchemy session obtained from `get_session()`:
 
-| DAO                  | Used in                               | Purpose                                       |
-| -------------------- | ------------------------------------- | --------------------------------------------- |
-| `TeacherDAO`         | `_ingest_teachers`                    | Create teacher records                        |
-| `TeacherRedBlockDAO` | `_ingest_teachers`                    | Create teacher unavailability slots           |
-| `DegreeDAO`          | `_ingest_classes`                     | Create degree records                         |
-| `YearDAO`            | `_ingest_classes`, `_ingest_sessions` | Create year records, look up years by degree  |
-| `ClassDAO`           | `_ingest_classes`, `_ingest_sessions` | Create class records, look up classes by code |
-| `RoomDAO`            | `_ingest_rooms`, `_ingest_sessions`   | Create room records, look up rooms by name    |
-| `RoomRedBlockDAO`    | `_ingest_rooms`                       | Create room unavailability slots              |
-| `SubjectDAO`         | `_ingest_sessions`, `_ingest_shifts`  | Create/look up subject records                |
-| `SessionDAO`         | `_ingest_sessions`, `_ingest_shifts`  | Create/look up session records                |
+| DAO                      | Used in            | Purpose                                   |
+| ------------------------ | ------------------ | ----------------------------------------- |
+| `TeacherDAO`             | `_ingest_teachers` | Create teacher records                    |
+| `TeacherRedBlockDAO`     | `_ingest_teachers` | Create teacher unavailability slots       |
+| `DegreeDAO`              | `_ingest_classes`  | Create degree records                     |
+| `YearDAO`                | `_ingest_classes`  | Create year records                       |
+| `ClassDAO`               | `_ingest_classes`  | Create class records                      |
+| `RoomDAO`                | `_ingest_rooms`    | Create room records                       |
+| `RoomRedBlockDAO`        | `_ingest_rooms`    | Create room unavailability slots          |
+| `ClassRedBlockDAO`       | `_ingest_sessions` | Create class unavailability slots         |
+| `SubjectDAO`             | `_ingest_sessions` | Create subject records                    |
+| `SessionDAO`             | `_ingest_shifts`   | Look up sessions by subject and type      |
+| `SessionClassSubjectDAO` | `_ingest_shifts`   | Look up class-subject links for a session |
