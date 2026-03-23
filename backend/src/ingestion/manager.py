@@ -111,6 +111,8 @@ class IngestionManager:
             self._ingest_sessions(degrees)
             self._ingest_shifts()
 
+            # -- Snapshot general_db into init_db ----------------------------------
+            self.db_session.close()
             shutil.copy2(general_db(self.proj_id), initial_db(self.proj_id))
 
             self._teardown_success()
