@@ -31,7 +31,7 @@ PROJECTS_DB_PATH/<project_id>/general_database.db
 
 and creates a `Scraper` pointed at the project's configured URL.
 
-`_setup()` stamps `started_ingestion_at` on the `Project` record and clears any previous `finished_ingestion_at` / `failed_ingestion_at` timestamps.
+`_setup()` stamps `ingestion_started_at` on the `Project` record and clears any previous `ingestion_finished_at` / `ingestion_failed_at` timestamps.
 
 ---
 
@@ -127,11 +127,11 @@ Calculates and assigns shift numbers to classes based on their theoretical sessi
 **On success (`_teardown_success`):**
 
 - `general_database.db` is copied to `initial_database.db` as a baseline snapshot.
-- `finished_ingestion_at` is stamped on the `Project` record.
+- `ingestion_finished_at` is stamped on the `Project` record.
 
 **On failure (`_teardown_failure`, any exception):**
 
-- `failed_ingestion_at` is stamped on the `Project` record.
+- `ingestion_failed_at` is stamped on the `Project` record.
 - The exception is re-raised after cleanup.
 
 In both cases the database connection and HTTP session are closed.

@@ -126,9 +126,9 @@ class IngestionManager:
 
     def _setup(self) -> None:
         """Record ingestion start on the project and clear previous outcome timestamps."""
-        self.proj.started_ingestion_at = timezone.now()
-        self.proj.finished_ingestion_at = None
-        self.proj.failed_ingestion_at = None
+        self.proj.ingestion_started_at = timezone.now()
+        self.proj.ingestion_finished_at = None
+        self.proj.ingestion_failed_at = None
         self.proj.save()
 
     def _teardown_success(self) -> None:
@@ -138,7 +138,7 @@ class IngestionManager:
         baseline snapshot, records the completion timestamp, and closes the
         database connection and HTTP session.
         """
-        self.proj.finished_ingestion_at = timezone.now()
+        self.proj.ingestion_finished_at = timezone.now()
         self.proj.save()
         self.scraper.close()
 
@@ -148,7 +148,7 @@ class IngestionManager:
         Sets the failure timestamp on the project and closes the database
         connection and HTTP session.
         """
-        self.proj.failed_ingestion_at = timezone.now()
+        self.proj.ingestion_failed_at = timezone.now()
         self.proj.save()
         self.scraper.close()
 

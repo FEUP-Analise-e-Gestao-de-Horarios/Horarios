@@ -14,8 +14,7 @@ from src.projects.projects_db.models._secondary_tables import (
 from src.projects.projects_db.schemas.weekday import WeekDay
 
 if TYPE_CHECKING:
-    from src.projects.projects_db.models import Room, Teacher
-    from src.projects.projects_db.models.session_class_subject import SessionClassSubject
+    from src.projects.projects_db.models import Room, SessionClassSubject, Teacher
 
 
 class Session(Base):

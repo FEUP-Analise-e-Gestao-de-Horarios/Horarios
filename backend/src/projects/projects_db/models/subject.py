@@ -8,8 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.projects.projects_db.base import Base
 
 if TYPE_CHECKING:
-    from src.projects.projects_db.models import Year
-    from src.projects.projects_db.models.session_class_subject import SessionClassSubject
+    from src.projects.projects_db.models import SessionClassSubject, Year
 
 
 class Subject(Base):

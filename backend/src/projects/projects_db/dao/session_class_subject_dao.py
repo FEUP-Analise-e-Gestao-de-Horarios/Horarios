@@ -22,10 +22,14 @@ class SessionClassSubjectDAO(BaseDAO[SessionClassSubject]):
     # -- Get SessionClassSubjectDAO
     # -------------------------------------------------------------------
 
-    def get(self, id: UUID) -> SessionClassSubject | None:
-        return self.session.scalar(
-            select(SessionClassSubject).where(SessionClassSubject.id == id),
-        )
+    def get(self, session_id: UUID, class_id: UUID, subject_id: UUID) -> SessionClassSubject | None:
+        return self.session.scalars(
+            select(SessionClassSubject).where(
+                SessionClassSubject.session_id == session_id,
+                SessionClassSubject.class_id == class_id,
+                SessionClassSubject.subject_id == subject_id,
+            ),
+        ).one_or_none()
 
     def get_by_session(self, session_id: UUID) -> list[SessionClassSubject]:
         return list(

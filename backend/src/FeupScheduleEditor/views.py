@@ -164,7 +164,7 @@ def getProjetosListAux(request, userId):
         "people",
         "pk",
         "name",
-        "finished_ingestion_at",
+        "ingestion_finished_at",
     )
     related = []
 
@@ -189,7 +189,7 @@ def getProjetosListAux(request, userId):
         ):
             ids.append(project[3])
             related.append(
-                {"id": project[3], "nome": project[4], "finished_ingestion_at": project[5]},
+                {"id": project[3], "nome": project[4], "ingestion_finished_at": project[5]},
             )
     related.reverse()
     return related
@@ -204,26 +204,6 @@ def areSemanasCompatible(siAula, sfAula, siSelected, sfSelected):
 
 
 # ---------------------------------------------------------------------------------------------------------
-
-
-def starter(request: HttpRequest) -> HttpResponse:
-    """
-    Obtém a lista de projetos atuais e cria a página `starter`
-
-    Parameters:
-    request (HttpRequest): O objeto HTTP request
-
-    Returns:
-    HttpResponse: O objeto HTTP response, correspondente à página `starter`
-    """
-
-    # Se o utlizador não estiver autenticado, redireciona para a página de login
-    if not request.user.is_authenticated:
-        return redirect("login")
-
-    projetos = getProjetosListAux(request, request.user.pk)
-
-    return render(request, "starter/starter.html", {"projetos": projetos, "is_edit_turnos": False})
 
 
 def manageProjects(request: HttpRequest, projId: int) -> HttpResponse:
