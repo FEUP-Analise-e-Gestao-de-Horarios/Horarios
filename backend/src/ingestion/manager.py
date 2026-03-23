@@ -219,30 +219,36 @@ class IngestionManager:
             ValueError: If a class has no schedule pages.
         """
 
-        degree_dao = DegreeDAO(self.db_session)
-        year_dao = YearDAO(self.db_session)
-        class_dao = ClassDAO(self.db_session)
+        degree_dao = DegreeDAO(self.db_session, flush_on_create=False)
+        year_dao = YearDAO(self.db_session, flush_on_create=False)
+        class_dao = ClassDAO(self.db_session, flush_on_create=False)
 
+        degree_entries: dict[str, object] = {}
         for degree in degrees:
-            degree_entry = degree_dao.create(
+            degree_entries[degree["acronym"]] = degree_dao.create(
                 acronym=degree["acronym"],
                 name=degree["name"],
             )
+        self.db_session.flush()
 
+        for degree in degrees:
+            degree_entry = degree_entries[degree["acronym"]]
             for year in degree["years"]:
-                year_entry = year_dao.create(
+                self.year_entries[(degree["acronym"], year["number"])] = year_dao.create(
                     degree_id=degree_entry.id,
                     number=year["number"],
                 )
-                self.year_entries[(degree["acronym"], year["number"])] = year_entry
+        self.db_session.flush()
 
+        for degree in degrees:
+            for year in degree["years"]:
+                year_entry = self.year_entries[(degree["acronym"], year["number"])]
                 for class_ in year["classes"]:
-                    class_entry = class_dao.create(
+                    self.class_entries[class_["code"]] = class_dao.create(
                         year_id=year_entry.id,
                         code=class_["code"],
                         shift=0,
                     )
-                    self.class_entries[class_["code"]] = class_entry
 
         self.db_session.commit()
 
