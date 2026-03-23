@@ -83,6 +83,32 @@ class ClassDAO(BaseDAO[Class]):
 
         return classes
 
+    def get_by_teacher(self, teacher_id: UUID) -> list[Class]:
+        """Return distinct classes taught by the given teacher across all their sessions.
+
+        Args:
+            teacher_id: UUID of the teacher to filter by.
+
+        Returns:
+            List of distinct Class instances associated with the teacher.
+        """
+        return list(
+            self.session.scalars(
+                select(Class)
+                .join(session_classes, session_classes.c.class_id == Class.id)
+                .join(
+                    session_teachers,
+                    session_teachers.c.session_id == session_classes.c.session_id,
+                )
+                .where(session_teachers.c.teacher_id == teacher_id)
+                .distinct(),
+            ).all(),
+        )
+
+    # -------------------------------------------------------------------
+    # -- Get Classes with Stats
+    # -------------------------------------------------------------------
+
     def get_by_year_with_stats(self, year_id: UUID) -> list[ClassStats]:
         """Return all classes for a year with their session counts and degree info.
 
@@ -120,28 +146,6 @@ class ClassDAO(BaseDAO[Class]):
         rows = self.session.execute(stmt).all()
 
         return [ClassStats.model_validate(row, from_attributes=True) for row in rows]
-
-    def get_by_teacher(self, teacher_id: UUID) -> list[Class]:
-        """Return distinct classes taught by the given teacher across all their sessions.
-
-        Args:
-            teacher_id: UUID of the teacher to filter by.
-
-        Returns:
-            List of distinct Class instances associated with the teacher.
-        """
-        return list(
-            self.session.scalars(
-                select(Class)
-                .join(session_classes, session_classes.c.class_id == Class.id)
-                .join(
-                    session_teachers,
-                    session_teachers.c.session_id == session_classes.c.session_id,
-                )
-                .where(session_teachers.c.teacher_id == teacher_id)
-                .distinct(),
-            ).all(),
-        )
 
     # -------------------------------------------------------------------
     # -- Get Others
