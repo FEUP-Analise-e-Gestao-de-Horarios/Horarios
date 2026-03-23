@@ -15,11 +15,22 @@ THEORETICAL_SESSION = "td_tipologia_19"
 """CSS class used by the institution's schedule pages to mark theoretical sessions."""
 
 _RE_TIPOLOGIA = re.compile(r"^td_tipologia_")
+"""Matches any CSS class starting with ``td_tipologia_`` (session-type cells)."""
+
 _RE_ACRONYM = re.compile(r"(.+)\((\d{4}) ?- ?(\d+)\)")
+"""Captures a subject acronym followed by ``(year - number)`` in parentheses."""
+
 _RE_BRACKETS = re.compile(r"\[(.*?)\]")
+"""Captures content inside square brackets (classes, teachers, rooms in session blocks)."""
+
 _RE_PARENS = re.compile(r"[()]")
+"""Matches literal parentheses, used to strip them from teacher acronym strings."""
+
 _RE_SEMICOLON = re.compile(r";\s*")
+"""Splits on a semicolon followed by optional whitespace."""
+
 _RE_SEMICOLON_PADDED = re.compile(r"\s*;\s*")
+"""Splits on a semicolon surrounded by optional whitespace on both sides."""
 
 
 def extract_week_dates(soup: BeautifulSoup) -> tuple[date, date]:

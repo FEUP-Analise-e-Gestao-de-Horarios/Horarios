@@ -81,6 +81,7 @@ class IngestionManager:
         return self
 
     def __exit__(self, exc_type, exc, tb):
+        """Close the database session on context-manager exit."""
         self.db_session.close()
 
     def run(self) -> None:
@@ -130,9 +131,8 @@ class IngestionManager:
     def _teardown_success(self) -> None:
         """Finalize a successful ingestion run.
 
-        Copies ``general_database.db`` to ``initial_database.db`` as a
-        baseline snapshot, records the completion timestamp, and closes the
-        database connection and HTTP session.
+        Records the completion timestamp on the project and closes the
+        HTTP session. The database snapshot is taken earlier in :meth:`run`.
         """
         self.proj.ingestion_finished_at = timezone.now()
         self.proj.save()
@@ -141,8 +141,8 @@ class IngestionManager:
     def _teardown_failure(self) -> None:
         """Record a failed ingestion run and release resources.
 
-        Sets the failure timestamp on the project and closes the database
-        connection and HTTP session.
+        Sets the failure timestamp on the project and closes the HTTP session.
+        The database session is closed by the context manager's ``__exit__``.
         """
         self.proj.ingestion_failed_at = timezone.now()
         self.proj.save()
@@ -208,20 +208,15 @@ class IngestionManager:
         self.db_session.commit()
 
     def _ingest_classes(self, degrees: list[Degree]) -> None:
-        """Ingest degrees, classes, subjects, and sessions into the database.
+        """Ingest degrees, years, and classes into the database.
 
-        First inserts all degrees, then for each class fetches all weekly
-        schedule pages, inserts red blocks (from the first page only, as they
-        are week-invariant), and inserts subjects and sessions from every page.
-        Theoretical sessions are also recorded in the internal shift map for
-        later processing.
+        Inserts all degree records first, then creates year entries for each
+        degree, and finally inserts class records for each year. Red blocks,
+        subjects, and sessions are handled separately by :meth:`_ingest_sessions`.
 
         Args:
             degrees: Structured degree hierarchy as returned by
                 ``Scraper.read_menu``.
-
-        Raises:
-            ValueError: If a class has no schedule pages.
         """
 
         degree_dao = DegreeDAO(self.db_session, flush_on_create=False)
