@@ -1,8 +1,7 @@
-import uuid
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, UniqueConstraint, Uuid
+from sqlalchemy import ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.projects.projects_db.base import Base
@@ -16,10 +15,9 @@ class SessionClassSubject(Base):
     __table_args__ = (UniqueConstraint("session_id", "class_id", name="uq_session_class"),)
 
     # UUIDs
-    id: Mapped[UUID] = mapped_column(Uuid(native_uuid=False), primary_key=True, default=uuid.uuid7)
-    session_id: Mapped[UUID] = mapped_column(ForeignKey("sessions.id"), index=True)
-    class_id: Mapped[UUID] = mapped_column(ForeignKey("classes.id"), index=True)
-    subject_id: Mapped[UUID] = mapped_column(ForeignKey("subjects.id"), index=True)
+    session_id: Mapped[UUID] = mapped_column(ForeignKey("sessions.id"), primary_key=True)
+    class_id: Mapped[UUID] = mapped_column(ForeignKey("classes.id"), primary_key=True)
+    subject_id: Mapped[UUID] = mapped_column(ForeignKey("subjects.id"), primary_key=True)
 
     # Relationships
     session: Mapped[Session] = relationship(back_populates="session_class_subjects")
