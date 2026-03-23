@@ -11,7 +11,7 @@ services:
     volumes:
       - db_data:/workspace/databases
     ports:
-      - "8000:8000"
+      - "8008:8000"
     restart: unless-stopped
 
 volumes:
