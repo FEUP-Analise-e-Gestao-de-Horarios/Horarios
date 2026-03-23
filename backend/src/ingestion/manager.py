@@ -264,18 +264,20 @@ class IngestionManager:
 
         rooms_data = [(room, self.scraper.get_room_page(room["link"])) for room in rooms]
 
-        room_dao = RoomDAO(self.db_session)
-        room_red_block_dao = RoomRedBlockDAO(self.db_session)
+        room_dao = RoomDAO(self.db_session, flush_on_create=False)
+        room_red_block_dao = RoomRedBlockDAO(self.db_session, flush_on_create=False)
 
-        for room, red_blocks in rooms_data:
-            room_entry = room_dao.create(
+        for room, _red_blocks in rooms_data:
+            self.room_entries[room["name"]] = room_dao.create(
                 name=room["name"],
                 type=room["type_"],
                 size=room["size"],
                 seats=room["seats"],
             )
-            self.room_entries[room["name"]] = room_entry
+        self.db_session.flush()
 
+        for room, red_blocks in rooms_data:
+            room_entry = self.room_entries[room["name"]]
             for hour, weekday in red_blocks:
                 room_red_block_dao.create(
                     room_id=room_entry.id,
