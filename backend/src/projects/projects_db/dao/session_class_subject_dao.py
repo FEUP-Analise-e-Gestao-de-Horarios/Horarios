@@ -52,11 +52,7 @@ class SessionClassSubjectDAO(BaseDAO[SessionClassSubject]):
             ).all(),
         )
 
-    # -------------------------------------------------------------------
-    # -- Get Others
-    # -------------------------------------------------------------------
-
-    def get_subject_by_session_and_class(
+    def get_session_and_class(
         self,
         session_id: UUID,
         class_id: UUID,

@@ -391,9 +391,11 @@ class IngestionManager:
                                         class_id=class_db_entry.id,
                                     )
                                     if existing is not None:
-                                        session_class_subject_db_entry = session_class_subject_dao.get_subject_by_session_and_class(
-                                            session_id=existing.id,
-                                            class_id=class_db_entry.id,
+                                        session_class_subject_db_entry = (
+                                            session_class_subject_dao.get_session_and_class(
+                                                session_id=existing.id,
+                                                class_id=class_db_entry.id,
+                                            )
                                         )
 
                                         if session_class_subject_db_entry is not None:
