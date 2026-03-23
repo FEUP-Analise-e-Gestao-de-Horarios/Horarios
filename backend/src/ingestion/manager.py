@@ -306,8 +306,8 @@ class IngestionManager:
                 cannot be found in the database.
         """
         session_dao = SessionDAO(self.db_session)
-        class_red_block_dao = ClassRedBlockDAO(self.db_session)
-        subject_dao = SubjectDAO(self.db_session)
+        class_red_block_dao = ClassRedBlockDAO(self.db_session, flush_on_create=False)
+        subject_dao = SubjectDAO(self.db_session, flush_on_create=False)
         session_class_subject_dao = SessionClassSubjectDAO(self.db_session)
 
         for degree in degrees:
@@ -354,6 +354,7 @@ class IngestionManager:
                                 self.subject_entries[subject["number"]] = subject_db_entry
 
                             subjects_by_acronym[subject["acronym"]] = subject_db_entry
+                        self.db_session.flush()
 
                         for scraped_session in class_page["sessions"]:
                             current_date = class_page["start_date"]
