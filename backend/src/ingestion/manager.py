@@ -59,11 +59,21 @@ class IngestionManager:
         self.subject_shifts_map: TurnosMap = defaultdict(
             lambda: defaultdict(lambda: defaultdict(dict)),
         )
-        self.year_entries: dict[tuple[str, int], Year] = {}
-        self.subject_entries: dict[int, Subject] = {}
-        self.class_entries: dict[str, Class] = {}
+
+        # Teacher.code -> Teacher
         self.teacher_entries: dict[int, TeacherModel] = {}
+
+        # (Degree.acronym, Year.number) -> Year
+        self.year_entries: dict[tuple[str, int], Year] = {}
+
+        # Class.code -> Class
+        self.class_entries: dict[str, Class] = {}
+
+        # Room.name -> Room
         self.room_entries: dict[str, Room] = {}
+
+        # Subject.number -> Subject
+        self.subject_entries: dict[int, Subject] = {}
 
     def __enter__(self):
         return self
