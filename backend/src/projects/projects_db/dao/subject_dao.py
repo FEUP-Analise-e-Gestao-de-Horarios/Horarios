@@ -1,20 +1,24 @@
 from uuid import UUID
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session as DBSession
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.dao.exceptions import MultipleNotFoundError
+from src.projects.projects_db.models import (
+    Class,
+    Degree,
+    Session,
+    SessionClassSubject,
+    Subject,
+    Year,
+)
 from src.projects.projects_db.models._secondary_tables import session_subjects, session_teachers
-from src.projects.projects_db.models.degree import Degree
-from src.projects.projects_db.models.session import Session as SessionModel
-from src.projects.projects_db.models.subject import Subject
-from src.projects.projects_db.models.year import Year
 from src.projects.projects_db.schemas.subject import SubjectStats
 
 
 class SubjectDAO(BaseDAO[Subject]):
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: DBSession) -> None:
         super().__init__(Subject, session)
 
     # -------------------------------------------------------------------
@@ -37,8 +41,11 @@ class SubjectDAO(BaseDAO[Subject]):
         return self._create(year_id=year_id, number=number, code=code, acronym=acronym, name=name)
 
     # -------------------------------------------------------------------
-    # -- Get
+    # -- Get Subjects
     # -------------------------------------------------------------------
+
+    def get(self, subject_id: UUID) -> Subject | None:
+        return self.session.scalars(select(Subject).where(Subject.id == subject_id)).one_or_none()
 
     def get_by_number(self, number: int) -> Subject | None:
         """Retrieve a single subject by its institutional number.
@@ -49,7 +56,7 @@ class SubjectDAO(BaseDAO[Subject]):
         Returns:
             The matching Subject instance, or None if not found.
         """
-        return self.session.scalars(select(Subject).where(Subject.number == number)).first()
+        return self.session.scalars(select(Subject).where(Subject.number == number)).one_or_none()
 
     def get_by_numbers(self, numbers: set[int], *, check_count: bool = True) -> list[Subject]:
         """Return subjects matching the given institutional numbers.
@@ -78,6 +85,32 @@ class SubjectDAO(BaseDAO[Subject]):
 
         return subjects
 
+    def get_by_teacher(self, teacher_id: UUID) -> list[Subject]:
+        """Return distinct subjects taught by the given teacher across all their sessions.
+
+        Args:
+            teacher_id: UUID of the teacher to filter by.
+
+        Returns:
+            List of distinct Subject instances associated with the teacher.
+        """
+        return list(
+            self.session.scalars(
+                select(Subject)
+                .join(session_subjects, session_subjects.c.subject_id == Subject.id)
+                .join(
+                    session_teachers,
+                    session_teachers.c.session_id == session_subjects.c.session_id,
+                )
+                .where(session_teachers.c.teacher_id == teacher_id)
+                .distinct(),
+            ).all(),
+        )
+
+    # -------------------------------------------------------------------
+    # -- Get Subjects with Stats
+    # -------------------------------------------------------------------
+
     def get_by_year_with_stats(self, year_id: UUID) -> list[SubjectStats]:
         """Return all subjects for a year with their session counts and degree info.
 
@@ -88,8 +121,8 @@ class SubjectDAO(BaseDAO[Subject]):
             A list of SubjectStats, one per subject in the given year.
         """
         sessions_sq = (
-            select(session_subjects.c.subject_id, func.count(SessionModel.id).label("cnt"))
-            .join(SessionModel, SessionModel.id == session_subjects.c.session_id)
+            select(session_subjects.c.subject_id, func.count(Session.id).label("cnt"))
+            .join(Session, Session.id == session_subjects.c.session_id)
             .group_by(session_subjects.c.subject_id)
             .subquery()
         )
@@ -118,24 +151,26 @@ class SubjectDAO(BaseDAO[Subject]):
 
         return [SubjectStats.model_validate(row, from_attributes=True) for row in rows]
 
-    def get_by_teacher(self, teacher_id: UUID) -> list[Subject]:
-        """Return distinct subjects taught by the given teacher across all their sessions.
+    # -------------------------------------------------------------------
+    # -- Get Others
+    # -------------------------------------------------------------------
 
-        Args:
-            teacher_id: UUID of the teacher to filter by.
-
-        Returns:
-            List of distinct Subject instances associated with the teacher.
-        """
+    def get_classes(self, subject_id: UUID) -> list[Class]:
         return list(
             self.session.scalars(
-                select(Subject)
-                .join(session_subjects, session_subjects.c.subject_id == Subject.id)
-                .join(
-                    session_teachers,
-                    session_teachers.c.session_id == session_subjects.c.session_id,
-                )
-                .where(session_teachers.c.teacher_id == teacher_id)
+                select(Class)
+                .join(SessionClassSubject, SessionClassSubject.class_id == Class.id)
+                .where(SessionClassSubject.subject_id == subject_id)
+                .distinct(),
+            ).all(),
+        )
+
+    def get_sessions(self, subject_id: UUID) -> list[Session]:
+        return list(
+            self.session.scalars(
+                select(Session)
+                .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
+                .where(SessionClassSubject.subject_id == subject_id)
                 .distinct(),
             ).all(),
         )

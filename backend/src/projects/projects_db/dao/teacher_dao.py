@@ -3,12 +3,9 @@ from sqlalchemy.orm import Session
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.dao.exceptions import MultipleNotFoundError
-from src.projects.projects_db.models._secondary_tables import (
-    session_classes,
-    session_subjects,
-    session_teachers,
-)
+from src.projects.projects_db.models._secondary_tables import session_subjects, session_teachers
 from src.projects.projects_db.models.session import Session as SessionModel
+from src.projects.projects_db.models.session_class_subject import SessionClassSubject
 from src.projects.projects_db.models.teacher import Teacher
 from src.projects.projects_db.schemas.teacher import TeacherStats
 
@@ -59,9 +56,12 @@ class TeacherDAO(BaseDAO[Teacher]):
         classes_sq = (
             select(
                 session_teachers.c.teacher_id,
-                func.count(session_classes.c.class_id.distinct()).label("cnt"),
+                func.count(SessionClassSubject.class_id.distinct()).label("cnt"),
             )
-            .join(session_classes, session_classes.c.session_id == session_teachers.c.session_id)
+            .join(
+                SessionClassSubject,
+                SessionClassSubject.session_id == session_teachers.c.session_id,
+            )
             .group_by(session_teachers.c.teacher_id)
             .subquery()
         )

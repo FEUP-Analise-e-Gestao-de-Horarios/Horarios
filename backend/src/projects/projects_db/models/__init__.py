@@ -4,6 +4,7 @@ from .degree import Degree
 from .room import Room
 from .room_red_block import RoomRedBlock
 from .session import Session
+from .session_class_subject import SessionClassSubject
 from .subject import Subject
 from .teacher import Teacher
 from .teacher_red_block import TeacherRedBlock
@@ -16,6 +17,7 @@ __all__ = [
     "Room",
     "RoomRedBlock",
     "Session",
+    "SessionClassSubject",
     "Subject",
     "Teacher",
     "TeacherRedBlock",

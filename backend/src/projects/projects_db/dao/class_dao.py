@@ -1,20 +1,24 @@
 from uuid import UUID
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session as DBSession
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.dao.exceptions import MultipleNotFoundError
-from src.projects.projects_db.models._secondary_tables import session_classes, session_teachers
-from src.projects.projects_db.models.class_ import Class
-from src.projects.projects_db.models.degree import Degree
-from src.projects.projects_db.models.session import Session as SessionModel
-from src.projects.projects_db.models.year import Year
+from src.projects.projects_db.models import (
+    Class,
+    Degree,
+    Session,
+    SessionClassSubject,
+    Subject,
+    Year,
+)
+from src.projects.projects_db.models._secondary_tables import session_teachers
 from src.projects.projects_db.schemas.class_ import ClassStats
 
 
 class ClassDAO(BaseDAO[Class]):
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: DBSession) -> None:
         super().__init__(Class, session)
 
     # -------------------------------------------------------------------
@@ -35,8 +39,13 @@ class ClassDAO(BaseDAO[Class]):
         return self._create(year_id=year_id, code=code, shift=shift)
 
     # -------------------------------------------------------------------
-    # -- Get
+    # -- Get Classes
     # -------------------------------------------------------------------
+
+    def get(self, class_id: UUID) -> Class | None:
+        return self.session.scalars(
+            select(Class).where(Class.id == class_id),
+        ).one_or_none()
 
     def get_by_code(self, code: str) -> Class | None:
         """Retrieve a single class by its unique code.
@@ -76,6 +85,32 @@ class ClassDAO(BaseDAO[Class]):
 
         return classes
 
+    def get_by_teacher(self, teacher_id: UUID) -> list[Class]:
+        """Return distinct classes taught by the given teacher across all their sessions.
+
+        Args:
+            teacher_id: UUID of the teacher to filter by.
+
+        Returns:
+            List of distinct Class instances associated with the teacher.
+        """
+        return list(
+            self.session.scalars(
+                select(Class)
+                .join(SessionClassSubject, SessionClassSubject.class_id == Class.id)
+                .join(
+                    session_teachers,
+                    session_teachers.c.session_id == SessionClassSubject.session_id,
+                )
+                .where(session_teachers.c.teacher_id == teacher_id)
+                .distinct(),
+            ).all(),
+        )
+
+    # -------------------------------------------------------------------
+    # -- Get Classes with Stats
+    # -------------------------------------------------------------------
+
     def get_by_year_with_stats(self, year_id: UUID) -> list[ClassStats]:
         """Return all classes for a year with their session counts and degree info.
 
@@ -86,9 +121,9 @@ class ClassDAO(BaseDAO[Class]):
             A list of ClassStats, one per class in the given year.
         """
         sessions_sq = (
-            select(session_classes.c.class_id, func.count(SessionModel.id).label("cnt"))
-            .join(SessionModel, SessionModel.id == session_classes.c.session_id)
-            .group_by(session_classes.c.class_id)
+            select(SessionClassSubject.class_id, func.count(Session.id).label("cnt"))
+            .join(Session, Session.id == SessionClassSubject.session_id)
+            .group_by(SessionClassSubject.class_id)
             .subquery()
         )
 
@@ -114,24 +149,26 @@ class ClassDAO(BaseDAO[Class]):
 
         return [ClassStats.model_validate(row, from_attributes=True) for row in rows]
 
-    def get_by_teacher(self, teacher_id: UUID) -> list[Class]:
-        """Return distinct classes taught by the given teacher across all their sessions.
+    # -------------------------------------------------------------------
+    # -- Get Others
+    # -------------------------------------------------------------------
 
-        Args:
-            teacher_id: UUID of the teacher to filter by.
-
-        Returns:
-            List of distinct Class instances associated with the teacher.
-        """
+    def get_subjects(self, class_id: UUID) -> list[Subject]:
         return list(
             self.session.scalars(
-                select(Class)
-                .join(session_classes, session_classes.c.class_id == Class.id)
-                .join(
-                    session_teachers,
-                    session_teachers.c.session_id == session_classes.c.session_id,
-                )
-                .where(session_teachers.c.teacher_id == teacher_id)
+                select(Subject)
+                .join(SessionClassSubject, SessionClassSubject.subject_id == Subject.id)
+                .where(SessionClassSubject.class_id == class_id)
+                .distinct(),
+            ).all(),
+        )
+
+    def get_sessions(self, class_id: UUID) -> list[Session]:
+        return list(
+            self.session.scalars(
+                select(Session)
+                .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
+                .where(SessionClassSubject.class_id == class_id)
                 .distinct(),
             ).all(),
         )
