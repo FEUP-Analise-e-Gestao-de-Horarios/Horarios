@@ -180,8 +180,8 @@ class IngestionManager:
                 teachers.append({**teacher, "red_blocks": []})
                 existing_codes.add(teacher["code"])
 
-        teacher_dao = TeacherDAO(self.db_session)
-        teacher_red_block_dao = TeacherRedBlockDAO(self.db_session)
+        teacher_dao = TeacherDAO(self.db_session, flush_on_create=False)
+        teacher_red_block_dao = TeacherRedBlockDAO(self.db_session, flush_on_create=False)
 
         for teacher in teachers:
             teacher_entry = teacher_dao.create(
@@ -190,7 +190,9 @@ class IngestionManager:
                 name=teacher["name"],
             )
             self.teacher_entries[teacher["code"]] = teacher_entry
+        self.db_session.flush()
 
+        for teacher in teachers:
             for hour, weekday in teacher["red_blocks"]:
                 teacher_red_block_dao.create(
                     teacher_id=teacher_entry.id,
