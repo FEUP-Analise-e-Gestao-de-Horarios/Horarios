@@ -56,7 +56,7 @@ export function useRenameProject() {
     >,
     { id: number; name: string }
   >({
-    mutationFn: (params) => api.patch<void>(`/api/projects/${params.id}/`, { name: params.name }),
+    mutationFn: (params) => api.patch<void>(`/api/projects/${params.id}`, { name: params.name }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
     },
