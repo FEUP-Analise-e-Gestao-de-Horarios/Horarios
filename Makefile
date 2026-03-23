@@ -1,4 +1,8 @@
-.PHONY: dev mirror dev-mirror prod clean-db clean-db-volume clean-mirror local-setup
+.PHONY: dev mirror dev-mirror prod clean-db clean-db-volume clean-mirror local-setup deploy deploy-build deploy-push deploy-run
+
+REMOTE_HOST ?= horarios@10.227.107.115
+REMOTE_DIR  ?= /opt/horarios
+IMAGE_NAME  ?= horarios-app
 
 local-setup:
 	@echo "--- Checking required tools ---"
@@ -42,3 +46,21 @@ clean-db-volume:
 
 clean-mirror:
 	docker volume rm pi_mirror_data
+
+deploy-build:
+	docker compose -f docker-compose.prod.yml build
+
+deploy-push:
+	@echo "--- Sending image to $(REMOTE_HOST) ---"
+	docker save $(IMAGE_NAME) | gzip | ssh $(REMOTE_HOST) "gunzip | docker load"
+	@echo "--- Sending compose file and env ---"
+	ssh $(REMOTE_HOST) "mkdir -p $(REMOTE_DIR)"
+	scp docker-compose.prod.yml $(REMOTE_HOST):$(REMOTE_DIR)/docker-compose.prod.yml
+	scp backend/.env $(REMOTE_HOST):$(REMOTE_DIR)/.env
+	@echo "--- Done ---"
+
+deploy-run:
+	ssh $(REMOTE_HOST) "cd $(REMOTE_DIR) && docker compose -f docker-compose.prod.yml up -d"
+
+deploy: deploy-build deploy-push deploy-run
+	@echo "--- Deployed successfully ---"
