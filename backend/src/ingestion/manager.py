@@ -10,22 +10,21 @@ from src.ingestion.schemas.misc import TurnosMap
 from src.ingestion.schemas.rooms import RoomInfo
 from src.ingestion.scraper import Scraper
 from src.projects.models import Project
-from src.projects.projects_db.dao.class_dao import ClassDAO
-from src.projects.projects_db.dao.class_red_block_dao import ClassRedBlockDAO
-from src.projects.projects_db.dao.degree_dao import DegreeDAO
-from src.projects.projects_db.dao.room_dao import RoomDAO
-from src.projects.projects_db.dao.room_red_block_dao import RoomRedBlockDAO
-from src.projects.projects_db.dao.session_class_subject_dao import SessionClassSubjectDAO
-from src.projects.projects_db.dao.session_dao import SessionDAO
-from src.projects.projects_db.dao.subject_dao import SubjectDAO
-from src.projects.projects_db.dao.teacher_dao import TeacherDAO
-from src.projects.projects_db.dao.teacher_red_block_dao import TeacherRedBlockDAO
-from src.projects.projects_db.dao.year_dao import YearDAO
-from src.projects.projects_db.models.class_ import Class
-from src.projects.projects_db.models.room import Room
-from src.projects.projects_db.models.subject import Subject
-from src.projects.projects_db.models.teacher import Teacher as TeacherModel
-from src.projects.projects_db.models.year import Year
+from src.projects.projects_db.dao import (
+    ClassDAO,
+    ClassRedBlockDAO,
+    DegreeDAO,
+    RoomDAO,
+    RoomRedBlockDAO,
+    SessionClassSubjectDAO,
+    SessionDAO,
+    SubjectDAO,
+    TeacherDAO,
+    TeacherRedBlockDAO,
+    YearDAO,
+)
+from src.projects.projects_db.models import Class, Room, Subject, Year
+from src.projects.projects_db.models import Teacher as TeacherModel
 from src.projects.projects_db.paths import general_db, initial_db
 from src.projects.projects_db.registry import get_session
 
