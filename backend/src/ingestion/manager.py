@@ -9,6 +9,7 @@ from src.ingestion.schemas.classes import Degree, Teacher
 from src.ingestion.schemas.misc import TurnosMap
 from src.ingestion.schemas.rooms import RoomInfo
 from src.ingestion.scraper import Scraper
+from src.ingestion.utils import extract_teachers_from_class_pages, load_class_pages
 from src.projects.models import Project
 from src.projects.projects_db.dao import (
     ClassDAO,
@@ -91,25 +92,8 @@ class IngestionManager:
 
             teacher_links, degrees, rooms = self.scraper.read_menu()
 
-            # Load info from class pages
-            for degree in degrees:
-                for year in degree["years"]:
-                    for class_ in year["classes"]:
-                        for link in class_["links"]:
-                            class_["pages"].append(self.scraper.get_class_page(link))
-
-            # Extract teachers from class pages.
-            # This is necessary as some teachers don't have red blocks
-            # which means they didn't have any links on the menu.
-            # These will be added to the ones extracted from the menu.
-            teachers_from_class_pages = [
-                teacher
-                for degree in degrees
-                for year in degree["years"]
-                for class_ in year["classes"]
-                for class_page in class_["pages"]
-                for teacher in class_page["teachers"]
-            ]
+            load_class_pages(degrees, self.scraper)
+            teachers_from_class_pages = extract_teachers_from_class_pages(degrees)
 
             self._ingest_teachers(teacher_links, teachers_from_class_pages)
             self._ingest_classes(degrees)
