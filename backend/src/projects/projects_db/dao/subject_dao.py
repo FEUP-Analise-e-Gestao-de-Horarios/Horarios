@@ -18,8 +18,8 @@ from src.projects.projects_db.schemas.subject import SubjectStats
 
 
 class SubjectDAO(BaseDAO[Subject]):
-    def __init__(self, session: DBSession) -> None:
-        super().__init__(Subject, session)
+    def __init__(self, session: DBSession, flush_on_create: bool = True) -> None:
+        super().__init__(Subject, session, flush_on_create=flush_on_create)
 
     # -------------------------------------------------------------------
     # -- Create

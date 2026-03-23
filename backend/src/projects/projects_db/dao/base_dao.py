@@ -9,15 +9,17 @@ T = TypeVar("T", bound=Base)
 
 
 class BaseDAO[T]:
-    def __init__(self, model: type[T], session: Session) -> None:
+    def __init__(self, model: type[T], session: Session, *, flush_on_create: bool = True) -> None:
         """Initialize the DAO with a model class and database session.
 
         Args:
             model: The SQLAlchemy model class this DAO manages.
             session: The SQLAlchemy session used for database operations.
+            flush_on_create: If True, flush the session after each create call.
         """
         self.model = model
         self.session = session
+        self.flush_on_create = flush_on_create
 
     def get(self, id: UUID) -> T | None:
         """Retrieve a single record by its primary key.
@@ -50,8 +52,8 @@ class BaseDAO[T]:
         instance = self.model(**kwargs)
         self.session.add(instance)
 
-        # Write to DB within transaction; validate constraints early
-        self.session.flush()
+        if self.flush_on_create:
+            self.session.flush()
         return instance
 
     def delete(self, instance: T) -> None:

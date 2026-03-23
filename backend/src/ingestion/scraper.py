@@ -30,6 +30,7 @@ class Scraper:
     """
 
     _DEFAULT_TIMEOUT: int = 30
+    """HTTP request timeout in seconds applied to every GET request."""
 
     def __init__(self, base_url: str) -> None:
         """Initialise the scraper with a base URL.
