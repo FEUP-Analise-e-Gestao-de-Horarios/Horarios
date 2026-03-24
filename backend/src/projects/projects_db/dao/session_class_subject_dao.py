@@ -2,9 +2,13 @@ from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DBSession
+from sqlalchemy.orm import joinedload
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
+from src.projects.projects_db.models.session import Session
 from src.projects.projects_db.models.session_class_subject import SessionClassSubject
+from src.projects.projects_db.models.subject import Subject
+from src.projects.projects_db.models.year import Year
 
 
 class SessionClassSubjectDAO(BaseDAO[SessionClassSubject]):
@@ -63,3 +67,19 @@ class SessionClassSubjectDAO(BaseDAO[SessionClassSubject]):
                 SessionClassSubject.class_id == class_id,
             ),
         ).one_or_none()
+
+    def get_all_by_non_theoretical_session(self) -> list[SessionClassSubject]:
+        return list(
+            self.session.scalars(
+                select(SessionClassSubject)
+                .join(SessionClassSubject.session)
+                .where(Session.type != "T")  # TODO: change if Type ENUM
+                .options(
+                    joinedload(SessionClassSubject.session),
+                    joinedload(SessionClassSubject.class_),
+                    joinedload(SessionClassSubject.subject)
+                    .joinedload(Subject.year)
+                    .joinedload(Year.degree),
+                ),
+            ).all(),
+        )
