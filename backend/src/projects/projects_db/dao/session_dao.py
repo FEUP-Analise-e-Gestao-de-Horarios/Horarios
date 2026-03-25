@@ -193,6 +193,13 @@ class SessionDAO(BaseDAO[Session]):
         )
         return self.session.scalars(query).one_or_none()
 
+    def get_by_ids(self, session_ids: list[UUID]) -> list[Session]:
+        return list(
+            self.session.scalars(
+                select(Session).where(Session.id.in_(session_ids)),
+            ).all(),
+        )
+
     # -------------------------------------------------------------------
     # -- Get Others
     # -------------------------------------------------------------------
