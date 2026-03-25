@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from backend.src.projects.projects_db.dao.utils import parallel_sessions_subquery
 from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session
 
@@ -143,3 +144,15 @@ class DegreeDAO(BaseDAO[Degree]):
         ).one_or_none()
 
         return DegreeStats.model_validate(row, from_attributes=True) if row is not None else None
+
+    def get_with_parallel_classes(self) -> list[Degree]:
+        parallel = parallel_sessions_subquery()
+        return list(
+            self.session.scalars(
+                select(Degree)
+                .join(Year, Year.degree_id == Degree.id)
+                .join(Subject, Subject.year_id == Year.id)
+                .join(parallel, parallel.c.subject_id == Subject.id)
+                .distinct(),
+            ).all(),
+        )
