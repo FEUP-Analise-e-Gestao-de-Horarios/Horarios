@@ -1,9 +1,10 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session as DBSession
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
+from src.projects.projects_db.models.session import Session
 from src.projects.projects_db.models.session_class_subject import SessionClassSubject
 
 
@@ -63,3 +64,16 @@ class SessionClassSubjectDAO(BaseDAO[SessionClassSubject]):
                 SessionClassSubject.class_id == class_id,
             ),
         ).one_or_none()
+
+    def get_parallel_session_ids_by_subject(self, subject_id: UUID) -> list[UUID]:
+        return list(
+            self.session.scalars(
+                select(SessionClassSubject.session_id)
+                .select_from(SessionClassSubject)
+                .join(Session, Session.id == SessionClassSubject.session_id)
+                .where(Session.type != "T")
+                .where(SessionClassSubject.subject_id == subject_id)
+                .group_by(SessionClassSubject.session_id)
+                .having(func.count(SessionClassSubject.class_id.distinct()) > 1),
+            ).all(),
+        )
