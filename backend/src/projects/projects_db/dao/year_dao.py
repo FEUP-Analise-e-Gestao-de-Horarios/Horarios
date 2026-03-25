@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from backend.src.projects.projects_db.dao.utils import parallel_sessions_subquery
 from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session
 
@@ -99,3 +100,15 @@ class YearDAO(BaseDAO[Year]):
         ).all()
 
         return [YearStats.model_validate(row, from_attributes=True) for row in rows]
+
+    def get_with_parallel_classes(self, degree_id: UUID) -> list[Year]:
+        parallel = parallel_sessions_subquery()
+        return list(
+            self.session.scalars(
+                select(Year)
+                .join(Subject, Subject.year_id == Year.id)
+                .join(parallel, parallel.c.subject_id == Subject.id)
+                .where(Year.degree_id == degree_id)
+                .distinct(),
+            ).all(),
+        )
