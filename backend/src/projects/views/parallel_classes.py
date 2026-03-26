@@ -1,4 +1,5 @@
 import logging
+from uuid import UUID
 
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views import View
@@ -10,9 +11,15 @@ from src.core.errors import (
 from src.core.schemas import SuccessResponse
 from src.projects.models import Project
 from src.projects.projects_db.dao.degree_dao import DegreeDAO
+from src.projects.projects_db.dao.year_dao import YearDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
-from src.projects.views.schemas.parallel_classes import DegreeListResponse, DegreeResponse
+from src.projects.views.schemas.parallel_classes import (
+    DegreeListResponse,
+    DegreeResponse,
+    YearListResponse,
+    YearResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +48,35 @@ class ProjectsParallelDegreeListView(View):
                     data=DegreeListResponse(
                         count=len(data),
                         degrees=data,
+                    ),
+                ).model_dump(),
+            )
+
+
+class ProjectsParallelYearListView(View):
+    def get(self, request: HttpRequest, project_id: int, degree_id: UUID) -> HttpResponse:
+        if not request.user.is_authenticated:
+            return NotAuthenticatedResponse()
+
+        try:
+            Project.objects.get(pk=project_id)
+        except Project.DoesNotExist:
+            return ProjectNotFoundResponse()
+
+        with get_project_session(general_db(project_id)) as db_session:
+            years = YearDAO(db_session).get_with_parallel_classes(degree_id=degree_id)
+
+            data = [
+                YearResponse.model_validate(year, from_attributes=True).model_dump()
+                for year in years
+            ]
+
+            return JsonResponse(
+                SuccessResponse(
+                    message="Years with parallel classes retrieved successfully",
+                    data=YearListResponse(
+                        count=len(data),
+                        years=data,
                     ),
                 ).model_dump(),
             )

@@ -27,6 +27,11 @@ class YearResponse(BaseModel):
     degree: DegreeResponse
 
 
+class YearListResponse(BaseModel):
+    count: int
+    years: list[YearResponse]
+
+
 class SubjectResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
