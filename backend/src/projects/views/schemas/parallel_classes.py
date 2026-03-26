@@ -48,6 +48,14 @@ class SubjectListResponse(BaseModel):
     subjects: list[SubjectResponse]
 
 
+class ClassResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    code: str
+    shift: int
+
+
 class SessionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -58,22 +66,9 @@ class SessionResponse(BaseModel):
     duration: int
     type: str
     original_block_id: UUID
+    classes: list[ClassResponse]
 
 
-class ClassResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: UUID
-    code: str
-    shift: int
-
-
-class NonTheoreticalResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    session_id: UUID
-    class_id: UUID
-    subject_id: UUID
-    session: SessionResponse
-    class_: ClassResponse
-    subject: SubjectResponse
+class SessionListResponse(BaseModel):
+    count: int
+    sessions: list[SessionResponse]

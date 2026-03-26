@@ -11,6 +11,8 @@ from src.core.errors import (
 from src.core.schemas import SuccessResponse
 from src.projects.models import Project
 from src.projects.projects_db.dao.degree_dao import DegreeDAO
+from src.projects.projects_db.dao.session_class_subject_dao import SessionClassSubjectDAO
+from src.projects.projects_db.dao.session_dao import SessionDAO
 from src.projects.projects_db.dao.subject_dao import SubjectDAO
 from src.projects.projects_db.dao.year_dao import YearDAO
 from src.projects.projects_db.paths import general_db
@@ -18,6 +20,8 @@ from src.projects.projects_db.registry import get_session as get_project_session
 from src.projects.views.schemas.parallel_classes import (
     DegreeListResponse,
     DegreeResponse,
+    SessionListResponse,
+    SessionResponse,
     SubjectListResponse,
     SubjectResponse,
     YearListResponse,
@@ -110,6 +114,60 @@ class ProjectsParallelSubjectListView(View):
                         count=len(data),
                         subjects=data,
                     ),
+                ).model_dump(),
+            )
+
+
+class ProjectsParallelSessionListView(View):
+    def get(self, request: HttpRequest, project_id: int, subject_id: UUID) -> HttpResponse:
+        if not request.user.is_authenticated:
+            return NotAuthenticatedResponse()
+
+        try:
+            Project.objects.get(pk=project_id)
+        except Project.DoesNotExist:
+            return ProjectNotFoundResponse()
+
+        with get_project_session(general_db(project_id)) as db_session:
+            sessionClassSubjectDAO = SessionClassSubjectDAO(db_session)
+
+            sessions_ids = sessionClassSubjectDAO.get_parallel_session_ids_by_subject(
+                subject_id=subject_id,
+            )
+            classes = sessionClassSubjectDAO.get_classes_by_session_ids(sessions_ids)
+            sessions = SessionDAO(db_session).get_by_ids(sessions_ids)
+
+            classes_by_session = {item.session: item.classes for item in classes}
+
+            # filters same session in different week
+            seen_blocks = set()
+            unique_sessions = []
+            for session in sessions:
+                if session.original_block_id not in seen_blocks:
+                    seen_blocks.add(session.original_block_id)
+                    unique_sessions.append(session)
+
+            session_responses = [
+                SessionResponse(
+                    id=session.id,
+                    week=session.week,
+                    weekday=session.weekday,
+                    start_time=session.start_time,
+                    duration=session.duration,
+                    type=session.type,
+                    original_block_id=session.original_block_id,
+                    classes=classes_by_session.get(session.id, []),
+                )
+                for session in unique_sessions
+            ]
+
+            return JsonResponse(
+                SuccessResponse(
+                    message="Sessions with Parallel classes retrieved successfully",
+                    data=SessionListResponse(
+                        count=len(session_responses),
+                        sessions=session_responses,
+                    ).model_dump(),
                 ).model_dump(),
             )
 
