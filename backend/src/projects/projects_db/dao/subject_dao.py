@@ -1,11 +1,11 @@
 from uuid import UUID
 
-from backend.src.projects.projects_db.dao.utils import parallel_sessions_subquery
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session as DBSession
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.dao.exceptions import MultipleNotFoundError
+from src.projects.projects_db.dao.utils import parallel_sessions_subquery
 from src.projects.projects_db.models import (
     Class,
     Degree,

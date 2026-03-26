@@ -1,10 +1,10 @@
 from uuid import UUID
 
-from backend.src.projects.projects_db.dao.utils import parallel_sessions_subquery
 from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
+from src.projects.projects_db.dao.utils import parallel_sessions_subquery
 from src.projects.projects_db.models.class_ import Class
 from src.projects.projects_db.models.degree import Degree
 from src.projects.projects_db.models.session import Session as SessionModel
