@@ -2,6 +2,7 @@ from src.projects.views.classes import ProjectClassesView
 from src.projects.views.degrees import ProjectDegreesView, ProjectDegreeView
 from src.projects.views.parallel_classes import (
     ProjectsParallelDegreeListView,
+    ProjectsParallelSubjectListView,
     ProjectsParallelYearListView,
 )
 from src.projects.views.project import ProjectsView, ProjectView
@@ -24,6 +25,7 @@ __all__ = [
     "ProjectView",
     "ProjectYearsView",
     "ProjectsParallelDegreeListView",
+    "ProjectsParallelSubjectListView",
     "ProjectsParallelYearListView",
     "ProjectsView",
 ]

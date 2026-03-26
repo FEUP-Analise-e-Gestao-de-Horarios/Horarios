@@ -36,11 +36,16 @@ class SubjectResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    year_id: UUID
     number: int
     code: str
     acronym: str
     name: str
-    year: YearResponse
+
+
+class SubjectListResponse(BaseModel):
+    count: int
+    subjects: list[SubjectResponse]
 
 
 class SessionResponse(BaseModel):

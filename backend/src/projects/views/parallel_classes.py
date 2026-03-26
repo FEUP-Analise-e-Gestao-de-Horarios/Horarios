@@ -11,12 +11,15 @@ from src.core.errors import (
 from src.core.schemas import SuccessResponse
 from src.projects.models import Project
 from src.projects.projects_db.dao.degree_dao import DegreeDAO
+from src.projects.projects_db.dao.subject_dao import SubjectDAO
 from src.projects.projects_db.dao.year_dao import YearDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
 from src.projects.views.schemas.parallel_classes import (
     DegreeListResponse,
     DegreeResponse,
+    SubjectListResponse,
+    SubjectResponse,
     YearListResponse,
     YearResponse,
 )
@@ -77,6 +80,35 @@ class ProjectsParallelYearListView(View):
                     data=YearListResponse(
                         count=len(data),
                         years=data,
+                    ),
+                ).model_dump(),
+            )
+
+
+class ProjectsParallelSubjectListView(View):
+    def get(self, request: HttpRequest, project_id: int, year_id: UUID) -> HttpResponse:
+        if not request.user.is_authenticated:
+            return NotAuthenticatedResponse()
+
+        try:
+            Project.objects.get(pk=project_id)
+        except Project.DoesNotExist:
+            return ProjectNotFoundResponse()
+
+        with get_project_session(general_db(project_id)) as db_session:
+            subjects = SubjectDAO(db_session).get_with_parallel_classes(year_id=year_id)
+
+            data = [
+                SubjectResponse.model_validate(subject, from_attributes=True).model_dump()
+                for subject in subjects
+            ]
+
+            return JsonResponse(
+                SuccessResponse(
+                    message="Subjects with parallel classes retrieved successfully",
+                    data=SubjectListResponse(
+                        count=len(data),
+                        subjects=data,
                     ),
                 ).model_dump(),
             )
