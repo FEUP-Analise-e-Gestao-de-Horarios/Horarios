@@ -15,8 +15,8 @@ from src.projects.projects_db.schemas.degree import DegreeStats
 
 
 class DegreeDAO(BaseDAO[Degree]):
-    def __init__(self, session: Session) -> None:
-        super().__init__(Degree, session)
+    def __init__(self, session: Session, *, flush_on_create: bool = True) -> None:
+        super().__init__(Degree, session, flush_on_create=flush_on_create)
 
     # -------------------------------------------------------------------
     # -- Create

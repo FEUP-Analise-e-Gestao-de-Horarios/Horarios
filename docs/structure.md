@@ -73,10 +73,6 @@ backend/src/ingestion/
 │   ├── class_page.py
 │   ├── red_blocks.py
 │   └── utils.py
-├── ingestors/          # Python → SQLite: one module per entity type
-│   ├── teachers.py
-│   ├── classes.py
-│   └── rooms.py
 └── schemas/            # Shared TypedDict / type alias definitions
     ├── misc.py
     ├── classes.py

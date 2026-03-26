@@ -14,6 +14,24 @@ from src.ingestion.schemas.misc import WeekDay
 THEORETICAL_SESSION = "td_tipologia_19"
 """CSS class used by the institution's schedule pages to mark theoretical sessions."""
 
+_RE_TIPOLOGIA = re.compile(r"^td_tipologia_")
+"""Matches any CSS class starting with ``td_tipologia_`` (session-type cells)."""
+
+_RE_ACRONYM = re.compile(r"(.+)\((\d{4}) ?- ?(\d+)\)")
+"""Captures a subject acronym followed by ``(year - number)`` in parentheses."""
+
+_RE_BRACKETS = re.compile(r"\[(.*?)\]")
+"""Captures content inside square brackets (classes, teachers, rooms in session blocks)."""
+
+_RE_PARENS = re.compile(r"[()]")
+"""Matches literal parentheses, used to strip them from teacher acronym strings."""
+
+_RE_SEMICOLON = re.compile(r";\s*")
+"""Splits on a semicolon followed by optional whitespace."""
+
+_RE_SEMICOLON_PADDED = re.compile(r"\s*;\s*")
+"""Splits on a semicolon surrounded by optional whitespace on both sides."""
+
 
 def extract_week_dates(soup: BeautifulSoup) -> tuple[date, date]:
     """Extract the start and end dates of the schedule week from a section page.
@@ -129,7 +147,7 @@ def extract_subjects(soup: BeautifulSoup) -> list[Subject]:
         code, name = code_and_name.split(" - ", 1)
         number = int(number)
 
-        acronym_match = re.fullmatch(r"(.+)\((\d{4}) ?- ?(\d+)\)", raw_acronym)
+        acronym_match = _RE_ACRONYM.fullmatch(raw_acronym)
         if not acronym_match:
             raise ValueError(f"Unexpected acronym format: {raw_acronym!r}")
         acronym = acronym_match.group(1).strip()
@@ -173,15 +191,11 @@ def extract_sessions(soup: BeautifulSoup) -> list[Session]:
         raise ValueError("Could not find <center> element in section page")
 
     # -- Get session blocks and exit early ---------------------------------
-    session_blocks = center_element.find_all("td", class_=re.compile(r"^td_tipologia_"))
+    session_blocks = center_element.find_all("td", class_=_RE_TIPOLOGIA)
     if not session_blocks:
         return []
 
     # -- Build table matrix ------------------------------------------------
-    center_element = soup.find("center")
-    if center_element is None:
-        raise ValueError("Could not find <center> element in section page")
-
     main_table = center_element.find("table", {"class": "tabela_principal"})
     if main_table is None:
         raise ValueError("Could not find 'tabela_principal' table in section page")
@@ -230,7 +244,7 @@ def extract_sessions(soup: BeautifulSoup) -> list[Session]:
     for session_block in session_blocks:
         # -- Subject Acronym ---------------------------------------------------
         raw_acronym = str(session_block.contents[0]).strip()
-        acronym_match = re.fullmatch(r"(.+)\((\d{4}) ?- ?(\d+)\)", raw_acronym)
+        acronym_match = _RE_ACRONYM.fullmatch(raw_acronym)
         if not acronym_match:
             raise ValueError(f"Unexpected acronym format: {raw_acronym!r}")
 
@@ -263,7 +277,7 @@ def extract_sessions(soup: BeautifulSoup) -> list[Session]:
         session_duration = int(str(session_block.get("rowspan") or 1))
 
         # -- Teachers ----------------------------------------------------------
-        matches: list[str] = re.findall(r"\[(.*?)\]", session_block.text)
+        matches: list[str] = _RE_BRACKETS.findall(session_block.text)
         if len(matches) < 2:
             raise ValueError(
                 f"Expected at least 2 bracket groups (turmas, teachers) in session block, got {len(matches)}: {session_block.text!r}",
@@ -272,7 +286,7 @@ def extract_sessions(soup: BeautifulSoup) -> list[Session]:
         raw_turmas, raw_teachers, *rest = matches
 
         session_teachers: list[int] = []
-        session_teacher_acronyms = re.split(r";\s*", re.sub(r"[()]", "", raw_teachers))
+        session_teacher_acronyms = _RE_SEMICOLON.split(_RE_PARENS.sub("", raw_teachers))
         for acronym in session_teacher_acronyms:
             if acronym not in teachers_map:
                 raise ValueError(
@@ -281,8 +295,8 @@ def extract_sessions(soup: BeautifulSoup) -> list[Session]:
             session_teachers.append(teachers_map[acronym])
 
         # -- Classes and Room --------------------------------------------------
-        session_classes = re.split(r"\s*;\s*", raw_turmas)
-        session_room = re.split(r"\s*;\s*", str(rest[0])) if rest else ["Online"]
+        session_classes = _RE_SEMICOLON_PADDED.split(raw_turmas)
+        session_room = _RE_SEMICOLON_PADDED.split(str(rest[0])) if rest else ["Online"]
 
         # -- Is Theoretical ----------------------------------------------------
         session_css_classes = session_block.get("class")

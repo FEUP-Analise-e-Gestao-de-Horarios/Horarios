@@ -15,8 +15,8 @@ from src.projects.projects_db.schemas.year import YearStats
 
 
 class YearDAO(BaseDAO[Year]):
-    def __init__(self, session: Session) -> None:
-        super().__init__(Year, session)
+    def __init__(self, session: Session, *, flush_on_create: bool = True) -> None:
+        super().__init__(Year, session, flush_on_create=flush_on_create)
 
     # -------------------------------------------------------------------
     # -- Create

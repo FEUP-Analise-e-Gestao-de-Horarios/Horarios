@@ -96,7 +96,7 @@ def extract_teacher_links(teachers_menu: Tag) -> list[str]:
 
         inner_il = inner_ul.find("li", recursive=False)
         if inner_il is None:
-            raise ValueError("Could not find <il> in child menu item")
+            raise ValueError("Could not find <li> in child menu item")
 
         a = inner_il.find("a", recursive=False)
         if a is None:

@@ -18,8 +18,8 @@ from src.projects.projects_db.schemas.class_ import ClassStats
 
 
 class ClassDAO(BaseDAO[Class]):
-    def __init__(self, session: DBSession) -> None:
-        super().__init__(Class, session)
+    def __init__(self, session: DBSession, *, flush_on_create: bool = True) -> None:
+        super().__init__(Class, session, flush_on_create=flush_on_create)
 
     # -------------------------------------------------------------------
     # -- Create

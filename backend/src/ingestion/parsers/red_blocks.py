@@ -1,7 +1,6 @@
 from bs4 import BeautifulSoup
 
 from src.ingestion.parsers.utils import (
-    get_cell_column,
     get_weekday_at_column,
     matrix_from_html_table,
 )
@@ -55,6 +54,14 @@ def extract_red_blocks(soup: BeautifulSoup) -> list[RedBlock]:
             continue
         weekday_colspan[WeekDay(day.text)] = int(str(day.get("colspan") or 1))
 
+    # -- Build cell -> column lookup (O(rows*cols) once, then O(1) per red cell)
+    cell_to_column: dict[int, int] = {}
+    for row in matrix:
+        for j, td in enumerate(row):
+            td_id = id(td)
+            if td_id not in cell_to_column:
+                cell_to_column[td_id] = j
+
     # -- Parse red blocks --------------------------------------------------
     result: list[RedBlock] = []
     for item in red_cells:
@@ -62,7 +69,10 @@ def extract_red_blocks(soup: BeautifulSoup) -> list[RedBlock]:
         if table_row is None:
             raise ValueError("Red block <td> has no parent")
 
-        column = get_cell_column(item, matrix)
+        column = cell_to_column.get(id(item))
+        if column is None:
+            raise ValueError("Item not found in matrix")
+
         first_child = table_row.find()
         if first_child is None:
             raise ValueError("Red block row has no children")

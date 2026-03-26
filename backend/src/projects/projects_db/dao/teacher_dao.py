@@ -11,8 +11,8 @@ from src.projects.projects_db.schemas.teacher import TeacherStats
 
 
 class TeacherDAO(BaseDAO[Teacher]):
-    def __init__(self, session: Session) -> None:
-        super().__init__(Teacher, session)
+    def __init__(self, session: Session, *, flush_on_create: bool = True) -> None:
+        super().__init__(Teacher, session, flush_on_create=flush_on_create)
 
     # -------------------------------------------------------------------
     # -- Create
