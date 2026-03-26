@@ -1,6 +1,6 @@
 from src.projects.views.classes import ProjectClassesView
 from src.projects.views.degrees import ProjectDegreesView, ProjectDegreeView
-from src.projects.views.parallel_classes import ProjectParallelClassesView
+from src.projects.views.parallel_classes import ProjectsParallelDegreeListView
 from src.projects.views.project import ProjectsView, ProjectView
 from src.projects.views.rooms import ProjectRoomsView, ProjectRoomView
 from src.projects.views.stats import ProjectStatsView
@@ -12,7 +12,6 @@ __all__ = [
     "ProjectClassesView",
     "ProjectDegreeView",
     "ProjectDegreesView",
-    "ProjectParallelClassesView",
     "ProjectRoomView",
     "ProjectRoomsView",
     "ProjectStatsView",
@@ -21,5 +20,6 @@ __all__ = [
     "ProjectTeachersView",
     "ProjectView",
     "ProjectYearsView",
+    "ProjectsParallelDegreeListView",
     "ProjectsView",
 ]

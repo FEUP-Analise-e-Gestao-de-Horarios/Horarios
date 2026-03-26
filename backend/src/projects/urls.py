@@ -4,9 +4,9 @@ from src.projects.views import (
     ProjectClassesView,
     ProjectDegreesView,
     ProjectDegreeView,
-    ProjectParallelClassesView,
     ProjectRoomsView,
     ProjectRoomView,
+    ProjectsParallelDegreeListView,
     ProjectStatsView,
     ProjectSubjectsView,
     ProjectsView,
@@ -39,14 +39,19 @@ room_patterns = [
     path("", ProjectRoomsView.as_view()),
     path("<uuid:room_id>", ProjectRoomView.as_view()),
 ]
-
+parallel_classes_patterns = [
+    path("degrees/", ProjectsParallelDegreeListView.as_view()),
+    # path("degrees/<uuid:degree_id>/years/", ProjectsParallelYearListView.as_view()),
+    # path("years/<uuid:year_id>/subjects/", ProjectsParallelSubjectListView.as_view()),
+    # path("subjects/<uuid:subject_id>/", ProjectsParallelClassListView.as_view()),
+]
 project_patterns = [
     path("", ProjectView.as_view()),
     path("/stats", ProjectStatsView.as_view()),
     path("/rooms/", include(room_patterns)),
     path("/teachers/", include(teacher_patterns)),
     path("/degrees/", include(degree_patterns)),
-    path("/parallel-classes", ProjectParallelClassesView.as_view()),
+    path("/parallel-classes/", include(parallel_classes_patterns)),
 ]
 
 urlpatterns = [

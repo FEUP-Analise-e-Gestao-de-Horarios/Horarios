@@ -14,6 +14,11 @@ class DegreeResponse(BaseModel):
     name: str
 
 
+class DegreeListResponse(BaseModel):
+    count: int
+    degrees: list[DegreeResponse]
+
+
 class YearResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

@@ -9,134 +9,43 @@ from src.core.errors import (
 )
 from src.core.schemas import SuccessResponse
 from src.projects.models import Project
-from src.projects.projects_db.dao import SessionClassSubjectDAO
+from src.projects.projects_db.dao.degree_dao import DegreeDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
-from src.projects.views.schemas.parallel_classes import NonTheoreticalResponse
+from src.projects.views.schemas.parallel_classes import DegreeListResponse, DegreeResponse
 
 logger = logging.getLogger(__name__)
 
 
-class ProjectParallelClassesView(View):
+class ProjectsParallelDegreeListView(View):
     def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
         if not request.user.is_authenticated:
             return NotAuthenticatedResponse()
 
-        # -- Fetch project -----------------------------------------------------
         try:
             Project.objects.get(pk=project_id)
         except Project.DoesNotExist:
             return ProjectNotFoundResponse()
 
-        # -- Query SessionClassSubject from project DB ----------------------------
         with get_project_session(general_db(project_id)) as db_session:
-            non_theoretical = SessionClassSubjectDAO(
-                db_session,
-            ).get_all_by_non_theoretical_session()
+            degrees = DegreeDAO(db_session).get_with_parallel_classes()
 
-            result = [
-                NonTheoreticalResponse.model_validate(s, from_attributes=True)
-                for s in non_theoretical
+            data = [
+                DegreeResponse.model_validate(degree, from_attributes=True).model_dump()
+                for degree in degrees
             ]
 
             return JsonResponse(
                 SuccessResponse(
-                    message="Rooms retrieved successfully",
-                    data=result,
+                    message="Degrees with parallel classes retrieved successfully",
+                    data=DegreeListResponse(
+                        count=len(data),
+                        degrees=data,
+                    ),
                 ).model_dump(),
             )
 
 
-#
-# def selecionar_aulas_em_paralelo(request: HttpRequest):
-#
-#    cursor.execute("""
-#        SELECT
-#            a.id AS aula_id,
-#            at.idTurma AS turma_id,
-#            a.diaSemana,
-#            a.horaInicial,
-#            a.semanaInicial,
-#            auc.idUC,
-#            uc.idCurso,
-#            uc.nome AS nomeUC
-#        FROM aula a
-#        JOIN aulaTurmas at ON a.id = at.idAula
-#        JOIN aulaUC auc ON a.id = auc.idAula
-#        JOIN uc ON auc.idUC = uc.codigo
-#        WHERE a.teorico = FALSE
-#    """)
-#
-#    resultados_query = cursor.fetchall()
-#
-#    # Agrupar numa lista aulas da mesma UC (e curso) que são ao mesmo tempo
-#    grupos_dict = defaultdict(list)
-#    for row in resultados_query:
-#        key = (
-#            row["diaSemana"],
-#            row["horaInicial"],
-#            row["semanaInicial"],
-#            row["idUC"],
-#            row["nomeUC"],
-#            row["idCurso"],
-#        )
-#        turmas_por_aula = grupos_dict.setdefault(key, defaultdict(set))
-#        turmas_por_aula[row["aula_id"]].add(row["turma_id"])
-#
-#    grupos_list = []
-#    for i, (key, aulas) in enumerate(grupos_dict.items(), start=1):
-#        if len(aulas) <= 1:
-#            continue
-#
-#        dia_semana, hora_inicial, _semana_inicial, codigoUC, nomeUC, id_curso = key
-#        hora_str = f"{hora_inicial:04d}"
-#        hora_str = f"{hora_str[:2]}:{hora_str[2:]}"
-#        horario_str = f"{dia_semana}, {hora_str}"
-#
-#        num_boxes = len(aulas) // 2
-#
-#        grupo_dict = {
-#            "id": i,
-#            "uc": codigoUC,
-#            "nomeUC": nomeUC,
-#            "curso": id_curso,
-#            "horario": horario_str,
-#            "aulas": sorted(
-#                [
-#                    (aula_id, sorted([turma.strip() for turma in turmas]))
-#                    for aula_id, turmas in aulas.items()
-#                ],
-#                key=lambda x: x[1][0],
-#            ),
-#            "num_boxes": num_boxes,
-#        }
-#
-#        grupos_list.append(grupo_dict)
-#
-#    cursos_unicos = {grupo["curso"] for grupo in grupos_list}
-#    grupos_list.sort(key=lambda g: (g["curso"], g["nomeUC"]))
-#
-#    general_db_path = Path(settings.PROJECTS_DB_PATH) / str(project_id) / "general_database.db"
-#    general_conn = sqlite3.connect(general_db_path)
-#    general_conn.row_factory = sqlite3.Row
-#    general_cursor = general_conn.cursor()
-#    aulas_em_paralelo = get_parallel_classes(general_cursor)
-#    general_conn.close()
-#
-#    conn.close()
-#
-#    return render(
-#        request,
-#        "selecionar_aulas_em_paralelo.html",
-#        {
-#            "grupos_aulas_ao_mesmo_tempo": grupos_list,
-#            "cursos": cursos_unicos,
-#            "project_id": project_id,
-#            "aulas_em_paralelo": aulas_em_paralelo,
-#        },
-#    )
-#
-#
 # @csrf_exempt
 # def guardar_aulas_em_paralelo(request: HttpRequest) -> JsonResponse:
 #    if not request.user.is_authenticated:
