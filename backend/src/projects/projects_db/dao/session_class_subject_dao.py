@@ -2,10 +2,12 @@ from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session as DBSession
+from sqlalchemy.orm import selectinload
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.models.session import Session
 from src.projects.projects_db.models.session_class_subject import SessionClassSubject
+from src.projects.projects_db.schemas.parallel_classes import ClassInfo, SessionParallelClasses
 
 
 class SessionClassSubjectDAO(BaseDAO[SessionClassSubject]):
@@ -77,3 +79,21 @@ class SessionClassSubjectDAO(BaseDAO[SessionClassSubject]):
                 .having(func.count(SessionClassSubject.class_id.distinct()) > 1),
             ).all(),
         )
+
+    def get_classes_by_session_ids(self, session_ids: list[UUID]) -> list[SessionParallelClasses]:
+        rows = self.session.scalars(
+            select(SessionClassSubject)
+            .where(SessionClassSubject.session_id.in_(session_ids))
+            .options(selectinload(SessionClassSubject.class_)),
+        ).all()
+
+        result = {}
+        for scs in rows:
+            result.setdefault(scs.session_id, []).append(
+                ClassInfo.model_validate(scs.class_, from_attributes=True),
+            )
+
+        return [
+            SessionParallelClasses(session=session_id, classes=classes)
+            for session_id, classes in result.items()
+        ]
