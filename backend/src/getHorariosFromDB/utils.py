@@ -61,7 +61,7 @@ def addChangeToDict(changesDict, table_name, primaryKey, diff_data1, diff_data2)
 def handleAulas(setFinal, setInicial, ProjectNumber):
     path = "Project" + str(ProjectNumber)
     connIni = sqlite3.connect(
-        "./database/" + path + "/initial_database.db",
+        "./databases/" + path + "/initial_database.db",
         check_same_thread=False,
     )
     connIni.row_factory = sqlite3.Row
@@ -81,11 +81,11 @@ def handleAulas(setFinal, setInicial, ProjectNumber):
     dicFinal = {}
 
     for k in diff1:
-        for l in range(0, 4):
-            listaInicial.append(k[l])
+        for index in range(0, 4):
+            listaInicial.append(k[index])
     for k in diff2:
-        for l in range(0, 4):
-            listaFinal.append(k[l])
+        for index in range(0, 4):
+            listaFinal.append(k[index])
 
     for i, item in enumerate(listaInicial):
         if i % 4 == 0:
@@ -109,10 +109,16 @@ def handleAulas(setFinal, setInicial, ProjectNumber):
             cursorIni.execute(stmtTurma, (key,))
             resultTurma = cursorIni.fetchone()
             horaFinalInicial = converter_horario(
-                calculate_hora_final(converter_horario(dicInicial[key][0]), dicInicial[key][1]),
+                calculate_hora_final(
+                    converter_horario(dicInicial[key][0]),
+                    dicInicial[key][1],
+                ),
             )
             horaFinalFinal = converter_horario(
-                calculate_hora_final(converter_horario(dicFinal[key][0]), dicFinal[key][1]),
+                calculate_hora_final(
+                    converter_horario(dicFinal[key][0]),
+                    dicFinal[key][1],
+                ),
             )
             change = globalNaturalLanguage(
                 "horario",
@@ -245,13 +251,13 @@ def handleDocentes(setFinal, setInicial, ProjectNumber):  # TESTED AND WORKING
 def handleAulaDocente(setFinal, setInicial, ProjectNumber):  # TESTED AND WORKING
     path = "Project" + str(ProjectNumber)
     connIni = sqlite3.connect(
-        "./database/" + path + "/initial_database.db",
+        "./databases/" + path + "/initial_database.db",
         check_same_thread=False,
     )
     connIni.row_factory = sqlite3.Row
     cursorIni = connIni.cursor()
     connFin = sqlite3.connect(
-        "./database/" + path + "/general_database.db",
+        "./databases/" + path + "/general_database.db",
         check_same_thread=False,
     )
     connFin.row_factory = sqlite3.Row
@@ -266,12 +272,12 @@ def handleAulaDocente(setFinal, setInicial, ProjectNumber):  # TESTED AND WORKIN
     dicFinal = {}
 
     for k in diff1:
-        for l in range(0, len(k)):
-            listaInicial.append(k[l])
+        for index in range(0, len(k)):
+            listaInicial.append(k[index])
 
     for k in diff2:
-        for l in range(0, len(k)):
-            listaFinal.append(k[l])
+        for index in range(0, len(k)):
+            listaFinal.append(k[index])
 
     for index in range(0, len(listaInicial) - 1, 2):
         # print("Index: ", index)
@@ -292,7 +298,7 @@ def handleAulaDocente(setFinal, setInicial, ProjectNumber):  # TESTED AND WORKIN
     # CHECK IF THERE ARE TRADES
 
     for key in dicInicial:
-        for i, elem in enumerate(dicInicial[key]):
+        for elem in dicInicial[key]:
             stmt = """SELECT * FROM aula WHERE id=?"""
             cursorFin.execute(stmt, (key,))
             resultAula = cursorFin.fetchone()
@@ -325,7 +331,7 @@ def handleAulaDocente(setFinal, setInicial, ProjectNumber):  # TESTED AND WORKIN
             )
             allChanges.append(change)
     for key in dicFinal:
-        for i, elem in enumerate(dicFinal[key]):
+        for elem in dicFinal[key]:
             stmt = """SELECT * FROM aula WHERE id=?"""
             cursorFin.execute(stmt, (key,))
             resultAula = cursorFin.fetchone()
@@ -363,13 +369,13 @@ def handleAulaDocente(setFinal, setInicial, ProjectNumber):  # TESTED AND WORKIN
 def handleAulaUC(setFinal, setInicial, ProjectNumber):  # TESTED AND WORKING
     path = "Project" + str(ProjectNumber)
     connIni = sqlite3.connect(
-        "./database/" + path + "/initial_database.db",
+        "./databases/" + path + "/initial_database.db",
         check_same_thread=False,
     )
     connIni.row_factory = sqlite3.Row
     cursorIni = connIni.cursor()
     connFin = sqlite3.connect(
-        "./database/" + path + "/general_database.db",
+        "./databases/" + path + "/general_database.db",
         check_same_thread=False,
     )
     connFin.row_factory = sqlite3.Row
@@ -384,12 +390,12 @@ def handleAulaUC(setFinal, setInicial, ProjectNumber):  # TESTED AND WORKING
     dicFinal = {}
 
     for k in diff1:
-        for l in range(0, len(k)):
-            listaInicial.append(k[l])
+        for index in range(0, len(k)):
+            listaInicial.append(k[index])
 
     for k in diff2:
-        for l in range(0, len(k)):
-            listaFinal.append(k[l])
+        for index in range(0, len(k)):
+            listaFinal.append(k[index])
 
     for index in range(0, len(listaInicial) - 1, 2):
         # print("Index: ", index)
@@ -411,17 +417,16 @@ def handleAulaUC(setFinal, setInicial, ProjectNumber):  # TESTED AND WORKING
     print(f"ALL CHANGES GOING INTO UC: DicFinal: {dicFinal}, DicInicial: {dicInicial}")
 
     for key in dicInicial:
-        for i, elem in enumerate(dicInicial[key]):
+        for elem1, elem2 in enumerate(dicInicial[key]):
             stmt = """SELECT * FROM aula WHERE id=?"""
             cursorFin.execute(stmt, (key,))
             resultAula = cursorFin.fetchone()
             stmtTurma = """SELECT * FROM aulaTurmas WHERE idAula=?"""
             cursorIni.execute(stmtTurma, (key,))
             resultTurma = cursorIni.fetchone()
-            elem2 = dicFinal[key][i]
             change = globalNaturalLanguage(
                 "uc",
-                elem,
+                elem1,
                 resultAula["diaSemana"],
                 "",
                 converter_horario(resultAula["horaInicial"]),
@@ -444,13 +449,13 @@ def handleAulaUC(setFinal, setInicial, ProjectNumber):  # TESTED AND WORKING
 def handleAulaTurmas(setFinal, setInicial, ProjectNumber):  # TESTED AND WORKING
     path = "Project" + str(ProjectNumber)
     connIni = sqlite3.connect(
-        "./database/" + path + "/initial_database.db",
+        "./databases/" + path + "/initial_database.db",
         check_same_thread=False,
     )
     connIni.row_factory = sqlite3.Row
     cursorIni = connIni.cursor()
     connFin = sqlite3.connect(
-        "./database/" + path + "/general_database.db",
+        "./databases/" + path + "/general_database.db",
         check_same_thread=False,
     )
     connFin.row_factory = sqlite3.Row
@@ -464,12 +469,12 @@ def handleAulaTurmas(setFinal, setInicial, ProjectNumber):  # TESTED AND WORKING
     dicFinal = {}
 
     for k in diff1:
-        for l in range(0, len(k)):
-            listaInicial.append(k[l])
+        for index in range(0, len(k)):
+            listaInicial.append(k[index])
 
     for k in diff2:
-        for l in range(0, len(k)):
-            listaFinal.append(k[l])
+        for index in range(0, len(k)):
+            listaFinal.append(k[index])
 
     for index in range(0, len(listaInicial) - 1, 2):
         # print("Index: ", index)
@@ -500,7 +505,7 @@ def handleAulaTurmas(setFinal, setInicial, ProjectNumber):  # TESTED AND WORKING
             resultAulaUC = cursorIni.fetchone()
             stmtDocente = """SELECT * FROM turmas WHERE codigo=?"""
             cursorIni.execute(stmtDocente, (elem,))
-            lastTurma = cursorIni.fetchone()
+            cursorIni.fetchone()
             cursorIni.execute(stmtDocente, (elem2,))
             firstTurma = cursorIni.fetchone()
             change = globalNaturalLanguage(
@@ -523,7 +528,7 @@ def handleAulaTurmas(setFinal, setInicial, ProjectNumber):  # TESTED AND WORKING
             )
             allChanges.append(change)
     for key in dicFinal:
-        for i, elem in enumerate(dicFinal[key]):
+        for elem in dicFinal[key]:
             stmt = """SELECT * FROM aula WHERE id=?"""
             cursorFin.execute(stmt, (key,))
             resultAula = cursorFin.fetchone()
@@ -558,13 +563,13 @@ def handleAulaTurmas(setFinal, setInicial, ProjectNumber):  # TESTED AND WORKING
 def handleAulaSala(setFinal, setInicial, ProjectNumber):  # TESTED AND WORKING
     path = "Project" + str(ProjectNumber)
     connIni = sqlite3.connect(
-        "./database/" + path + "/initial_database.db",
+        "./databases/" + path + "/initial_database.db",
         check_same_thread=False,
     )
     connIni.row_factory = sqlite3.Row
     cursorIni = connIni.cursor()
     connFin = sqlite3.connect(
-        "./database/" + path + "/general_database.db",
+        "./databases/" + path + "/general_database.db",
         check_same_thread=False,
     )
     connFin.row_factory = sqlite3.Row
@@ -583,12 +588,12 @@ def handleAulaSala(setFinal, setInicial, ProjectNumber):  # TESTED AND WORKING
     # print("Dic Inicial: ", dicInicial)
     # print("Dic Final: ", dicFinal)
     for k in diff1:
-        for l in range(0, len(k)):
-            listaInicial.append(k[l])
+        for index in range(0, len(k)):
+            listaInicial.append(k[index])
 
     for k in diff2:
-        for l in range(0, len(k)):
-            listaFinal.append(k[l])
+        for index in range(0, len(k)):
+            listaFinal.append(k[index])
 
     for index in range(0, len(listaInicial) - 1, 2):
         # print("Index: ", index)
@@ -608,8 +613,7 @@ def handleAulaSala(setFinal, setInicial, ProjectNumber):  # TESTED AND WORKING
     # CHECK IF THERE ARE TRADES
 
     for key in dicInicial:
-        for i, elem in enumerate(dicInicial[key]):
-            elem2 = dicFinal[key][i]
+        for elem in dicInicial[key]:
             stmt = """SELECT * FROM aula WHERE id=?"""
             cursorIni.execute(stmt, (key,))
             resultAula = cursorIni.fetchone()
@@ -639,7 +643,7 @@ def handleAulaSala(setFinal, setInicial, ProjectNumber):  # TESTED AND WORKING
             )
             allChanges.append(change)
     for key in dicFinal:
-        for i, elem in enumerate(dicFinal[key]):
+        for elem in dicFinal[key]:
             stmt = """SELECT * FROM aula WHERE id=?"""
             cursorIni.execute(stmt, (key,))
             resultAula = cursorIni.fetchone()
@@ -859,13 +863,21 @@ def globalNaturalLanguage(
     elif tipo == "createDocente":
         return (
             precedencia["DOC_CREATE_REMOVE"],
-            linguagemNatural["createDocente"].format(docenteInicial, nomeDocente, siglaDocente),
+            linguagemNatural["createDocente"].format(
+                docenteInicial,
+                nomeDocente,
+                siglaDocente,
+            ),
             0,
         )
     elif tipo == "removeDocente":
         return (
             precedencia["DOC_CREATE_REMOVE"],
-            linguagemNatural["removeDocente"].format(docenteInicial, nomeDocente, siglaDocente),
+            linguagemNatural["removeDocente"].format(
+                docenteInicial,
+                nomeDocente,
+                siglaDocente,
+            ),
             0,
         )
 
@@ -911,7 +923,7 @@ def append_aula_data(row_dict):
 
 def fetch_list(cursor, query):
     cursor.execute(query)
-    return set(row[0] for row in cursor.fetchall())
+    return {row[0] for row in cursor.fetchall()}
 
 
 def diff_checker(aula_id, cursorDB, cursorIni):
@@ -938,13 +950,16 @@ def getDifferencesFromDatabases(ProjectNumber):
     changesList = []  # Stores all changes in AulaInfo format
 
     path = f"Project{ProjectNumber}"
-    db_path = f"./database/{path}/general_database.db"
+    db_path = f"./databases/{path}/general_database.db"
     print(f"Trying to connect to: {db_path}")
     connDB = sqlite3.connect(db_path, check_same_thread=False)
     connDB.row_factory = sqlite3.Row
     cursorDB = connDB.cursor()
 
-    connIni = sqlite3.connect(f"./database/{path}/initial_database.db", check_same_thread=False)
+    connIni = sqlite3.connect(
+        f"./databases/{path}/initial_database.db",
+        check_same_thread=False,
+    )
     connIni.row_factory = sqlite3.Row
     cursorIni = connIni.cursor()
 
@@ -969,6 +984,7 @@ def getDifferencesFromDatabases(ProjectNumber):
 
             # Process associated data for the removed aula
             old_aula = get_aula_info(aula_id, cursorIni, row_dict)
+            change = AulaChange(old_aula, None)
             if change.has_changes():
                 changesList.append(change)  # Store added aula  # Store removed aula
 
@@ -1016,7 +1032,7 @@ def getDifferencesFromDatabases(ProjectNumber):
         serialized_changes.append(serialized_change)
 
     # Ensure output directory exists
-    output_dir = f"./database/Project{ProjectNumber}/"
+    output_dir = f"./databases/Project{ProjectNumber}/"
     os.makedirs(output_dir, exist_ok=True)
 
     # Write to JSON file
@@ -1035,38 +1051,44 @@ def get_aula_info(aula_id, cursorDB, row_dict):
     """Helper function to retrieve and process associated data for a given aula record"""
 
     # Get associated 'turmas' (class groups) for the aula
-    cursorDB.execute(f"""
-        SELECT t.codigo 
-        FROM aulaTurmas at 
+    cursorDB.execute(
+        f"""
+        SELECT t.codigo
+        FROM aulaTurmas at
         JOIN turmas t ON at.idTurma = t.codigo
         WHERE at.idAula = {aula_id};
-    """)
+    """,
+    )
     turmas = [row[0] for row in cursorDB.fetchall()]
 
     # Get associated 'docentes' (teachers) for the aula
-    cursorDB.execute(f"""
+    cursorDB.execute(
+        f"""
         SELECT d.numeroMecanografico, d.nome
-        FROM aulaDocente ad 
+        FROM aulaDocente ad
         JOIN docentes d ON ad.idDocente = d.numeroMecanografico
         WHERE ad.idAula = {aula_id};
-    """)
+    """,
+    )
     docentes = [row[0] for row in cursorDB.fetchall()]
     docentes_names = [row[1] for row in cursorDB.fetchall()]
 
     # Get associated 'salas' (rooms) for the aula
-    cursorDB.execute(f"""
-        SELECT s.numero 
+    cursorDB.execute(
+        f"""
+        SELECT s.numero
         FROM aulaSala as aula_sala
         JOIN salas s ON aula_sala.idSala = s.numero
         WHERE aula_sala.idAula = {aula_id};
-    """)
+    """,
+    )
     salas = [row[0] for row in cursorDB.fetchall()]
 
     # Get associated 'UC' (unit courses) for the aula
     cursorDB.execute(
         """
-    SELECT uc.codigo 
-    FROM aulaUC auc 
+    SELECT uc.codigo
+    FROM aulaUC auc
     JOIN uc ON auc.idUC = uc.codigo
     WHERE auc.idAula = ?;
     """,
@@ -1102,18 +1124,20 @@ def debug_log_existing_aulas(project_number, dia_semana):
     """Logs the existing aulas from the database for the given project number and day"""
 
     # Construct the database path
-    db_path = Path(f"./database/Project{project_number}/general_database.db")
+    db_path = Path(f"./databases/Project{project_number}/general_database.db")
     try:
         # Connect to the database
         connection = sqlite3.connect(str(db_path))
         cursor = connection.cursor()
 
         # Log existing aula data for the specified day
-        print(f"\n[DEBUG] Existing aulas on dia_semana={dia_semana} for Project {project_number}")
+        print(
+            f"\n[DEBUG] Existing aulas on dia_semana={dia_semana} for Project {project_number}",
+        )
         cursor.execute(
             """
             SELECT a.id, a.horaInicial, a.duracao, a.diaSemana,
-                   GROUP_CONCAT(DISTINCT asl.idSala), 
+                   GROUP_CONCAT(DISTINCT asl.idSala),
                    GROUP_CONCAT(DISTINCT ad.idDocente),
                    GROUP_CONCAT(DISTINCT at.idTurma),
                    uc.nome
@@ -1148,7 +1172,7 @@ def debug_log_existing_aulas(project_number, dia_semana):
 
 def organize_changes(ProjectId, mode, validator):
     # TODO organize
-    json_path = f"./database/Project{ProjectId}/changes.json"
+    json_path = f"./databases/Project{ProjectId}/changes.json"
 
     if os.path.exists(json_path) and validator:
         with open(json_path, encoding="utf-8") as f:
@@ -1169,32 +1193,36 @@ def organize_changes(ProjectId, mode, validator):
 
     manager = models.GraphManager(ProjectId, mode)
     path = f"Project{ProjectId}"
-    db_path = f"./database/{path}/general_database.db"
+    db_path = f"./databases/{path}/general_database.db"
     connDB = sqlite3.connect(db_path, check_same_thread=False)
     connDB.row_factory = sqlite3.Row
     cursorDB = connDB.cursor()
 
-    db_path = f"./database/{path}/initial_database.db"
+    db_path = f"./databases/{path}/initial_database.db"
     connIni = sqlite3.connect(db_path, check_same_thread=False)
     connIni.row_factory = sqlite3.Row
     cursorIni = connIni.cursor()
 
     for change in changes:
-        cursorIni.execute(f"""
+        cursorIni.execute(
+            f"""
         SELECT d.numeroMecanografico, d.nome
-        FROM aulaDocente ad 
+        FROM aulaDocente ad
         JOIN docentes d ON ad.idDocente = d.numeroMecanografico
         WHERE ad.idAula = {change.previous.id};
-        """)
+        """,
+        )
         names_ini = [row[1] for row in cursorIni.fetchall()]
         change.previous.set_docentes_names(names_ini)
 
-        cursorDB.execute(f"""
+        cursorDB.execute(
+            f"""
         SELECT d.numeroMecanografico, d.nome
-        FROM aulaDocente ad 
+        FROM aulaDocente ad
         JOIN docentes d ON ad.idDocente = d.numeroMecanografico
         WHERE ad.idAula = {change.new.id};
-        """)
+        """,
+        )
         names_new = [row[1] for row in cursorDB.fetchall()]
 
         change.new.set_docentes_names(names_new)
