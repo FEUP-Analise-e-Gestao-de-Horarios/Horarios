@@ -1,6 +1,8 @@
+from pathlib import Path
 from typing import Any, TypeVar
 from uuid import UUID
 
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 
 from src.projects.projects_db.base import Base
@@ -81,3 +83,83 @@ class BaseDAO[T]:
 
         self.session.delete(instance)
         return True
+
+    def get_added_removed_records(
+        self,
+        other_db_path: str | Path,
+    ) -> dict[str, list[dict[Any, Any]]]:
+        table_name = self.model.__tablename__
+
+        conn = self.session.connection()
+        try:
+            conn.execute(text(f"ATTACH DATABASE '{other_db_path}' AS other_db"))
+
+            added_query = text(
+                f"""
+            SELECT * FROM main.{table_name}
+            EXCEPT
+            SELECT * FROM other.{table_name}
+            """,
+            )
+
+            removed_query = text(
+                f"""
+                SELECT * FROM other.{table_name}
+                EXCEPT
+                SELECT * FROM main.{table_name}
+            """,
+            )
+
+            added = conn.execute(added_query).mappings().all()
+            removed = conn.execute(removed_query).mappings().all()
+
+            return {
+                "added": [dict(r) for r in added],
+                "removed": [dict(r) for r in removed],
+            }
+
+        finally:
+            conn.execute(text("DETACH DATABASE other_db"))
+
+    def get_changes_only(self, other_db_path: str | Path) -> dict[str, dict[str, dict[str, Any]]]:
+        mapper = inspect(self.model)
+        table_name = self.model.__tablename__
+        pk_name = mapper.primary_key[0].name
+        columns = [c.key for c in mapper.attrs if hasattr(c, "columns") and c.key != pk_name]
+
+        conn = self.session.connection()
+        try:
+            conn.execute(text(f"ATTACH DATABASE '{other_db_path}' AS other_db"))
+
+            # We select BOTH versions of the data to compare them in Python
+            # We suffix them with _new and _old
+            select_cols = ", ".join(
+                [f'main."{c}" AS "{c}_new", other."{c}" AS "{c}_old"' for c in columns],
+            )
+
+            query = text(
+                f"""
+                SELECT main."{pk_name}", {select_cols}
+                FROM {table_name} AS main
+                INNER JOIN other_db.{table_name} AS other ON main."{pk_name}" = other."{pk_name}"
+                WHERE {" OR ".join([f'main."{c}" IS NOT other."{c}"' for c in columns])}
+            """,
+            )
+
+            results = conn.execute(query).mappings().all()
+
+            diffs = {}
+            for row in results:
+                pk_val = row[pk_name]
+                # Create a dict of ONLY the fields that are different
+                changes = {
+                    col: {"from": row[f"{col}_old"], "to": row[f"{col}_new"]}
+                    for col in columns
+                    if row[f"{col}_old"] != row[f"{col}_new"]
+                }
+                diffs[pk_val] = changes
+
+            return diffs
+
+        finally:
+            conn.execute(text("DETACH DATABASE other_db"))
