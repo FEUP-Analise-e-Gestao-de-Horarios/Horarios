@@ -14,10 +14,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.x"
-      - run: pip install pre-commit
-      - run: |
-          pre-commit run ruff --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
-          pre-commit run ruff-format --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
+      - uses: astral-sh/setup-uv@v5
+      - run: uvx pre-commit run ruff --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
+      - run: uvx pre-commit run ruff-format --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
 
   frontend-typecheck:
     name: Frontend typecheck (tsc)
@@ -32,9 +31,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.x"
-      - run: pip install pre-commit
+      - uses: astral-sh/setup-uv@v5
       - run: cd frontend && npm install
-      - run: pre-commit run frontend-typecheck --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
+      - run: uvx pre-commit run frontend-typecheck --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
 
   frontend-lint:
     name: Frontend lint (eslint)
@@ -49,9 +48,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.x"
-      - run: pip install pre-commit
+      - uses: astral-sh/setup-uv@v5
       - run: cd frontend && npm install
-      - run: pre-commit run frontend-lint --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
+      - run: uvx pre-commit run frontend-lint --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
 
   frontend-format:
     name: Frontend format (prettier)
@@ -66,6 +65,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.x"
-      - run: pip install pre-commit
+      - uses: astral-sh/setup-uv@v5
       - run: cd frontend && npm install
-      - run: pre-commit run frontend-format --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
+      - run: uvx pre-commit run frontend-format --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
