@@ -32,8 +32,8 @@
     "noinput",
     "outerjoin",
     "overscan",
-    "Pipenv",
-    "Pipfile",
+    "astral",
+    "uvx",
     "popleft",
     "pycache",
     "pydantic",
@@ -75,5 +75,5 @@
     "**/venv": true
   },
   "js/ts.tsdk.path": "frontend/node_modules/typescript/lib",
-  "python-envs.defaultEnvManager": "ms-python.python:pipenv"
+  "python-envs.defaultEnvManager": "ms-python.python:venv"
 }
