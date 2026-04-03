@@ -104,7 +104,9 @@ CREATE TABLE sessions (
     start_time         INT NOT NULL,
     duration           INT NOT NULL,
     type               TEXT NOT NULL,
-    original_block_id  UUID NOT NULL
+    original_block_id  UUID NOT NULL,
+
+    UNIQUE (week, original_block_id)
 );
 
 CREATE TABLE session_rooms (
