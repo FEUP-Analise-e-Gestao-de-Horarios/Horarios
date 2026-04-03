@@ -25,8 +25,8 @@ Horarios/
 │   │   ├── static/           # Source static files
 │   │   ├── staticfiles/      # Collected static files (DEBUG=False)
 │   │   └── <apps>/           # Django application packages (see below)
-│   ├── Pipfile               # Python dependency declarations
-│   ├── Pipfile.lock
+│   ├── pyproject.toml        # Python project config and dependencies
+│   ├── uv.lock               # Locked dependency versions
 │   ├── .env.template         # Environment variable template
 │   ├── entrypoint.sh         # Container entrypoint (runs migrations)
 │   └── Dockerfile
