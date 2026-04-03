@@ -6,21 +6,19 @@ IMAGE_NAME  ?= horarios-app
 
 local-setup:
 	@echo "--- Checking required tools ---"
-	@command -v python3 >/dev/null 2>&1 || { echo "ERROR: python3 not found"; exit 1; }
-	@command -v pipenv >/dev/null 2>&1 || { echo "ERROR: pipenv not found. Install with: pip install pipenv"; exit 1; }
+	@command -v uv >/dev/null 2>&1 || { echo "ERROR: uv not found. Install with: curl -LsSf https://astral.sh/uv/install.sh | sh"; exit 1; }
 	@command -v node >/dev/null 2>&1 || { echo "ERROR: node not found"; exit 1; }
 	@command -v npm >/dev/null 2>&1 || { echo "ERROR: npm not found"; exit 1; }
-	@command -v pre-commit >/dev/null 2>&1 || { echo "ERROR: pre-commit not found. Install with: pip install pre-commit (or pipenv install --dev from backend/)"; exit 1; }
 	@echo "All required tools found."
 	@echo ""
-	@echo "--- Installing backend dependencies (pipenv) ---"
-	cd backend && pipenv install --dev
+	@echo "--- Installing backend dependencies (uv) ---"
+	cd backend && uv sync
 	@echo ""
 	@echo "--- Installing frontend dependencies (npm) ---"
 	cd frontend && npm install
 	@echo ""
 	@echo "--- Installing git pre-commit hooks ---"
-	pre-commit install
+	cd backend && uv run pre-commit install
 	@echo ""
 	@echo "Local setup complete."
 
