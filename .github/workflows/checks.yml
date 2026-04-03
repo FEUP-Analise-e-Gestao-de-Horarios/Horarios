@@ -1,25 +1,31 @@
-name: Checks
+name: CI
 
 on:
   pull_request:
 
 jobs:
   backend-lint:
-    name: Backend lint (ruff)
+    name: "Backend: Lint"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
       - uses: astral-sh/setup-uv@v5
       - run: uvx pre-commit run ruff --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
+
+  backend-format:
+    name: "Backend: Format"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v5
       - run: uvx pre-commit run ruff-format --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
 
   frontend-typecheck:
-    name: Frontend typecheck (tsc)
+    name: "Frontend: Typecheck"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,15 +34,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
       - uses: astral-sh/setup-uv@v5
       - run: cd frontend && npm install
       - run: uvx pre-commit run frontend-typecheck --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
 
   frontend-lint:
-    name: Frontend lint (eslint)
+    name: "Frontend: Lint"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,15 +48,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
       - uses: astral-sh/setup-uv@v5
       - run: cd frontend && npm install
       - run: uvx pre-commit run frontend-lint --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
 
   frontend-format:
-    name: Frontend format (prettier)
+    name: "Frontend: Format"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -62,9 +62,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
       - uses: astral-sh/setup-uv@v5
       - run: cd frontend && npm install
       - run: uvx pre-commit run frontend-format --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
