@@ -5,7 +5,7 @@ on:
 
 jobs:
   backend-lint:
-    name: "Backend: Lint"
+    name: "Lint"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,7 +15,7 @@ jobs:
       - run: uvx pre-commit run ruff --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
 
   backend-format:
-    name: "Backend: Format"
+    name: "Format"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

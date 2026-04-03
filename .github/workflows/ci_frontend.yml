@@ -5,7 +5,7 @@ on:
 
 jobs:
   frontend-typecheck:
-    name: "Frontend: Typecheck"
+    name: "Typecheck"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,7 +19,7 @@ jobs:
       - run: uvx pre-commit run frontend-typecheck --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
 
   frontend-lint:
-    name: "Frontend: Lint"
+    name: "Lint"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,7 +33,7 @@ jobs:
       - run: uvx pre-commit run frontend-lint --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
 
   frontend-format:
-    name: "Frontend: Format"
+    name: "Format"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
