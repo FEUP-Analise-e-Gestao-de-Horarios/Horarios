@@ -1,3 +1,31 @@
+[project]
+name = "horarios-backend"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+    "bleach",
+    "bs4",
+    "daphne",
+    "django",
+    "matplotlib",
+    "networkx",
+    "pydantic",
+    "readerwriterlock",
+    "requests",
+    "six",
+    "sqlalchemy",
+    "unicode",
+    "whitenoise",
+]
+
+[dependency-groups]
+dev = [
+    "django-livereload-server",
+    "django-stubs",
+    "pre-commit",
+    "ruff",
+]
+
 [tool.ruff]
 src = ["."]
 line-length = 100
