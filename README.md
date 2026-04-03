@@ -10,6 +10,7 @@ A web application for analyzing and managing FEUP (Faculty of Engineering, Unive
 | [Deployment Guide](docs/deployment.md) | How to deploy the project to a production server |
 | [Structure](docs/structure.md)         | Repository layout and codebase overview          |
 | [Glossary](docs/glossary.md)           | Canonical names for domain concepts              |
+| [Page Information](docs/page-information.md) | Data extraction requirements for schedule pages |
 
 ## Internals
 

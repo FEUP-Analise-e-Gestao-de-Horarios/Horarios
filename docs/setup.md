@@ -59,8 +59,6 @@ nvm use 24
 
 ### pre-commit
 
-### pre-commit
-
 Git hooks are managed by [pre-commit](https://pre-commit.com). It is installed as a backend dev dependency via uv, but you can also install it globally:
 
 ```sh

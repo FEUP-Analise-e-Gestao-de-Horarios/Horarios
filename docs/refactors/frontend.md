@@ -60,23 +60,17 @@ project, so the main work would be adding CORS headers and changing the auth app
 
 ## Current state
 
-The migration is in progress. At any point in time, some URLs are served by Django templates
-(not yet migrated) and others return the React `index.html` shell (migrated). The two
-coexist on the same domain with no conflict.
+The migration is complete. All user-facing pages are served by React — Django only handles
+API endpoints (`/api/`) and the admin panel (`/admin/`). The Vite dev server proxies `/api/`
+requests to Django; everything else is handled by React Router.
 
-The `REACT_ROUTES` array in `frontend/vite.config.ts` is the single source of truth for
-what has been migrated. When a page is migrated, its path is added there. When the array
-contains all pages, the migration is complete.
-
-Migrating a page involves:
+Adding a new page involves:
 
 1. Building the React component in `frontend/src/pages/`.
 2. Adding it to the React Router in `frontend/src/router.tsx`.
-3. Adding its path to `REACT_ROUTES` in `vite.config.ts`.
-4. Removing the old Django view and template.
-5. Adding a `spa_view` entry for it in `backend/src/config/urls.py`.
+3. Adding a `spa_view` entry for it in `backend/src/config/urls.py`.
 
-## Conventions introduced by this migration
+## Conventions
 
 All API calls from React go through a typed fetch wrapper in `frontend/src/api/client.ts`
 that automatically reads the `csrftoken` cookie Django sets and attaches it as the

@@ -42,7 +42,7 @@ This runs `docker compose -f docker-compose.prod.yml up --build`, which:
 3. Runs `collectstatic` at build time so WhiteNoise can serve static files.
 4. Starts Daphne on port `8000`.
 
-The application is accessible on **port 8000** of the host.
+The application is accessible on **port 8008** of the host.
 
 ### 3. Persistent data
 
@@ -90,7 +90,7 @@ Docker Compose will rebuild the image and recreate the container. The database v
 
 ## Reverse proxy (optional)
 
-The container exposes only port 8000. If you need HTTPS or want to expose the app on port 80/443, place a reverse proxy (e.g. Nginx, Caddy, Traefik) in front of it and proxy requests to `localhost:8000`.
+The container exposes port 8000 internally, mapped to **port 8008** on the host. If you need HTTPS or want to expose the app on port 80/443, place a reverse proxy (e.g. Nginx, Caddy, Traefik) in front of it and proxy requests to `localhost:8008`.
 
 Example minimal Nginx block:
 
@@ -100,7 +100,7 @@ server {
     server_name your-domain.com;
 
     location / {
-        proxy_pass http://localhost:8000;
+        proxy_pass http://localhost:8008;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

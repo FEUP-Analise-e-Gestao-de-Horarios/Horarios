@@ -18,12 +18,11 @@ Horarios/
 │   ├── package.json
 │   └── Dockerfile
 ├── backend/                  # Django backend
+│   ├── manage.py             # Django management entry point
 │   ├── src/                  # All Python source code
-│   │   ├── manage.py         # Django management entry point
 │   │   ├── config/           # Django project configuration
 │   │   ├── templates/        # Global HTML templates
 │   │   ├── static/           # Source static files
-│   │   ├── staticfiles/      # Collected static files (DEBUG=False)
 │   │   └── <apps>/           # Django application packages (see below)
 │   ├── pyproject.toml        # Python project config and dependencies
 │   ├── uv.lock               # Locked dependency versions
