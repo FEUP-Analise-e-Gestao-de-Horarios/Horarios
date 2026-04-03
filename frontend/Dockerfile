@@ -3,7 +3,6 @@ FROM node:24-alpine
 WORKDIR /workspace
 
 COPY frontend/package*.json ./frontend/
-COPY frontend/.npmrc ./frontend/
 RUN cd frontend && npm ci
 
 COPY frontend/ ./frontend/
