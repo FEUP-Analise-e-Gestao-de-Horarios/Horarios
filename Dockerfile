@@ -15,14 +15,16 @@ RUN cd frontend && npm run build
 # ── Stage 2: Production backend ───────────────────────────────────────────────
 FROM python:3.14-slim
 
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 WORKDIR /workspace
 
-RUN pip install --no-cache-dir pipenv
-
-COPY backend/Pipfile backend/Pipfile.lock ./backend/
-RUN cd backend && pipenv install --system
+COPY backend/pyproject.toml backend/uv.lock ./backend/
+RUN cd backend && uv sync --frozen --no-dev --no-editable
 
 COPY backend/ ./backend/
+
+ENV PATH="/workspace/backend/.venv/bin:$PATH"
 
 RUN mkdir -p /workspace/databases/projects
 
