@@ -7,7 +7,7 @@ RUN useradd --uid 1000 --create-home appuser
 WORKDIR /workspace
 
 COPY backend/pyproject.toml backend/uv.lock ./backend/
-RUN cd backend && uv sync --frozen --no-editable
+RUN cd backend && uv sync --frozen --no-editable --no-install-project
 
 COPY backend/ ./backend/
 
