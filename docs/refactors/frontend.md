@@ -67,8 +67,9 @@ requests to Django; everything else is handled by React Router.
 Adding a new page involves:
 
 1. Building the React component in `frontend/src/pages/`.
-2. Adding it to the React Router in `frontend/src/router.tsx`.
-3. Adding a `spa_view` entry for it in `backend/src/config/urls.py`.
+2. Adding the new path constant to `frontend/src/routes.ts`.
+3. Adding it to the React Router in `frontend/src/router.tsx`.
+4. Adding a `spa_view` entry for it in `backend/src/config/urls.py`.
 
 ## Conventions
 
@@ -78,7 +79,8 @@ that automatically reads the `csrftoken` cookie Django sets and attaches it as t
 requests via `fetch` rather than Django form submissions, so Django's CSRF middleware would
 otherwise reject them.
 
-The Vite build outputs to `backend/src/static/frontend/`. Django's `STATICFILES_DIRS`
+The Vite build outputs to `frontend/dist/`. The Dockerfile copies this into
+`backend/src/static/frontend/` at image build time. Django's `STATICFILES_DIRS`
 includes `backend/src/static/` so `collectstatic` picks up the build automatically.
 `spa_view` in `urls.py` serves `index.html` from this location using Django's standard
 `TemplateView` wrapped in `ensure_csrf_cookie` to guarantee the CSRF cookie is always set
