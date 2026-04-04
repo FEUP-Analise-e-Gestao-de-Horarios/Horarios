@@ -474,27 +474,27 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "bleach" },
-    { name = "bs4" },
-    { name = "daphne" },
-    { name = "django" },
-    { name = "matplotlib" },
-    { name = "networkx" },
-    { name = "pydantic" },
-    { name = "readerwriterlock" },
-    { name = "requests" },
-    { name = "six" },
-    { name = "sqlalchemy" },
-    { name = "unicode" },
-    { name = "whitenoise" },
+    { name = "bleach", specifier = "==6.3.0" },
+    { name = "bs4", specifier = "==0.0.2" },
+    { name = "daphne", specifier = "==4.2.1" },
+    { name = "django", specifier = "==6.0.3" },
+    { name = "matplotlib", specifier = "==3.10.8" },
+    { name = "networkx", specifier = "==3.6.1" },
+    { name = "pydantic", specifier = "==2.12.5" },
+    { name = "readerwriterlock", specifier = "==1.0.9" },
+    { name = "requests", specifier = "==2.33.1" },
+    { name = "six", specifier = "==1.17.0" },
+    { name = "sqlalchemy", specifier = "==2.0.49" },
+    { name = "unicode", specifier = "==2.9" },
+    { name = "whitenoise", specifier = "==6.12.0" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "django-livereload-server" },
-    { name = "django-stubs" },
-    { name = "pre-commit" },
-    { name = "ruff" },
+    { name = "django-livereload-server", specifier = "==0.5.1" },
+    { name = "django-stubs", specifier = "==6.0.2" },
+    { name = "pre-commit", specifier = "==4.5.1" },
+    { name = "ruff", specifier = "==0.15.9" },
 ]
 
 [[package]]
