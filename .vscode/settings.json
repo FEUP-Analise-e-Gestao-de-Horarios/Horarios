@@ -17,6 +17,7 @@
   "cSpell.words": [
     "appuser",
     "ASGI",
+    "astral",
     "cabtitulo",
     "collectstatic",
     "csrftoken",
@@ -32,19 +33,19 @@
     "noinput",
     "outerjoin",
     "overscan",
-    "Pipenv",
-    "Pipfile",
     "popleft",
     "pycache",
     "pydantic",
     "pyenv",
     "pypi",
+    "pyproject",
     "PYTHONPATH",
     "readerwriterlock",
     "rowspan",
     "runserver",
     "sqlalchemy",
     "staticfiles",
+    "uvx",
     "venv",
     "Vite",
     "whitenoise"
@@ -75,5 +76,5 @@
     "**/venv": true
   },
   "js/ts.tsdk.path": "frontend/node_modules/typescript/lib",
-  "python-envs.defaultEnvManager": "ms-python.python:pipenv"
+  "python-envs.defaultEnvManager": "ms-python.python:venv"
 }
