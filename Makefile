@@ -12,7 +12,7 @@ local-setup:
 	@echo "All required tools found."
 	@echo ""
 	@echo "--- Installing backend dependencies (uv) ---"
-	cd backend && uv sync
+	cd backend && uv sync --frozen
 	@echo ""
 	@echo "--- Installing frontend dependencies (npm) ---"
 	cd frontend && npm install

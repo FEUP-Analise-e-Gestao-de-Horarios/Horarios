@@ -1,13 +1,13 @@
 FROM python:3.14-slim
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.11.3 /uv /uvx /bin/
 
 RUN useradd --uid 1000 --create-home appuser
 
 WORKDIR /workspace
 
 COPY backend/pyproject.toml backend/uv.lock ./backend/
-RUN cd backend && uv sync --frozen --no-editable
+RUN cd backend && uv sync --frozen --no-editable --no-install-project
 
 COPY backend/ ./backend/
 

@@ -15,12 +15,12 @@ RUN cd frontend && npm run build
 # ── Stage 2: Production backend ───────────────────────────────────────────────
 FROM python:3.14-slim
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.11.3 /uv /uvx /bin/
 
 WORKDIR /workspace
 
 COPY backend/pyproject.toml backend/uv.lock ./backend/
-RUN cd backend && uv sync --frozen --no-dev --no-editable
+RUN cd backend && uv sync --frozen --no-dev --no-editable --no-install-project
 
 COPY backend/ ./backend/
 
