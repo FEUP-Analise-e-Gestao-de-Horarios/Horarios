@@ -11,6 +11,8 @@ from src.projects.views.schemas.stats import ProjectStatsResponse
 
 
 class ProjectStatsView(View):
+    """API endpoint: return overview statistics for a project."""
+
     def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
         # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:

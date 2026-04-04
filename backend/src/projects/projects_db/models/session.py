@@ -18,6 +18,8 @@ if TYPE_CHECKING:
 
 
 class Session(Base):
+    """A single scheduled class event (lecture, lab, seminar, etc.)."""
+
     __tablename__ = "sessions"
     __table_args__ = (
         UniqueConstraint("week", "original_block_id"),

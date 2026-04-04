@@ -9,6 +9,8 @@ T = TypeVar("T", bound=Base)
 
 
 class BaseDAO[T]:
+    """Generic base DAO providing CRUD operations for a single SQLAlchemy model."""
+
     def __init__(self, model: type[T], session: Session, *, flush_on_create: bool = True) -> None:
         """Initialize the DAO with a model class and database session.
 

@@ -12,6 +12,8 @@ if TYPE_CHECKING:
 
 
 class Class(Base):
+    """A scheduled student class within a degree and year (e.g. ``1LEI1T``)."""
+
     __tablename__ = "classes"
 
     # UUIDs

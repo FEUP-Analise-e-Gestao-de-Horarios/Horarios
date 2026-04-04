@@ -12,6 +12,8 @@ if TYPE_CHECKING:
 
 
 class Subject(Base):
+    """A unit of study (UC) that students attend sessions of."""
+
     __tablename__ = "subjects"
 
     # UUIDs

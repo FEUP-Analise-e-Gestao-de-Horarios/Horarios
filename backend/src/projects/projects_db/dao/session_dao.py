@@ -18,6 +18,8 @@ from src.projects.projects_db.schemas.weekday import WeekDay
 
 
 class SessionDAO(BaseDAO[Session]):
+    """Data access object for Session records."""
+
     def __init__(self, session: DBSession) -> None:
         super().__init__(Session, session)
 
@@ -46,9 +48,7 @@ class SessionDAO(BaseDAO[Session]):
             duration: The duration of the session in timeslot units.
             type_: The session type (e.g. "T", "TP", "PL").
             original_block_id: UUID of the originating timetable block.
-            subject_ids: UUIDs of subjects to associate with this session.
             teacher_ids: UUIDs of teachers to associate with this session.
-            class_ids: UUIDs of classes to associate with this session.
             room_ids: UUIDs of rooms to associate with this session.
 
         Returns:
@@ -82,6 +82,7 @@ class SessionDAO(BaseDAO[Session]):
     # -------------------------------------------------------------------
 
     def get(self, session_id: UUID) -> Session | None:
+        """Retrieve a single session by its primary key."""
         return self.session.scalars(select(Session).where(Session.id == session_id)).one_or_none()
 
     def get_by_teacher(self, teacher_id: UUID) -> list[Session]:
@@ -198,6 +199,7 @@ class SessionDAO(BaseDAO[Session]):
     # -------------------------------------------------------------------
 
     def get_subjects(self, session_id: UUID) -> list[Subject]:
+        """Return distinct subjects taught in the given session."""
         return list(
             self.session.scalars(
                 select(Subject)
@@ -208,6 +210,7 @@ class SessionDAO(BaseDAO[Session]):
         )
 
     def get_classes(self, session_id: UUID) -> list[Class]:
+        """Return distinct classes that participate in the given session."""
         return list(
             self.session.scalars(
                 select(Class)

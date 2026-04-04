@@ -12,6 +12,8 @@ if TYPE_CHECKING:
 
 
 class Degree(Base):
+    """A degree program (e.g. LEI, MIEI) — the top-level grouping of classes."""
+
     __tablename__ = "degrees"
 
     # UUIDs

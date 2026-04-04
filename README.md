@@ -1,6 +1,6 @@
 # FEUP Schedule Editor
 
-A web application for analyzing and managing FEUP (Faculty of Engineering, University of Porto)schedules. It ingests timetable data from the institution's website, stores it in per-project SQLite databases, and provides an editor for viewing and resolving scheduling conflicts.
+A web application for analyzing and managing FEUP (Faculty of Engineering, University of Porto) schedules. It ingests timetable data from the institution's website, stores it in per-project SQLite databases, and provides an editor for viewing and resolving scheduling conflicts.
 
 ## Documentation
 

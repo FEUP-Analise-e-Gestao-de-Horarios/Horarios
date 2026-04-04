@@ -20,6 +20,8 @@ from src.projects.views.schemas.degrees import (
 
 
 class ProjectDegreesView(View):
+    """API endpoint: list all degrees with stats for a project."""
+
     def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
         # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:
@@ -45,6 +47,8 @@ class ProjectDegreesView(View):
 
 
 class ProjectDegreeView(View):
+    """API endpoint: retrieve a single degree with stats."""
+
     def get(self, request: HttpRequest, project_id: int, degree_id: UUID) -> HttpResponse:
         # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:
