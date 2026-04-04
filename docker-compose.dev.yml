@@ -11,7 +11,7 @@ services:
       - ./backend:/workspace/backend
       - ./databases:/workspace/databases
       # Preserve the container's .venv from being shadowed by the bind mount
-      - /workspace/backend/.venv 
+      - /workspace/backend/.venv
     ports:
       - "8000:8000"
 
