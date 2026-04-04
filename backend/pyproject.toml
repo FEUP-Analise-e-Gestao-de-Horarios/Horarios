@@ -3,27 +3,27 @@ name = "horarios-backend"
 version = "0.1.0"
 requires-python = ">=3.14"
 dependencies = [
-    "bleach",
-    "bs4",
-    "daphne",
-    "django",
-    "matplotlib",
-    "networkx",
-    "pydantic",
-    "readerwriterlock",
-    "requests",
-    "six",
-    "sqlalchemy",
-    "unicode",
-    "whitenoise",
+    "bleach==6.3.0",
+    "bs4==0.0.2",
+    "daphne==4.2.1",
+    "django==6.0.3",
+    "matplotlib==3.10.8",
+    "networkx==3.6.1",
+    "pydantic==2.12.5",
+    "readerwriterlock==1.0.9",
+    "requests==2.33.1",
+    "six==1.17.0",
+    "sqlalchemy==2.0.49",
+    "unicode==2.9",
+    "whitenoise==6.12.0",
 ]
 
 [dependency-groups]
 dev = [
-    "django-livereload-server",
-    "django-stubs",
-    "pre-commit",
-    "ruff",
+    "django-livereload-server==0.5.1",
+    "django-stubs==6.0.2",
+    "pre-commit==4.5.1",
+    "ruff==0.15.9",
 ]
 
 [tool.ruff]
@@ -36,7 +36,7 @@ select = [
     "W",   # pycodestyle warnings
     "F",   # pyflakes (unused imports, undefined names, etc.)
     "I",   # isort (import sorting)
-    "UP",  # pyupgrade (modernise Python syntax)
+    "UP",  # pyupgrade (modernize Python syntax)
     "B",   # flake8-bugbear (common bugs and design issues)
     "C4",  # flake8-comprehensions (better list/dict/set comprehensions)
     "COM", # flake8-commas (enforce trailing commas)
