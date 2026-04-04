@@ -11,6 +11,8 @@ if TYPE_CHECKING:
 
 
 class SessionClassSubject(Base):
+    """Junction table linking a session to a class and the subject taught in it."""
+
     __tablename__ = "sessions_classes_subject"
     __table_args__ = (UniqueConstraint("session_id", "class_id", name="uq_session_class"),)
 

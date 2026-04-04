@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 
 
 class Teacher(Base):
+    """A faculty member who teaches sessions."""
+
     __tablename__ = "teachers"
 
     # UUIDs

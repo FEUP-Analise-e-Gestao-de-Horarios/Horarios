@@ -21,6 +21,8 @@ from src.projects.views.schemas.subjects import (
 
 
 class ProjectSubjectsView(View):
+    """API endpoint: list subjects with stats for a given degree year."""
+
     def get(
         self,
         request: HttpRequest,

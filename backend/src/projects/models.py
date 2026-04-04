@@ -14,6 +14,8 @@ from src.users.models import User
 
 
 class Group(models.Model):
+    """A named group of users that can be assigned to projects."""
+
     # Data
     abbreviation: TextField[str | Combinable, str] = TextField(unique=True)
     name: TextField[str | Combinable, str] = TextField()
@@ -30,6 +32,8 @@ class Group(models.Model):
 
 
 class Project(models.Model):
+    """A schedule project that holds ingested timetable data in its own SQLite database."""
+
     # Data
     name: TextField[str | Combinable, str] = TextField(unique=True)
     url: TextField[str | Combinable, str] = TextField()

@@ -21,6 +21,8 @@ from src.projects.views.schemas.rooms import (
 
 
 class ProjectRoomsView(View):
+    """API endpoint: list all rooms with stats for a project."""
+
     def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
         # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:
@@ -46,6 +48,8 @@ class ProjectRoomsView(View):
 
 
 class ProjectRoomView(View):
+    """API endpoint: retrieve a single room with its sessions and red blocks."""
+
     def get(self, request: HttpRequest, project_id: int, room_id: UUID) -> HttpResponse:
         # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:

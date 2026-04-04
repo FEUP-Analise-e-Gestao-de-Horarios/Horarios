@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 
 
 class ClassRedBlock(Base):
+    """A time slot marked as unavailable for a class."""
+
     __tablename__ = "class_red_blocks"
 
     # UUIDs
