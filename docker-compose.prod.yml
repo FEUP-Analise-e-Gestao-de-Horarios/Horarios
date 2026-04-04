@@ -7,7 +7,7 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: src.config.settings.prod
     env_file:
-      - .env
+      - backend/.env
     volumes:
       - db_data:/workspace/databases
     ports:

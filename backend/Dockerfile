@@ -1,23 +1,20 @@
 FROM python:3.14-slim
 
+RUN useradd --uid 1000 --create-home appuser
 COPY --from=ghcr.io/astral-sh/uv:0.11.3 /uv /uvx /bin/
 
-RUN useradd --uid 1000 --create-home appuser
+WORKDIR /workspace/backend
 
-WORKDIR /workspace
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-editable --no-install-project
 
-COPY backend/pyproject.toml backend/uv.lock ./backend/
-RUN cd backend && uv sync --frozen --no-editable --no-install-project
+RUN mkdir -p /workspace/databases/projects
+RUN chown -R appuser /workspace/databases
 
-COPY backend/ ./backend/
+COPY . .
 
-ENV PATH="/workspace/backend/.venv/bin:$PATH"
-
-RUN mkdir -p /workspace/databases/projects \
- && chown -R appuser /workspace
+EXPOSE 8000
 USER appuser
 
-WORKDIR /workspace/backend
-EXPOSE 8000
 ENTRYPOINT ["/workspace/backend/entrypoint.sh"]
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["uv", "run", "manage.py", "runserver", "0.0.0.0:8000"]
