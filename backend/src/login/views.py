@@ -141,3 +141,40 @@ def change_password(request) -> JsonResponse:
     form.save()
     update_session_auth_hash(request, form.user)
     return JsonResponse({"ok": True})
+
+
+# TODO Check views below
+"""
+# activates the user through a token by adding their id to the Person object
+def activate(request, uidb64, token):
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        myuser = User.objects.get(pk=uid)
+    except TypeError, ValueError, OverflowError, User.DoesNotExist:
+        myuser = None
+
+    if myuser is not None and generate_token.check_token(myuser, token):
+        myuser.is_active = True
+        # user.profile.signup_confirmation = True
+        myuser.save()
+        login(request, myuser)
+        # messages.success(request, "Your Account has been activated!!")
+        return redirect("password_change")
+    else:
+        return redirect("login")
+
+
+# checks if the token is valid and redirects to reset password (no old password )
+def forgot_password_change(request, uidb64, token):
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        myuser = User.objects.get(pk=uid)
+    except TypeError, ValueError, OverflowError, User.DoesNotExist:
+        myuser = None
+
+    if myuser is not None and generate_token.check_token(myuser, token):
+        login(request, myuser)
+        return redirect("password_change_no_old_pass")
+    else:
+        return redirect("login")
+"""
