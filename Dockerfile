@@ -15,30 +15,30 @@ RUN cd frontend && npm run build
 # ── Stage 2: Production backend ───────────────────────────────────────────────
 FROM python:3.14-slim
 
+RUN useradd --uid 1000 --create-home appuser
 COPY --from=ghcr.io/astral-sh/uv:0.11.3 /uv /uvx /bin/
 
-WORKDIR /workspace
+WORKDIR /workspace/backend
 
-COPY backend/pyproject.toml backend/uv.lock ./backend/
-RUN cd backend && uv sync --frozen --no-dev --no-editable --no-install-project
-
-COPY backend/ ./backend/
-
-ENV PATH="/workspace/backend/.venv/bin:$PATH"
+COPY backend/pyproject.toml backend/uv.lock ./
+RUN uv sync --frozen --no-dev --no-editable --no-install-project
 
 RUN mkdir -p /workspace/databases/projects
+RUN chown -R appuser /workspace/databases
+
+COPY backend/ ./
 
 # Inject the built frontend assets
-COPY --from=frontend-builder /workspace/frontend/dist \
-     ./backend/src/static/frontend
+COPY --from=frontend-builder /workspace/frontend/dist ./src/static/frontend
 
-WORKDIR /workspace/backend
 
 # Pre-collect static files into STATIC_ROOT so WhiteNoise can serve them
 RUN DJANGO_SETTINGS_MODULE=src.config.settings.prod \
     SECRET_KEY=placeholder-for-collectstatic \
-    python manage.py collectstatic --noinput
+    uv run manage.py collectstatic --noinput
 
 EXPOSE 8000
+USER appuser
+
 ENTRYPOINT ["/workspace/backend/entrypoint.sh"]
-CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "src.config.asgi:application"]
+CMD ["uv", "run", "daphne", "-b", "0.0.0.0", "-p", "8000", "src.config.asgi:application"]

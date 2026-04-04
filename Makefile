@@ -52,9 +52,9 @@ deploy-push:
 	@echo "--- Sending image to $(REMOTE_HOST) ---"
 	docker save $(IMAGE_NAME) | gzip | ssh $(REMOTE_HOST) "gunzip | docker load"
 	@echo "--- Sending compose file and env ---"
-	ssh $(REMOTE_HOST) "mkdir -p $(REMOTE_DIR)"
+	ssh $(REMOTE_HOST) "mkdir -p $(REMOTE_DIR)/backend"
 	scp docker-compose.prod.yml $(REMOTE_HOST):$(REMOTE_DIR)/docker-compose.prod.yml
-	scp backend/.env $(REMOTE_HOST):$(REMOTE_DIR)/.env
+	scp backend/.env $(REMOTE_HOST):$(REMOTE_DIR)/backend/.env
 	@echo "--- Done ---"
 
 deploy-run:
