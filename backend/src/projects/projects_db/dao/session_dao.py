@@ -1,9 +1,11 @@
 import datetime
 from collections.abc import Sequence
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import inspect, select
 from sqlalchemy.orm import Session as DBSession
+from sqlalchemy.orm import selectinload
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.models._secondary_tables import (
@@ -219,3 +221,33 @@ class SessionDAO(BaseDAO[Session]):
                 .distinct(),
             ).all(),
         )
+
+    def get_all_for_diff(self) -> list[Session]:
+        return list(
+            self.session.scalars(
+                select(Session).options(
+                    selectinload(Session.rooms),
+                    selectinload(Session.teachers),
+                    selectinload(Session.session_class_subjects),
+                ),
+            ).all(),
+        )
+
+    def _serialize_columns(self, obj: Session) -> dict[str, Any]:
+        mapper = inspect(self.model)
+        return {
+            attr.key: getattr(obj, attr.key) for attr in mapper.column_attrs if attr.key != "id"
+        }
+
+    def to_diff_snapshot(self, obj: Session) -> dict[str, Any]:
+        data = self._serialize_columns(obj)
+        data["room_ids"] = sorted(str(room.id) for room in obj.rooms)
+        data["teacher_ids"] = sorted(str(teacher.id) for teacher in obj.teachers)
+        data["class_subjects"] = {
+            str(link.class_id): str(link.subject_id)
+            for link in sorted(obj.session_class_subjects, key=lambda x: str(x.class_id))
+        }
+        return data
+
+    def get_diff_map(self) -> dict[str, dict[str, Any]]:
+        return {str(obj.id): self.to_diff_snapshot(obj) for obj in self.get_all_for_diff()}

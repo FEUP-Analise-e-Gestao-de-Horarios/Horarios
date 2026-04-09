@@ -16,6 +16,7 @@ from django.template.loader import render_to_string
 
 import src.getHorariosFromDB.auxiliaryScheduleFunctions as auxfunc
 import src.getHorariosFromDB.graph as graph_controller
+from src.exporter.differences import Comparator
 from src.FeupScheduleEditor.utils import reverse_time_span_conversion, switch_number_to_day
 from src.getHorariosFromDB.conflictFunctions import findAnyConflicts, organizeInformation
 from src.getHorariosFromDB.models import Conflict_Manager
@@ -32,10 +33,6 @@ from src.getHorariosFromDB.movementFunctions import (
 )
 from src.getHorariosFromDB.utils import append_aula_data, organize_changes
 from src.projects.models import Group, Project
-from src.projects.projects_db.dao.base_dao import BaseDAO
-from src.projects.projects_db.models.session import Session
-from src.projects.projects_db.paths import general_db, initial_db
-from src.projects.projects_db.registry import get_session
 from src.users.models import User
 
 from .models import UC, Ano, Aula, AulaInfo, Bloco, Curso, Docente, Sala
@@ -2145,10 +2142,12 @@ def getConflicts(request, projId):
 
 
 def export(request, projId):
-    with get_session(general_db(projId)) as session:
-        base_dao = BaseDAO(Session, session)
+    # with get_session(general_db(projId)) as session:
+    #     base_dao = BaseDAO(Session, session)
 
-        return JsonResponse(base_dao.get_changes_only(Session, initial_db(projId)))
+    #     return JsonResponse(base_dao.get_changes_only(Session, initial_db(projId)))
+    with Comparator(projId) as comp:
+        return JsonResponse(comp.database_differences())
 
 
 # def export(request, projId):

@@ -1,4 +1,3 @@
-from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.dao.session_dao import SessionDAO
 from src.projects.projects_db.paths import general_db, initial_db
 from src.projects.projects_db.registry import get_session
@@ -18,27 +17,12 @@ class Comparator:
         self.general_session_db.close()
         self.initial_session_db.close()
 
-    def _get_data(self, dao: BaseDAO):
-        return {
-            obj.id: {c.name: getattr(obj, c.name) for c in obj.__table__.columns if c.name != "id"}
-            for obj in dao.get_all()
-        }
-
     def database_differences(self):
         session_dao_initial = SessionDAO(self.initial_session_db)
         session_dao_general = SessionDAO(self.general_session_db)
 
-        def get_map(dao: BaseDAO):
-            # Returns {id: {col: val}}
-            return {
-                str(obj.id): {
-                    c.name: getattr(obj, c.name) for c in obj.__table__.columns if c.name != "id"
-                }
-                for obj in dao.get_all()
-            }
-
-        current_map = get_map(session_dao_general)
-        old_map = get_map(session_dao_initial)
+        current_map = session_dao_general.get_diff_map()
+        old_map = session_dao_initial.get_diff_map()
 
         current_ids = set(current_map.keys())
         old_ids = set(old_map.keys())
@@ -51,9 +35,8 @@ class Comparator:
         modified = {}
         for id_ in current_ids & old_ids:
             if current_map[id_] != old_map[id_]:
-                # Only include the specific keys that changed
                 diff = {
-                    k: current_map[id_][k]
+                    k: {"from": old_map[id_][k], "to": current_map[id_][k]}
                     for k in current_map[id_]
                     if current_map[id_][k] != old_map[id_][k]
                 }
