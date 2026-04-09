@@ -5,11 +5,10 @@ from uuid import UUID
 from sqlalchemy import delete, insert, select
 from sqlalchemy.orm import Session
 
-from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.models.parallel_block_group_member import ParallelBlockGroupMember
 
 
-class ParallelBlockGroupDAO(BaseDAO[ParallelBlockGroupMember]):
+class ParallelBlockGroupDAO:
     """Data access object for user-confirmed parallel block groups.
 
     A "group" is an opaque ``parallel_block_group_id`` UUID shared by a set
@@ -17,10 +16,15 @@ class ParallelBlockGroupDAO(BaseDAO[ParallelBlockGroupMember]):
     separate header table — a group exists iff it has at least one member.
     A block belongs to at most one confirmed group (enforced by the UNIQUE
     constraint on ``original_block_id``).
+
+    Not a ``BaseDAO`` subclass: ``ParallelBlockGroupMember`` has a composite
+    primary key, and ``BaseDAO.get`` / ``delete_by_id`` assume a single-UUID
+    PK. None of the inherited helpers fit, so this DAO operates on the
+    SQLAlchemy ``Session`` directly.
     """
 
     def __init__(self, session: Session) -> None:
-        super().__init__(ParallelBlockGroupMember, session)
+        self.session = session
 
     # -------------------------------------------------------------------
     # -- Create
