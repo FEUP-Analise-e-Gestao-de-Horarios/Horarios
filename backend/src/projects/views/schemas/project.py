@@ -33,8 +33,8 @@ class CreateProjectRequest(BaseModel):
     @field_validator("name")
     @classmethod
     def validate_name(cls, v: str) -> str:
-        if not re.fullmatch(r"[a-zA-Z0-9_\- ]+", v):
-            raise ValueError("name can only contain letters, numbers, spaces, '_' and '-'")
+        if not re.fullmatch(r"[a-zA-Z0-9_\-: ]+", v):
+            raise ValueError("name can only contain letters, numbers, spaces, '_', '-' and ':'")
         return v
 
 
@@ -49,6 +49,6 @@ class RenameProjectRequest(BaseModel):
     @field_validator("name")
     @classmethod
     def validate_name(cls, v: str) -> str:
-        if not re.fullmatch(r"[a-zA-Z0-9_\- ]+", v):
-            raise ValueError("name can only contain letters, numbers, spaces, '_' and '-'")
+        if not re.fullmatch(r"[a-zA-Z0-9_\-: ]+", v):
+            raise ValueError("name can only contain letters, numbers, spaces, '_', '-' and ':'")
         return v
