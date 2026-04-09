@@ -1,5 +1,5 @@
 import { createBrowserRouter } from "react-router-dom";
-import { requireAuth } from "./api/auth";
+import { redirectIfAuthenticated, requireAuth } from "./api/auth";
 import LoginPage from "./pages/LoginPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import HomePage from "./pages/HomePage";
@@ -12,8 +12,12 @@ import DashboardPage from "./pages/DashboardPage";
 export const router = createBrowserRouter([
   { path: ROUTES.HOME, element: <HomePage />, loader: requireAuth },
 
-  { path: ROUTES.LOGIN, element: <LoginPage /> },
-  { path: ROUTES.FORGOT_PASSWORD, element: <ForgotPasswordPage /> },
+  { path: ROUTES.LOGIN, element: <LoginPage />, loader: redirectIfAuthenticated },
+  {
+    path: ROUTES.FORGOT_PASSWORD,
+    element: <ForgotPasswordPage />,
+    loader: redirectIfAuthenticated,
+  },
   { path: ROUTES.CHANGE_PASSWORD, element: <ChangePasswordPage />, loader: requireAuth },
 
   { path: ROUTES.SCHEDULE, element: <SchedulePage />, loader: requireAuth },
