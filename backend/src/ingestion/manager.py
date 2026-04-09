@@ -117,6 +117,12 @@ class IngestionManager:
             self._detect_parallel_block_candidates()
 
             # -- Snapshot general_db into init_db ----------------------------------
+            # Force a WAL checkpoint so every committed row lands in the main DB
+            # file before the snapshot copy. Without this, commits still sitting
+            # in the .db-wal file (notably the parallel block candidates written
+            # just above) would be missing from initial_database.db, since
+            # shutil.copy2 only copies the main .db file.
+            self.db_session.execute(text("PRAGMA wal_checkpoint(TRUNCATE)"))
             self.db_session.close()
             shutil.copy2(general_db(self.proj_id), initial_db(self.proj_id))
 
