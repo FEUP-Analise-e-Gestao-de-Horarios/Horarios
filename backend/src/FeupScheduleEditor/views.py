@@ -2147,8 +2147,10 @@ def export(request, projId):
 
     #     return JsonResponse(base_dao.get_changes_only(Session, initial_db(projId)))
     with Comparator(projId) as comp:
-        data = comp.database_differences()
+        diff = comp.database_differences()
+        data = diff
         data.update(comp.database_conflicts())
+        # data.update({"changes_ordered": comp.build_order_graph()})
         return JsonResponse(data)
 
 
