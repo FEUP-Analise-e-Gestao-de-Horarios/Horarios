@@ -449,8 +449,8 @@ class IngestionManager:
         (``original_block_id``) together. Groups are stored in
         ``parallel_block_candidates`` for later user review.
 
-        Only groups with at least two distinct blocks are persisted.
-        ``candidate_group_id`` is renumbered to a contiguous ``1..N`` range.
+        Only groups with at least two distinct blocks are persisted. Each
+        persisted group is identified by a fresh ``uuid.uuid7()`` label.
         """
         detection_sql = text("""
             WITH session_subjects AS (
