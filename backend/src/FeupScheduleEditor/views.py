@@ -16,7 +16,6 @@ from django.template.loader import render_to_string
 
 import src.getHorariosFromDB.auxiliaryScheduleFunctions as auxfunc
 import src.getHorariosFromDB.graph as graph_controller
-from src.exporter.differences import Comparator
 from src.FeupScheduleEditor.utils import reverse_time_span_conversion, switch_number_to_day
 from src.getHorariosFromDB.conflictFunctions import findAnyConflicts, organizeInformation
 from src.getHorariosFromDB.models import Conflict_Manager
@@ -2139,19 +2138,6 @@ def getConflicts(request, projId):
             "has_conflicts": bool(conflicts_dict),
         },
     )
-
-
-def export(request, projId):
-    # with get_session(general_db(projId)) as session:
-    #     base_dao = BaseDAO(Session, session)
-
-    #     return JsonResponse(base_dao.get_changes_only(Session, initial_db(projId)))
-    with Comparator(projId) as comp:
-        diff = comp.database_differences()
-        data = diff
-        data.update(comp.database_conflicts())
-        # data.update({"changes_ordered": comp.build_order_graph()})
-        return JsonResponse(data)
 
 
 # def export(request, projId):
