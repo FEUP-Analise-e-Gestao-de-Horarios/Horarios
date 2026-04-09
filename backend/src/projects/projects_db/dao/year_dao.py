@@ -15,6 +15,8 @@ from src.projects.projects_db.schemas.year import YearStats
 
 
 class YearDAO(BaseDAO[Year]):
+    """Data access object for Year records."""
+
     def __init__(self, session: Session, *, flush_on_create: bool = True) -> None:
         super().__init__(Year, session, flush_on_create=flush_on_create)
 

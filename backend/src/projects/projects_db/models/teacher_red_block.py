@@ -10,6 +10,8 @@ from src.projects.projects_db.schemas.weekday import WeekDay
 
 
 class TeacherRedBlock(Base):
+    """A time slot marked as unavailable for a teacher."""
+
     __tablename__ = "teacher_red_blocks"
 
     # UUIDs

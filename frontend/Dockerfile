@@ -1,13 +1,10 @@
-FROM node:24-alpine
-
-WORKDIR /workspace
-
-COPY frontend/package*.json ./frontend/
-COPY frontend/.npmrc ./frontend/
-RUN cd frontend && npm ci
-
-COPY frontend/ ./frontend/
+FROM node:25-alpine
 
 WORKDIR /workspace/frontend
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
 EXPOSE 5173
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

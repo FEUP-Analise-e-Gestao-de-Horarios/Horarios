@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 
 
 class Room(Base):
+    """A physical space where sessions take place."""
+
     __tablename__ = "rooms"
 
     # UUIDs

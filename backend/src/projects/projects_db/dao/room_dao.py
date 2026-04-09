@@ -11,6 +11,8 @@ from src.projects.projects_db.schemas.room import RoomStats
 
 
 class RoomDAO(BaseDAO[Room]):
+    """Data access object for Room records."""
+
     def __init__(self, session: Session, flush_on_create: bool = True) -> None:
         super().__init__(Room, session, flush_on_create=flush_on_create)
 

@@ -12,6 +12,8 @@ if TYPE_CHECKING:
 
 
 class Year(Base):
+    """An academic year within a degree (e.g. 1st year of LEI)."""
+
     __tablename__ = "years"
     __table_args__ = (UniqueConstraint("degree_id", "number"),)
 

@@ -1,7 +1,7 @@
 # Production: builds frontend then serves everything from the Django/Daphne backend.
 
 # ── Stage 1: Build frontend ───────────────────────────────────────────────────
-FROM node:24-alpine AS frontend-builder
+FROM node:25-alpine AS frontend-builder
 
 WORKDIR /workspace
 
@@ -15,28 +15,27 @@ RUN cd frontend && npm run build
 # ── Stage 2: Production backend ───────────────────────────────────────────────
 FROM python:3.14-slim
 
-WORKDIR /workspace
+COPY --from=ghcr.io/astral-sh/uv:0.11.3 /uv /uvx /bin/
 
-RUN pip install --no-cache-dir pipenv
+WORKDIR /workspace/backend
 
-COPY backend/Pipfile backend/Pipfile.lock ./backend/
-RUN cd backend && pipenv install --system
-
-COPY backend/ ./backend/
+COPY backend/pyproject.toml backend/uv.lock ./
+RUN uv sync --frozen --no-dev --no-editable --no-install-project
 
 RUN mkdir -p /workspace/databases/projects
 
-# Inject the built frontend assets
-COPY --from=frontend-builder /workspace/frontend/dist \
-     ./backend/src/static/frontend
+COPY backend/ ./
 
-WORKDIR /workspace/backend
+# Inject the built frontend assets
+COPY --from=frontend-builder /workspace/frontend/dist ./src/static/frontend
+
 
 # Pre-collect static files into STATIC_ROOT so WhiteNoise can serve them
 RUN DJANGO_SETTINGS_MODULE=src.config.settings.prod \
     SECRET_KEY=placeholder-for-collectstatic \
-    python manage.py collectstatic --noinput
+    uv run manage.py collectstatic --noinput
 
 EXPOSE 8000
+
 ENTRYPOINT ["/workspace/backend/entrypoint.sh"]
-CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "src.config.asgi:application"]
+CMD ["uv", "run", "daphne", "-b", "0.0.0.0", "-p", "8000", "src.config.asgi:application"]

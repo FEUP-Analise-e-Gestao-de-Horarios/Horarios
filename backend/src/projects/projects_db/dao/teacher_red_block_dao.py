@@ -9,6 +9,8 @@ from src.projects.projects_db.schemas.weekday import WeekDay
 
 
 class TeacherRedBlockDAO(BaseDAO[TeacherRedBlock]):
+    """Data access object for TeacherRedBlock (teacher unavailability) records."""
+
     def __init__(self, session: Session, *, flush_on_create: bool = True) -> None:
         super().__init__(TeacherRedBlock, session, flush_on_create=flush_on_create)
 

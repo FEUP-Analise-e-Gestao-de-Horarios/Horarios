@@ -28,6 +28,8 @@ logger = logging.getLogger(__name__)
 
 
 class ProjectsView(View):
+    """API endpoint: list all projects (GET) or create a new project (POST)."""
+
     def get(self, request: HttpRequest) -> HttpResponse:
         # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:
@@ -100,6 +102,8 @@ class ProjectsView(View):
 
 
 class ProjectView(View):
+    """API endpoint: retrieve (GET), rename (PATCH), or delete (DELETE) a single project."""
+
     def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
         # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:

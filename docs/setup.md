@@ -38,10 +38,10 @@ pyenv install 3.14
 pyenv local 3.14   # pins the version for this directory
 ```
 
-### pipenv
+### uv
 
 ```sh
-pip install pipenv
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 ### Node.js 24
@@ -59,10 +59,10 @@ nvm use 24
 
 ### pre-commit
 
-Git hooks are managed by [pre-commit](https://pre-commit.com). It is installed as a backend dev dependency, but you can also install it globally:
+Git hooks are managed by [pre-commit](https://pre-commit.com). It is installed as a backend dev dependency via uv, but you can also install it globally:
 
 ```sh
-pip install pre-commit
+uv tool install pre-commit
 ```
 
 ### Run local setup
@@ -75,9 +75,9 @@ make local-setup
 
 This will:
 
-- Install backend dependencies (`pipenv install --dev`)
+- Install backend dependencies (`uv sync`)
 - Install frontend dependencies (`npm install`)
-- Install the git pre-commit hooks (`pre-commit install`)
+- Install the git pre-commit hooks (`uv run pre-commit install`)
 
 ---
 
@@ -112,12 +112,9 @@ Requires the local tools from step 3 to be installed.
 
 ```sh
 cd backend
-pipenv shell           # activate the virtual env
-python manage.py migrate
-python manage.py runserver
+uv run python manage.py migrate
+uv run python manage.py runserver
 ```
-
-To exit the virtual env: `exit`
 
 **Frontend** — in a separate terminal:
 

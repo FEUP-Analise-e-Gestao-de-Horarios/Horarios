@@ -21,6 +21,8 @@ from src.projects.views.schemas.teachers import (
 
 
 class ProjectTeachersView(View):
+    """API endpoint: list all teachers with stats for a project."""
+
     def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
         # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:
@@ -46,6 +48,8 @@ class ProjectTeachersView(View):
 
 
 class ProjectTeacherView(View):
+    """API endpoint: retrieve a single teacher with subjects, classes, and sessions."""
+
     def get(self, request: HttpRequest, project_id: int, teacher_id: UUID) -> HttpResponse:
         # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:

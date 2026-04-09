@@ -19,6 +19,8 @@ from src.projects.projects_db.schemas.subject import SubjectStats
 
 
 class SubjectDAO(BaseDAO[Subject]):
+    """Data access object for Subject records."""
+
     def __init__(self, session: DBSession, flush_on_create: bool = True) -> None:
         super().__init__(Subject, session, flush_on_create=flush_on_create)
 
@@ -46,6 +48,7 @@ class SubjectDAO(BaseDAO[Subject]):
     # -------------------------------------------------------------------
 
     def get(self, subject_id: UUID) -> Subject | None:
+        """Retrieve a single subject by its primary key."""
         return self.session.scalars(select(Subject).where(Subject.id == subject_id)).one_or_none()
 
     def get_by_number(self, number: int) -> Subject | None:
@@ -168,6 +171,7 @@ class SubjectDAO(BaseDAO[Subject]):
     # -------------------------------------------------------------------
 
     def get_classes(self, subject_id: UUID) -> list[Class]:
+        """Return distinct classes associated with the given subject."""
         return list(
             self.session.scalars(
                 select(Class)
@@ -178,6 +182,7 @@ class SubjectDAO(BaseDAO[Subject]):
         )
 
     def get_sessions(self, subject_id: UUID) -> list[Session]:
+        """Return distinct sessions for the given subject."""
         return list(
             self.session.scalars(
                 select(Session)

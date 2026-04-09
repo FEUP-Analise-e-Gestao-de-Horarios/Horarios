@@ -18,6 +18,8 @@ from src.projects.projects_db.schemas.class_ import ClassStats
 
 
 class ClassDAO(BaseDAO[Class]):
+    """Data access object for Class records."""
+
     def __init__(self, session: DBSession, *, flush_on_create: bool = True) -> None:
         super().__init__(Class, session, flush_on_create=flush_on_create)
 
@@ -43,6 +45,7 @@ class ClassDAO(BaseDAO[Class]):
     # -------------------------------------------------------------------
 
     def get(self, class_id: UUID) -> Class | None:
+        """Retrieve a single class by its primary key."""
         return self.session.scalars(
             select(Class).where(Class.id == class_id),
         ).one_or_none()
@@ -154,6 +157,7 @@ class ClassDAO(BaseDAO[Class]):
     # -------------------------------------------------------------------
 
     def get_subjects(self, class_id: UUID) -> list[Subject]:
+        """Return distinct subjects associated with the given class."""
         return list(
             self.session.scalars(
                 select(Subject)
@@ -164,6 +168,7 @@ class ClassDAO(BaseDAO[Class]):
         )
 
     def get_sessions(self, class_id: UUID) -> list[Session]:
+        """Return distinct sessions that the given class participates in."""
         return list(
             self.session.scalars(
                 select(Session)

@@ -12,6 +12,8 @@ from src.projects.projects_db.schemas.stats import ProjectOverviewStats
 
 
 class StatsDAO:
+    """Read-only DAO for aggregated project statistics."""
+
     def __init__(self, session: Session) -> None:
         """Initialize the stats DAO.
 
