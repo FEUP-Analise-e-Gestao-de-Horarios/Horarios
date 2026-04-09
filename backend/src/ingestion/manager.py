@@ -453,35 +453,21 @@ class IngestionManager:
         ``candidate_group_id`` is renumbered to a contiguous ``1..N`` range.
         """
         detection_sql = text("""
-            WITH first_sessions AS (
-                SELECT *
-                FROM sessions s
-                WHERE s.week = (
-                    SELECT MIN(week)
-                    FROM sessions
-                    WHERE original_block_id = s.original_block_id
-                )
-            ),
-            session_subjects AS (
+            WITH session_subjects AS (
                 SELECT DISTINCT
-                    fs.id AS session_id,
-                    fs.original_block_id AS original_block_id,
-                    fs.week AS week,
-                    fs.weekday AS weekday,
-                    fs.start_time AS start_time,
-                    scs.subject_id AS subject_id
-                FROM first_sessions fs
-                JOIN sessions_classes_subject scs ON scs.session_id = fs.id
+                    s.original_block_id,
+                    MIN(s.week) OVER (PARTITION BY s.original_block_id) AS first_week,
+                    s.weekday,
+                    s.start_time,
+                    scs.subject_id
+                FROM sessions s
+                JOIN sessions_classes_subject scs ON scs.session_id = s.id
             ),
             session_groups AS (
                 SELECT
                     original_block_id,
-                    DENSE_RANK() OVER (
-                        ORDER BY week, weekday, start_time, subject_id
-                    ) AS group_id,
-                    COUNT(*) OVER (
-                        PARTITION BY week, weekday, start_time, subject_id
-                    ) AS group_size
+                    DENSE_RANK() OVER (ORDER BY first_week, weekday, start_time, subject_id) AS group_id,
+                    COUNT(*) OVER (PARTITION BY first_week, weekday, start_time, subject_id) AS group_size
                 FROM session_subjects
             )
             SELECT DISTINCT group_id, original_block_id
