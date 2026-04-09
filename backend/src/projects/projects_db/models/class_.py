@@ -23,6 +23,7 @@ class Class(Base):
     # Data
     code: Mapped[str] = mapped_column(Text, unique=True, index=True)
     shift: Mapped[int] = mapped_column()
+    parallel_group: Mapped[UUID | None] = mapped_column(Uuid(native_uuid=False), nullable=True)
 
     # Relationships
     year: Mapped[Year] = relationship(back_populates="classes")
