@@ -18,12 +18,7 @@ export default function CursoDropdown({ value, onSelect, open, onToggle }: Curso
           e.stopPropagation();
           onToggle();
         }}
-        className={[
-          "bg-[#1e2028] rounded px-3.5 py-2 text-sm whitespace-nowrap text-left border cursor-pointer transition-colors",
-          value === ""
-            ? "text-red-400 border-red-900"
-            : "text-white border-gray-600 hover:border-gray-400",
-        ].join(" ")}
+        className="bg-[#1e2028] rounded px-3.5 py-2 text-sm whitespace-nowrap text-left border border-red-900 text-red-400 cursor-pointer transition-colors hover:border-red-700"
       >
         {value === "" ? "Curso" : value}
       </button>

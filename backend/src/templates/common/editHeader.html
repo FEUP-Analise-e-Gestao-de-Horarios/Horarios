@@ -117,7 +117,7 @@
               <div class="salasDropDown">
                 <select name="" multiple>
                   {% for sala in salasList %}
-                  <option value={{sala.numero}}> {{sala.numero}} </option>
+                  <option value={{sala.numero}} data-tipo="{{ sala.tipo|default_if_none:'' }}"> {{sala.numero}}{% if sala.tipo %} - {{sala.tipo}}{% endif %} </option>
                   {% endfor %}
                 </select>
               </div>

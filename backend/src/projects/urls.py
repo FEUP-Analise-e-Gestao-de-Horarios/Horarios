@@ -41,10 +41,10 @@ room_patterns = [
 
 project_patterns = [
     path("", ProjectView.as_view()),
-    path("/stats", ProjectStatsView.as_view()),
-    path("/rooms/", include(room_patterns)),
-    path("/teachers/", include(teacher_patterns)),
-    path("/degrees/", include(degree_patterns)),
+    path("stats", ProjectStatsView.as_view()),
+    path("rooms/", include(room_patterns)),
+    path("teachers/", include(teacher_patterns)),
+    path("degrees/", include(degree_patterns)),
 ]
 
 urlpatterns = [

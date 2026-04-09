@@ -10,6 +10,7 @@ interface MultiDropdownProps {
   onToggle: () => void;
   required?: boolean;
   disabled?: boolean;
+  showLabel?: boolean;
 }
 
 export default function MultiDropdown({
@@ -21,6 +22,7 @@ export default function MultiDropdown({
   onToggle,
   required,
   disabled,
+  showLabel,
 }: MultiDropdownProps) {
   const isEmpty = required && selected.length === 0;
 
@@ -28,16 +30,14 @@ export default function MultiDropdown({
     onSelect(selected.includes(item) ? selected.filter((x) => x !== item) : [...selected, item]);
   }
 
-  function toggleAll() {
-    onSelect(selected.length === options.length ? [] : [...options]);
-  }
-
   const triggerLabel =
     selected.length === 0
       ? label
-      : selected.length === 1
-        ? selected[0]
-        : `${selected.length} selecionados`;
+      : showLabel
+        ? `${label} (${selected.length})`
+        : selected.length === 1
+          ? selected[0]
+          : `${selected.length} selecionados`;
 
   return (
     <div className="relative">
@@ -60,16 +60,6 @@ export default function MultiDropdown({
 
       {open && !disabled && (
         <div className={DROPDOWN_CLASSES}>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleAll();
-            }}
-            className="w-full px-3 py-2 text-[13px] cursor-pointer text-amber-400 border-b border-gray-600 bg-transparent flex items-center gap-2 text-left hover:bg-white/5 transition-colors"
-          >
-            <span>{selected.length === options.length ? "☑" : "☐"}</span>
-            Selecionar todos
-          </button>
           {options.map((opt) => (
             <button
               key={opt}
@@ -79,12 +69,12 @@ export default function MultiDropdown({
               }}
               className={[
                 "w-full px-3 py-2 text-[13px] cursor-pointer flex items-center gap-2 text-left border-none hover:bg-white/5 transition-colors",
-                selected.includes(opt)
-                  ? "text-amber-400 bg-amber-400/10"
-                  : "text-white bg-transparent",
+                selected.includes(opt) ? "text-white bg-red-400/10" : "text-white bg-transparent",
               ].join(" ")}
             >
-              <span>{selected.includes(opt) ? "☑" : "☐"}</span>
+              <span className={selected.includes(opt) ? "text-red-400" : "text-white"}>
+                {selected.includes(opt) ? "☑" : "☐"}
+              </span>
               {opt}
             </button>
           ))}

@@ -16,6 +16,6 @@ export const router = createBrowserRouter([
   { path: ROUTES.FORGOT_PASSWORD, element: <ForgotPasswordPage /> },
   { path: ROUTES.CHANGE_PASSWORD, element: <ChangePasswordPage />, loader: requireAuth },
 
-  { path: ROUTES.SCHEDULE, element: <SchedulePage />, loader: requireAuth },
+  { path: ROUTES.SCHEDULE, element: <SchedulePage /> },
   { path: ROUTES.DASHBOARD, element: <DashboardPage />, loader: requireAuth },
 ]);
