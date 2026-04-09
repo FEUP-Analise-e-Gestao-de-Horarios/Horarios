@@ -1,15 +1,20 @@
 import logging
+import uuid
 from uuid import UUID
 
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views import View
+from pydantic import ValidationError
 
 from src.core.errors import (
+    ApiError,
+    ErrorResponse,
     NotAuthenticatedResponse,
     ProjectNotFoundResponse,
 )
 from src.core.schemas import SuccessResponse
 from src.projects.models import Project
+from src.projects.projects_db.dao.class_dao import ClassDAO
 from src.projects.projects_db.dao.degree_dao import DegreeDAO
 from src.projects.projects_db.dao.session_class_subject_dao import SessionClassSubjectDAO
 from src.projects.projects_db.dao.session_dao import SessionDAO
@@ -20,6 +25,7 @@ from src.projects.projects_db.registry import get_session as get_project_session
 from src.projects.views.schemas.parallel_classes import (
     DegreeListResponse,
     DegreeResponse,
+    ParallelGroupRequest,
     SessionListResponse,
     SessionResponse,
     SubjectListResponse,
@@ -172,65 +178,46 @@ class ProjectsParallelSessionListView(View):
             )
 
 
-# @csrf_exempt
-# def guardar_aulas_em_paralelo(request: HttpRequest) -> JsonResponse:
-#    if not request.user.is_authenticated:
-#        return JsonResponse({"error": "User is not authenticated"}, status=401)
-#
-#    project_id_raw = request.GET.get("id")
-#    if project_id_raw is None:
-#        return JsonResponse({"error": "Invalid project ID"}, status=400)
-#    try:
-#        project_id = int(project_id_raw)
-#    except ValueError:
-#        return JsonResponse({"error": "Invalid project ID"}, status=400)
-#
-#    try:
-#        project = Project.objects.get(id=project_id)
-#    except Project.DoesNotExist:
-#        return JsonResponse({"error": "Project not found"}, status=404)
-#
-#    person = request.user
-#    user_groups = set(person.member_groups.values_list("id", flat=True))
-#    project_groups = set(project.group.values_list("id", flat=True))
-#
-#    if not (
-#        project.creator == person
-#        or request.user.is_staff
-#        or project.people.filter(pk=person.pk).exists()
-#        or bool(user_groups & project_groups)
-#    ):
-#        return JsonResponse({"error": "Forbidden"}, status=403)
-#
-#    try:
-#        validated, err = validate_request_body(AulasSimultaneasInput, request.body)
-#        if err:
-#            return err
-#        assert validated is not None
-#
-#        db_path = Path(settings.PROJECTS_DB_PATH) / str(project_id) / "general_database.db"
-#
-#        with sqlite3.connect(db_path, timeout=10) as conn:
-#            conn.row_factory = sqlite3.Row
-#            cursor = conn.cursor()
-#            cursor.execute("DELETE FROM turmasSimultaneas")
-#            for par in validated.pares:
-#                cursor.execute(
-#                    """
-#                    INSERT INTO turmasSimultaneas (aula1, aula2, turma1, turma2)
-#                    VALUES (?, ?, ?, ?)
-#                    """,
-#                    (par.aula1, par.aula2, par.turma1, par.turma2),
-#                )
-#            conn.commit()
-#
-#            inconsistentes = check_parallel_classes(cursor, validated.pares)
-#
-#            project.has_selected_aulas_em_paralelo = True
-#            project.save()
-#
-#            return JsonResponse({"status": "ok", "inconsistentes": inconsistentes})
-#
-#    except Exception as e:
-#        return JsonResponse({"status": "erro", "message": str(e)}, status=500)
-#
+class ProjectsParallelGroupView(View):
+    def post(self, request: HttpRequest, project_id: int) -> HttpResponse:
+        if not request.user.is_authenticated:
+            return NotAuthenticatedResponse()
+
+        try:
+            project = Project.objects.get(pk=project_id)
+        except Project.DoesNotExist:
+            return ProjectNotFoundResponse()
+
+        try:
+            payload = ParallelGroupRequest.model_validate_json(request.body)
+
+            print(f"Payload: {payload}")
+            with get_project_session(general_db(project_id)) as db_session:
+                classDAO = ClassDAO(db_session)
+                for group in payload.groups:
+                    group_class_uuid = uuid.uuid7()  # generate a new uuid for the parallel group
+                    for class_id in group.classes:
+                        result = classDAO.update_parallel_group(class_id, group_class_uuid)
+                        print(f"Updated class {class_id} -> {result.parallel_group}")
+
+                db_session.commit()
+
+        except ValidationError as e:
+            errors = e.errors(include_input=False, include_url=False)
+            message = "; ".join(
+                f"{'.'.join(str(location) for location in err['loc'])}: {err['msg']}"
+                if err.get("loc")
+                else err["msg"]
+                for err in errors
+            )
+            return ErrorResponse(status=400, code=ApiError.INVALID_BODY, message=message)
+
+        project.has_selected_aulas_em_paralelo = True
+        project.save()
+
+        return JsonResponse(
+            SuccessResponse(
+                message="Groups assigned to parallel classes successfully",
+                data={"assigned": payload.count},
+            ).model_dump(),
+        )

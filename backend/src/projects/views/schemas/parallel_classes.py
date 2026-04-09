@@ -72,3 +72,12 @@ class SessionResponse(BaseModel):
 class SessionListResponse(BaseModel):
     count: int
     sessions: list[SessionResponse]
+
+
+class ParallelGroup(BaseModel):
+    classes: list[UUID]
+
+
+class ParallelGroupRequest(BaseModel):
+    count: int
+    groups: list[ParallelGroup]
