@@ -1072,13 +1072,7 @@ def swap_teachers(request, projId):
     try:
         # Parse request data with validation
         try:
-            data = json.loads(request.body)  # with Comparator(projId) as comp:
-            #     modifs = comp.database_differences()
-
-            #     return JsonResponse(
-            #         modifs,
-            #     )
-
+            data = json.loads(request.body)
             aula1 = data.get("aula1", {})
             aula2 = data.get("aula2", {})
             teacher1 = data.get("teacher1")
@@ -2140,44 +2134,44 @@ def getConflicts(request, projId):
     )
 
 
-# def export(request, projId):
-#     global validator
-#     if not request.user.is_authenticated:
-#         return redirect("login")
+def export(request, projId):
+    global validator
+    if not request.user.is_authenticated:
+        return redirect("login")
 
-#     projetos = getProjetosListAux(request, request.user.pk)
-#     projeto = Project.objects.values_list().get(id=projId)
+    projetos = getProjetosListAux(request, request.user.pk)
+    projeto = Project.objects.values_list().get(id=projId)
 
-#     manager = organize_changes(projId, "initial", validator)
-#     validator = True  # Reset validator for next use
-#     # Get the list of (node, counter) tuples
-#     node_counter_dict = manager.get_all_nodes_with_counter()
-#     for node_id in node_counter_dict:
-#         node = manager.get_node(node_id)
-#         if node.dependency_ids and node.conflict_ids != []:
-#             tmp = []
-#             for conflict in node.dependency_ids:
-#                 conflict_node = manager.get_node_by_aula_id(conflict)
-#                 if conflict_node is not None:
-#                     print(f"Conflict_id -> {conflict_node.id}")
-#                     tmp.append(node_counter_dict[conflict_node.id])
-#             node.dependencies = tmp
-#     # Count unsolved conflicts
-#     unsolved_conflicts = 0
-#     for uc in manager.ucs:
-#         unsolved_conflicts += len(manager.ucs[uc].unsolved_nodes)
-#     print(f"Unsolved conflicts: {unsolved_conflicts}")
-#     return render(
-#         request,
-#         "export/page.html",
-#         {
-#             "projetos": projetos,
-#             "projeto": projeto[2],  # obter nome do projeto
-#             "manager": manager,
-#             "ucs": manager.ucs,
-#             "ucs_ordered": manager.ordered_list,
-#             "projId": projId,
-#             "is_edit_turnos": False,
-#             "node_counter_list": node_counter_dict,  # <-- Add this line
-#         },
-#     )
+    manager = organize_changes(projId, "initial", validator)
+    validator = True  # Reset validator for next use
+    # Get the list of (node, counter) tuples
+    node_counter_dict = manager.get_all_nodes_with_counter()
+    for node_id in node_counter_dict:
+        node = manager.get_node(node_id)
+        if node.dependency_ids and node.conflict_ids != []:
+            tmp = []
+            for conflict in node.dependency_ids:
+                conflict_node = manager.get_node_by_aula_id(conflict)
+                if conflict_node is not None:
+                    print(f"Conflict_id -> {conflict_node.id}")
+                    tmp.append(node_counter_dict[conflict_node.id])
+            node.dependencies = tmp
+    # Count unsolved conflicts
+    unsolved_conflicts = 0
+    for uc in manager.ucs:
+        unsolved_conflicts += len(manager.ucs[uc].unsolved_nodes)
+    print(f"Unsolved conflicts: {unsolved_conflicts}")
+    return render(
+        request,
+        "export/page.html",
+        {
+            "projetos": projetos,
+            "projeto": projeto[2],  # obter nome do projeto
+            "manager": manager,
+            "ucs": manager.ucs,
+            "ucs_ordered": manager.ordered_list,
+            "projId": projId,
+            "is_edit_turnos": False,
+            "node_counter_list": node_counter_dict,  # <-- Add this line
+        },
+    )
