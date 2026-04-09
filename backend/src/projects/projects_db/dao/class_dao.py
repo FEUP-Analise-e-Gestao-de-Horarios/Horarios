@@ -177,3 +177,25 @@ class ClassDAO(BaseDAO[Class]):
                 .distinct(),
             ).all(),
         )
+
+    # -------------------------------------------------------------------
+    # -- Update Parallel Group
+    # -------------------------------------------------------------------
+
+    def update_parallel_group(self, class_id: UUID, parallel_group: UUID) -> Class:
+        """Update the parallel group of a class.
+
+        Args:
+            class_id: UUID of the class to update.
+            parallel_group: New parallel group to set.
+
+        Returns:
+            The updated Class instance, flushed to the session.
+        """
+        class_ = self.get(class_id)
+        if not class_:
+            raise MultipleNotFoundError("id", {class_id})
+
+        class_.parallel_group = parallel_group
+        self.session.flush()
+        return class_
