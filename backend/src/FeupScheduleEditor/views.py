@@ -2147,7 +2147,9 @@ def export(request, projId):
 
     #     return JsonResponse(base_dao.get_changes_only(Session, initial_db(projId)))
     with Comparator(projId) as comp:
-        return JsonResponse(comp.database_differences())
+        data = comp.database_differences()
+        data.update(comp.database_conflicts())
+        return JsonResponse(data)
 
 
 # def export(request, projId):
