@@ -1,7 +1,8 @@
+import { useEffect, useRef, useState } from "react";
 import { CURSOS } from "./data";
 
 const DROPDOWN_CLASSES =
-  "absolute top-[calc(100%+4px)] left-0 bg-[#1e2028] border border-gray-600 rounded z-[200] min-w-[180px] max-h-64 overflow-y-auto shadow-[0_4px_12px_rgba(0,0,0,0.4)]";
+  "absolute left-0 bg-[#1e2028] border border-gray-600 rounded z-[200] min-w-[180px] max-h-64 overflow-y-auto shadow-[0_4px_12px_rgba(0,0,0,0.4)]";
 
 interface CursoDropdownProps {
   value: string;
@@ -11,8 +12,34 @@ interface CursoDropdownProps {
 }
 
 export default function CursoDropdown({ value, onSelect, open, onToggle }: CursoDropdownProps) {
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [openUpward, setOpenUpward] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const updateDirection = () => {
+      const wrapper = wrapperRef.current;
+      const trigger = wrapper?.querySelector("button");
+      if (!wrapper || !trigger) return;
+
+      const rect = trigger.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      setOpenUpward(spaceBelow < 280 && spaceAbove > spaceBelow);
+    };
+
+    updateDirection();
+    window.addEventListener("resize", updateDirection);
+    window.addEventListener("scroll", updateDirection, true);
+    return () => {
+      window.removeEventListener("resize", updateDirection);
+      window.removeEventListener("scroll", updateDirection, true);
+    };
+  }, [open]);
+
   return (
-    <div className="relative">
+    <div ref={wrapperRef} className="relative">
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -29,7 +56,12 @@ export default function CursoDropdown({ value, onSelect, open, onToggle }: Curso
       </button>
 
       {open && (
-        <div className={DROPDOWN_CLASSES}>
+        <div
+          className={[
+            DROPDOWN_CLASSES,
+            openUpward ? "bottom-[calc(100%+4px)]" : "top-[calc(100%+4px)]",
+          ].join(" ")}
+        >
           {Object.entries(CURSOS).map(([group, items]) => (
             <div key={group}>
               <div className="px-3 py-1.5 text-[11px] text-gray-400 uppercase tracking-widest border-b border-gray-600">

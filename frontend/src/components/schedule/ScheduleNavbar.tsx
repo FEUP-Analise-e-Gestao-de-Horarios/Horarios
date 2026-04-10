@@ -13,16 +13,20 @@ interface ScheduleNavbarProps {
   setAnos: (v: string[]) => void;
   ucs: string[];
   setUcs: (v: string[]) => void;
+  turnos: string[];
+  setTurnos: (v: string[]) => void;
   turmas: string[];
   setTurmas: (v: string[]) => void;
   semanas: string[];
   setSemanas: (v: string[]) => void;
   ucOptions: string[];
+  turnoOptions: string[];
   turmaOptions: string[];
-  canShowSchedule: boolean;
+  onEditEventClick: () => void;
+  onViewConflicts: () => void;
 }
 
-type DropdownId = "curso" | "ano" | "uc" | "turma" | "semana";
+type DropdownId = "curso" | "ano" | "uc" | "turno" | "turma" | "semana";
 
 export default function ScheduleNavbar({
   projectId,
@@ -32,13 +36,17 @@ export default function ScheduleNavbar({
   setAnos,
   ucs,
   setUcs,
+  turnos,
+  setTurnos,
   turmas,
   setTurmas,
   semanas,
   setSemanas,
   ucOptions,
+  turnoOptions,
   turmaOptions,
-  canShowSchedule,
+  onEditEventClick,
+  onViewConflicts,
 }: ScheduleNavbarProps) {
   const navigate = useNavigate();
   const [openDropdown, setOpenDropdown] = useState<DropdownId | null>(null);
@@ -62,14 +70,16 @@ export default function ScheduleNavbar({
     setCurso(c);
     setAnos([]);
     setUcs([]);
+    setTurnos([]);
     setTurmas([]);
+    setSemanas([]);
     setOpenDropdown(null);
   }
 
   return (
     <header
       ref={navRef}
-      className="px-6 py-3 bg-[#1e2028] flex items-center gap-2 w-full flex-wrap border-b border-gray-700"
+      className="relative z-20 px-6 py-3 bg-[#1e2028] flex items-center gap-2 w-full flex-wrap overflow-visible border-b border-gray-700"
     >
       <button
         onClick={() => void navigate(ROUTES.HOME)}
@@ -77,20 +87,22 @@ export default function ScheduleNavbar({
       >
         Início
       </button>
+
+      <button className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors">
+        Exportar
+      </button>
+
+      <div className="w-px h-6 bg-gray-600 mx-1" />
+
       <button
         onClick={() => void navigate(ROUTES.DASHBOARD.replace(":projectId", projectId))}
         className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors"
       >
-        Dashboard
+        Dados
       </button>
-      <button className="bg-transparent text-red-400 font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-red-400 hover:bg-red-400/10 transition-colors">
-        ⚠ Ver Conflitos
-      </button>
+
       <button className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors">
-        Exportar
-      </button>
-      <button className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors">
-        Editar Aulas em Paralelo
+        Distribuição
       </button>
 
       <div className="w-px h-6 bg-gray-600 mx-1" />
@@ -109,10 +121,9 @@ export default function ScheduleNavbar({
         onSelect={setAnos}
         open={openDropdown === "ano"}
         onToggle={() => toggle("ano")}
-        required
+        disabled={!curso}
+        showLabel
       />
-
-      <div className="w-px h-6 bg-gray-600 mx-1" />
 
       <MultiDropdown
         label="Unidade Curricular"
@@ -121,7 +132,19 @@ export default function ScheduleNavbar({
         onSelect={setUcs}
         open={openDropdown === "uc"}
         onToggle={() => toggle("uc")}
-        disabled={!canShowSchedule}
+        disabled={!curso}
+        showLabel
+      />
+
+      <MultiDropdown
+        label="Turno"
+        options={turnoOptions}
+        selected={turnos}
+        onSelect={setTurnos}
+        open={openDropdown === "turno"}
+        onToggle={() => toggle("turno")}
+        disabled={!curso}
+        showLabel
       />
 
       <MultiDropdown
@@ -131,7 +154,8 @@ export default function ScheduleNavbar({
         onSelect={setTurmas}
         open={openDropdown === "turma"}
         onToggle={() => toggle("turma")}
-        disabled={!canShowSchedule}
+        disabled={!curso}
+        showLabel
       />
 
       <MultiDropdown
@@ -141,14 +165,28 @@ export default function ScheduleNavbar({
         onSelect={setSemanas}
         open={openDropdown === "semana"}
         onToggle={() => toggle("semana")}
-        disabled={!canShowSchedule}
+        disabled={!curso}
+        showLabel
       />
 
+      <div className="w-px h-6 bg-gray-600 mx-1" />
+
       <button className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors">
-        Distribuição
+        Editar Aulas em Paralelo
       </button>
-      <button className="ml-auto bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors">
-        ▶
+
+      <button
+        onClick={onEditEventClick}
+        className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors"
+      >
+        Editar Evento
+      </button>
+
+      <button
+        onClick={onViewConflicts}
+        className="bg-transparent text-red-400 font-medium px-3.5 py-2 rounded text-sm whitespace-nowrap border border-red-400 hover:bg-red-400/10 transition-colors"
+      >
+        Ver Conflitos
       </button>
     </header>
   );
