@@ -79,7 +79,7 @@ export default function ScheduleNavbar({
   return (
     <header
       ref={navRef}
-      className="px-6 py-3 bg-[#1e2028] flex items-center gap-2 w-full flex-wrap overflow-hidden border-b border-gray-700"
+      className="relative z-20 px-6 py-3 bg-[#1e2028] flex items-center gap-2 w-full flex-wrap overflow-visible border-b border-gray-700"
     >
       <button
         onClick={() => void navigate(ROUTES.HOME)}

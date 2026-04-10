@@ -1,5 +1,7 @@
+import { useEffect, useRef, useState } from "react";
+
 const DROPDOWN_CLASSES =
-  "absolute top-[calc(100%+4px)] left-0 bg-[#1e2028] border border-gray-600 rounded z-[200] min-w-[180px] max-h-64 overflow-y-auto shadow-[0_4px_12px_rgba(0,0,0,0.4)]";
+  "absolute left-0 bg-[#1e2028] border border-gray-600 rounded z-[200] min-w-[180px] max-h-64 overflow-y-auto shadow-[0_4px_12px_rgba(0,0,0,0.4)]";
 
 interface MultiDropdownProps {
   label: string;
@@ -25,6 +27,31 @@ export default function MultiDropdown({
   showLabel,
 }: MultiDropdownProps) {
   const isEmpty = required && selected.length === 0;
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [openUpward, setOpenUpward] = useState(false);
+
+  useEffect(() => {
+    if (!open || disabled) return;
+
+    const updateDirection = () => {
+      const wrapper = wrapperRef.current;
+      const trigger = wrapper?.querySelector("button");
+      if (!wrapper || !trigger) return;
+
+      const rect = trigger.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      setOpenUpward(spaceBelow < 280 && spaceAbove > spaceBelow);
+    };
+
+    updateDirection();
+    window.addEventListener("resize", updateDirection);
+    window.addEventListener("scroll", updateDirection, true);
+    return () => {
+      window.removeEventListener("resize", updateDirection);
+      window.removeEventListener("scroll", updateDirection, true);
+    };
+  }, [disabled, open]);
 
   function toggle(item: string) {
     onSelect(selected.includes(item) ? selected.filter((x) => x !== item) : [...selected, item]);
@@ -40,7 +67,7 @@ export default function MultiDropdown({
           : `${selected.length} selecionados`;
 
   return (
-    <div className="relative">
+    <div ref={wrapperRef} className="relative">
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -59,7 +86,12 @@ export default function MultiDropdown({
       </button>
 
       {open && !disabled && (
-        <div className={DROPDOWN_CLASSES}>
+        <div
+          className={[
+            DROPDOWN_CLASSES,
+            openUpward ? "bottom-[calc(100%+4px)]" : "top-[calc(100%+4px)]",
+          ].join(" ")}
+        >
           {options.map((opt) => (
             <button
               key={opt}

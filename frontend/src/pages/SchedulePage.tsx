@@ -92,8 +92,12 @@ export default function SchedulePage() {
 
   const effectiveTurnos = useMemo(
     () =>
-      turnos.length > 0 ? turnos.filter((turno) => turnoOptions.includes(turno)) : turnoOptions,
-    [turnoOptions, turnos],
+      curso
+        ? turnos.length > 0
+          ? turnos.filter((turno) => turnoOptions.includes(turno))
+          : turnoOptions
+        : [],
+    [curso, turnoOptions, turnos],
   );
 
   const turmaOptions = useMemo(() => {
@@ -124,6 +128,7 @@ export default function SchedulePage() {
   return (
     <div className="h-screen bg-[#f0eeeb] overflow-hidden flex flex-col">
       <ScheduleNavbar
+        key={`${isEditDrawerOpen}-${isConflictsDrawerOpen}`}
         projectId={projectId}
         curso={curso}
         setCurso={setCurso}
