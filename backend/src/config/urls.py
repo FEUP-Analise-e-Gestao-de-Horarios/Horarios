@@ -9,6 +9,8 @@ from django.urls import include, path
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.generic import TemplateView
 
+from src.projects.views.export import ProjectExportView
+
 # SPA (Single Page Application) for React
 spa_view = ensure_csrf_cookie(
     TemplateView.as_view(template_name="index.html"),
@@ -27,6 +29,7 @@ urlpatterns = [
     path("api/projects/", include("src.projects.urls")),
     path("api/auth/", include("src.login.urls")),
     path("admin/", admin.site.urls, name="admin"),  # TODO Check URL
+    path("export/<int:project_id>", ProjectExportView.as_view()),
 ]
 
 # TODO Check URLs bellow
@@ -50,7 +53,6 @@ urlpatterns = [
 # path("editturnos/<int:projId>/makechanges", views.makeChanges),
 # path("manageProjects/<int:projId>", views.manageProjects),
 # path("conflicts/<int:projId>/", views.getConflicts, name="conflicts_page"),
-# path("export/<int:projId>", views.export),
 # path("ucview/<int:projId>/<str:uc_codigo>", views.uc_view, name="uc_view"),
 # path("editturnos/<int:projId>/uc_changes/", views.uc_changes, name="uc_changes"),
 # path("editturnos/<int:projId>/swap_teachers/", views.swap_teachers, name="swap_teachers"),
