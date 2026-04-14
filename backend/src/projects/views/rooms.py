@@ -10,7 +10,7 @@ from src.core.errors import (
 )
 from src.core.schemas import SuccessResponse
 from src.projects.models import Project
-from src.projects.projects_db.dao import RoomDAO, RoomRedBlockDAO, SessionDAO
+from src.projects.projects_db.dao import RoomDAO, SessionDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
 from src.projects.views.schemas.rooms import (
@@ -74,14 +74,13 @@ class ProjectRoomView(View):
                     includes=list(SessionDAO.Include),
                 ),
             )
-            red_blocks = RoomRedBlockDAO(db_session).get_by_room(room_id)
 
             return JsonResponse(
                 SuccessResponse(
                     message="Room retrieved successfully",
                     data=RoomDetailResponse.model_validate_with_extras(
                         room,
-                        extras={"blocks": blocks, "red_blocks": red_blocks},
+                        extras={"blocks": blocks, "red_blocks": room.red_blocks},
                     ),
                 ).model_dump(),
             )

@@ -83,14 +83,6 @@ class ProjectSubjectView(View):
             if subject is None:
                 return SubjectNotFoundResponse()
 
-            year = YearDAO(db_session).get(subject.year_id)
-            if year is None:
-                return SubjectNotFoundResponse()
-
-            degree = DegreeDAO(db_session).get(year.degree_id)
-            if degree is None:
-                return SubjectNotFoundResponse()
-
             blocks = WeekBlockResponse.from_sessions(
                 SessionDAO(db_session).get_by_subject(
                     subject_id,
@@ -103,7 +95,11 @@ class ProjectSubjectView(View):
                     message="Subject retrieved successfully",
                     data=SubjectDetailResponse.model_validate_with_extras(
                         subject,
-                        extras={"year": year, "degree": degree, "blocks": blocks},
+                        extras={
+                            "year": subject.year,
+                            "degree": subject.year.degree,
+                            "blocks": blocks,
+                        },
                     ),
                 ).model_dump(),
             )

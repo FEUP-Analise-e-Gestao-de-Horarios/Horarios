@@ -83,14 +83,6 @@ class ProjectClassView(View):
             if class_ is None:
                 return ClassNotFoundResponse()
 
-            year = YearDAO(db_session).get(class_.year_id)
-            if year is None:
-                return ClassNotFoundResponse()
-
-            degree = DegreeDAO(db_session).get(year.degree_id)
-            if degree is None:
-                return ClassNotFoundResponse()
-
             blocks = WeekBlockResponse.from_sessions(
                 SessionDAO(db_session).get_by_class(
                     class_id,
@@ -103,7 +95,11 @@ class ProjectClassView(View):
                     message="Class retrieved successfully",
                     data=ClassDetailResponse.model_validate_with_extras(
                         class_,
-                        extras={"year": year, "degree": degree, "blocks": blocks},
+                        extras={
+                            "year": class_.year,
+                            "degree": class_.year.degree,
+                            "blocks": blocks,
+                        },
                     ),
                 ).model_dump(),
             )
