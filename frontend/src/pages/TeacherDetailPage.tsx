@@ -34,7 +34,13 @@ export default function TeacherDetailPage() {
               <div className="grid grid-cols-3 gap-3">
                 <StatCard label="UCs" value={data.subjects.length} />
                 <StatCard label="Turmas" value={data.classes.length} />
-                <StatCard label="Aulas" value={data.sessions.length} />
+                <StatCard
+                  label="Aulas"
+                  value={data.blocks.reduce(
+                    (sum, b) => sum + b.sessions.length * b.weeks.length,
+                    0,
+                  )}
+                />
               </div>
             </>
           )}

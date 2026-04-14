@@ -85,6 +85,15 @@ export interface SessionResponse extends SessionBase {
 }
 
 // ---------------------------------------------------------------------------
+// Week blocks (contiguous weeks with identical timetables)
+// ---------------------------------------------------------------------------
+
+export interface WeekBlockResponse {
+  weeks: string[];
+  sessions: SessionResponse[];
+}
+
+// ---------------------------------------------------------------------------
 // Listing (stats) responses
 // ---------------------------------------------------------------------------
 
@@ -113,11 +122,11 @@ export interface RoomStats extends RoomBase {
 export interface TeacherDetail extends TeacherBase {
   subjects: SubjectBase[];
   classes: ClassBase[];
-  sessions: SessionResponse[];
+  blocks: WeekBlockResponse[];
 }
 
 export interface RoomDetail extends RoomBase {
-  sessions: SessionResponse[];
+  blocks: WeekBlockResponse[];
   red_blocks: RedBlockBase[];
 }
 

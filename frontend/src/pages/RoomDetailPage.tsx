@@ -1,52 +1,16 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useProject, useProjectRoom } from "@/api/hooks/useDashboard";
 import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
 import SessionPopup from "@/components/dashboard/SessionPopup";
 import WeekGrid, { type WeekGridEvent, type WeekGridMark } from "@/components/dashboard/WeekGrid";
-import type { RedBlockBase, SessionResponse } from "@/types/dashboard";
-
-interface WeekBlock {
-  signature: string;
-  weeks: string[];
-  sessions: SessionResponse[];
-}
-
-function sessionsSignature(sessions: SessionResponse[]): string {
-  return sessions
-    .map((s) => `${s.weekday}|${s.start_time}|${s.duration}|${s.original_block_id}`)
-    .sort()
-    .join(";");
-}
-
-function groupIntoBlocks(sessions: SessionResponse[]): WeekBlock[] {
-  const byWeek = new Map<string, SessionResponse[]>();
-  for (const s of sessions) {
-    const arr = byWeek.get(s.week);
-    if (arr) arr.push(s);
-    else byWeek.set(s.week, [s]);
-  }
-  const sortedWeeks = [...byWeek.keys()].sort();
-
-  const blocks: WeekBlock[] = [];
-  for (const week of sortedWeeks) {
-    const weekSessions = byWeek.get(week) ?? [];
-    const signature = sessionsSignature(weekSessions);
-    const last = blocks[blocks.length - 1];
-    if (last && last.signature === signature) {
-      last.weeks.push(week);
-    } else {
-      blocks.push({ signature, weeks: [week], sessions: weekSessions });
-    }
-  }
-  return blocks;
-}
+import type { RedBlockBase, SessionResponse, WeekBlockResponse } from "@/types/dashboard";
 
 function formatShortDate(iso: string): string {
   return new Date(iso).toLocaleDateString("pt-PT", { day: "2-digit", month: "short" });
 }
 
-function formatBlockLabel(block: WeekBlock): string {
+function formatBlockLabel(block: WeekBlockResponse): string {
   const first = block.weeks[0];
   const last = block.weeks[block.weeks.length - 1];
   if (!first) return "—";
@@ -67,7 +31,7 @@ export default function RoomDetailPage() {
   const project = useProject(pid);
   const { data, isLoading, isError } = useProjectRoom(pid, rid);
 
-  const blocks = useMemo(() => (data ? groupIntoBlocks(data.sessions) : []), [data]);
+  const blocks: WeekBlockResponse[] = data?.blocks ?? [];
   const [selectedBlockIdx, setSelectedBlockIdx] = useState(0);
   const [selectedSession, setSelectedSession] = useState<SessionResponse | null>(null);
   const [prevRid, setPrevRid] = useState(rid);
@@ -79,6 +43,8 @@ export default function RoomDetailPage() {
 
   const activeBlock = blocks[selectedBlockIdx] ?? blocks[0] ?? null;
   const blockSessions: SessionResponse[] = activeBlock?.sessions ?? [];
+
+  const totalSessions = blocks.reduce((sum, b) => sum + b.sessions.length * b.weeks.length, 0);
 
   const events: WeekGridEvent[] = blockSessions.map((s) => ({
     id: s.id,
@@ -130,8 +96,7 @@ export default function RoomDetailPage() {
                 </div>
                 <div className="shrink-0 text-right text-sm text-[#6b6375]">
                   <div>
-                    <span className="font-semibold text-[#08060d]">{data.sessions.length}</span>{" "}
-                    aulas
+                    <span className="font-semibold text-[#08060d]">{totalSessions}</span> aulas
                   </div>
                   <div>
                     <span className="font-semibold text-[#08060d]">{data.red_blocks.length}</span>{" "}
@@ -150,7 +115,7 @@ export default function RoomDetailPage() {
                       const active = i === selectedBlockIdx;
                       return (
                         <button
-                          key={b.signature + i}
+                          key={b.weeks[0] ?? i}
                           type="button"
                           onClick={() => setSelectedBlockIdx(i)}
                           className={`text-sm rounded-md px-3 py-1 border transition-colors ${

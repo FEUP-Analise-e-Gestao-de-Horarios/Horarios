@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 
 from src.core.mixins import ValidateWithExtrasMixin
-from src.projects.views.schemas.sessions import SessionResponse
+from src.projects.views.schemas.sessions import WeekBlockResponse
 from src.projects.views.schemas.shared import ClassBase, SubjectBase, TeacherBase
 
 
@@ -19,4 +19,4 @@ class TeacherStatsResponse(TeacherBase):
 class TeacherDetailResponse(ValidateWithExtrasMixin, TeacherBase):
     subjects: list[SubjectBase]
     classes: list[ClassBase]
-    sessions: list[SessionResponse]
+    blocks: list[WeekBlockResponse]
