@@ -41,6 +41,8 @@ interface SessionPopupProps {
   projectId: string;
   currentRoomId?: string;
   currentTeacherId?: string;
+  currentSubjectId?: string;
+  currentClassId?: string;
   onClose: () => void;
 }
 
@@ -49,6 +51,8 @@ export default function SessionPopup({
   projectId,
   currentRoomId,
   currentTeacherId,
+  currentSubjectId,
+  currentClassId,
   onClose,
 }: SessionPopupProps) {
   useEffect(() => {
@@ -68,6 +72,18 @@ export default function SessionPopup({
     ? session.teachers.filter((t) => t.id !== currentTeacherId)
     : session.teachers;
   const teachersSectionTitle = currentTeacherId ? "Outros docentes" : "Docentes";
+
+  const subjectsToShow = currentSubjectId
+    ? session.subjects.filter((s) => s.id !== currentSubjectId)
+    : session.subjects;
+  const subjectsSectionTitle = currentSubjectId
+    ? "Outras unidades curriculares"
+    : "Unidades curriculares";
+
+  const classesToShow = currentClassId
+    ? session.classes.filter((c) => c.id !== currentClassId)
+    : session.classes;
+  const classesSectionTitle = currentClassId ? "Outras turmas" : "Turmas";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -104,37 +120,45 @@ export default function SessionPopup({
         </div>
 
         <div className="px-6 py-6 flex flex-col gap-7 text-sm">
-          <Section title="Unidades curriculares">
-            {session.subjects.length === 0 ? (
-              <EmptyRow />
-            ) : (
+          {subjectsToShow.length > 0 && (
+            <Section title={subjectsSectionTitle}>
               <ul className="flex flex-col gap-0.5">
-                {session.subjects.map((s) => (
-                  <li key={s.id} className="flex items-baseline justify-between gap-3">
-                    <span className="font-medium text-[#08060d] truncate">{s.name}</span>
-                    <span className="shrink-0 text-xs text-[#6b6375]">{s.code}</span>
+                {subjectsToShow.map((s) => (
+                  <li key={s.id}>
+                    <Link
+                      to={ROUTES.SUBJECT_DETAIL.replace(":projectId", projectId).replace(
+                        ":subjectId",
+                        s.id,
+                      )}
+                      className="flex items-baseline justify-between gap-3 -mx-2 px-2 py-0.5 rounded hover:bg-[#f9f7f4] transition-colors"
+                    >
+                      <span className="font-medium text-[#08060d] truncate">{s.name}</span>
+                      <span className="shrink-0 text-xs text-[#6b6375]">{s.code}</span>
+                    </Link>
                   </li>
                 ))}
               </ul>
-            )}
-          </Section>
+            </Section>
+          )}
 
-          <Section title="Turmas">
-            {session.classes.length === 0 ? (
-              <EmptyRow />
-            ) : (
+          {classesToShow.length > 0 && (
+            <Section title={classesSectionTitle}>
               <div className="flex flex-wrap gap-1.5">
-                {session.classes.map((c) => (
-                  <span
+                {classesToShow.map((c) => (
+                  <Link
                     key={c.id}
-                    className="inline-flex items-center rounded-md bg-[#f9f7f4] border border-[#e5e4e7] px-2 py-0.5 text-xs font-medium text-[#08060d]"
+                    to={ROUTES.CLASS_DETAIL.replace(":projectId", projectId).replace(
+                      ":classId",
+                      c.id,
+                    )}
+                    className="inline-flex items-center rounded-md bg-[#f9f7f4] border border-[#e5e4e7] px-2 py-0.5 text-xs font-medium text-[#08060d] hover:bg-[#f0eeeb] hover:border-[#d9d6db] transition-colors"
                   >
                     {c.code}
-                  </span>
+                  </Link>
                 ))}
               </div>
-            )}
-          </Section>
+            </Section>
+          )}
 
           {teachersToShow.length > 0 && (
             <Section title={teachersSectionTitle}>
@@ -190,8 +214,4 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       {children}
     </div>
   );
-}
-
-function EmptyRow() {
-  return <div className="text-xs text-[#6b6375] italic">—</div>;
 }

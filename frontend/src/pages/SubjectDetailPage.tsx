@@ -135,6 +135,7 @@ export default function SubjectDetailPage() {
         <SessionPopup
           session={selectedSession}
           projectId={pid}
+          currentSubjectId={sid}
           onClose={() => setSelectedSession(null)}
         />
       )}

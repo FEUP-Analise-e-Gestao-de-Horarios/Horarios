@@ -135,6 +135,7 @@ export default function ClassDetailPage() {
         <SessionPopup
           session={selectedSession}
           projectId={pid}
+          currentClassId={cid}
           onClose={() => setSelectedSession(null)}
         />
       )}
