@@ -2,12 +2,14 @@ from django.urls import include, path
 
 from src.projects.views import (
     ProjectClassesView,
+    ProjectClassView,
     ProjectDegreesView,
     ProjectDegreeView,
     ProjectRoomsView,
     ProjectRoomView,
     ProjectStatsView,
     ProjectSubjectsView,
+    ProjectSubjectView,
     ProjectsView,
     ProjectTeachersView,
     ProjectTeacherView,
@@ -39,12 +41,22 @@ room_patterns = [
     path("<uuid:room_id>", ProjectRoomView.as_view()),
 ]
 
+subject_patterns = [
+    path("<uuid:subject_id>", ProjectSubjectView.as_view()),
+]
+
+class_patterns = [
+    path("<uuid:class_id>", ProjectClassView.as_view()),
+]
+
 project_patterns = [
     path("", ProjectView.as_view()),
     path("/stats", ProjectStatsView.as_view()),
     path("/rooms/", include(room_patterns)),
     path("/teachers/", include(teacher_patterns)),
     path("/degrees/", include(degree_patterns)),
+    path("/subjects/", include(subject_patterns)),
+    path("/classes/", include(class_patterns)),
 ]
 
 urlpatterns = [

@@ -9,5 +9,7 @@ export const queryKeys = {
     teacher: (id: string, teacherId: string) => ["projects", id, "teachers", teacherId] as const,
     rooms: (id: string) => ["projects", id, "rooms"] as const,
     room: (id: string, roomId: string) => ["projects", id, "rooms", roomId] as const,
+    subject: (id: string, subjectId: string) => ["projects", id, "subjects", subjectId] as const,
+    class: (id: string, classId: string) => ["projects", id, "classes", classId] as const,
   },
 } as const;

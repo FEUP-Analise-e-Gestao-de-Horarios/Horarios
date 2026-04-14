@@ -38,6 +38,16 @@ urlpatterns = [
         spa_view,
         name="room-detail",
     ),
+    path(
+        "projects/<int:project_id>/dashboard/subjects/<uuid:subject_id>",
+        spa_view,
+        name="subject-detail",
+    ),
+    path(
+        "projects/<int:project_id>/dashboard/classes/<uuid:class_id>",
+        spa_view,
+        name="class-detail",
+    ),
     # API endpoints
     path("api/projects/", include("src.projects.urls")),
     path("api/auth/", include("src.login.urls")),

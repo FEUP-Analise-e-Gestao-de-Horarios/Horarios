@@ -144,6 +144,56 @@ class SessionDAO(BaseDAO[Session]):
             ).all(),
         )
 
+    def get_by_subject(
+        self,
+        subject_id: UUID,
+        includes: Iterable[Include] = (),
+    ) -> list[Session]:
+        """Return all sessions that teach the given subject.
+
+        Args:
+            subject_id: UUID of the subject to filter by.
+            includes: Relationships to eager-load on each returned Session.
+                Defaults to no eager loading.
+
+        Returns:
+            List of Session instances, in an unspecified order.
+        """
+        return list(
+            self.session.scalars(
+                select(Session)
+                .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
+                .where(SessionClassSubject.subject_id == subject_id)
+                .distinct()
+                .options(*self._load_options(includes)),
+            ).all(),
+        )
+
+    def get_by_class(
+        self,
+        class_id: UUID,
+        includes: Iterable[Include] = (),
+    ) -> list[Session]:
+        """Return all sessions attended by the given class.
+
+        Args:
+            class_id: UUID of the class to filter by.
+            includes: Relationships to eager-load on each returned Session.
+                Defaults to no eager loading.
+
+        Returns:
+            List of Session instances, in an unspecified order.
+        """
+        return list(
+            self.session.scalars(
+                select(Session)
+                .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
+                .where(SessionClassSubject.class_id == class_id)
+                .distinct()
+                .options(*self._load_options(includes)),
+            ).all(),
+        )
+
     def get_by_room(
         self,
         room_id: UUID,

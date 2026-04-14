@@ -147,6 +147,18 @@ export interface DegreeDetail extends DegreeBase {
   years: YearDetail[];
 }
 
+export interface SubjectDetail extends SubjectBase {
+  year: YearBase;
+  degree: DegreeBase;
+  blocks: WeekBlockResponse[];
+}
+
+export interface ClassDetail extends ClassBase {
+  year: YearBase;
+  degree: DegreeBase;
+  blocks: WeekBlockResponse[];
+}
+
 // ---------------------------------------------------------------------------
 // API envelopes
 // ---------------------------------------------------------------------------
@@ -177,4 +189,12 @@ export interface TeacherDetailApiResponse {
 
 export interface RoomDetailApiResponse {
   data: RoomDetail;
+}
+
+export interface SubjectDetailApiResponse {
+  data: SubjectDetail;
+}
+
+export interface ClassDetailApiResponse {
+  data: ClassDetail;
 }

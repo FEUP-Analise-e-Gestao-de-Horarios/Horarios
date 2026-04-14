@@ -3,6 +3,8 @@ import { api } from "@/api/client";
 import { queryKeys } from "@/api/queryKeys";
 import type { Project } from "@/types/project";
 import type {
+  ClassDetail,
+  ClassDetailApiResponse,
   DegreeDetail,
   DegreeDetailApiResponse,
   DegreesApiResponse,
@@ -13,6 +15,8 @@ import type {
   RoomsApiResponse,
   RoomStats,
   StatsApiResponse,
+  SubjectDetail,
+  SubjectDetailApiResponse,
   TeacherDetail,
   TeacherDetailApiResponse,
   TeachersApiResponse,
@@ -128,5 +132,31 @@ export function useProjectRoom(projectId: string, roomId: string) {
       return res.data;
     },
     enabled: !!projectId && !!roomId,
+  });
+}
+
+export function useProjectSubject(projectId: string, subjectId: string) {
+  return useQuery({
+    queryKey: queryKeys.projects.subject(projectId, subjectId),
+    queryFn: async (): Promise<SubjectDetail> => {
+      const res = await api.get<SubjectDetailApiResponse>(
+        `/api/projects/${projectId}/subjects/${subjectId}`,
+      );
+      return res.data;
+    },
+    enabled: !!projectId && !!subjectId,
+  });
+}
+
+export function useProjectClass(projectId: string, classId: string) {
+  return useQuery({
+    queryKey: queryKeys.projects.class(projectId, classId),
+    queryFn: async (): Promise<ClassDetail> => {
+      const res = await api.get<ClassDetailApiResponse>(
+        `/api/projects/${projectId}/classes/${classId}`,
+      );
+      return res.data;
+    },
+    enabled: !!projectId && !!classId,
   });
 }

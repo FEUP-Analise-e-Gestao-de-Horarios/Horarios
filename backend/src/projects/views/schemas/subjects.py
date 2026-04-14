@@ -1,5 +1,14 @@
 from pydantic import BaseModel
 
+from src.core.mixins import ValidateWithExtrasMixin
+from src.projects.views.schemas.sessions import WeekBlockResponse
+from src.projects.views.schemas.shared import (
+    ClassBase,
+    DegreeBase,
+    SubjectBase,
+    YearBase,
+)
+
 
 class SubjectStatsResponse(BaseModel):
     id: str
@@ -43,3 +52,15 @@ class ClassStatsResponse(BaseModel):
 class ProjectClassesResponse(BaseModel):
     classes: list[ClassStatsResponse]
     count: int
+
+
+class SubjectDetailResponse(ValidateWithExtrasMixin, SubjectBase):
+    year: YearBase
+    degree: DegreeBase
+    blocks: list[WeekBlockResponse]
+
+
+class ClassDetailResponse(ValidateWithExtrasMixin, ClassBase):
+    year: YearBase
+    degree: DegreeBase
+    blocks: list[WeekBlockResponse]
