@@ -18,6 +18,7 @@ from src.projects.views.schemas.rooms import (
     RoomDetailResponse,
     RoomStatsResponse,
 )
+from src.projects.views.schemas.shared import SessionResponse
 
 
 class ProjectRoomsView(View):
@@ -67,7 +68,9 @@ class ProjectRoomView(View):
             if room is None:
                 return RoomNotFoundResponse()
 
-            sessions = SessionDAO(db_session).get_by_room(room_id)
+            sessions = [
+                SessionResponse.from_session(s) for s in SessionDAO(db_session).get_by_room(room_id)
+            ]
             red_blocks = RoomRedBlockDAO(db_session).get_by_room(room_id)
 
             return JsonResponse(

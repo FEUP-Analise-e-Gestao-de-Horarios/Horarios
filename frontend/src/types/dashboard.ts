@@ -56,6 +56,34 @@ export interface ClassDetail {
 
 export type Weekday = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday";
 
+export interface TeacherRef {
+  id: string;
+  number: number;
+  acronym: string;
+  name: string;
+}
+
+export interface SubjectRef {
+  id: string;
+  year_id: string;
+  number: number;
+  code: string;
+  acronym: string;
+  name: string;
+}
+
+export interface ClassRef {
+  id: string;
+  year_id: string;
+  code: string;
+  shift: number;
+}
+
+export interface RoomRef {
+  id: string;
+  name: string;
+}
+
 export interface SessionDetail {
   id: string;
   original_block_id: string;
@@ -64,6 +92,10 @@ export interface SessionDetail {
   start_time: number;
   duration: number;
   type: string;
+  teachers: TeacherRef[];
+  subjects: SubjectRef[];
+  classes: ClassRef[];
+  rooms: RoomRef[];
 }
 
 export interface RedBlockDetail {

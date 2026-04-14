@@ -4,6 +4,7 @@ from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DBSession
+from sqlalchemy.orm import selectinload
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.models._secondary_tables import (
@@ -15,6 +16,16 @@ from src.projects.projects_db.models.session import Session
 from src.projects.projects_db.models.session_class_subject import SessionClassSubject
 from src.projects.projects_db.models.subject import Subject
 from src.projects.projects_db.schemas.weekday import WeekDay
+
+
+def _session_detail_load_options() -> tuple:
+    """Load options that eager-fetch a session's teachers, rooms, subjects and classes."""
+    return (
+        selectinload(Session.teachers),
+        selectinload(Session.rooms),
+        selectinload(Session.session_class_subjects).selectinload(SessionClassSubject.subject),
+        selectinload(Session.session_class_subjects).selectinload(SessionClassSubject.class_),
+    )
 
 
 class SessionDAO(BaseDAO[Session]):
@@ -86,36 +97,40 @@ class SessionDAO(BaseDAO[Session]):
         return self.session.scalars(select(Session).where(Session.id == session_id)).one_or_none()
 
     def get_by_teacher(self, teacher_id: UUID) -> list[Session]:
-        """Return all sessions taught by the given teacher.
+        """Return all sessions taught by the given teacher, with details eagerly loaded.
 
         Args:
             teacher_id: UUID of the teacher to filter by.
 
         Returns:
-            List of Session instances, in an unspecified order.
+            List of Session instances (with teachers, rooms, subjects and classes
+            eager-loaded), in an unspecified order.
         """
         return list(
             self.session.scalars(
                 select(Session)
                 .join(session_teachers, session_teachers.c.session_id == Session.id)
-                .where(session_teachers.c.teacher_id == teacher_id),
+                .where(session_teachers.c.teacher_id == teacher_id)
+                .options(*_session_detail_load_options()),
             ).all(),
         )
 
     def get_by_room(self, room_id: UUID) -> list[Session]:
-        """Return all sessions that take place in the given room.
+        """Return all sessions that take place in the given room, with details eagerly loaded.
 
         Args:
             room_id: UUID of the room to filter by.
 
         Returns:
-            List of Session instances, in an unspecified order.
+            List of Session instances (with teachers, rooms, subjects and classes
+            eager-loaded), in an unspecified order.
         """
         return list(
             self.session.scalars(
                 select(Session)
                 .join(session_rooms, session_rooms.c.session_id == Session.id)
-                .where(session_rooms.c.room_id == room_id),
+                .where(session_rooms.c.room_id == room_id)
+                .options(*_session_detail_load_options()),
             ).all(),
         )
 

@@ -2,26 +2,61 @@ import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useProject, useProjectRoom } from "@/api/hooks/useDashboard";
 import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
+import SessionPopup from "@/components/dashboard/SessionPopup";
 import WeekGrid, { type WeekGridEvent, type WeekGridMark } from "@/components/dashboard/WeekGrid";
 import type { RedBlockDetail, SessionDetail } from "@/types/dashboard";
 
-function formatWeek(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString("pt-PT", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+interface WeekBlock {
+  signature: string;
+  weeks: string[];
+  sessions: SessionDetail[];
 }
 
-function groupByWeek(sessions: SessionDetail[]): Map<string, SessionDetail[]> {
-  const map = new Map<string, SessionDetail[]>();
+function sessionsSignature(sessions: SessionDetail[]): string {
+  return sessions
+    .map((s) => `${s.weekday}|${s.start_time}|${s.duration}|${s.original_block_id}`)
+    .sort()
+    .join(";");
+}
+
+function groupIntoBlocks(sessions: SessionDetail[]): WeekBlock[] {
+  const byWeek = new Map<string, SessionDetail[]>();
   for (const s of sessions) {
-    const existing = map.get(s.week);
-    if (existing) existing.push(s);
-    else map.set(s.week, [s]);
+    const arr = byWeek.get(s.week);
+    if (arr) arr.push(s);
+    else byWeek.set(s.week, [s]);
   }
-  return new Map([...map.entries()].sort(([a], [b]) => a.localeCompare(b)));
+  const sortedWeeks = [...byWeek.keys()].sort();
+
+  const blocks: WeekBlock[] = [];
+  for (const week of sortedWeeks) {
+    const weekSessions = byWeek.get(week) ?? [];
+    const signature = sessionsSignature(weekSessions);
+    const last = blocks[blocks.length - 1];
+    if (last && last.signature === signature) {
+      last.weeks.push(week);
+    } else {
+      blocks.push({ signature, weeks: [week], sessions: weekSessions });
+    }
+  }
+  return blocks;
+}
+
+function formatShortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("pt-PT", { day: "2-digit", month: "short" });
+}
+
+function formatBlockLabel(block: WeekBlock): string {
+  const first = block.weeks[0];
+  const last = block.weeks[block.weeks.length - 1];
+  if (!first) return "—";
+  const count = block.weeks.length;
+  const range =
+    count === 1 || !last
+      ? formatShortDate(first)
+      : `${formatShortDate(first)} – ${formatShortDate(last)}`;
+  const weeksLabel = count === 1 ? "1 semana" : `${count} semanas`;
+  return `${range} · ${weeksLabel}`;
 }
 
 export default function RoomDetailPage() {
@@ -32,21 +67,29 @@ export default function RoomDetailPage() {
   const project = useProject(pid);
   const { data, isLoading, isError } = useProjectRoom(pid, rid);
 
-  const weeks = useMemo<Map<string, SessionDetail[]>>(
-    () => (data ? groupByWeek(data.sessions) : new Map<string, SessionDetail[]>()),
-    [data],
-  );
-  const weekKeys = useMemo(() => [...weeks.keys()], [weeks]);
-  const [selectedWeek, setSelectedWeek] = useState<string | null>(null);
+  const blocks = useMemo(() => (data ? groupIntoBlocks(data.sessions) : []), [data]);
+  const [selectedBlockIdx, setSelectedBlockIdx] = useState(0);
+  const [selectedSession, setSelectedSession] = useState<SessionDetail | null>(null);
+  const [prevRid, setPrevRid] = useState(rid);
+  if (rid !== prevRid) {
+    setPrevRid(rid);
+    setSelectedSession(null);
+    setSelectedBlockIdx(0);
+  }
 
-  const activeWeek = selectedWeek ?? weekKeys[0] ?? null;
-  const weekSessions: SessionDetail[] = activeWeek ? (weeks.get(activeWeek) ?? []) : [];
+  const activeBlock = blocks[selectedBlockIdx] ?? blocks[0] ?? null;
+  const blockSessions: SessionDetail[] = activeBlock?.sessions ?? [];
 
-  const events: WeekGridEvent[] = weekSessions.map((s) => ({
+  const events: WeekGridEvent[] = blockSessions.map((s) => ({
     id: s.id,
     weekday: s.weekday,
     startTime: s.start_time,
     duration: s.duration,
+    title: s.subjects.map((x) => x.acronym).join(", "),
+    body: [
+      s.teachers.map((t) => t.acronym).join(", "),
+      s.classes.map((c) => c.code).join(", "),
+    ].filter((line) => line.length > 0),
     type: s.type,
   }));
 
@@ -56,6 +99,11 @@ export default function RoomDetailPage() {
     weekday: rb.weekday,
     time: rb.hour,
   }));
+
+  const handleEventClick = (ev: WeekGridEvent) => {
+    const session = blockSessions.find((s) => s.id === ev.id);
+    if (session) setSelectedSession(session);
+  };
 
   return (
     <div className="h-screen flex flex-col bg-[#f0eeeb]">
@@ -92,25 +140,30 @@ export default function RoomDetailPage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
                 <h2 className="text-sm font-semibold uppercase tracking-wider text-[#08060d]">
                   Horário
                 </h2>
-                {weekKeys.length > 0 && (
-                  <label className="flex items-center gap-2">
-                    <span className="text-xs text-[#6b6375]">Semana</span>
-                    <select
-                      value={activeWeek ?? ""}
-                      onChange={(e) => setSelectedWeek(e.target.value)}
-                      className="text-sm bg-white border border-[#e5e4e7] rounded-md px-2 py-1 text-[#08060d] focus:outline-none focus:border-[#8c2d19]"
-                    >
-                      {weekKeys.map((w) => (
-                        <option key={w} value={w}>
-                          {formatWeek(w)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                {blocks.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {blocks.map((b, i) => {
+                      const active = i === selectedBlockIdx;
+                      return (
+                        <button
+                          key={b.signature + i}
+                          type="button"
+                          onClick={() => setSelectedBlockIdx(i)}
+                          className={`text-sm rounded-md px-3 py-1 border transition-colors ${
+                            active
+                              ? "bg-[#8c2d19] text-white border-[#8c2d19]"
+                              : "bg-white text-[#08060d] border-[#e5e4e7] hover:bg-[#f9f7f4]"
+                          }`}
+                        >
+                          {formatBlockLabel(b)}
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
 
@@ -118,6 +171,7 @@ export default function RoomDetailPage() {
                 <WeekGrid
                   events={events}
                   marks={marks}
+                  onEventClick={handleEventClick}
                   emptyMessage="Sem aulas nem blocos vermelhos para esta sala."
                 />
               </div>
@@ -125,6 +179,15 @@ export default function RoomDetailPage() {
           )}
         </div>
       </div>
+
+      {selectedSession && (
+        <SessionPopup
+          session={selectedSession}
+          projectId={pid}
+          currentRoomId={rid}
+          onClose={() => setSelectedSession(null)}
+        />
+      )}
     </div>
   );
 }

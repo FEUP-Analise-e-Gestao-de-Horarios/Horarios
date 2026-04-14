@@ -6,7 +6,7 @@ export interface WeekGridEvent {
   startTime: number;
   duration: number;
   title?: string;
-  subtitle?: string;
+  body?: string[];
   type?: string;
 }
 
@@ -214,7 +214,7 @@ export default function WeekGrid({
               key={`e-${ev.id}`}
               type="button"
               onClick={clickable ? () => onEventClick(ev) : undefined}
-              className={`m-[1px] px-1.5 py-1 rounded border text-left text-[11px] leading-tight overflow-hidden ${
+              className={`relative m-[1px] px-1.5 py-1 rounded border text-left text-[11px] leading-tight overflow-hidden ${
                 style.bg
               } ${style.border} ${style.text} ${
                 clickable ? "cursor-pointer hover:brightness-95 transition" : "cursor-default"
@@ -223,12 +223,22 @@ export default function WeekGrid({
                 gridColumn: col + 2,
                 gridRow: `${rowStart + 2} / span ${span}`,
               }}
-              title={ev.title ?? ev.subtitle}
+              title={ev.title}
               disabled={!clickable}
             >
-              {ev.title && <div className="font-semibold truncate">{ev.title}</div>}
-              {ev.subtitle && <div className="truncate opacity-80">{ev.subtitle}</div>}
-              {ev.type && <div className="mt-0.5 text-[10px] opacity-70 uppercase">{ev.type}</div>}
+              {ev.type && (
+                <div className="absolute top-1 right-1.5 text-[10px] opacity-70 uppercase leading-none">
+                  {ev.type}
+                </div>
+              )}
+              <div className="pr-6">
+                {ev.title && <div className="font-semibold truncate">{ev.title}</div>}
+                {ev.body?.map((line, i) => (
+                  <div key={i} className="truncate opacity-80">
+                    {line}
+                  </div>
+                ))}
+              </div>
             </button>
           );
         })}
