@@ -2,12 +2,18 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
+from src.projects.projects_db.dao.conflict_resource_dao import (
+    ConflictResourceColumn,
+    ConflictResourceDAO,
+    ConflictResourceJoin,
+    ConflictResourceSpec,
+)
 from src.projects.projects_db.dao.exceptions import MultipleNotFoundError
 from src.projects.projects_db.models._secondary_tables import session_teachers
 from src.projects.projects_db.models.session import Session as SessionModel
 from src.projects.projects_db.models.session_class_subject import SessionClassSubject
 from src.projects.projects_db.models.teacher import Teacher
-from src.projects.projects_db.schemas.teacher import TeacherStats
+from src.projects.projects_db.schemas.teacher import TeacherConflict, TeacherStats
 
 
 class TeacherDAO(BaseDAO[Teacher]):
@@ -71,7 +77,10 @@ class TeacherDAO(BaseDAO[Teacher]):
             .subquery()
         )
         sessions_sq = (
-            select(session_teachers.c.teacher_id, func.count(SessionModel.id).label("cnt"))
+            select(
+                session_teachers.c.teacher_id,
+                func.count(SessionModel.id).label("cnt"),
+            )
             .join(SessionModel, SessionModel.id == session_teachers.c.session_id)
             .group_by(session_teachers.c.teacher_id)
             .subquery()
@@ -94,7 +103,12 @@ class TeacherDAO(BaseDAO[Teacher]):
 
         return [TeacherStats.model_validate(row, from_attributes=True) for row in rows]
 
-    def get_by_numbers(self, numbers: set[int], *, check_count: bool = True) -> list[Teacher]:
+    def get_by_numbers(
+        self,
+        numbers: set[int],
+        *,
+        check_count: bool = True,
+    ) -> list[Teacher]:
         """Return teachers matching the given institutional numbers.
 
         Args:
@@ -112,7 +126,9 @@ class TeacherDAO(BaseDAO[Teacher]):
             return []
 
         teachers = list(
-            self.session.scalars(select(Teacher).where(Teacher.number.in_(numbers))).all(),
+            self.session.scalars(
+                select(Teacher).where(Teacher.number.in_(numbers)),
+            ).all(),
         )
         if check_count and len(numbers) != len(teachers):
             found = {t.number for t in teachers}
@@ -120,3 +136,38 @@ class TeacherDAO(BaseDAO[Teacher]):
             raise MultipleNotFoundError("number", missing)
 
         return teachers
+
+    def get_conflicting_slots(self) -> list[TeacherConflict]:
+        """Return room collisions for sessions sharing the same exact slot.
+
+        A conflict is defined using the same grouping semantics as the provided
+        SQL: same room, week, weekday, start time, and duration, with more than
+        one session assigned to that slot.
+
+        Returns:
+            A list of conflicting room slots, including every session ID that
+            participates in each collision.
+        """
+        rows = ConflictResourceDAO(self.session).get_conflicting_slots(
+            ConflictResourceSpec(
+                model=Teacher,
+                id_column=ConflictResourceColumn("teacher_id", Teacher.id),
+                identifying_columns=(
+                    ConflictResourceColumn("teacher_number", Teacher.number),
+                    ConflictResourceColumn("teacher_acronym", Teacher.acronym),
+                    ConflictResourceColumn("teacher_name", Teacher.name),
+                ),
+                joins=(
+                    ConflictResourceJoin(
+                        session_teachers,
+                        session_teachers.c.teacher_id == Teacher.id,
+                    ),
+                    ConflictResourceJoin(
+                        SessionModel,
+                        SessionModel.id == session_teachers.c.session_id,
+                    ),
+                ),
+            ),
+        )
+
+        return [TeacherConflict(**row) for row in rows]

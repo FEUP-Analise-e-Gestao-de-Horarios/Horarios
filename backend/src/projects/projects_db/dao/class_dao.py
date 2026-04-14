@@ -4,6 +4,12 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session as DBSession
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
+from src.projects.projects_db.dao.conflict_resource_dao import (
+    ConflictResourceColumn,
+    ConflictResourceDAO,
+    ConflictResourceJoin,
+    ConflictResourceSpec,
+)
 from src.projects.projects_db.dao.exceptions import MultipleNotFoundError
 from src.projects.projects_db.models import (
     Class,
@@ -14,7 +20,7 @@ from src.projects.projects_db.models import (
     Year,
 )
 from src.projects.projects_db.models._secondary_tables import session_teachers
-from src.projects.projects_db.schemas.class_ import ClassStats
+from src.projects.projects_db.schemas.class_ import ClassConflict, ClassStats
 
 
 class ClassDAO(BaseDAO[Class]):
@@ -177,3 +183,34 @@ class ClassDAO(BaseDAO[Class]):
                 .distinct(),
             ).all(),
         )
+
+    def get_conflicting_slots(self) -> list[ClassConflict]:
+        """Return room collisions for sessions sharing the same exact slot.
+
+        A conflict is defined using the same grouping semantics as the provided
+        SQL: same room, week, weekday, start time, and duration, with more than
+        one session assigned to that slot.
+
+        Returns:
+            A list of conflicting room slots, including every session ID that
+            participates in each collision.
+        """
+        rows = ConflictResourceDAO(self.session).get_conflicting_slots(
+            ConflictResourceSpec(
+                model=Class,
+                id_column=ConflictResourceColumn("class_id", Class.id),
+                identifying_columns=(ConflictResourceColumn("class_code", Class.code),),
+                joins=(
+                    ConflictResourceJoin(
+                        SessionClassSubject,
+                        SessionClassSubject.class_id == Class.id,
+                    ),
+                    ConflictResourceJoin(
+                        Session,
+                        Session.id == SessionClassSubject.session_id,
+                    ),
+                ),
+            ),
+        )
+
+        return [ClassConflict(**row) for row in rows]

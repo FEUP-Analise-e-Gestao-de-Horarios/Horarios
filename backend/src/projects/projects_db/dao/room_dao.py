@@ -2,12 +2,18 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
+from src.projects.projects_db.dao.conflict_resource_dao import (
+    ConflictResourceColumn,
+    ConflictResourceDAO,
+    ConflictResourceJoin,
+    ConflictResourceSpec,
+)
 from src.projects.projects_db.dao.exceptions import MultipleNotFoundError
 from src.projects.projects_db.models._secondary_tables import session_rooms
 from src.projects.projects_db.models.room import Room
 from src.projects.projects_db.models.room_red_block import RoomRedBlock
 from src.projects.projects_db.models.session import Session as SessionModel
-from src.projects.projects_db.schemas.room import RoomStats
+from src.projects.projects_db.schemas.room import RoomConflict, RoomStats
 
 
 class RoomDAO(BaseDAO[Room]):
@@ -81,6 +87,37 @@ class RoomDAO(BaseDAO[Room]):
         ).all()
 
         return [RoomStats.model_validate(row, from_attributes=True) for row in rows]
+
+    def get_conflicting_slots(self) -> list[RoomConflict]:
+        """Return room collisions for sessions sharing the same exact slot.
+
+        A conflict is defined using the same grouping semantics as the provided
+        SQL: same room, week, weekday, start time, and duration, with more than
+        one session assigned to that slot.
+
+        Returns:
+            A list of conflicting room slots, including every session ID that
+            participates in each collision.
+        """
+        rows = ConflictResourceDAO(self.session).get_conflicting_slots(
+            ConflictResourceSpec(
+                model=Room,
+                id_column=ConflictResourceColumn("room_id", Room.id),
+                identifying_columns=(ConflictResourceColumn("room_name", Room.name),),
+                joins=(
+                    ConflictResourceJoin(
+                        session_rooms,
+                        session_rooms.c.room_id == Room.id,
+                    ),
+                    ConflictResourceJoin(
+                        SessionModel,
+                        SessionModel.id == session_rooms.c.session_id,
+                    ),
+                ),
+            ),
+        )
+
+        return [RoomConflict(**row) for row in rows]
 
     def get_by_names(self, names: set[str], *, check_count: bool = True) -> list[Room]:
         """Return rooms matching the given names.
