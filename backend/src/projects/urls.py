@@ -51,12 +51,12 @@ class_patterns = [
 
 project_patterns = [
     path("", ProjectView.as_view()),
-    path("/stats", ProjectStatsView.as_view()),
-    path("/rooms/", include(room_patterns)),
-    path("/teachers/", include(teacher_patterns)),
-    path("/degrees/", include(degree_patterns)),
-    path("/subjects/", include(subject_patterns)),
-    path("/classes/", include(class_patterns)),
+    path("stats", ProjectStatsView.as_view()),
+    path("rooms/", include(room_patterns)),
+    path("teachers/", include(teacher_patterns)),
+    path("degrees/", include(degree_patterns)),
+    path("subjects/", include(subject_patterns)),
+    path("classes/", include(class_patterns)),
 ]
 
 urlpatterns = [
