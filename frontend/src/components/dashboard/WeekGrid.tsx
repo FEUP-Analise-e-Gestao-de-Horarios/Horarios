@@ -214,7 +214,7 @@ export default function WeekGrid({
               key={`e-${ev.id}`}
               type="button"
               onClick={clickable ? () => onEventClick(ev) : undefined}
-              className={`relative m-[1px] px-1.5 py-1 rounded border text-left text-[11px] leading-tight overflow-hidden ${
+              className={`relative m-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden ${
                 style.bg
               } ${style.border} ${style.text} ${
                 clickable ? "cursor-pointer hover:brightness-95 transition" : "cursor-default"
@@ -227,11 +227,19 @@ export default function WeekGrid({
               disabled={!clickable}
             >
               {ev.type && (
-                <div className="absolute top-1 right-1.5 text-[10px] opacity-70 uppercase leading-none">
+                <div className="absolute top-1 right-1.5 z-10 text-[10px] opacity-70 uppercase leading-none">
                   {ev.type}
                 </div>
               )}
-              <div className="pr-6">
+              <div
+                className="absolute inset-0 overflow-hidden px-1.5 py-1 pr-6"
+                style={{
+                  maskImage:
+                    "linear-gradient(to bottom, black calc(100% - 3px), rgba(0,0,0,0.2) calc(100% - 1px), transparent 100%)",
+                  WebkitMaskImage:
+                    "linear-gradient(to bottom, black calc(100% - 3px), rgba(0,0,0,0.2) calc(100% - 1px), transparent 100%)",
+                }}
+              >
                 {ev.title && <div className="font-semibold truncate">{ev.title}</div>}
                 {ev.body?.map((line, i) => (
                   <div key={i} className="truncate opacity-80">
