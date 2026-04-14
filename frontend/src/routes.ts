@@ -5,4 +5,7 @@ export const ROUTES = {
   CHANGE_PASSWORD: "/change-password",
   SCHEDULE: "/projects/:projectId",
   DASHBOARD: "/projects/:projectId/dashboard",
+  DEGREE_DETAIL: "/projects/:projectId/dashboard/degrees/:degreeId",
+  TEACHER_DETAIL: "/projects/:projectId/dashboard/teachers/:teacherId",
+  ROOM_DETAIL: "/projects/:projectId/dashboard/rooms/:roomId",
 } as const;

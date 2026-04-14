@@ -1,6 +1,8 @@
 import { useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useProjectRooms } from "@/api/hooks/useDashboard";
+import { ROUTES } from "@/routes";
 import { matchesSequence } from "@/utils/search";
 import TableSkeleton from "./TableSkeleton";
 
@@ -13,6 +15,7 @@ interface RoomsTabProps {
 
 export default function RoomsTab({ projectId, search, pollInterval, processing }: RoomsTabProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
   const { data, isLoading, isError } = useProjectRooms(projectId, pollInterval);
 
   const filtered = data?.filter((r) => matchesSequence(r.name, search)) ?? [];
@@ -93,7 +96,15 @@ export default function RoomsTab({ projectId, search, pollInterval, processing }
                 return (
                   <tr
                     key={room.id}
-                    className="border-b border-[#e5e4e7] last:border-0 hover:bg-[#f9f7f4] transition-colors"
+                    onClick={() =>
+                      void navigate(
+                        ROUTES.ROOM_DETAIL.replace(":projectId", projectId).replace(
+                          ":roomId",
+                          room.id,
+                        ),
+                      )
+                    }
+                    className="border-b border-[#e5e4e7] last:border-0 hover:bg-[#f9f7f4] transition-colors cursor-pointer"
                   >
                     <td className="py-3 px-4 font-medium text-[#08060d]">{room.name}</td>
                     <td className="py-3 px-4 text-[#6b6375]">{room.type}</td>

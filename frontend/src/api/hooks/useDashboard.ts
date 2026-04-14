@@ -3,12 +3,17 @@ import { api } from "@/api/client";
 import { queryKeys } from "@/api/queryKeys";
 import type { Project } from "@/types/project";
 import type {
+  DegreeDetailApiResponse,
   DegreesApiResponse,
   DegreeStats,
   ProjectStats,
+  RoomDetail,
+  RoomDetailApiResponse,
   RoomsApiResponse,
   RoomStats,
   StatsApiResponse,
+  TeacherDetail,
+  TeacherDetailApiResponse,
   TeachersApiResponse,
   TeacherStats,
 } from "@/types/dashboard";
@@ -83,5 +88,44 @@ export function useProjectRooms(projectId: string, refetchInterval: number | fal
     },
     enabled: !!projectId,
     refetchInterval,
+  });
+}
+
+export function useProjectDegree(projectId: string, degreeId: string) {
+  return useQuery({
+    queryKey: queryKeys.projects.degree(projectId, degreeId),
+    queryFn: async (): Promise<DegreeStats> => {
+      const res = await api.get<DegreeDetailApiResponse>(
+        `/api/projects/${projectId}/degrees/${degreeId}`,
+      );
+      return res.data;
+    },
+    enabled: !!projectId && !!degreeId,
+  });
+}
+
+export function useProjectTeacher(projectId: string, teacherId: string) {
+  return useQuery({
+    queryKey: queryKeys.projects.teacher(projectId, teacherId),
+    queryFn: async (): Promise<TeacherDetail> => {
+      const res = await api.get<TeacherDetailApiResponse>(
+        `/api/projects/${projectId}/teachers/${teacherId}`,
+      );
+      return res.data;
+    },
+    enabled: !!projectId && !!teacherId,
+  });
+}
+
+export function useProjectRoom(projectId: string, roomId: string) {
+  return useQuery({
+    queryKey: queryKeys.projects.room(projectId, roomId),
+    queryFn: async (): Promise<RoomDetail> => {
+      const res = await api.get<RoomDetailApiResponse>(
+        `/api/projects/${projectId}/rooms/${roomId}`,
+      );
+      return res.data;
+    },
+    enabled: !!projectId && !!roomId,
   });
 }

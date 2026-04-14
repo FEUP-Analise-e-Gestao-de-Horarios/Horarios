@@ -23,6 +23,21 @@ urlpatterns = [
     path("change-password", spa_view, name="change-password"),
     path("projects/<int:project_id>/", spa_view, name="schedule"),
     path("projects/<int:project_id>/dashboard", spa_view, name="dashboard"),
+    path(
+        "projects/<int:project_id>/dashboard/degrees/<uuid:degree_id>",
+        spa_view,
+        name="degree-detail",
+    ),
+    path(
+        "projects/<int:project_id>/dashboard/teachers/<uuid:teacher_id>",
+        spa_view,
+        name="teacher-detail",
+    ),
+    path(
+        "projects/<int:project_id>/dashboard/rooms/<uuid:room_id>",
+        spa_view,
+        name="room-detail",
+    ),
     # API endpoints
     path("api/projects/", include("src.projects.urls")),
     path("api/auth/", include("src.login.urls")),

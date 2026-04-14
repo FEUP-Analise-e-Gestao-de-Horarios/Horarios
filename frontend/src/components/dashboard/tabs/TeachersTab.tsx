@@ -1,6 +1,8 @@
 import { useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useProjectTeachers } from "@/api/hooks/useDashboard";
+import { ROUTES } from "@/routes";
 import { matchesSequence } from "@/utils/search";
 import TableSkeleton from "./TableSkeleton";
 
@@ -18,6 +20,7 @@ export default function TeachersTab({
   processing,
 }: TeachersTabProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
   const { data, isLoading, isError } = useProjectTeachers(projectId, pollInterval);
 
   const filtered =
@@ -104,7 +107,15 @@ export default function TeachersTab({
                 return (
                   <tr
                     key={teacher.id}
-                    className="border-b border-[#e5e4e7] last:border-0 hover:bg-[#f9f7f4] transition-colors"
+                    onClick={() =>
+                      void navigate(
+                        ROUTES.TEACHER_DETAIL.replace(":projectId", projectId).replace(
+                          ":teacherId",
+                          teacher.id,
+                        ),
+                      )
+                    }
+                    className="border-b border-[#e5e4e7] last:border-0 hover:bg-[#f9f7f4] transition-colors cursor-pointer"
                   >
                     <td className="py-3 px-4 text-[#6b6375]">{teacher.number}</td>
                     <td className="py-3 px-4 font-medium text-[#08060d]">{teacher.acronym}</td>
