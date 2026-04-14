@@ -80,7 +80,7 @@ class ProjectRoomView(View):
                     message="Room retrieved successfully",
                     data=RoomDetailResponse.model_validate_with_extras(
                         room,
-                        extras={"blocks": blocks, "red_blocks": room.red_blocks},
+                        extras={"blocks": blocks},
                     ),
                 ).model_dump(),
             )

@@ -95,11 +95,7 @@ class ProjectClassView(View):
                     message="Class retrieved successfully",
                     data=ClassDetailResponse.model_validate_with_extras(
                         class_,
-                        extras={
-                            "year": class_.year,
-                            "degree": class_.year.degree,
-                            "blocks": blocks,
-                        },
+                        extras={"degree": class_.year.degree, "blocks": blocks},
                     ),
                 ).model_dump(),
             )

@@ -95,11 +95,7 @@ class ProjectSubjectView(View):
                     message="Subject retrieved successfully",
                     data=SubjectDetailResponse.model_validate_with_extras(
                         subject,
-                        extras={
-                            "year": subject.year,
-                            "degree": subject.year.degree,
-                            "blocks": blocks,
-                        },
+                        extras={"degree": subject.year.degree, "blocks": blocks},
                     ),
                 ).model_dump(),
             )
