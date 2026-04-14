@@ -3,6 +3,7 @@ import { api } from "@/api/client";
 import { queryKeys } from "@/api/queryKeys";
 import type { Project } from "@/types/project";
 import type {
+  DegreeDetail,
   DegreeDetailApiResponse,
   DegreesApiResponse,
   DegreeStats,
@@ -94,7 +95,7 @@ export function useProjectRooms(projectId: string, refetchInterval: number | fal
 export function useProjectDegree(projectId: string, degreeId: string) {
   return useQuery({
     queryKey: queryKeys.projects.degree(projectId, degreeId),
-    queryFn: async (): Promise<DegreeStats> => {
+    queryFn: async (): Promise<DegreeDetail> => {
       const res = await api.get<DegreeDetailApiResponse>(
         `/api/projects/${projectId}/degrees/${degreeId}`,
       );

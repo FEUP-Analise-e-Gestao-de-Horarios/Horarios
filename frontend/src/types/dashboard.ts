@@ -63,6 +63,14 @@ export interface YearBase {
   number: number;
 }
 
+export interface SubjectWithSessions extends SubjectBase {
+  sessions: number;
+}
+
+export interface ClassWithSessions extends ClassBase {
+  sessions: number;
+}
+
 export interface SessionBase {
   id: string;
   original_block_id: string;
@@ -130,6 +138,15 @@ export interface RoomDetail extends RoomBase {
   red_blocks: RedBlockBase[];
 }
 
+export interface YearDetail extends YearBase {
+  subjects: SubjectWithSessions[];
+  classes: ClassWithSessions[];
+}
+
+export interface DegreeDetail extends DegreeBase {
+  years: YearDetail[];
+}
+
 // ---------------------------------------------------------------------------
 // API envelopes
 // ---------------------------------------------------------------------------
@@ -151,7 +168,7 @@ export interface RoomsApiResponse {
 }
 
 export interface DegreeDetailApiResponse {
-  data: DegreeStats;
+  data: DegreeDetail;
 }
 
 export interface TeacherDetailApiResponse {

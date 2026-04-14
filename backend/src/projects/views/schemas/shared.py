@@ -94,3 +94,15 @@ class SessionBase(BaseModel):
     duration: int
 
     type: str
+
+
+class SubjectWithSessions(SubjectBase):
+    """A subject enriched with its session count — nested inside year details."""
+
+    sessions: int
+
+
+class ClassWithSessions(ClassBase):
+    """A class enriched with its session count — nested inside year details."""
+
+    sessions: int
