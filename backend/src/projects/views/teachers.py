@@ -13,7 +13,7 @@ from src.projects.models import Project
 from src.projects.projects_db.dao import ClassDAO, SessionDAO, SubjectDAO, TeacherDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
-from src.projects.views.schemas.shared import SessionResponse
+from src.projects.views.schemas.sessions import SessionResponse
 from src.projects.views.schemas.teachers import (
     ProjectTeachersResponse,
     TeacherDetailResponse,
@@ -72,7 +72,10 @@ class ProjectTeacherView(View):
             classes = ClassDAO(db_session).get_by_teacher(teacher_id)
             sessions = [
                 SessionResponse.from_session(s)
-                for s in SessionDAO(db_session).get_by_teacher(teacher_id)
+                for s in SessionDAO(db_session).get_by_teacher(
+                    teacher_id,
+                    includes=list(SessionDAO.Include),
+                )
             ]
 
             return JsonResponse(

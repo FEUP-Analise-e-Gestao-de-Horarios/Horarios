@@ -4,23 +4,23 @@ import { useProject, useProjectRoom } from "@/api/hooks/useDashboard";
 import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
 import SessionPopup from "@/components/dashboard/SessionPopup";
 import WeekGrid, { type WeekGridEvent, type WeekGridMark } from "@/components/dashboard/WeekGrid";
-import type { RedBlockDetail, SessionDetail } from "@/types/dashboard";
+import type { RedBlockBase, SessionResponse } from "@/types/dashboard";
 
 interface WeekBlock {
   signature: string;
   weeks: string[];
-  sessions: SessionDetail[];
+  sessions: SessionResponse[];
 }
 
-function sessionsSignature(sessions: SessionDetail[]): string {
+function sessionsSignature(sessions: SessionResponse[]): string {
   return sessions
     .map((s) => `${s.weekday}|${s.start_time}|${s.duration}|${s.original_block_id}`)
     .sort()
     .join(";");
 }
 
-function groupIntoBlocks(sessions: SessionDetail[]): WeekBlock[] {
-  const byWeek = new Map<string, SessionDetail[]>();
+function groupIntoBlocks(sessions: SessionResponse[]): WeekBlock[] {
+  const byWeek = new Map<string, SessionResponse[]>();
   for (const s of sessions) {
     const arr = byWeek.get(s.week);
     if (arr) arr.push(s);
@@ -69,7 +69,7 @@ export default function RoomDetailPage() {
 
   const blocks = useMemo(() => (data ? groupIntoBlocks(data.sessions) : []), [data]);
   const [selectedBlockIdx, setSelectedBlockIdx] = useState(0);
-  const [selectedSession, setSelectedSession] = useState<SessionDetail | null>(null);
+  const [selectedSession, setSelectedSession] = useState<SessionResponse | null>(null);
   const [prevRid, setPrevRid] = useState(rid);
   if (rid !== prevRid) {
     setPrevRid(rid);
@@ -78,7 +78,7 @@ export default function RoomDetailPage() {
   }
 
   const activeBlock = blocks[selectedBlockIdx] ?? blocks[0] ?? null;
-  const blockSessions: SessionDetail[] = activeBlock?.sessions ?? [];
+  const blockSessions: SessionResponse[] = activeBlock?.sessions ?? [];
 
   const events: WeekGridEvent[] = blockSessions.map((s) => ({
     id: s.id,
@@ -93,7 +93,7 @@ export default function RoomDetailPage() {
     type: s.type,
   }));
 
-  const redBlocks: RedBlockDetail[] = data?.red_blocks ?? [];
+  const redBlocks: RedBlockBase[] = data?.red_blocks ?? [];
   const marks: WeekGridMark[] = redBlocks.map((rb) => ({
     id: rb.id,
     weekday: rb.weekday,

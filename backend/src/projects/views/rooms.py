@@ -18,7 +18,7 @@ from src.projects.views.schemas.rooms import (
     RoomDetailResponse,
     RoomStatsResponse,
 )
-from src.projects.views.schemas.shared import SessionResponse
+from src.projects.views.schemas.sessions import SessionResponse
 
 
 class ProjectRoomsView(View):
@@ -69,7 +69,11 @@ class ProjectRoomView(View):
                 return RoomNotFoundResponse()
 
             sessions = [
-                SessionResponse.from_session(s) for s in SessionDAO(db_session).get_by_room(room_id)
+                SessionResponse.from_session(s)
+                for s in SessionDAO(db_session).get_by_room(
+                    room_id,
+                    includes=list(SessionDAO.Include),
+                )
             ]
             red_blocks = RoomRedBlockDAO(db_session).get_by_room(room_id)
 

@@ -8,37 +8,40 @@ export interface ProjectStats {
   sessions: number;
 }
 
-export interface DegreeStats {
+export type Weekday = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday";
+
+// ---------------------------------------------------------------------------
+// Simple entity bases (mirror backend *Base — all DB attributes)
+// ---------------------------------------------------------------------------
+
+export interface ClassBase {
+  id: string;
+  year_id: string;
+  code: string;
+  shift: number;
+}
+
+export interface DegreeBase {
   id: string;
   acronym: string;
   name: string;
-  years: number;
-  subjects: number;
-  classes: number;
-  sessions: number;
 }
 
-export interface TeacherStats {
+export interface RedBlockBase {
   id: string;
-  number: number;
-  acronym: string;
-  name: string;
-  subjects: number;
-  classes: number;
-  sessions: number;
+  hour: number;
+  weekday: Weekday;
 }
 
-export interface RoomStats {
+export interface RoomBase {
   id: string;
   name: string;
   type: string | null;
   size: string | null;
   seats: string | null;
-  sessions: number;
-  red_blocks: number;
 }
 
-export interface SubjectDetail {
+export interface SubjectBase {
   id: string;
   year_id: string;
   number: number;
@@ -47,44 +50,20 @@ export interface SubjectDetail {
   name: string;
 }
 
-export interface ClassDetail {
-  id: string;
-  year_id: string;
-  code: string;
-  shift: number;
-}
-
-export type Weekday = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday";
-
-export interface TeacherRef {
+export interface TeacherBase {
   id: string;
   number: number;
   acronym: string;
   name: string;
 }
 
-export interface SubjectRef {
+export interface YearBase {
   id: string;
-  year_id: string;
+  degree_id: string;
   number: number;
-  code: string;
-  acronym: string;
-  name: string;
 }
 
-export interface ClassRef {
-  id: string;
-  year_id: string;
-  code: string;
-  shift: number;
-}
-
-export interface RoomRef {
-  id: string;
-  name: string;
-}
-
-export interface SessionDetail {
+export interface SessionBase {
   id: string;
   original_block_id: string;
   week: string;
@@ -92,37 +71,59 @@ export interface SessionDetail {
   start_time: number;
   duration: number;
   type: string;
-  teachers: TeacherRef[];
-  subjects: SubjectRef[];
-  classes: ClassRef[];
-  rooms: RoomRef[];
 }
 
-export interface RedBlockDetail {
-  id: string;
-  hour: number;
-  weekday: Weekday;
+// ---------------------------------------------------------------------------
+// Session response (enriched with nested lists)
+// ---------------------------------------------------------------------------
+
+export interface SessionResponse extends SessionBase {
+  teachers: TeacherBase[];
+  subjects: SubjectBase[];
+  classes: ClassBase[];
+  rooms: RoomBase[];
 }
 
-export interface TeacherDetail {
-  id: string;
-  number: number;
-  acronym: string;
-  name: string;
-  subjects: SubjectDetail[];
-  classes: ClassDetail[];
-  sessions: SessionDetail[];
+// ---------------------------------------------------------------------------
+// Listing (stats) responses
+// ---------------------------------------------------------------------------
+
+export interface DegreeStats extends DegreeBase {
+  years: number;
+  subjects: number;
+  classes: number;
+  sessions: number;
 }
 
-export interface RoomDetail {
-  id: string;
-  name: string;
-  type: string | null;
-  size: string | null;
-  seats: string | null;
-  sessions: SessionDetail[];
-  red_blocks: RedBlockDetail[];
+export interface TeacherStats extends TeacherBase {
+  subjects: number;
+  classes: number;
+  sessions: number;
 }
+
+export interface RoomStats extends RoomBase {
+  sessions: number;
+  red_blocks: number;
+}
+
+// ---------------------------------------------------------------------------
+// Detail responses
+// ---------------------------------------------------------------------------
+
+export interface TeacherDetail extends TeacherBase {
+  subjects: SubjectBase[];
+  classes: ClassBase[];
+  sessions: SessionResponse[];
+}
+
+export interface RoomDetail extends RoomBase {
+  sessions: SessionResponse[];
+  red_blocks: RedBlockBase[];
+}
+
+// ---------------------------------------------------------------------------
+// API envelopes
+// ---------------------------------------------------------------------------
 
 export interface StatsApiResponse {
   data: ProjectStats;

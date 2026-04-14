@@ -1,10 +1,12 @@
 import datetime
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
+from enum import Enum, auto
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DBSession
 from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.interfaces import LoaderOption
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.models._secondary_tables import (
@@ -18,21 +20,43 @@ from src.projects.projects_db.models.subject import Subject
 from src.projects.projects_db.schemas.weekday import WeekDay
 
 
-def _session_detail_load_options() -> tuple:
-    """Load options that eager-fetch a session's teachers, rooms, subjects and classes."""
-    return (
-        selectinload(Session.teachers),
-        selectinload(Session.rooms),
-        selectinload(Session.session_class_subjects).selectinload(SessionClassSubject.subject),
-        selectinload(Session.session_class_subjects).selectinload(SessionClassSubject.class_),
-    )
-
-
 class SessionDAO(BaseDAO[Session]):
     """Data access object for Session records."""
 
+    class Include(Enum):
+        """Optional relationships to eager-load on Session query methods."""
+
+        TEACHERS = auto()
+        ROOMS = auto()
+        SUBJECTS = auto()
+        CLASSES = auto()
+
     def __init__(self, session: DBSession) -> None:
         super().__init__(Session, session)
+
+    @classmethod
+    def _load_options(cls, includes: Iterable[Include]) -> list[LoaderOption]:
+        """Translate a collection of :class:`Include` flags into SQLAlchemy load options."""
+        options: list[LoaderOption] = []
+        for inc in includes:
+            match inc:
+                case cls.Include.TEACHERS:
+                    options.append(selectinload(Session.teachers))
+                case cls.Include.ROOMS:
+                    options.append(selectinload(Session.rooms))
+                case cls.Include.SUBJECTS:
+                    options.append(
+                        selectinload(Session.session_class_subjects).selectinload(
+                            SessionClassSubject.subject,
+                        ),
+                    )
+                case cls.Include.CLASSES:
+                    options.append(
+                        selectinload(Session.session_class_subjects).selectinload(
+                            SessionClassSubject.class_,
+                        ),
+                    )
+        return options
 
     # -------------------------------------------------------------------
     # -- Create
@@ -96,41 +120,51 @@ class SessionDAO(BaseDAO[Session]):
         """Retrieve a single session by its primary key."""
         return self.session.scalars(select(Session).where(Session.id == session_id)).one_or_none()
 
-    def get_by_teacher(self, teacher_id: UUID) -> list[Session]:
-        """Return all sessions taught by the given teacher, with details eagerly loaded.
+    def get_by_teacher(
+        self,
+        teacher_id: UUID,
+        includes: Iterable[Include] = (),
+    ) -> list[Session]:
+        """Return all sessions taught by the given teacher.
 
         Args:
             teacher_id: UUID of the teacher to filter by.
+            includes: Relationships to eager-load on each returned Session.
+                Defaults to no eager loading.
 
         Returns:
-            List of Session instances (with teachers, rooms, subjects and classes
-            eager-loaded), in an unspecified order.
+            List of Session instances, in an unspecified order.
         """
         return list(
             self.session.scalars(
                 select(Session)
                 .join(session_teachers, session_teachers.c.session_id == Session.id)
                 .where(session_teachers.c.teacher_id == teacher_id)
-                .options(*_session_detail_load_options()),
+                .options(*self._load_options(includes)),
             ).all(),
         )
 
-    def get_by_room(self, room_id: UUID) -> list[Session]:
-        """Return all sessions that take place in the given room, with details eagerly loaded.
+    def get_by_room(
+        self,
+        room_id: UUID,
+        includes: Iterable[Include] = (),
+    ) -> list[Session]:
+        """Return all sessions that take place in the given room.
 
         Args:
             room_id: UUID of the room to filter by.
+            includes: Relationships to eager-load on each returned Session.
+                Defaults to no eager loading.
 
         Returns:
-            List of Session instances (with teachers, rooms, subjects and classes
-            eager-loaded), in an unspecified order.
+            List of Session instances, in an unspecified order.
         """
         return list(
             self.session.scalars(
                 select(Session)
                 .join(session_rooms, session_rooms.c.session_id == Session.id)
                 .where(session_rooms.c.room_id == room_id)
-                .options(*_session_detail_load_options()),
+                .options(*self._load_options(includes)),
             ).all(),
         )
 

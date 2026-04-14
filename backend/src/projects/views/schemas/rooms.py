@@ -1,9 +1,8 @@
-from uuid import UUID
-
 from pydantic import BaseModel
 
 from src.core.mixins import ValidateWithExtrasMixin
-from src.projects.views.schemas.shared import RedBlockResponse, SessionResponse
+from src.projects.views.schemas.sessions import SessionResponse
+from src.projects.views.schemas.shared import RedBlockBase, RoomBase
 
 
 class ProjectRoomsResponse(BaseModel):
@@ -11,25 +10,11 @@ class ProjectRoomsResponse(BaseModel):
     count: int
 
 
-class RoomStatsResponse(BaseModel):
-    id: UUID
-
-    name: str
-    type: str | None
-    size: str | None
-    seats: str | None
-
+class RoomStatsResponse(RoomBase):
     sessions: int
     red_blocks: int
 
 
-class RoomDetailResponse(ValidateWithExtrasMixin, BaseModel):
-    id: UUID
-
-    name: str
-    type: str | None
-    size: str | None
-    seats: str | None
-
+class RoomDetailResponse(ValidateWithExtrasMixin, RoomBase):
     sessions: list[SessionResponse]
-    red_blocks: list[RedBlockResponse]
+    red_blocks: list[RedBlockBase]

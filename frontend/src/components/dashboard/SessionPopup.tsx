@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { X } from "lucide-react";
 import { ROUTES } from "@/routes";
-import type { SessionDetail } from "@/types/dashboard";
+import type { SessionResponse } from "@/types/dashboard";
 
 const WEEKDAY_LABELS: Record<string, string> = {
   monday: "Segunda",
@@ -37,7 +37,7 @@ function endTime(start: number, duration: number): number {
 }
 
 interface SessionPopupProps {
-  session: SessionDetail;
+  session: SessionResponse;
   projectId: string;
   currentRoomId: string;
   onClose: () => void;

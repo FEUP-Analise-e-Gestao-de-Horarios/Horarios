@@ -1,9 +1,8 @@
-from uuid import UUID
-
 from pydantic import BaseModel
 
 from src.core.mixins import ValidateWithExtrasMixin
-from src.projects.views.schemas.shared import ClassResponse, SessionResponse, SubjectResponse
+from src.projects.views.schemas.sessions import SessionResponse
+from src.projects.views.schemas.shared import ClassBase, SubjectBase, TeacherBase
 
 
 class ProjectTeachersResponse(BaseModel):
@@ -11,24 +10,13 @@ class ProjectTeachersResponse(BaseModel):
     count: int
 
 
-class TeacherStatsResponse(BaseModel):
-    id: UUID
-
-    number: int
-    acronym: str
-    name: str
-
+class TeacherStatsResponse(TeacherBase):
     subjects: int
     classes: int
     sessions: int
 
 
-class TeacherDetailResponse(ValidateWithExtrasMixin, BaseModel):
-    id: UUID
-    number: int
-    acronym: str
-    name: str
-
-    subjects: list[SubjectResponse]
-    classes: list[ClassResponse]
+class TeacherDetailResponse(ValidateWithExtrasMixin, TeacherBase):
+    subjects: list[SubjectBase]
+    classes: list[ClassBase]
     sessions: list[SessionResponse]
