@@ -39,7 +39,8 @@ function endTime(start: number, duration: number): number {
 interface SessionPopupProps {
   session: SessionResponse;
   projectId: string;
-  currentRoomId: string;
+  currentRoomId?: string;
+  currentTeacherId?: string;
   onClose: () => void;
 }
 
@@ -47,6 +48,7 @@ export default function SessionPopup({
   session,
   projectId,
   currentRoomId,
+  currentTeacherId,
   onClose,
 }: SessionPopupProps) {
   useEffect(() => {
@@ -57,7 +59,15 @@ export default function SessionPopup({
     return () => window.removeEventListener("keydown", handleKey);
   }, [onClose]);
 
-  const otherRooms = session.rooms.filter((r) => r.id !== currentRoomId);
+  const roomsToShow = currentRoomId
+    ? session.rooms.filter((r) => r.id !== currentRoomId)
+    : session.rooms;
+  const roomsSectionTitle = currentRoomId ? "Outras salas" : "Salas";
+
+  const teachersToShow = currentTeacherId
+    ? session.teachers.filter((t) => t.id !== currentTeacherId)
+    : session.teachers;
+  const teachersSectionTitle = currentTeacherId ? "Outros docentes" : "Docentes";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -126,25 +136,31 @@ export default function SessionPopup({
             )}
           </Section>
 
-          <Section title="Docentes">
-            {session.teachers.length === 0 ? (
-              <EmptyRow />
-            ) : (
+          {teachersToShow.length > 0 && (
+            <Section title={teachersSectionTitle}>
               <ul className="flex flex-col gap-0.5">
-                {session.teachers.map((t) => (
-                  <li key={t.id} className="flex items-baseline justify-between gap-3">
-                    <span className="text-[#08060d] truncate">{t.name}</span>
-                    <span className="shrink-0 text-xs text-[#6b6375]">{t.acronym}</span>
+                {teachersToShow.map((t) => (
+                  <li key={t.id}>
+                    <Link
+                      to={ROUTES.TEACHER_DETAIL.replace(":projectId", projectId).replace(
+                        ":teacherId",
+                        t.id,
+                      )}
+                      className="flex items-baseline justify-between gap-3 -mx-2 px-2 py-0.5 rounded hover:bg-[#f9f7f4] transition-colors"
+                    >
+                      <span className="text-[#08060d] truncate">{t.name}</span>
+                      <span className="shrink-0 text-xs text-[#6b6375]">{t.acronym}</span>
+                    </Link>
                   </li>
                 ))}
               </ul>
-            )}
-          </Section>
+            </Section>
+          )}
 
-          {otherRooms.length > 0 && (
-            <Section title="Outras salas">
+          {roomsToShow.length > 0 && (
+            <Section title={roomsSectionTitle}>
               <div className="flex flex-wrap gap-1.5">
-                {otherRooms.map((r) => (
+                {roomsToShow.map((r) => (
                   <Link
                     key={r.id}
                     to={ROUTES.ROOM_DETAIL.replace(":projectId", projectId).replace(
