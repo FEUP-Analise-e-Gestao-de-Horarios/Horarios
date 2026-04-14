@@ -18,6 +18,12 @@ export default function DashboardNavbar({ projectId, isReady }: DashboardNavbarP
         Início
       </button>
       <button
+        onClick={() => void navigate(ROUTES.DASHBOARD.replace(":projectId", projectId))}
+        className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 transition-colors hover:border-gray-400 hover:bg-white/5"
+      >
+        Dashboard
+      </button>
+      <button
         disabled={!isReady}
         onClick={() => void navigate(ROUTES.SCHEDULE.replace(":projectId", projectId))}
         className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 transition-colors enabled:hover:border-gray-400 enabled:hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"

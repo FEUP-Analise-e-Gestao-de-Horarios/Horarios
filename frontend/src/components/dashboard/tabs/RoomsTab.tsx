@@ -96,14 +96,23 @@ export default function RoomsTab({ projectId, search, pollInterval, processing }
                 return (
                   <tr
                     key={room.id}
-                    onClick={() =>
-                      void navigate(
-                        ROUTES.ROOM_DETAIL.replace(":projectId", projectId).replace(
-                          ":roomId",
-                          room.id,
-                        ),
-                      )
-                    }
+                    onClick={(e) => {
+                      const url = ROUTES.ROOM_DETAIL.replace(":projectId", projectId).replace(
+                        ":roomId",
+                        room.id,
+                      );
+                      if (e.ctrlKey || e.metaKey) window.open(url, "_blank", "noopener");
+                      else void navigate(url);
+                    }}
+                    onAuxClick={(e) => {
+                      if (e.button !== 1) return;
+                      e.preventDefault();
+                      const url = ROUTES.ROOM_DETAIL.replace(":projectId", projectId).replace(
+                        ":roomId",
+                        room.id,
+                      );
+                      window.open(url, "_blank", "noopener");
+                    }}
                     className="border-b border-[#e5e4e7] last:border-0 hover:bg-[#f9f7f4] transition-colors cursor-pointer"
                   >
                     <td className="py-3 px-4 font-medium text-[#08060d]">{room.name}</td>

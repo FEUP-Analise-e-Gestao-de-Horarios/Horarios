@@ -100,14 +100,23 @@ export default function DegreesTab({
                 return (
                   <tr
                     key={degree.id}
-                    onClick={() =>
-                      void navigate(
-                        ROUTES.DEGREE_DETAIL.replace(":projectId", projectId).replace(
-                          ":degreeId",
-                          degree.id,
-                        ),
-                      )
-                    }
+                    onClick={(e) => {
+                      const url = ROUTES.DEGREE_DETAIL.replace(":projectId", projectId).replace(
+                        ":degreeId",
+                        degree.id,
+                      );
+                      if (e.ctrlKey || e.metaKey) window.open(url, "_blank", "noopener");
+                      else void navigate(url);
+                    }}
+                    onAuxClick={(e) => {
+                      if (e.button !== 1) return;
+                      e.preventDefault();
+                      const url = ROUTES.DEGREE_DETAIL.replace(":projectId", projectId).replace(
+                        ":degreeId",
+                        degree.id,
+                      );
+                      window.open(url, "_blank", "noopener");
+                    }}
                     className="border-b border-[#e5e4e7] last:border-0 hover:bg-[#f9f7f4] transition-colors cursor-pointer"
                   >
                     <td className="py-3 px-4 font-medium text-[#08060d]">{degree.acronym}</td>

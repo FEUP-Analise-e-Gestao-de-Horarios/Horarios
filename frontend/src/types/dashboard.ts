@@ -54,11 +54,13 @@ export interface ClassDetail {
   shift: number;
 }
 
+export type Weekday = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday";
+
 export interface SessionDetail {
   id: string;
   original_block_id: string;
   week: string;
-  weekday: string;
+  weekday: Weekday;
   start_time: number;
   duration: number;
   type: string;
@@ -67,7 +69,7 @@ export interface SessionDetail {
 export interface RedBlockDetail {
   id: string;
   hour: number;
-  weekday: string;
+  weekday: Weekday;
 }
 
 export interface TeacherDetail {
