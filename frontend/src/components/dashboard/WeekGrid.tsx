@@ -101,21 +101,68 @@ export default function WeekGrid({
     return { gridStartMinutes: min, slotCount: Math.max(count, 1) };
   }, [events, marks, startTime, endTime]);
 
-  const placedEvents = useMemo(
-    () =>
-      events
-        .map((ev) => {
-          const col = weekdayIndex(ev.weekday);
-          if (col < 0) return null;
-          const startMin = hhmmToMinutes(ev.startTime);
-          const rowStart = Math.round((startMin - gridStartMinutes) / SLOT_MINUTES);
-          if (rowStart < 0 || rowStart >= slotCount) return null;
-          const span = Math.min(ev.duration, slotCount - rowStart);
-          return { ev, col, rowStart, span };
-        })
-        .filter(<T,>(x: T | null): x is T => x !== null),
-    [events, gridStartMinutes, slotCount],
-  );
+  const placedEvents = useMemo(() => {
+    const raw = events
+      .map((ev) => {
+        const col = weekdayIndex(ev.weekday);
+        if (col < 0) return null;
+        const startMin = hhmmToMinutes(ev.startTime);
+        const rowStart = Math.round((startMin - gridStartMinutes) / SLOT_MINUTES);
+        if (rowStart < 0 || rowStart >= slotCount) return null;
+        const span = Math.min(ev.duration, slotCount - rowStart);
+        return { ev, col, rowStart, span };
+      })
+      .filter(<T,>(x: T | null): x is T => x !== null);
+
+    // Assign lanes per weekday: parallel events in the same day sit
+    // side-by-side instead of stacking. Collision "clusters" are
+    // maximal runs of transitively-overlapping events; every event in
+    // a cluster shares the same laneCount so their widths line up.
+    type Raw = (typeof raw)[number];
+    type Placed = Raw & { lane: number; laneCount: number };
+
+    const byDay = new Map<number, Raw[]>();
+    for (const p of raw) {
+      const list = byDay.get(p.col) ?? [];
+      list.push(p);
+      byDay.set(p.col, list);
+    }
+
+    const result: Placed[] = [];
+    for (const dayEvents of byDay.values()) {
+      dayEvents.sort(
+        (a, b) => a.rowStart - b.rowStart || b.span - a.span || a.ev.id.localeCompare(b.ev.id),
+      );
+
+      let cluster: Array<Raw & { lane: number }> = [];
+      let clusterEnd = -Infinity;
+
+      const flush = () => {
+        if (cluster.length === 0) return;
+        const laneCount = cluster.reduce((m, e) => Math.max(m, e.lane + 1), 0);
+        for (const e of cluster) result.push({ ...e, laneCount });
+        cluster = [];
+        clusterEnd = -Infinity;
+      };
+
+      for (const ev of dayEvents) {
+        if (ev.rowStart >= clusterEnd) flush();
+
+        const usedLanes = new Set<number>();
+        for (const e of cluster) {
+          if (e.rowStart + e.span > ev.rowStart) usedLanes.add(e.lane);
+        }
+        let lane = 0;
+        while (usedLanes.has(lane)) lane++;
+
+        cluster.push({ ...ev, lane });
+        clusterEnd = Math.max(clusterEnd, ev.rowStart + ev.span);
+      }
+      flush();
+    }
+
+    return result;
+  }, [events, gridStartMinutes, slotCount]);
 
   const placedMarks = useMemo(
     () =>
@@ -206,7 +253,7 @@ export default function WeekGrid({
           />
         ))}
 
-        {placedEvents.map(({ ev, col, rowStart, span }) => {
+        {placedEvents.map(({ ev, col, rowStart, span, lane, laneCount }) => {
           const style = styleForType(ev.type);
           const clickable = !!onEventClick;
           return (
@@ -214,7 +261,7 @@ export default function WeekGrid({
               key={`e-${ev.id}`}
               type="button"
               onClick={clickable ? () => onEventClick(ev) : undefined}
-              className={`relative m-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden ${
+              className={`relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden ${
                 style.bg
               } ${style.border} ${style.text} ${
                 clickable ? "cursor-pointer hover:brightness-95 transition" : "cursor-default"
@@ -222,6 +269,9 @@ export default function WeekGrid({
               style={{
                 gridColumn: col + 2,
                 gridRow: `${rowStart + 2} / span ${span}`,
+                justifySelf: "start",
+                width: `calc(100% / ${laneCount})`,
+                marginLeft: `calc(100% * ${lane} / ${laneCount})`,
               }}
               title={ev.title}
               disabled={!clickable}
