@@ -58,16 +58,3 @@ class SessionClassSubjectDAO(BaseDAO[SessionClassSubject]):
                 select(SessionClassSubject).where(SessionClassSubject.subject_id == subject_id),
             ).all(),
         )
-
-    def get_session_and_class(
-        self,
-        session_id: UUID,
-        class_id: UUID,
-    ) -> SessionClassSubject | None:
-        """Retrieve a junction record by session and class (ignoring subject)."""
-        return self.session.scalars(
-            select(SessionClassSubject).where(
-                SessionClassSubject.session_id == session_id,
-                SessionClassSubject.class_id == class_id,
-            ),
-        ).one_or_none()

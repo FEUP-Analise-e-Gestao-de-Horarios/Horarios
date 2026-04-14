@@ -241,58 +241,6 @@ class SessionDAO(BaseDAO[Session]):
             ),
         ).fetchall()
 
-    def get_by_week_weekday_start_time_and_class(
-        self,
-        *,
-        week: datetime.date,
-        weekday: WeekDay,
-        start_time: int,
-        class_id: UUID,
-    ) -> Session | None:
-        """Find a session by its week, weekday, start time, and class.
-
-        Args:
-            week: The date representing the week of the session.
-            weekday: The day of the week.
-            start_time: The starting timeslot.
-            class_id: UUID of the class to filter by.
-
-        Returns:
-            The matching Session instance, or None if not found.
-        """
-        query = (
-            select(Session)
-            .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
-            .where(
-                Session.week == week,
-                Session.weekday == weekday,
-                Session.start_time == start_time,
-                SessionClassSubject.class_id == class_id,
-            )
-        )
-        return self.session.scalars(query).first()
-
-    def get_by_week_and_block(
-        self,
-        *,
-        week: datetime.date,
-        original_block_id: UUID,
-    ) -> Session | None:
-        """Find a session by its week and originating timetable block.
-
-        Args:
-            week: The date representing the week of the session.
-            original_block_id: UUID of the originating timetable block.
-
-        Returns:
-            The matching Session instance, or None if not found.
-        """
-        query = select(Session).where(
-            Session.week == week,
-            Session.original_block_id == original_block_id,
-        )
-        return self.session.scalars(query).one_or_none()
-
     # -------------------------------------------------------------------
     # -- Get Others
     # -------------------------------------------------------------------
