@@ -4,6 +4,7 @@ from src.projects.views import (
     ProjectClassesView,
     ProjectDegreesView,
     ProjectDegreeView,
+    ProjectParallelBlockCandidateView,
     ProjectRoomsView,
     ProjectRoomView,
     ProjectStatsView,
@@ -45,6 +46,7 @@ project_patterns = [
     path("/rooms/", include(room_patterns)),
     path("/teachers/", include(teacher_patterns)),
     path("/degrees/", include(degree_patterns)),
+    path("/parallel-candidates", ProjectParallelBlockCandidateView.as_view()),
 ]
 
 urlpatterns = [
