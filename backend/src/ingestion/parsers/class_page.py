@@ -11,9 +11,6 @@ from src.ingestion.parsers.utils import (
 from src.ingestion.schemas.classes import Session, Subject, Teacher
 from src.ingestion.schemas.misc import WeekDay
 
-THEORETICAL_SESSION = "td_tipologia_19"
-"""CSS class used by the institution's schedule pages to mark theoretical sessions."""
-
 _RE_TIPOLOGIA = re.compile(r"^td_tipologia_")
 """Matches any CSS class starting with ``td_tipologia_`` (session-type cells)."""
 
@@ -164,15 +161,83 @@ def extract_subjects(soup: BeautifulSoup) -> list[Subject]:
     return subjects
 
 
+def extract_tipologia_map(soup: BeautifulSoup) -> dict[str, str]:
+    """Build the per-page mapping from ``td_tipologia_*`` CSS class to session type code.
+
+    Every class/section page ships a small legend table headed ``Tipologias`` that
+    associates each session's coloured cell class with the institution's type code
+    (e.g. ``T``, ``TP``, ``PL``, ``OT``, ...). These indices are **not** stable
+    across pages and the set of codes is open, so the mapping must be rebuilt on
+    every page.
+
+    Args:
+        soup: Parsed HTML of a section schedule page.
+
+    Returns:
+        A dict mapping each ``td_tipologia_*`` CSS class present in the legend
+        to its type code string (first column of the legend row).
+
+    Raises:
+        ValueError: If the legend table is missing, malformed, or a row does not
+            carry a ``td_tipologia_*`` class on its colour cell.
+    """
+    legend_table = None
+    for table in soup.find_all("table", class_="tabela_principal"):
+        header = table.find("td", class_="td_cabecalho")
+        if header is not None and header.get_text(strip=True) == "Tipologias":
+            legend_table = table
+            break
+
+    if legend_table is None:
+        raise ValueError("Could not find 'Tipologias' legend table in section page")
+
+    rows = legend_table.find_all("tr")[2:]
+    if not rows:
+        raise ValueError("Tipologias legend table has no data rows")
+
+    mapping: dict[str, str] = {}
+    for row in rows:
+        cells = row.find_all("td")
+        if len(cells) != 3:
+            raise ValueError(
+                f"Expected exactly 3 cells in tipologias row, found {len(cells)}: {row}",
+            )
+
+        code = cells[0].get_text(strip=True)
+        if not code:
+            raise ValueError(f"Empty type code in tipologias row: {row}")
+
+        css_classes = cells[2].get("class") or []
+        tipologia_class = next(
+            (cls for cls in css_classes if _RE_TIPOLOGIA.match(cls)),
+            None,
+        )
+        if tipologia_class is None:
+            raise ValueError(
+                f"No 'td_tipologia_*' class on colour cell in tipologias row: {row}",
+            )
+
+        if tipologia_class in mapping and mapping[tipologia_class] != code:
+            raise ValueError(
+                f"Conflicting tipologia mapping: {tipologia_class!r} maps to both "
+                f"{mapping[tipologia_class]!r} and {code!r}",
+            )
+        mapping[tipologia_class] = code
+
+    return mapping
+
+
 def extract_sessions(soup: BeautifulSoup) -> list[Session]:
     """Extract all scheduled sessions from a class page.
 
     Locates every ``td_tipologia_*`` cell in the main timetable, builds a cell
     position matrix to derive each session's weekday, and reads the teachers
-    table (index 3) to resolve teacher acronyms to numeric codes. For each
-    session block the function extracts: subject acronym, weekday, start time,
-    duration (rowspan), teacher codes, class codes, room, and whether it is a
-    theoretical session (CSS class ``td_tipologia_19``).
+    table (index 3) to resolve teacher acronyms to numeric codes. The session
+    type code (``T``, ``TP``, ``PL``, ...) is resolved by looking up each cell's
+    ``td_tipologia_*`` class in the page's ``Tipologias`` legend, since the
+    numeric indices are not stable across pages. For each session block the
+    function extracts: subject acronym, weekday, start time, duration (rowspan),
+    teacher codes, class codes, room, and session type.
 
     Args:
         soup: Parsed HTML of a section schedule page.
@@ -194,6 +259,9 @@ def extract_sessions(soup: BeautifulSoup) -> list[Session]:
     session_blocks = center_element.find_all("td", class_=_RE_TIPOLOGIA)
     if not session_blocks:
         return []
+
+    # -- Per-page tipologia class -> type code map -------------------------
+    tipologia_map = extract_tipologia_map(soup)
 
     # -- Build table matrix ------------------------------------------------
     main_table = center_element.find("table", {"class": "tabela_principal"})
@@ -298,11 +366,27 @@ def extract_sessions(soup: BeautifulSoup) -> list[Session]:
         session_classes = _RE_SEMICOLON_PADDED.split(raw_turmas)
         session_room = _RE_SEMICOLON_PADDED.split(str(rest[0])) if rest else ["Online"]
 
-        # -- Is Theoretical ----------------------------------------------------
+        # -- Type code ---------------------------------------------------------
         session_css_classes = session_block.get("class")
         if not session_css_classes:
             raise ValueError(
                 f"Session block missing 'class' attribute: {session_block}",
+            )
+
+        tipologia_class = next(
+            (cls for cls in session_css_classes if _RE_TIPOLOGIA.match(cls)),
+            None,
+        )
+        if tipologia_class is None:
+            raise ValueError(
+                f"Session block missing 'td_tipologia_*' class: {session_block}",
+            )
+
+        session_type = tipologia_map.get(tipologia_class)
+        if session_type is None:
+            raise ValueError(
+                f"Unknown tipologia class {tipologia_class!r} not in page legend "
+                f"(known: {sorted(tipologia_map)}): {session_block.text!r}",
             )
 
         sessions.append(
@@ -314,7 +398,7 @@ def extract_sessions(soup: BeautifulSoup) -> list[Session]:
                 "teachers": session_teachers,
                 "classes": session_classes,
                 "rooms": session_room,
-                "is_theoretical": THEORETICAL_SESSION in session_css_classes,
+                "type": session_type,
             },
         )
 

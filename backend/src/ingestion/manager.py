@@ -620,7 +620,7 @@ class IngestionManager:
                     "weekday": scraped_session["weekday"],
                     "start_time": scraped_session["start_time"],
                     "duration": scraped_session["duration"],
-                    "type": "T" if scraped_session["is_theoretical"] else "TP",
+                    "type": scraped_session["type"],
                     "original_block_id": original_block_id,
                 },
             )
