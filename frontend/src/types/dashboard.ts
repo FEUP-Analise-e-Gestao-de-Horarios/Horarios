@@ -160,41 +160,20 @@ export interface ClassDetail extends ClassBase {
 }
 
 // ---------------------------------------------------------------------------
-// API envelopes
+// List payloads (shape inside ApiResponse<T> for collection endpoints)
 // ---------------------------------------------------------------------------
 
-export interface StatsApiResponse {
-  data: ProjectStats;
+export interface DegreesListPayload {
+  degrees: DegreeStats[];
+  count: number;
 }
 
-export interface DegreesApiResponse {
-  data: { degrees: DegreeStats[]; count: number };
+export interface TeachersListPayload {
+  teachers: TeacherStats[];
+  count: number;
 }
 
-export interface TeachersApiResponse {
-  data: { teachers: TeacherStats[]; count: number };
-}
-
-export interface RoomsApiResponse {
-  data: { rooms: RoomStats[]; count: number };
-}
-
-export interface DegreeDetailApiResponse {
-  data: DegreeDetail;
-}
-
-export interface TeacherDetailApiResponse {
-  data: TeacherDetail;
-}
-
-export interface RoomDetailApiResponse {
-  data: RoomDetail;
-}
-
-export interface SubjectDetailApiResponse {
-  data: SubjectDetail;
-}
-
-export interface ClassDetailApiResponse {
-  data: ClassDetail;
+export interface RoomsListPayload {
+  rooms: RoomStats[];
+  count: number;
 }
