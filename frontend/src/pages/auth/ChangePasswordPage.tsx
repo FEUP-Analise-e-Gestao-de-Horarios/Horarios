@@ -182,7 +182,7 @@ export default function ChangePasswordPage() {
 
   return (
     <AuthPageLayout>
-      <title>Alterar password · AGH</title>
+      <title>Mudar palavra-passe · AGH</title>
       <FormCard onSubmit={handleSubmit}>
         <h1 className="text-[#08060d] text-2xl font-bold m-0">Mudar palavra-passe</h1>
 
