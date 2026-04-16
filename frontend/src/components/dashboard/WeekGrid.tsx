@@ -1,8 +1,9 @@
 import { useMemo } from "react";
+import type { Weekday } from "@/types/dashboard";
 
 export interface WeekGridEvent {
   id: string;
-  weekday: string;
+  weekday: Weekday;
   startTime: number;
   duration: number;
   title?: string;
@@ -12,7 +13,7 @@ export interface WeekGridEvent {
 
 export interface WeekGridMark {
   id: string;
-  weekday: string;
+  weekday: Weekday;
   time: number;
 }
 
@@ -47,8 +48,8 @@ function minutesToLabel(mins: number): string {
   return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 }
 
-function weekdayIndex(weekday: string): number {
-  return WEEKDAYS.indexOf(weekday.trim().toLowerCase());
+function weekdayIndex(weekday: Weekday): number {
+  return WEEKDAYS.indexOf(weekday);
 }
 
 const TYPE_STYLES: Record<string, { bg: string; border: string; text: string }> = {
