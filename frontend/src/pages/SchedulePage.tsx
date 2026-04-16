@@ -42,6 +42,7 @@ export default function SchedulePage() {
 
   return (
     <div className="min-h-screen bg-[#f0eeeb]">
+      <title>{project ? `Horário · ${project.name} · AGH` : "Horário · AGH"}</title>
       <ScheduleNavbar
         projectId={projectId}
         curso={curso}
