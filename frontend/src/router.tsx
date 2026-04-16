@@ -1,17 +1,17 @@
 import { createBrowserRouter } from "react-router-dom";
 import { redirectIfAuthenticated, requireAuth } from "./api/auth";
-import LoginPage from "./pages/LoginPage";
-import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import LoginPage from "./pages/auth/LoginPage";
+import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
 import HomePage from "./pages/HomePage";
-import ChangePasswordPage from "./pages/ChangePasswordPage";
+import ChangePasswordPage from "./pages/auth/ChangePasswordPage";
 import { ROUTES } from "./routes";
 import SchedulePage from "./pages/SchedulePage";
-import DashboardPage from "./pages/DashboardPage";
-import DegreeDetailPage from "./pages/DegreeDetailPage";
-import TeacherDetailPage from "./pages/TeacherDetailPage";
-import RoomDetailPage from "./pages/RoomDetailPage";
-import SubjectDetailPage from "./pages/SubjectDetailPage";
-import ClassDetailPage from "./pages/ClassDetailPage";
+import DashboardPage from "./pages/dashboard/DashboardPage";
+import DegreeDetailPage from "./pages/dashboard/DegreeDetailPage";
+import TeacherDetailPage from "./pages/dashboard/TeacherDetailPage";
+import RoomDetailPage from "./pages/dashboard/RoomDetailPage";
+import SubjectDetailPage from "./pages/dashboard/SubjectDetailPage";
+import ClassDetailPage from "./pages/dashboard/ClassDetailPage";
 
 // Paths here must match what Django delegates to spa_view in urls.py
 export const router = createBrowserRouter([
