@@ -152,7 +152,7 @@ export default function ChangePasswordPage() {
   if (countdown !== null) {
     return (
       <AuthPageLayout>
-        <title>Alterar password · AGH</title>
+        <title>Mudar palavra-passe · AGH</title>
         <div className="flex flex-col items-center gap-5 w-96 p-8">
           <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
             <svg
