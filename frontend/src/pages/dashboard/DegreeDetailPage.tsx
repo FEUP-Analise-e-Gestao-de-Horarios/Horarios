@@ -17,8 +17,15 @@ export default function DegreeDetailPage() {
   const subjectsCount = years.reduce((sum, y) => sum + y.subjects.length, 0);
   const classesCount = years.reduce((sum, y) => sum + y.classes.length, 0);
 
+  const title = isError
+    ? "Erro · AGH"
+    : data && project.data
+      ? `${data.acronym} · ${project.data.name} · AGH`
+      : "A carregar… · AGH";
+
   return (
     <div className="h-screen flex flex-col bg-[#f0eeeb]">
+      <title>{title}</title>
       <DashboardNavbar projectId={pid} isReady={!!project.data?.ingestion_finished_at} />
 
       <div className="flex-1 overflow-auto">

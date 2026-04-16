@@ -48,8 +48,15 @@ export default function SubjectDetailPage() {
     if (session) setSelectedSession(session);
   };
 
+  const title = isError
+    ? "Erro · AGH"
+    : data && project.data
+      ? `${data.acronym} · ${project.data.name} · AGH`
+      : "A carregar… · AGH";
+
   return (
     <div className="h-screen flex flex-col bg-[#f0eeeb]">
+      <title>{title}</title>
       <DashboardNavbar projectId={pid} isReady={!!project.data?.ingestion_finished_at} />
 
       <div className="flex-1 min-h-0 overflow-hidden">
