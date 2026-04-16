@@ -347,7 +347,6 @@ class SessionDAO(BaseDAO[Session]):
                         ),
                     },
                 )
-        print(labels_by_id)
 
     def get_changes_only(self, other_db_alias: DBAlias) -> ChangedRecords:
         changes = BaseDAO.get_changes_only(self, other_db_alias)

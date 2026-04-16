@@ -89,15 +89,12 @@ class RoomDAO(BaseDAO[Room]):
         return [RoomStats.model_validate(row, from_attributes=True) for row in rows]
 
     def get_conflicting_slots(self) -> list[RoomConflict]:
-        """Return room collisions for sessions sharing the same exact slot.
+        """Return overlapping room allocations grouped into conflict windows.
 
-        A conflict is defined using the same grouping semantics as the provided
-        SQL: same room, week, weekday, start time, and duration, with more than
-        one session assigned to that slot.
-
-        Returns:
-            A list of conflicting room slots, including every session ID that
-            participates in each collision.
+        Each result represents one overlapping window for a room on a given
+        week and weekday. The returned ``start_time`` and ``duration`` span the
+        full conflicting window, and ``session_ids`` contains every session in
+        that overlap cluster.
         """
         rows = ConflictResourceDAO(self.session).get_conflicting_slots(
             ConflictResourceSpec(
