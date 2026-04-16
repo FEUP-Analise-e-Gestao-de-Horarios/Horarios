@@ -59,6 +59,7 @@ const TYPE_STYLES: Record<string, { bg: string; border: string; text: string }> 
   P: { bg: "bg-purple-100", border: "border-purple-300", text: "text-purple-900" },
   S: { bg: "bg-pink-100", border: "border-pink-300", text: "text-pink-900" },
   OT: { bg: "bg-slate-100", border: "border-slate-300", text: "text-slate-900" },
+  TC: { bg: "bg-cyan-100", border: "border-cyan-300", text: "text-cyan-900" },
 };
 const DEFAULT_STYLE = {
   bg: "bg-slate-100",
