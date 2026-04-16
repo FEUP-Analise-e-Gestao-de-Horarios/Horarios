@@ -47,6 +47,7 @@
     "readerwriterlock",
     "rowspan",
     "runserver",
+    "selectinload",
     "simplifiable",
     "sqlalchemy",
     "staticfiles",

@@ -1,6 +1,9 @@
 import { useRef } from "react";
+import { Link } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useProjectTeachers } from "@/api/hooks/useDashboard";
+import { ROUTES } from "@/routes";
+import { buildPath } from "@/utils/routes";
 import { matchesSequence } from "@/utils/search";
 import TableSkeleton from "./TableSkeleton";
 
@@ -108,7 +111,17 @@ export default function TeachersTab({
                   >
                     <td className="py-3 px-4 text-[#6b6375]">{teacher.number}</td>
                     <td className="py-3 px-4 font-medium text-[#08060d]">{teacher.acronym}</td>
-                    <td className="py-3 px-4 text-[#08060d]">{teacher.name}</td>
+                    <td className="p-0">
+                      <Link
+                        to={buildPath(ROUTES.TEACHER_DETAIL, {
+                          projectId,
+                          teacherId: teacher.id,
+                        })}
+                        className="block py-3 px-4 text-[#08060d]"
+                      >
+                        {teacher.name}
+                      </Link>
+                    </td>
                     <td className="py-3 px-4 text-right text-[#6b6375]">{teacher.subjects}</td>
                     <td className="py-3 px-4 text-right text-[#6b6375]">{teacher.classes}</td>
                     <td className="py-3 px-4 text-right text-[#6b6375]">{teacher.sessions}</td>

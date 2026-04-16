@@ -1,9 +1,12 @@
 import datetime
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
+from enum import Enum, auto
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DBSession
+from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.interfaces import LoaderOption
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.models._secondary_tables import (
@@ -20,8 +23,40 @@ from src.projects.projects_db.schemas.weekday import WeekDay
 class SessionDAO(BaseDAO[Session]):
     """Data access object for Session records."""
 
+    class Include(Enum):
+        """Optional relationships to eager-load on Session query methods."""
+
+        TEACHERS = auto()
+        ROOMS = auto()
+        SUBJECTS = auto()
+        CLASSES = auto()
+
     def __init__(self, session: DBSession) -> None:
         super().__init__(Session, session)
+
+    @classmethod
+    def _load_options(cls, includes: Iterable[Include]) -> list[LoaderOption]:
+        """Translate a collection of :class:`Include` flags into SQLAlchemy load options."""
+        options: list[LoaderOption] = []
+        for inc in includes:
+            match inc:
+                case cls.Include.TEACHERS:
+                    options.append(selectinload(Session.teachers))
+                case cls.Include.ROOMS:
+                    options.append(selectinload(Session.rooms))
+                case cls.Include.SUBJECTS:
+                    options.append(
+                        selectinload(Session.session_class_subjects).selectinload(
+                            SessionClassSubject.subject,
+                        ),
+                    )
+                case cls.Include.CLASSES:
+                    options.append(
+                        selectinload(Session.session_class_subjects).selectinload(
+                            SessionClassSubject.class_,
+                        ),
+                    )
+        return options
 
     # -------------------------------------------------------------------
     # -- Create
@@ -85,11 +120,17 @@ class SessionDAO(BaseDAO[Session]):
         """Retrieve a single session by its primary key."""
         return self.session.scalars(select(Session).where(Session.id == session_id)).one_or_none()
 
-    def get_by_teacher(self, teacher_id: UUID) -> list[Session]:
+    def get_by_teacher(
+        self,
+        teacher_id: UUID,
+        includes: Iterable[Include] = (),
+    ) -> list[Session]:
         """Return all sessions taught by the given teacher.
 
         Args:
             teacher_id: UUID of the teacher to filter by.
+            includes: Relationships to eager-load on each returned Session.
+                Defaults to no eager loading.
 
         Returns:
             List of Session instances, in an unspecified order.
@@ -98,15 +139,72 @@ class SessionDAO(BaseDAO[Session]):
             self.session.scalars(
                 select(Session)
                 .join(session_teachers, session_teachers.c.session_id == Session.id)
-                .where(session_teachers.c.teacher_id == teacher_id),
+                .where(session_teachers.c.teacher_id == teacher_id)
+                .options(*self._load_options(includes)),
             ).all(),
         )
 
-    def get_by_room(self, room_id: UUID) -> list[Session]:
+    def get_by_subject(
+        self,
+        subject_id: UUID,
+        includes: Iterable[Include] = (),
+    ) -> list[Session]:
+        """Return all sessions that teach the given subject.
+
+        Args:
+            subject_id: UUID of the subject to filter by.
+            includes: Relationships to eager-load on each returned Session.
+                Defaults to no eager loading.
+
+        Returns:
+            List of Session instances, in an unspecified order.
+        """
+        return list(
+            self.session.scalars(
+                select(Session)
+                .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
+                .where(SessionClassSubject.subject_id == subject_id)
+                .distinct()
+                .options(*self._load_options(includes)),
+            ).all(),
+        )
+
+    def get_by_class(
+        self,
+        class_id: UUID,
+        includes: Iterable[Include] = (),
+    ) -> list[Session]:
+        """Return all sessions attended by the given class.
+
+        Args:
+            class_id: UUID of the class to filter by.
+            includes: Relationships to eager-load on each returned Session.
+                Defaults to no eager loading.
+
+        Returns:
+            List of Session instances, in an unspecified order.
+        """
+        return list(
+            self.session.scalars(
+                select(Session)
+                .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
+                .where(SessionClassSubject.class_id == class_id)
+                .distinct()
+                .options(*self._load_options(includes)),
+            ).all(),
+        )
+
+    def get_by_room(
+        self,
+        room_id: UUID,
+        includes: Iterable[Include] = (),
+    ) -> list[Session]:
         """Return all sessions that take place in the given room.
 
         Args:
             room_id: UUID of the room to filter by.
+            includes: Relationships to eager-load on each returned Session.
+                Defaults to no eager loading.
 
         Returns:
             List of Session instances, in an unspecified order.
@@ -115,7 +213,8 @@ class SessionDAO(BaseDAO[Session]):
             self.session.scalars(
                 select(Session)
                 .join(session_rooms, session_rooms.c.session_id == Session.id)
-                .where(session_rooms.c.room_id == room_id),
+                .where(session_rooms.c.room_id == room_id)
+                .options(*self._load_options(includes)),
             ).all(),
         )
 
@@ -141,58 +240,6 @@ class SessionDAO(BaseDAO[Session]):
                 Session.type == type_,
             ),
         ).fetchall()
-
-    def get_by_week_weekday_start_time_and_class(
-        self,
-        *,
-        week: datetime.date,
-        weekday: WeekDay,
-        start_time: int,
-        class_id: UUID,
-    ) -> Session | None:
-        """Find a session by its week, weekday, start time, and class.
-
-        Args:
-            week: The date representing the week of the session.
-            weekday: The day of the week.
-            start_time: The starting timeslot.
-            class_id: UUID of the class to filter by.
-
-        Returns:
-            The matching Session instance, or None if not found.
-        """
-        query = (
-            select(Session)
-            .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
-            .where(
-                Session.week == week,
-                Session.weekday == weekday,
-                Session.start_time == start_time,
-                SessionClassSubject.class_id == class_id,
-            )
-        )
-        return self.session.scalars(query).first()
-
-    def get_by_week_and_block(
-        self,
-        *,
-        week: datetime.date,
-        original_block_id: UUID,
-    ) -> Session | None:
-        """Find a session by its week and originating timetable block.
-
-        Args:
-            week: The date representing the week of the session.
-            original_block_id: UUID of the originating timetable block.
-
-        Returns:
-            The matching Session instance, or None if not found.
-        """
-        query = select(Session).where(
-            Session.week == week,
-            Session.original_block_id == original_block_id,
-        )
-        return self.session.scalars(query).one_or_none()
 
     # -------------------------------------------------------------------
     # -- Get Others

@@ -13,9 +13,10 @@ from src.projects.models import Project
 from src.projects.projects_db.dao import ClassDAO, SessionDAO, SubjectDAO, TeacherDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
+from src.projects.views.schemas.sessions import WeekBlockResponse
 from src.projects.views.schemas.teachers import (
-    ProjectTeachersResponse,
     TeacherDetailResponse,
+    TeachersResponse,
     TeacherStatsResponse,
 )
 
@@ -42,7 +43,7 @@ class ProjectTeachersView(View):
             return JsonResponse(
                 SuccessResponse(
                     message="Teachers retrieved successfully",
-                    data=ProjectTeachersResponse(teachers=result, count=len(result)),
+                    data=TeachersResponse(teachers=result, count=len(result)),
                 ).model_dump(),
             )
 
@@ -69,14 +70,19 @@ class ProjectTeacherView(View):
 
             subjects = SubjectDAO(db_session).get_by_teacher(teacher_id)
             classes = ClassDAO(db_session).get_by_teacher(teacher_id)
-            sessions = SessionDAO(db_session).get_by_teacher(teacher_id)
+            blocks = WeekBlockResponse.from_sessions(
+                SessionDAO(db_session).get_by_teacher(
+                    teacher_id,
+                    includes=list(SessionDAO.Include),
+                ),
+            )
 
             return JsonResponse(
                 SuccessResponse(
                     message="Teacher retrieved successfully",
                     data=TeacherDetailResponse.model_validate_with_extras(
                         teacher,
-                        extras={"subjects": subjects, "classes": classes, "sessions": sessions},
+                        extras={"subjects": subjects, "classes": classes, "blocks": blocks},
                     ),
                 ).model_dump(),
             )

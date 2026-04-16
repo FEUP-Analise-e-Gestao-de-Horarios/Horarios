@@ -4,6 +4,7 @@ import ScheduleNavbar from "@/components/schedule/ScheduleNavbar";
 import { UCS_POR_CURSO, TURMAS_POR_UC } from "@/components/schedule/data";
 import { useProject } from "@/api/hooks/useDashboard";
 import { ROUTES } from "@/routes";
+import { buildPath } from "@/utils/routes";
 
 export default function SchedulePage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -17,8 +18,7 @@ export default function SchedulePage() {
     }
     if (!project) return;
     const isReady = !!project.ingestion_finished_at;
-    if (!isReady)
-      void navigate(ROUTES.DASHBOARD.replace(":projectId", projectId), { replace: true });
+    if (!isReady) void navigate(buildPath(ROUTES.DASHBOARD, { projectId }), { replace: true });
   }, [project, projectId, navigate]);
 
   const [curso, setCurso] = useState("");

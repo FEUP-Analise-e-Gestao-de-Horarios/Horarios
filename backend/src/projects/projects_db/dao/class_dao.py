@@ -4,7 +4,6 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session as DBSession
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
-from src.projects.projects_db.dao.exceptions import MultipleNotFoundError
 from src.projects.projects_db.models import (
     Class,
     Degree,
@@ -49,44 +48,6 @@ class ClassDAO(BaseDAO[Class]):
         return self.session.scalars(
             select(Class).where(Class.id == class_id),
         ).one_or_none()
-
-    def get_by_code(self, code: str) -> Class | None:
-        """Retrieve a single class by its unique code.
-
-        Args:
-            code: The class code to look up.
-
-        Returns:
-            The matching Class instance, or None if not found.
-        """
-        return self.session.scalars(
-            select(Class).where(Class.code == code),
-        ).one_or_none()
-
-    def get_by_codes(self, codes: set[str], *, check_count: bool = True) -> list[Class]:
-        """Return classes matching the given codes.
-
-        Args:
-            codes: Set of class codes to fetch.
-            check_count: When True, raises if any code has no matching class.
-
-        Returns:
-            List of Class instances corresponding to the requested codes.
-
-        Raises:
-            MultipleNotFoundError: If check_count is True and one or more
-                codes have no matching class.
-        """
-        if not codes:
-            return []
-
-        classes = list(self.session.scalars(select(Class).where(Class.code.in_(codes))).all())
-        if check_count and len(codes) != len(classes):
-            found = {c.code for c in classes}
-            missing = codes - found
-            raise MultipleNotFoundError("code", missing)
-
-        return classes
 
     def get_by_teacher(self, teacher_id: UUID) -> list[Class]:
         """Return distinct classes taught by the given teacher across all their sessions.

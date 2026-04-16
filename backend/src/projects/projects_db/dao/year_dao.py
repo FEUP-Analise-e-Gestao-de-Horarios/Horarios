@@ -39,22 +39,6 @@ class YearDAO(BaseDAO[Year]):
     # -- Get
     # -------------------------------------------------------------------
 
-    def get_by_degree_and_number(self, *, degree_acronym: str, number: int) -> Year | None:
-        """Retrieve a year by its degree acronym and year number.
-
-        Args:
-            degree_acronym: The acronym of the parent degree.
-            number: The year number within the degree.
-
-        Returns:
-            The matching Year instance, or None if not found.
-        """
-        return self.session.scalars(
-            select(Year)
-            .join(Year.degree)
-            .where(Degree.acronym == degree_acronym, Year.number == number),
-        ).first()
-
     def get_by_degree_with_stats(self, degree_id: UUID) -> list[YearStats]:
         """Return all years for a degree with their subject, class, and session counts.
 
