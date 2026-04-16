@@ -4,6 +4,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useProjectDegrees } from "@/api/hooks/useDashboard";
 import { ROUTES } from "@/routes";
 import type { DegreeStats } from "@/types/dashboard";
+import { buildPath } from "@/utils/routes";
 import { matchesSequence } from "@/utils/search";
 import TableSkeleton from "./TableSkeleton";
 
@@ -101,20 +102,20 @@ export default function DegreesTab({
                   <tr
                     key={degree.id}
                     onClick={(e) => {
-                      const url = ROUTES.DEGREE_DETAIL.replace(":projectId", projectId).replace(
-                        ":degreeId",
-                        degree.id,
-                      );
+                      const url = buildPath(ROUTES.DEGREE_DETAIL, {
+                        projectId,
+                        degreeId: degree.id,
+                      });
                       if (e.ctrlKey || e.metaKey) window.open(url, "_blank", "noopener");
                       else void navigate(url);
                     }}
                     onAuxClick={(e) => {
                       if (e.button !== 1) return;
                       e.preventDefault();
-                      const url = ROUTES.DEGREE_DETAIL.replace(":projectId", projectId).replace(
-                        ":degreeId",
-                        degree.id,
-                      );
+                      const url = buildPath(ROUTES.DEGREE_DETAIL, {
+                        projectId,
+                        degreeId: degree.id,
+                      });
                       window.open(url, "_blank", "noopener");
                     }}
                     className="border-b border-[#e5e4e7] last:border-0 hover:bg-[#f9f7f4] transition-colors cursor-pointer"

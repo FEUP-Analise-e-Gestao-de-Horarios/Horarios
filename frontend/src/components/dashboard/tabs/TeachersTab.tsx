@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useProjectTeachers } from "@/api/hooks/useDashboard";
 import { ROUTES } from "@/routes";
+import { buildPath } from "@/utils/routes";
 import { matchesSequence } from "@/utils/search";
 import TableSkeleton from "./TableSkeleton";
 
@@ -108,20 +109,20 @@ export default function TeachersTab({
                   <tr
                     key={teacher.id}
                     onClick={(e) => {
-                      const url = ROUTES.TEACHER_DETAIL.replace(":projectId", projectId).replace(
-                        ":teacherId",
-                        teacher.id,
-                      );
+                      const url = buildPath(ROUTES.TEACHER_DETAIL, {
+                        projectId,
+                        teacherId: teacher.id,
+                      });
                       if (e.ctrlKey || e.metaKey) window.open(url, "_blank", "noopener");
                       else void navigate(url);
                     }}
                     onAuxClick={(e) => {
                       if (e.button !== 1) return;
                       e.preventDefault();
-                      const url = ROUTES.TEACHER_DETAIL.replace(":projectId", projectId).replace(
-                        ":teacherId",
-                        teacher.id,
-                      );
+                      const url = buildPath(ROUTES.TEACHER_DETAIL, {
+                        projectId,
+                        teacherId: teacher.id,
+                      });
                       window.open(url, "_blank", "noopener");
                     }}
                     className="border-b border-[#e5e4e7] last:border-0 hover:bg-[#f9f7f4] transition-colors cursor-pointer"

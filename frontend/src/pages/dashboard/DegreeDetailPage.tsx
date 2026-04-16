@@ -1,7 +1,9 @@
 import { Link, useParams } from "react-router-dom";
 import { useProject, useProjectDegree } from "@/api/hooks/useDashboard";
 import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
+import { ROUTES } from "@/routes";
 import type { ClassWithSessions, SubjectWithSessions, YearDetail } from "@/types/dashboard";
+import { buildPath } from "@/utils/routes";
 
 export default function DegreeDetailPage() {
   const { projectId, degreeId } = useParams<{ projectId: string; degreeId: string }>();
@@ -108,7 +110,7 @@ function SubjectRow({ projectId, subject }: { projectId: string; subject: Subjec
   return (
     <li>
       <Link
-        to={`/projects/${projectId}/dashboard/subjects/${subject.id}`}
+        to={buildPath(ROUTES.SUBJECT_DETAIL, { projectId, subjectId: subject.id })}
         className="flex items-baseline justify-between gap-3 px-4 py-2 hover:bg-[#f9f7f4] transition-colors"
       >
         <div className="min-w-0">
@@ -129,7 +131,7 @@ function ClassRow({ projectId, classItem }: { projectId: string; classItem: Clas
   return (
     <li>
       <Link
-        to={`/projects/${projectId}/dashboard/classes/${classItem.id}`}
+        to={buildPath(ROUTES.CLASS_DETAIL, { projectId, classId: classItem.id })}
         className="flex items-baseline justify-between gap-3 px-4 py-2 hover:bg-[#f9f7f4] transition-colors"
       >
         <div className="min-w-0">

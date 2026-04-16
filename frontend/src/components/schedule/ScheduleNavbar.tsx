@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "@/routes";
+import { buildPath } from "@/utils/routes";
 import CursoDropdown from "./CursoDropdown";
 import MultiDropdown from "./MultiDropdown";
 import { ANOS } from "./data";
@@ -78,7 +79,7 @@ export default function ScheduleNavbar({
         Início
       </button>
       <button
-        onClick={() => void navigate(ROUTES.DASHBOARD.replace(":projectId", projectId))}
+        onClick={() => void navigate(buildPath(ROUTES.DASHBOARD, { projectId }))}
         className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors"
       >
         Dashboard
