@@ -46,7 +46,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthPageLayout>
-      <title>Recuperar password · AGH</title>
+      <title>Recuperar palavra-passe · AGH</title>
       <FormCard onSubmit={submitted ? undefined : handleSubmit}>
         <h1 className="text-[#08060d] text-2xl font-bold m-0">Recuperar palavra-passe</h1>
 
