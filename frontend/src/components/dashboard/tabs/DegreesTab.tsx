@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useProjectDegrees } from "@/api/hooks/useDashboard";
 import { ROUTES } from "@/routes";
@@ -31,7 +31,6 @@ export default function DegreesTab({
   processing,
 }: DegreesTabProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
   const { data, isLoading, isError } = useProjectDegrees(projectId, pollInterval);
 
   const filtered =
@@ -101,27 +100,20 @@ export default function DegreesTab({
                 return (
                   <tr
                     key={degree.id}
-                    onClick={(e) => {
-                      const url = buildPath(ROUTES.DEGREE_DETAIL, {
-                        projectId,
-                        degreeId: degree.id,
-                      });
-                      if (e.ctrlKey || e.metaKey) window.open(url, "_blank", "noopener");
-                      else void navigate(url);
-                    }}
-                    onAuxClick={(e) => {
-                      if (e.button !== 1) return;
-                      e.preventDefault();
-                      const url = buildPath(ROUTES.DEGREE_DETAIL, {
-                        projectId,
-                        degreeId: degree.id,
-                      });
-                      window.open(url, "_blank", "noopener");
-                    }}
-                    className="border-b border-[#e5e4e7] last:border-0 hover:bg-[#f9f7f4] transition-colors cursor-pointer"
+                    className="border-b border-[#e5e4e7] last:border-0 hover:bg-[#f9f7f4] transition-colors"
                   >
                     <td className="py-3 px-4 font-medium text-[#08060d]">{degree.acronym}</td>
-                    <td className="py-3 px-4 text-[#08060d]">{degree.name}</td>
+                    <td className="p-0">
+                      <Link
+                        to={buildPath(ROUTES.DEGREE_DETAIL, {
+                          projectId,
+                          degreeId: degree.id,
+                        })}
+                        className="block py-3 px-4 text-[#08060d]"
+                      >
+                        {degree.name}
+                      </Link>
+                    </td>
                     <td className="py-3 px-4 text-right text-[#6b6375]">{degree.years}</td>
                     <td className="py-3 px-4 text-right text-[#6b6375]">{degree.subjects}</td>
                     <td className="py-3 px-4 text-right text-[#6b6375]">{degree.classes}</td>

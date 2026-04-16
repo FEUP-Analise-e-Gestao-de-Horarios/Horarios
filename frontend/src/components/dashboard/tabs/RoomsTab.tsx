@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useProjectRooms } from "@/api/hooks/useDashboard";
 import { ROUTES } from "@/routes";
@@ -16,7 +16,6 @@ interface RoomsTabProps {
 
 export default function RoomsTab({ projectId, search, pollInterval, processing }: RoomsTabProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
   const { data, isLoading, isError } = useProjectRooms(projectId, pollInterval);
 
   const filtered = data?.filter((r) => matchesSequence(r.name, search)) ?? [];
@@ -97,20 +96,16 @@ export default function RoomsTab({ projectId, search, pollInterval, processing }
                 return (
                   <tr
                     key={room.id}
-                    onClick={(e) => {
-                      const url = buildPath(ROUTES.ROOM_DETAIL, { projectId, roomId: room.id });
-                      if (e.ctrlKey || e.metaKey) window.open(url, "_blank", "noopener");
-                      else void navigate(url);
-                    }}
-                    onAuxClick={(e) => {
-                      if (e.button !== 1) return;
-                      e.preventDefault();
-                      const url = buildPath(ROUTES.ROOM_DETAIL, { projectId, roomId: room.id });
-                      window.open(url, "_blank", "noopener");
-                    }}
-                    className="border-b border-[#e5e4e7] last:border-0 hover:bg-[#f9f7f4] transition-colors cursor-pointer"
+                    className="border-b border-[#e5e4e7] last:border-0 hover:bg-[#f9f7f4] transition-colors"
                   >
-                    <td className="py-3 px-4 font-medium text-[#08060d]">{room.name}</td>
+                    <td className="p-0">
+                      <Link
+                        to={buildPath(ROUTES.ROOM_DETAIL, { projectId, roomId: room.id })}
+                        className="block py-3 px-4 font-medium text-[#08060d]"
+                      >
+                        {room.name}
+                      </Link>
+                    </td>
                     <td className="py-3 px-4 text-[#6b6375]">{room.type}</td>
                     <td className="py-3 px-4 text-[#6b6375]">{room.size}</td>
                     <td className="py-3 px-4 text-right text-[#6b6375]">{room.seats}</td>

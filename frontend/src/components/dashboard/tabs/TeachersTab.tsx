@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useProjectTeachers } from "@/api/hooks/useDashboard";
 import { ROUTES } from "@/routes";
@@ -21,7 +21,6 @@ export default function TeachersTab({
   processing,
 }: TeachersTabProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
   const { data, isLoading, isError } = useProjectTeachers(projectId, pollInterval);
 
   const filtered =
@@ -108,28 +107,21 @@ export default function TeachersTab({
                 return (
                   <tr
                     key={teacher.id}
-                    onClick={(e) => {
-                      const url = buildPath(ROUTES.TEACHER_DETAIL, {
-                        projectId,
-                        teacherId: teacher.id,
-                      });
-                      if (e.ctrlKey || e.metaKey) window.open(url, "_blank", "noopener");
-                      else void navigate(url);
-                    }}
-                    onAuxClick={(e) => {
-                      if (e.button !== 1) return;
-                      e.preventDefault();
-                      const url = buildPath(ROUTES.TEACHER_DETAIL, {
-                        projectId,
-                        teacherId: teacher.id,
-                      });
-                      window.open(url, "_blank", "noopener");
-                    }}
-                    className="border-b border-[#e5e4e7] last:border-0 hover:bg-[#f9f7f4] transition-colors cursor-pointer"
+                    className="border-b border-[#e5e4e7] last:border-0 hover:bg-[#f9f7f4] transition-colors"
                   >
                     <td className="py-3 px-4 text-[#6b6375]">{teacher.number}</td>
                     <td className="py-3 px-4 font-medium text-[#08060d]">{teacher.acronym}</td>
-                    <td className="py-3 px-4 text-[#08060d]">{teacher.name}</td>
+                    <td className="p-0">
+                      <Link
+                        to={buildPath(ROUTES.TEACHER_DETAIL, {
+                          projectId,
+                          teacherId: teacher.id,
+                        })}
+                        className="block py-3 px-4 text-[#08060d]"
+                      >
+                        {teacher.name}
+                      </Link>
+                    </td>
                     <td className="py-3 px-4 text-right text-[#6b6375]">{teacher.subjects}</td>
                     <td className="py-3 px-4 text-right text-[#6b6375]">{teacher.classes}</td>
                     <td className="py-3 px-4 text-right text-[#6b6375]">{teacher.sessions}</td>
