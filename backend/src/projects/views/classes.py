@@ -18,8 +18,8 @@ from src.projects.projects_db.registry import get_session as get_project_session
 from src.projects.views.schemas.sessions import WeekBlockResponse
 from src.projects.views.schemas.subjects import (
     ClassDetailResponse,
+    ClassesResponse,
     ClassStatsResponse,
-    ProjectClassesResponse,
 )
 
 
@@ -58,7 +58,7 @@ class ProjectClassesView(View):
         return JsonResponse(
             SuccessResponse(
                 message="Classes retrieved successfully",
-                data=ProjectClassesResponse(classes=result, count=len(result)),
+                data=ClassesResponse(classes=result, count=len(result)),
             ).model_dump(),
         )
 

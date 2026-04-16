@@ -17,8 +17,8 @@ from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
 from src.projects.views.schemas.degrees import (
     DegreeDetailResponse,
+    DegreesResponse,
     DegreeStatsResponse,
-    ProjectDegreesResponse,
     YearDetailResponse,
 )
 
@@ -45,7 +45,7 @@ class ProjectDegreesView(View):
             return JsonResponse(
                 SuccessResponse(
                     message="Degrees retrieved successfully",
-                    data=ProjectDegreesResponse(degrees=result, count=len(result)),
+                    data=DegreesResponse(degrees=result, count=len(result)),
                 ).model_dump(),
             )
 

@@ -5,7 +5,8 @@ from src.projects.views.schemas.sessions import WeekBlockResponse
 from src.projects.views.schemas.shared import RedBlockBase, RoomBase
 
 
-class ProjectRoomsResponse(BaseModel):
+# -- Rooms list --------------------------------------------------------
+class RoomsResponse(BaseModel):
     rooms: list[RoomStatsResponse]
     count: int
 
@@ -15,6 +16,7 @@ class RoomStatsResponse(RoomBase):
     red_blocks: int
 
 
+# -- Room detail -------------------------------------------------------
 class RoomDetailResponse(ValidateWithExtrasMixin, RoomBase):
     blocks: list[WeekBlockResponse]
     red_blocks: list[RedBlockBase]

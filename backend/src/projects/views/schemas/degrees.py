@@ -11,7 +11,8 @@ from src.projects.views.schemas.shared import (
 )
 
 
-class ProjectDegreesResponse(BaseModel):
+# -- Degrees list ------------------------------------------------------
+class DegreesResponse(BaseModel):
     degrees: list[DegreeStatsResponse]
     count: int
 
@@ -23,16 +24,18 @@ class DegreeStatsResponse(DegreeBase):
     sessions: int
 
 
+# -- Degree detail -----------------------------------------------------
+class DegreeDetailResponse(ValidateWithExtrasMixin, DegreeBase):
+    years: list[YearDetailResponse]
+
+
 class YearDetailResponse(ValidateWithExtrasMixin, YearBase):
     subjects: list[SubjectWithSessions]
     classes: list[ClassWithSessions]
 
 
-class DegreeDetailResponse(ValidateWithExtrasMixin, DegreeBase):
-    years: list[YearDetailResponse]
-
-
-class ProjectYearsResponse(BaseModel):
+# -- Years list --------------------------------------------------------
+class YearsResponse(BaseModel):
     years: list[YearStatsResponse]
     count: int
 

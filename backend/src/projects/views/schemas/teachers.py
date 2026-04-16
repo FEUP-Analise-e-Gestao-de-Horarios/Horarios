@@ -5,7 +5,8 @@ from src.projects.views.schemas.sessions import WeekBlockResponse
 from src.projects.views.schemas.shared import ClassBase, SubjectBase, TeacherBase
 
 
-class ProjectTeachersResponse(BaseModel):
+# -- Teachers list -----------------------------------------------------
+class TeachersResponse(BaseModel):
     teachers: list[TeacherStatsResponse]
     count: int
 
@@ -16,6 +17,7 @@ class TeacherStatsResponse(TeacherBase):
     sessions: int
 
 
+# -- Teacher detail ----------------------------------------------------
 class TeacherDetailResponse(ValidateWithExtrasMixin, TeacherBase):
     subjects: list[SubjectBase]
     classes: list[ClassBase]

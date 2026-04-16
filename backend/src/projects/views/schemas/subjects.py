@@ -10,6 +10,12 @@ from src.projects.views.schemas.shared import (
 )
 
 
+# -- Subjects list -----------------------------------------------------
+class SubjectsResponse(BaseModel):
+    subjects: list[SubjectStatsResponse]
+    count: int
+
+
 class SubjectStatsResponse(BaseModel):
     id: str
 
@@ -28,8 +34,16 @@ class SubjectStatsResponse(BaseModel):
     sessions: int
 
 
-class ProjectSubjectsResponse(BaseModel):
-    subjects: list[SubjectStatsResponse]
+# -- Subject detail ----------------------------------------------------
+class SubjectDetailResponse(ValidateWithExtrasMixin, SubjectBase):
+    year: YearBase
+    degree: DegreeBase
+    blocks: list[WeekBlockResponse]
+
+
+# -- Classes list ------------------------------------------------------
+class ClassesResponse(BaseModel):
+    classes: list[ClassStatsResponse]
     count: int
 
 
@@ -49,17 +63,7 @@ class ClassStatsResponse(BaseModel):
     sessions: int
 
 
-class ProjectClassesResponse(BaseModel):
-    classes: list[ClassStatsResponse]
-    count: int
-
-
-class SubjectDetailResponse(ValidateWithExtrasMixin, SubjectBase):
-    year: YearBase
-    degree: DegreeBase
-    blocks: list[WeekBlockResponse]
-
-
+# -- Class detail ------------------------------------------------------
 class ClassDetailResponse(ValidateWithExtrasMixin, ClassBase):
     year: YearBase
     degree: DegreeBase

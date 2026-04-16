@@ -14,8 +14,8 @@ from src.projects.projects_db.dao import RoomDAO, SessionDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
 from src.projects.views.schemas.rooms import (
-    ProjectRoomsResponse,
     RoomDetailResponse,
+    RoomsResponse,
     RoomStatsResponse,
 )
 from src.projects.views.schemas.sessions import WeekBlockResponse
@@ -43,7 +43,7 @@ class ProjectRoomsView(View):
             return JsonResponse(
                 SuccessResponse(
                     message="Rooms retrieved successfully",
-                    data=ProjectRoomsResponse(rooms=result, count=len(result)),
+                    data=RoomsResponse(rooms=result, count=len(result)),
                 ).model_dump(),
             )
 
