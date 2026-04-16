@@ -5,23 +5,7 @@ import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
 import SessionPopup from "@/components/dashboard/SessionPopup";
 import WeekGrid, { type WeekGridEvent } from "@/components/dashboard/WeekGrid";
 import type { SessionResponse, WeekBlockResponse } from "@/types/dashboard";
-
-function formatShortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("pt-PT", { day: "2-digit", month: "short" });
-}
-
-function formatBlockLabel(block: WeekBlockResponse): string {
-  const first = block.weeks[0];
-  const last = block.weeks[block.weeks.length - 1];
-  if (!first) return "—";
-  const count = block.weeks.length;
-  const range =
-    count === 1 || !last
-      ? formatShortDate(first)
-      : `${formatShortDate(first)} – ${formatShortDate(last)}`;
-  const weeksLabel = count === 1 ? "1 semana" : `${count} semanas`;
-  return `${range} · ${weeksLabel}`;
-}
+import { formatBlockLabel } from "@/utils/date";
 
 export default function SubjectDetailPage() {
   const { projectId, subjectId } = useParams<{ projectId: string; subjectId: string }>();
