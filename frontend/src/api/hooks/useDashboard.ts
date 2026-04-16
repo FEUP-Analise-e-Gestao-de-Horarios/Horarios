@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { queryKeys } from "@/api/queryKeys";
-import type { ApiResponse } from "@/types/api";
 import type { Project } from "@/types/project";
 import type {
   ClassDetail,
@@ -29,10 +28,7 @@ function isProcessing(project: Project): boolean {
 export function useProject(projectId: string) {
   return useQuery({
     queryKey: queryKeys.projects.detail(projectId),
-    queryFn: async (): Promise<Project> => {
-      const res = await api.get<ApiResponse<Project>>(`/api/projects/${projectId}`);
-      return res.data;
-    },
+    queryFn: () => api.getData<Project>(`/api/projects/${projectId}`),
     enabled: !!projectId,
     refetchInterval: (query) =>
       query.state.data && !isProcessing(query.state.data) ? false : POLL_INTERVAL,
@@ -42,10 +38,7 @@ export function useProject(projectId: string) {
 export function useProjectStats(projectId: string, refetchInterval: number | false = false) {
   return useQuery({
     queryKey: queryKeys.projects.stats(projectId),
-    queryFn: async (): Promise<ProjectStats> => {
-      const res = await api.get<ApiResponse<ProjectStats>>(`/api/projects/${projectId}/stats`);
-      return res.data;
-    },
+    queryFn: () => api.getData<ProjectStats>(`/api/projects/${projectId}/stats`),
     enabled: !!projectId,
     refetchInterval,
   });
@@ -55,10 +48,8 @@ export function useProjectDegrees(projectId: string, refetchInterval: number | f
   return useQuery({
     queryKey: queryKeys.projects.degrees(projectId),
     queryFn: async (): Promise<DegreeStats[]> => {
-      const res = await api.get<ApiResponse<DegreesListPayload>>(
-        `/api/projects/${projectId}/degrees/`,
-      );
-      return res.data.degrees;
+      const payload = await api.getData<DegreesListPayload>(`/api/projects/${projectId}/degrees/`);
+      return payload.degrees;
     },
     enabled: !!projectId,
     refetchInterval,
@@ -69,10 +60,10 @@ export function useProjectTeachers(projectId: string, refetchInterval: number | 
   return useQuery({
     queryKey: queryKeys.projects.teachers(projectId),
     queryFn: async (): Promise<TeacherStats[]> => {
-      const res = await api.get<ApiResponse<TeachersListPayload>>(
+      const payload = await api.getData<TeachersListPayload>(
         `/api/projects/${projectId}/teachers/`,
       );
-      return res.data.teachers;
+      return payload.teachers;
     },
     enabled: !!projectId,
     refetchInterval,
@@ -83,8 +74,8 @@ export function useProjectRooms(projectId: string, refetchInterval: number | fal
   return useQuery({
     queryKey: queryKeys.projects.rooms(projectId),
     queryFn: async (): Promise<RoomStats[]> => {
-      const res = await api.get<ApiResponse<RoomsListPayload>>(`/api/projects/${projectId}/rooms/`);
-      return res.data.rooms;
+      const payload = await api.getData<RoomsListPayload>(`/api/projects/${projectId}/rooms/`);
+      return payload.rooms;
     },
     enabled: !!projectId,
     refetchInterval,
@@ -94,12 +85,7 @@ export function useProjectRooms(projectId: string, refetchInterval: number | fal
 export function useProjectDegree(projectId: string, degreeId: string) {
   return useQuery({
     queryKey: queryKeys.projects.degree(projectId, degreeId),
-    queryFn: async (): Promise<DegreeDetail> => {
-      const res = await api.get<ApiResponse<DegreeDetail>>(
-        `/api/projects/${projectId}/degrees/${degreeId}`,
-      );
-      return res.data;
-    },
+    queryFn: () => api.getData<DegreeDetail>(`/api/projects/${projectId}/degrees/${degreeId}`),
     enabled: !!projectId && !!degreeId,
   });
 }
@@ -107,12 +93,7 @@ export function useProjectDegree(projectId: string, degreeId: string) {
 export function useProjectTeacher(projectId: string, teacherId: string) {
   return useQuery({
     queryKey: queryKeys.projects.teacher(projectId, teacherId),
-    queryFn: async (): Promise<TeacherDetail> => {
-      const res = await api.get<ApiResponse<TeacherDetail>>(
-        `/api/projects/${projectId}/teachers/${teacherId}`,
-      );
-      return res.data;
-    },
+    queryFn: () => api.getData<TeacherDetail>(`/api/projects/${projectId}/teachers/${teacherId}`),
     enabled: !!projectId && !!teacherId,
   });
 }
@@ -120,12 +101,7 @@ export function useProjectTeacher(projectId: string, teacherId: string) {
 export function useProjectRoom(projectId: string, roomId: string) {
   return useQuery({
     queryKey: queryKeys.projects.room(projectId, roomId),
-    queryFn: async (): Promise<RoomDetail> => {
-      const res = await api.get<ApiResponse<RoomDetail>>(
-        `/api/projects/${projectId}/rooms/${roomId}`,
-      );
-      return res.data;
-    },
+    queryFn: () => api.getData<RoomDetail>(`/api/projects/${projectId}/rooms/${roomId}`),
     enabled: !!projectId && !!roomId,
   });
 }
@@ -133,12 +109,7 @@ export function useProjectRoom(projectId: string, roomId: string) {
 export function useProjectSubject(projectId: string, subjectId: string) {
   return useQuery({
     queryKey: queryKeys.projects.subject(projectId, subjectId),
-    queryFn: async (): Promise<SubjectDetail> => {
-      const res = await api.get<ApiResponse<SubjectDetail>>(
-        `/api/projects/${projectId}/subjects/${subjectId}`,
-      );
-      return res.data;
-    },
+    queryFn: () => api.getData<SubjectDetail>(`/api/projects/${projectId}/subjects/${subjectId}`),
     enabled: !!projectId && !!subjectId,
   });
 }
@@ -146,12 +117,7 @@ export function useProjectSubject(projectId: string, subjectId: string) {
 export function useProjectClass(projectId: string, classId: string) {
   return useQuery({
     queryKey: queryKeys.projects.class(projectId, classId),
-    queryFn: async (): Promise<ClassDetail> => {
-      const res = await api.get<ApiResponse<ClassDetail>>(
-        `/api/projects/${projectId}/classes/${classId}`,
-      );
-      return res.data;
-    },
+    queryFn: () => api.getData<ClassDetail>(`/api/projects/${projectId}/classes/${classId}`),
     enabled: !!projectId && !!classId,
   });
 }
