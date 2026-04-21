@@ -115,7 +115,7 @@ export default function ScheduleNavbar({
         Dados
       </button>
 
-      <div className="w-px h-5 bg-gray-600 mx-1" />
+      <div className="border-l border-gray-600 h-5 mx-1" />
 
       <CursoDropdown
         value={curso}
@@ -183,7 +183,7 @@ export default function ScheduleNavbar({
         showLabel
       />
 
-      <div className="w-px h-5 bg-gray-600 mx-1" />
+      <div className="border-l border-gray-600 h-5 mx-1" />
 
       <button className="bg-transparent text-white font-semibold px-3 py-1.5 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors">
         Editar Aulas em Paralelo
@@ -196,7 +196,7 @@ export default function ScheduleNavbar({
         Editar Evento
       </button>
 
-      <div className="w-px h-5 bg-gray-600 mx-1" />
+      <div className="border-l border-gray-600 h-5 mx-1" />
 
       <button className="bg-transparent text-white font-semibold px-3 py-1.5 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors">
         Distribuição

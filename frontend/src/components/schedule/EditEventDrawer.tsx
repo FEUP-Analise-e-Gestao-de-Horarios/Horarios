@@ -181,11 +181,11 @@ export default function EditEventDrawer({
 
       <aside
         className={[
-          "absolute right-0 top-0 h-full w-[min(92vw,430px)] bg-[#1d2128] text-white border-l border-white/15 shadow-[-8px_0_24px_rgba(0,0,0,0.45)] transition-transform overflow-y-auto",
+          "absolute right-0 top-0 h-full w-[min(92vw,450px)] bg-[#1d2128] text-white border-l border-white/15 shadow-[-8px_0_24px_rgba(0,0,0,0.45)] transition-transform overflow-y-auto",
           open ? "translate-x-0" : "translate-x-full",
         ].join(" ")}
       >
-        <div className="sticky top-0 bg-[#1d2128] border-b border-white/10 px-5 py-4 flex items-center justify-between">
+        <div className="sticky top-0 z-20 bg-[#1d2128] border-b border-white/10 px-5 py-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Editar Evento</h2>
           <button
             onClick={onClose}
@@ -211,14 +211,14 @@ export default function EditEventDrawer({
             </select>
           </label>
 
-          <div className="flex items-end gap-3">
+          <div className="flex items-end gap-2">
             <label className="block text-sm flex-1 min-w-0">
               <span className="mb-1.5 block text-white/90">Hora Início</span>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={() => setStartTime((current) => shiftTimeByMinutes(current, -30))}
-                  className="h-10 w-10 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white"
+                  className="h-8 w-8 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white text-sm"
                   aria-label="Diminuir hora de inicio em 30 minutos"
                 >
                   -
@@ -232,12 +232,12 @@ export default function EditEventDrawer({
                   onBlur={(event) =>
                     setStartTime((previous) => normalizeTimeValue(event.target.value, previous))
                   }
-                  className="w-full min-w-0 bg-[#2a303a] border border-white/20 rounded px-2.5 py-2 text-white"
+                  className="w-14 bg-[#2a303a] border border-white/20 rounded px-1.5 py-1.5 text-white text-center text-sm"
                 />
                 <button
                   type="button"
                   onClick={() => setStartTime((current) => shiftTimeByMinutes(current, 30))}
-                  className="h-10 w-10 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white"
+                  className="h-8 w-8 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white text-sm"
                   aria-label="Aumentar hora de inicio em 30 minutos"
                 >
                   +
@@ -246,11 +246,11 @@ export default function EditEventDrawer({
             </label>
             <label className="block text-sm flex-1 min-w-0">
               <span className="mb-1.5 block text-white/90">Hora Fim</span>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={() => setEndTime((current) => shiftTimeByMinutes(current, -30))}
-                  className="h-10 w-10 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white"
+                  className="h-8 w-8 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white text-sm"
                   aria-label="Diminuir hora de fim em 30 minutos"
                 >
                   -
@@ -264,30 +264,30 @@ export default function EditEventDrawer({
                   onBlur={(event) =>
                     setEndTime((previous) => normalizeTimeValue(event.target.value, previous))
                   }
-                  className="w-full min-w-0 bg-[#2a303a] border border-white/20 rounded px-2.5 py-2 text-white"
+                  className="w-14 bg-[#2a303a] border border-white/20 rounded px-1.5 py-1.5 text-white text-center text-sm"
                 />
                 <button
                   type="button"
                   onClick={() => setEndTime((current) => shiftTimeByMinutes(current, 30))}
-                  className="h-10 w-10 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white"
+                  className="h-8 w-8 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white text-sm"
                   aria-label="Aumentar hora de fim em 30 minutos"
                 >
                   +
                 </button>
               </div>
             </label>
+            <div className="border-l border-white/20 h-10 ml-1 mr-0.5" />
+            <label className="block text-sm flex-1 min-w-0">
+              <span className="mb-1.5 block text-white/90">Dia</span>
+              <select className="w-full bg-[#2a303a] border border-white/20 rounded px-2 py-1.5 text-sm">
+                <option>Segunda-Feira</option>
+                <option>Terça-Feira</option>
+                <option>Quarta-Feira</option>
+                <option>Quinta-Feira</option>
+                <option>Sexta-Feira</option>
+              </select>
+            </label>
           </div>
-
-          <label className="block text-sm">
-            <span className="mb-1.5 block text-white/90">Dia</span>
-            <select className="w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2">
-              <option>Segunda-Feira</option>
-              <option>Terça-Feira</option>
-              <option>Quarta-Feira</option>
-              <option>Quinta-Feira</option>
-              <option>Sexta-Feira</option>
-            </select>
-          </label>
 
           <div className="space-y-4" ref={dropdownAreaRef}>
             <div className="relative text-sm">
@@ -304,7 +304,7 @@ export default function EditEventDrawer({
               </button>
 
               {openDropdown === "docentes" && (
-                <div className="absolute z-30 mt-2 w-full bg-[#222834] border border-white/20 rounded shadow-[0_10px_20px_rgba(0,0,0,0.45)] p-2">
+                <div className="absolute z-10 mt-2 w-full bg-[#222834] border border-white/20 rounded shadow-[0_10px_20px_rgba(0,0,0,0.45)] p-2">
                   <input
                     value={docentesSearch}
                     onChange={(event) => setDocentesSearch(event.target.value)}
@@ -360,126 +360,136 @@ export default function EditEventDrawer({
               )}
             </div>
 
-            <div className="relative text-sm">
-              <span className="mb-1.5 block text-white/90">Salas - Tipologia</span>
-              <button
-                onClick={() => setOpenDropdown((prev) => (prev === "salas" ? null : "salas"))}
-                className="w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2 text-left flex items-center justify-between"
-              >
-                <span>
-                  {orderedSalas.find((r) => r.id === effectiveSelectedSala)
-                    ? `${orderedSalas.find((r) => r.id === effectiveSelectedSala)?.id} - ${orderedSalas.find((r) => r.id === effectiveSelectedSala)?.typology}`
-                    : "Selecionar..."}
-                </span>
-                <span className="text-white/70">▾</span>
-              </button>
+            <div className="flex items-end gap-2">
+              <div className="relative text-sm flex-[1.05] min-w-0">
+                <span className="mb-1.5 block text-white/90">Sala</span>
+                <button
+                  onClick={() => setOpenDropdown((prev) => (prev === "salas" ? null : "salas"))}
+                  className="w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2 text-left flex items-center justify-between"
+                >
+                  <span>
+                    {orderedSalas.find((r) => r.id === effectiveSelectedSala)
+                      ? `${orderedSalas.find((r) => r.id === effectiveSelectedSala)?.id} - ${orderedSalas.find((r) => r.id === effectiveSelectedSala)?.typology}`
+                      : "Selecionar..."}
+                  </span>
+                  <span className="text-white/70">▾</span>
+                </button>
 
-              {openDropdown === "salas" && (
-                <div className="absolute z-30 mt-2 w-full bg-[#222834] border border-white/20 rounded shadow-[0_10px_20px_rgba(0,0,0,0.45)] p-2">
-                  <input
-                    value={salasSearch}
-                    onChange={(event) => setSalasSearch(event.target.value)}
-                    placeholder="Search..."
-                    className="mb-2 w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2"
-                  />
-                  <div className="max-h-48 overflow-y-auto space-y-1">
-                    {filteredPreferredSalas.length > 0 && (
-                      <p className="px-2 py-1 text-xs uppercase tracking-wide text-white/60">
-                        Tipologia correspondente
-                      </p>
-                    )}
-                    {filteredPreferredSalas.map((room) => (
-                      <button
-                        key={room.id}
-                        onClick={() => {
-                          setSelectedSalaOverride(room.id);
-                          setOpenDropdown(null);
-                        }}
-                        className={`w-full px-2 py-1.5 text-left rounded ${
-                          effectiveSelectedSala === room.id
-                            ? "bg-red-900/40 text-white font-semibold"
-                            : "text-white hover:bg-white/10"
-                        }`}
-                      >
-                        {room.id} - {room.typology}
-                      </button>
-                    ))}
-
-                    {filteredOtherSalas.length > 0 && (
-                      <p className="px-2 py-1 text-xs uppercase tracking-wide text-white/60">
-                        Outras Salas
-                      </p>
-                    )}
-                    {filteredOtherSalas.map((room) => (
-                      <button
-                        key={room.id}
-                        onClick={() => {
-                          setSelectedSalaOverride(room.id);
-                          setOpenDropdown(null);
-                        }}
-                        className={`w-full px-2 py-1.5 text-left rounded ${
-                          effectiveSelectedSala === room.id
-                            ? "bg-red-900/40 text-white font-semibold"
-                            : "text-white hover:bg-white/10"
-                        }`}
-                      >
-                        {room.id} - {room.typology}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="relative text-sm">
-              <span className="mb-1.5 block text-white/90">Turmas</span>
-              <button
-                onClick={() => setOpenDropdown((prev) => (prev === "turmas" ? null : "turmas"))}
-                className="w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2 text-left flex items-center justify-between"
-              >
-                <span>Turmas ({effectiveSelectedTurmas.length})</span>
-                <span className="text-white/70">▾</span>
-              </button>
-
-              {openDropdown === "turmas" && (
-                <div className="absolute z-30 mt-2 w-full bg-[#222834] border border-white/20 rounded shadow-[0_10px_20px_rgba(0,0,0,0.45)] p-2">
-                  <input
-                    value={turmasSearch}
-                    onChange={(event) => setTurmasSearch(event.target.value)}
-                    placeholder="Search..."
-                    className="mb-2 w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2"
-                  />
-                  <div className="max-h-44 overflow-y-auto space-y-1">
-                    {filteredTurmas.map((turma) => (
-                      <button
-                        key={turma}
-                        onClick={() =>
-                          setSelectedTurmasOverride(toggleSelection(effectiveSelectedTurmas, turma))
-                        }
-                        className="w-full px-2 py-1.5 text-left text-white hover:bg-white/10 rounded flex items-start gap-2"
-                      >
-                        <span
-                          className={`mt-0.5 ${
-                            effectiveSelectedTurmas.includes(turma) ? "text-red-400" : "text-white"
+                {openDropdown === "salas" && (
+                  <div className="absolute z-10 mt-2 w-full bg-[#222834] border border-white/20 rounded shadow-[0_10px_20px_rgba(0,0,0,0.45)] p-2">
+                    <input
+                      value={salasSearch}
+                      onChange={(event) => setSalasSearch(event.target.value)}
+                      placeholder="Search..."
+                      className="mb-2 w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2"
+                    />
+                    <div className="max-h-48 overflow-y-auto space-y-1">
+                      {filteredPreferredSalas.length > 0 && (
+                        <p className="px-2 py-1 text-xs uppercase tracking-wide text-white/60">
+                          Tipologia correspondente
+                        </p>
+                      )}
+                      {filteredPreferredSalas.map((room) => (
+                        <button
+                          key={room.id}
+                          onClick={() => {
+                            setSelectedSalaOverride(room.id);
+                            setOpenDropdown(null);
+                          }}
+                          className={`w-full px-2 py-1.5 text-left rounded ${
+                            effectiveSelectedSala === room.id
+                              ? "bg-red-900/40 text-white font-semibold"
+                              : "text-white hover:bg-white/10"
                           }`}
                         >
-                          {effectiveSelectedTurmas.includes(turma) ? "☑" : "☐"}
-                        </span>
-                        <span>{turma}</span>
-                      </button>
-                    ))}
+                          {room.id} - {room.typology}
+                        </button>
+                      ))}
+
+                      {filteredOtherSalas.length > 0 && (
+                        <p className="px-2 py-1 text-xs uppercase tracking-wide text-white/60">
+                          Outras Salas
+                        </p>
+                      )}
+                      {filteredOtherSalas.map((room) => (
+                        <button
+                          key={room.id}
+                          onClick={() => {
+                            setSelectedSalaOverride(room.id);
+                            setOpenDropdown(null);
+                          }}
+                          className={`w-full px-2 py-1.5 text-left rounded ${
+                            effectiveSelectedSala === room.id
+                              ? "bg-red-900/40 text-white font-semibold"
+                              : "text-white hover:bg-white/10"
+                          }`}
+                        >
+                          {room.id} - {room.typology}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+
+              <div className="relative text-sm flex-[1.15] min-w-0">
+                <span className="mb-1.5 block text-white/90">Turmas</span>
+                <button
+                  onClick={() => setOpenDropdown((prev) => (prev === "turmas" ? null : "turmas"))}
+                  className="w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2 text-left flex items-center justify-between"
+                >
+                  <span>Turmas ({effectiveSelectedTurmas.length})</span>
+                  <span className="text-white/70">▾</span>
+                </button>
+
+                {openDropdown === "turmas" && (
+                  <div className="absolute z-10 mt-2 w-full bg-[#222834] border border-white/20 rounded shadow-[0_10px_20px_rgba(0,0,0,0.45)] p-2">
+                    <input
+                      value={turmasSearch}
+                      onChange={(event) => setTurmasSearch(event.target.value)}
+                      placeholder="Search..."
+                      className="mb-2 w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2"
+                    />
+                    <div className="max-h-44 overflow-y-auto space-y-1">
+                      {filteredTurmas.map((turma) => (
+                        <button
+                          key={turma}
+                          onClick={() =>
+                            setSelectedTurmasOverride(
+                              toggleSelection(effectiveSelectedTurmas, turma),
+                            )
+                          }
+                          className="w-full px-2 py-1.5 text-left text-white hover:bg-white/10 rounded flex items-start gap-2"
+                        >
+                          <span
+                            className={`mt-0.5 ${
+                              effectiveSelectedTurmas.includes(turma)
+                                ? "text-red-400"
+                                : "text-white"
+                            }`}
+                          >
+                            {effectiveSelectedTurmas.includes(turma) ? "☑" : "☐"}
+                          </span>
+                          <span>{turma}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
+
+          <button className="w-full bg-[#8c2d19] text-white font-semibold rounded py-2.5 hover:brightness-110 transition mt-4">
+            Submit
+          </button>
 
           <div className="pt-4 border-t border-white/20">
             <h3 className="text-white/90 font-semibold mb-3">Conflitos Detectados</h3>
             {ALL_CONFLICTS.length === 0 ? (
               <p className="text-white/60 text-sm">Nenhum conflito</p>
             ) : (
-              <div className="space-y-2 max-h-64 overflow-y-auto">
+              <div className="space-y-2">
                 {ALL_CONFLICTS.map((conflict) => (
                   <div
                     key={conflict.id}
@@ -508,10 +518,6 @@ export default function EditEventDrawer({
               </div>
             )}
           </div>
-
-          <button className="w-full bg-[#8c2d19] text-white font-semibold rounded py-2.5 hover:brightness-110 transition mt-4">
-            Submit
-          </button>
         </div>
       </aside>
     </div>
