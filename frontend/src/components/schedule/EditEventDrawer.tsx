@@ -15,6 +15,30 @@ interface EditEventDrawerProps {
   preferredUc?: string;
 }
 
+function shiftTimeByMinutes(time: string, deltaMinutes: number): string {
+  const [hours, minutes] = time.split(":").map(Number);
+  if (hours === undefined || minutes === undefined || Number.isNaN(hours) || Number.isNaN(minutes))
+    return time;
+
+  const totalMinutes = Math.max(0, Math.min(23 * 60 + 59, hours * 60 + minutes + deltaMinutes));
+  const nextHours = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
+  const nextMinutes = String(totalMinutes % 60).padStart(2, "0");
+  return `${nextHours}:${nextMinutes}`;
+}
+
+function normalizeTimeValue(value: string, fallback: string): string {
+  const cleaned = value.trim();
+  const match = cleaned.match(/^(\d{1,2}):?(\d{2})$/);
+  if (!match) return fallback;
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return fallback;
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return fallback;
+
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
 function toggleSelection(current: string[], itemId: string): string[] {
   return current.includes(itemId)
     ? current.filter((selectedId) => selectedId !== itemId)
@@ -32,6 +56,8 @@ export default function EditEventDrawer({
   const [selectedDocenteOverride, setSelectedDocenteOverride] = useState<string>("");
   const [selectedSalaOverride, setSelectedSalaOverride] = useState<string>("");
   const [selectedTurmasOverride, setSelectedTurmasOverride] = useState<string[]>([]);
+  const [startTime, setStartTime] = useState("10:30");
+  const [endTime, setEndTime] = useState("12:30");
   const [docentesSearch, setDocentesSearch] = useState("");
   const [salasSearch, setSalasSearch] = useState("");
   const [turmasSearch, setTurmasSearch] = useState("");
@@ -185,22 +211,70 @@ export default function EditEventDrawer({
             </select>
           </label>
 
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block text-sm">
+          <div className="flex items-end gap-3">
+            <label className="block text-sm flex-1 min-w-0">
               <span className="mb-1.5 block text-white/90">Hora Início</span>
-              <select className="w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2">
-                <option>10:30</option>
-                <option>11:00</option>
-                <option>11:30</option>
-              </select>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setStartTime((current) => shiftTimeByMinutes(current, -30))}
+                  className="h-10 w-10 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white"
+                  aria-label="Diminuir hora de inicio em 30 minutos"
+                >
+                  -
+                </button>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="HH:MM"
+                  value={startTime}
+                  onChange={(event) => setStartTime(event.target.value)}
+                  onBlur={(event) =>
+                    setStartTime((previous) => normalizeTimeValue(event.target.value, previous))
+                  }
+                  className="w-full min-w-0 bg-[#2a303a] border border-white/20 rounded px-2.5 py-2 text-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => setStartTime((current) => shiftTimeByMinutes(current, 30))}
+                  className="h-10 w-10 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white"
+                  aria-label="Aumentar hora de inicio em 30 minutos"
+                >
+                  +
+                </button>
+              </div>
             </label>
-            <label className="block text-sm">
+            <label className="block text-sm flex-1 min-w-0">
               <span className="mb-1.5 block text-white/90">Hora Fim</span>
-              <select className="w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2">
-                <option>12:30</option>
-                <option>13:00</option>
-                <option>13:30</option>
-              </select>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setEndTime((current) => shiftTimeByMinutes(current, -30))}
+                  className="h-10 w-10 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white"
+                  aria-label="Diminuir hora de fim em 30 minutos"
+                >
+                  -
+                </button>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="HH:MM"
+                  value={endTime}
+                  onChange={(event) => setEndTime(event.target.value)}
+                  onBlur={(event) =>
+                    setEndTime((previous) => normalizeTimeValue(event.target.value, previous))
+                  }
+                  className="w-full min-w-0 bg-[#2a303a] border border-white/20 rounded px-2.5 py-2 text-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => setEndTime((current) => shiftTimeByMinutes(current, 30))}
+                  className="h-10 w-10 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white"
+                  aria-label="Aumentar hora de fim em 30 minutos"
+                >
+                  +
+                </button>
+              </div>
             </label>
           </div>
 
