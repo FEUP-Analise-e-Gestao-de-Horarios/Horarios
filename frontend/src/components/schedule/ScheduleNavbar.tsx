@@ -108,6 +108,13 @@ export default function ScheduleNavbar({
         Exportar
       </button>
 
+      <button
+        onClick={() => void navigate(buildPath(ROUTES.DASHBOARD, { projectId }))}
+        className="bg-transparent text-white font-semibold px-3 py-1.5 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors"
+      >
+        Dados
+      </button>
+
       <div className="w-px h-5 bg-gray-600 mx-1" />
 
       <CursoDropdown
@@ -178,19 +185,6 @@ export default function ScheduleNavbar({
 
       <div className="w-px h-5 bg-gray-600 mx-1" />
 
-      <button
-        onClick={() => void navigate(buildPath(ROUTES.DASHBOARD, { projectId }))}
-        className="bg-transparent text-white font-semibold px-3 py-1.5 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors"
-      >
-        Dados
-      </button>
-
-      <button className="bg-transparent text-white font-semibold px-3 py-1.5 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors">
-        Distribuição
-      </button>
-
-      <div className="w-px h-5 bg-gray-600 mx-1" />
-
       <button className="bg-transparent text-white font-semibold px-3 py-1.5 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors">
         Editar Aulas em Paralelo
       </button>
@@ -200,6 +194,12 @@ export default function ScheduleNavbar({
         className="bg-transparent text-white font-semibold px-3 py-1.5 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors"
       >
         Editar Evento
+      </button>
+
+      <div className="w-px h-5 bg-gray-600 mx-1" />
+
+      <button className="bg-transparent text-white font-semibold px-3 py-1.5 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors">
+        Distribuição
       </button>
 
       <button
