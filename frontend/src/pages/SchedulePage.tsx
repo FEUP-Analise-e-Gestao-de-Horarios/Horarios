@@ -3,13 +3,18 @@ import { useNavigate, useParams } from "react-router-dom";
 import EditEventDrawer from "@/components/schedule/EditEventDrawer";
 import ConflictsDrawer from "@/components/schedule/ConflictsDrawer";
 import ScheduleNavbar from "@/components/schedule/ScheduleNavbar";
-import { UCS_POR_CURSO, TURMAS_POR_UC } from "@/components/schedule/data";
 import { useProjectDegree, useProjectDegrees, useProject } from "@/api/hooks/useDashboard";
 import { ROUTES } from "@/routes";
 import { buildPath } from "@/utils/routes";
 
 const DEFAULT_SEMANAS = ["S1", "S2", "S3", "S4", "S5"];
 const COURSE_GROUPS = ["Licenciaturas", "Mestrados", "Pós-Graduações", "Outros"] as const;
+
+type DropdownOption = {
+  value: string;
+  label: string;
+  secondaryText?: string;
+};
 
 function getCourseGroupLabel(name: string) {
   const normalized = name.toLowerCase();
@@ -42,6 +47,8 @@ export default function SchedulePage() {
   const [ucs, setUcs] = useState<string[]>([]);
   const [turnos, setTurnos] = useState<string[]>([]);
   const [turmas, setTurmas] = useState<string[]>([]);
+  const [turnosTouched, setTurnosTouched] = useState(false);
+  const [turmasTouched, setTurmasTouched] = useState(false);
   const [semanas, setSemanas] = useState<string[]>([]);
   const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
   const [isConflictsDrawerOpen, setIsConflictsDrawerOpen] = useState(false);
@@ -55,7 +62,6 @@ export default function SchedulePage() {
 
   const { data: selectedDegree } = useProjectDegree(projectId ?? "", activeDegree?.id ?? "");
 
-  const ucOptions = useMemo(() => UCS_POR_CURSO[curso] ?? [], [curso]);
   const effectiveAnos = useMemo(() => {
     if (!curso) return [];
     const yearOptions = selectedDegree?.years.map((year) => String(year.number)) ?? [];
@@ -64,81 +70,137 @@ export default function SchedulePage() {
     const firstYear = yearOptions[0];
     return filtered.length > 0 ? filtered : firstYear ? [firstYear] : [];
   }, [anos, curso, selectedDegree]);
+
+  const selectedYearNumber = effectiveAnos[0] ?? "";
+  const selectedYear = useMemo(
+    () => selectedDegree?.years.find((year) => String(year.number) === selectedYearNumber) ?? null,
+    [selectedDegree, selectedYearNumber],
+  );
+
+  const selectedYearSubjects = useMemo(() => selectedYear?.subjects ?? [], [selectedYear]);
+  const selectedYearClasses = useMemo(() => selectedYear?.classes ?? [], [selectedYear]);
+
+  const ucOptions = useMemo(
+    () =>
+      selectedYearSubjects
+        .slice()
+        .sort((a, b) => a.acronym.localeCompare(b.acronym))
+        .map((subject) => subject.name),
+    [selectedYearSubjects],
+  );
   const effectiveUcs = useMemo(
     () => (curso ? (ucs.length > 0 ? ucs.filter((uc) => ucOptions.includes(uc)) : ucOptions) : []),
     [curso, ucOptions, ucs],
   );
 
-  const baseTurmaOptions = useMemo(
-    () =>
-      effectiveUcs.length > 0
-        ? effectiveUcs
-            .flatMap((uc) => TURMAS_POR_UC[uc] ?? [])
-            .filter((v, i, a) => a.indexOf(v) === i)
-        : Object.values(TURMAS_POR_UC)
-            .flat()
-            .filter((v, i, a) => a.indexOf(v) === i),
-    [effectiveUcs],
-  );
+  const classesByTurno = useMemo(() => {
+    const groups = new Map<string, typeof selectedYearClasses>();
 
-  const turmasByTurno = useMemo(() => {
-    const groups = new Map<number, string[]>();
-
-    for (const turma of baseTurmaOptions) {
-      const numericSuffix = turma.match(/(\d+)$/);
-      if (!numericSuffix) continue;
-
-      const turmaNumber = Number(numericSuffix[1]);
-      if (Number.isNaN(turmaNumber) || turmaNumber <= 0) continue;
-
-      const turno = Math.floor((turmaNumber - 1) / 5) + 1;
-      const existing = groups.get(turno) ?? [];
-      groups.set(turno, [...existing, turma]);
+    for (const classItem of selectedYearClasses) {
+      const turno = String(classItem.shift);
+      const current = groups.get(turno) ?? [];
+      groups.set(turno, [...current, classItem]);
     }
 
-    const byLabel = new Map<string, string[]>();
-    const sortedEntries = [...groups.entries()].sort((a, b) => a[0] - b[0]);
-    for (const [turno, turmaList] of sortedEntries) {
-      const numbers = turmaList
-        .map((turma) => Number(turma.match(/(\d+)$/)?.[1] ?? ""))
-        .filter((n) => !Number.isNaN(n))
-        .sort((a, b) => a - b);
-      const label = `${turno} [Turmas ${numbers.join(", ")}]`;
-      byLabel.set(label, turmaList);
+    return groups;
+  }, [selectedYearClasses]);
+
+  const turnoOptions = useMemo<DropdownOption[]>(() => {
+    const byTurno = [...classesByTurno.entries()].sort((a, b) => Number(a[0]) - Number(b[0]));
+    return byTurno.map(([turno, classes]) => ({
+      value: turno,
+      label: `Turno ${turno}`,
+      secondaryText: `Turmas: ${classes.map((classItem) => classItem.code).join(", ")}`,
+    }));
+  }, [classesByTurno]);
+
+  const turmaOptions = useMemo<DropdownOption[]>(
+    () =>
+      selectedYearClasses
+        .slice()
+        .sort((a, b) => a.shift - b.shift || a.code.localeCompare(b.code))
+        .map((classItem) => ({
+          value: classItem.code,
+          label: classItem.code,
+          secondaryText: `${classItem.shift}º Turno`,
+        })),
+    [selectedYearClasses],
+  );
+
+  const allTurnoValues = useMemo(() => turnoOptions.map((option) => option.value), [turnoOptions]);
+  const allTurmaValues = useMemo(() => turmaOptions.map((option) => option.value), [turmaOptions]);
+
+  const effectiveTurnos = useMemo(() => {
+    if (!curso) return [];
+    const validSelected = turnos.filter((turno) => allTurnoValues.includes(turno));
+    if (turnosTouched) return validSelected;
+    return validSelected.length > 0 ? validSelected : allTurnoValues;
+  }, [allTurnoValues, curso, turnos, turnosTouched]);
+
+  const effectiveTurmas = useMemo(() => {
+    if (!curso) return [];
+    const validSelected = turmas.filter((turma) => allTurmaValues.includes(turma));
+    if (turmasTouched) return validSelected;
+    return validSelected.length > 0 ? validSelected : allTurmaValues;
+  }, [allTurmaValues, curso, turmas, turmasTouched]);
+
+  const turnosFromTurmas = (turmaCodes: string[]) => {
+    const selectedShifts = new Set<string>();
+    for (const classItem of selectedYearClasses) {
+      if (turmaCodes.includes(classItem.code)) {
+        selectedShifts.add(String(classItem.shift));
+      }
     }
+    return [...selectedShifts].sort((a, b) => Number(a) - Number(b));
+  };
 
-    return byLabel;
-  }, [baseTurmaOptions]);
+  const handleSelectTurnos = (nextTurnos: string[]) => {
+    const currentTurnos = effectiveTurnos;
+    const currentTurmas = effectiveTurmas;
+    const addedTurnos = nextTurnos.filter((turno) => !currentTurnos.includes(turno));
+    const removedTurnos = currentTurnos.filter((turno) => !nextTurnos.includes(turno));
 
-  const turnoOptions = useMemo(() => [...turmasByTurno.keys()], [turmasByTurno]);
+    const turmasToAdd = selectedYearClasses
+      .filter((classItem) => addedTurnos.includes(String(classItem.shift)))
+      .map((classItem) => classItem.code);
+    const turmasToRemove = selectedYearClasses
+      .filter((classItem) => removedTurnos.includes(String(classItem.shift)))
+      .map((classItem) => classItem.code);
 
-  const effectiveTurnos = useMemo(
-    () =>
-      curso
-        ? turnos.length > 0
-          ? turnos.filter((turno) => turnoOptions.includes(turno))
-          : turnoOptions
-        : [],
-    [curso, turnoOptions, turnos],
-  );
+    const nextTurmas = new Set(currentTurmas);
+    turmasToAdd.forEach((turma) => nextTurmas.add(turma));
+    turmasToRemove.forEach((turma) => nextTurmas.delete(turma));
 
-  const turmaOptions = useMemo(() => {
-    if (effectiveTurnos.length === 0) return baseTurmaOptions;
+    const nextTurmasArray = [...nextTurmas].filter((turma) =>
+      selectedYearClasses.some((classItem) => classItem.code === turma),
+    );
 
-    return effectiveTurnos
-      .flatMap((turnoLabel) => turmasByTurno.get(turnoLabel) ?? [])
-      .filter((v, i, a) => a.indexOf(v) === i);
-  }, [baseTurmaOptions, effectiveTurnos, turmasByTurno]);
+    setTurmas(nextTurmasArray);
+    setTurnos(turnosFromTurmas(nextTurmasArray));
+    setTurmasTouched(true);
+    setTurnosTouched(true);
+  };
 
-  const effectiveTurmas = useMemo(
-    () =>
-      curso
-        ? turmas.length > 0
-          ? turmas.filter((turma) => turmaOptions.includes(turma))
-          : turmaOptions
-        : [],
-    [curso, turmaOptions, turmas],
-  );
+  const handleSelectTurmas = (nextTurmas: string[]) => {
+    const validTurmas = nextTurmas.filter((turma) =>
+      selectedYearClasses.some((classItem) => classItem.code === turma),
+    );
+    setTurmas(validTurmas);
+    setTurnos(turnosFromTurmas(validTurmas));
+    setTurmasTouched(true);
+    setTurnosTouched(true);
+  };
+
+  const handleSelectCurso = (nextCurso: string) => {
+    setCurso(nextCurso);
+    setAnos([]);
+    setUcs([]);
+    setTurnos([]);
+    setTurmas([]);
+    setSemanas([]);
+    setTurnosTouched(false);
+    setTurmasTouched(false);
+  };
 
   const effectiveSemanas = useMemo(
     () => (curso ? (semanas.length > 0 ? semanas : DEFAULT_SEMANAS) : []),
@@ -183,15 +245,15 @@ export default function SchedulePage() {
         key={`${isEditDrawerOpen}-${isConflictsDrawerOpen}`}
         projectId={projectId}
         curso={curso}
-        setCurso={setCurso}
+        setCurso={handleSelectCurso}
         anos={effectiveAnos}
         setAnos={setAnos}
         ucs={effectiveUcs}
         setUcs={setUcs}
         turnos={effectiveTurnos}
-        setTurnos={setTurnos}
+        setTurnos={handleSelectTurnos}
         turmas={effectiveTurmas}
-        setTurmas={setTurmas}
+        setTurmas={handleSelectTurmas}
         semanas={effectiveSemanas}
         setSemanas={setSemanas}
         ucOptions={ucOptions}
@@ -207,7 +269,7 @@ export default function SchedulePage() {
         open={isEditDrawerOpen}
         onClose={() => setIsEditDrawerOpen(false)}
         ucOptions={ucOptions}
-        turmaOptions={turmaOptions}
+        turmaOptions={turmaOptions.map((option) => option.value)}
         preferredUc={effectiveUcs[0]}
       />
 

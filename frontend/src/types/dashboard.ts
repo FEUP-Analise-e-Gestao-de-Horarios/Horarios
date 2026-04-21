@@ -123,6 +123,15 @@ export interface RoomStats extends RoomBase {
   red_blocks: number;
 }
 
+export interface SubjectStats extends SubjectBase {
+  degree_id: string;
+  degree_acronym: string;
+  degree_name: string;
+  year_id: string;
+  year_number: number;
+  sessions: number;
+}
+
 // ---------------------------------------------------------------------------
 // Detail responses
 // ---------------------------------------------------------------------------
@@ -175,5 +184,10 @@ export interface TeachersListPayload {
 
 export interface RoomsListPayload {
   rooms: RoomStats[];
+  count: number;
+}
+
+export interface SubjectsListPayload {
+  subjects: SubjectStats[];
   count: number;
 }

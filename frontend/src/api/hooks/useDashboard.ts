@@ -11,6 +11,8 @@ import type {
   RoomDetail,
   RoomsListPayload,
   RoomStats,
+  SubjectStats,
+  SubjectsListPayload,
   SubjectDetail,
   TeacherDetail,
   TeachersListPayload,
@@ -87,6 +89,19 @@ export function useProjectDegree(projectId: string, degreeId: string) {
     queryKey: queryKeys.projects.degree(projectId, degreeId),
     queryFn: () => api.getData<DegreeDetail>(`/api/projects/${projectId}/degrees/${degreeId}`),
     enabled: !!projectId && !!degreeId,
+  });
+}
+
+export function useProjectYearSubjects(projectId: string, degreeId: string, yearId: string) {
+  return useQuery({
+    queryKey: [...queryKeys.projects.degree(projectId, degreeId), "years", yearId, "subjects"],
+    queryFn: async (): Promise<SubjectStats[]> => {
+      const payload = await api.getData<SubjectsListPayload>(
+        `/api/projects/${projectId}/degrees/${degreeId}/years/${yearId}/subjects/`,
+      );
+      return payload.subjects;
+    },
+    enabled: !!projectId && !!degreeId && !!yearId,
   });
 }
 
