@@ -2,12 +2,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { queryKeys } from "@/api/queryKeys";
 import { ApiError } from "@/types/api";
-import type { Project, ProjectsResponse } from "@/types/project";
+import type { Project, ProjectsListPayload } from "@/types/project";
 import type { ApiRequestError } from "@/types/api";
 
 async function fetchProjects(): Promise<Project[]> {
-  const res = await api.get<ProjectsResponse>("/api/projects/");
-  return res.data.projects;
+  const payload = await api.getData<ProjectsListPayload>("/api/projects/");
+  return payload.projects;
 }
 
 function hasProcessingProject(projects: Project[]): boolean {

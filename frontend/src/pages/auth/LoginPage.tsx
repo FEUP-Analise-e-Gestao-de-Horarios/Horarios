@@ -83,6 +83,7 @@ export default function LoginPage() {
 
   return (
     <AuthPageLayout>
+      <title>Entrar · AGH</title>
       <FormCard onSubmit={handleSubmit}>
         <h1 className="text-[#08060d] text-2xl font-bold m-0">Iniciar Sessão</h1>
 

@@ -14,7 +14,7 @@ from src.projects.projects_db.dao import DegreeDAO, YearDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
 from src.projects.views.schemas.degrees import (
-    ProjectYearsResponse,
+    YearsResponse,
     YearStatsResponse,
 )
 
@@ -44,6 +44,6 @@ class ProjectYearsView(View):
             return JsonResponse(
                 SuccessResponse(
                     message="Years retrieved successfully",
-                    data=ProjectYearsResponse(years=result, count=len(result)),
+                    data=YearsResponse(years=result, count=len(result)),
                 ).model_dump(),
             )

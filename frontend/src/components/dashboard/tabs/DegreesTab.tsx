@@ -1,7 +1,10 @@
 import { useRef } from "react";
+import { Link } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useProjectDegrees } from "@/api/hooks/useDashboard";
+import { ROUTES } from "@/routes";
 import type { DegreeStats } from "@/types/dashboard";
+import { buildPath } from "@/utils/routes";
 import { matchesSequence } from "@/utils/search";
 import TableSkeleton from "./TableSkeleton";
 
@@ -100,7 +103,17 @@ export default function DegreesTab({
                     className="border-b border-[#e5e4e7] last:border-0 hover:bg-[#f9f7f4] transition-colors"
                   >
                     <td className="py-3 px-4 font-medium text-[#08060d]">{degree.acronym}</td>
-                    <td className="py-3 px-4 text-[#08060d]">{degree.name}</td>
+                    <td className="p-0">
+                      <Link
+                        to={buildPath(ROUTES.DEGREE_DETAIL, {
+                          projectId,
+                          degreeId: degree.id,
+                        })}
+                        className="block py-3 px-4 text-[#08060d]"
+                      >
+                        {degree.name}
+                      </Link>
+                    </td>
                     <td className="py-3 px-4 text-right text-[#6b6375]">{degree.years}</td>
                     <td className="py-3 px-4 text-right text-[#6b6375]">{degree.subjects}</td>
                     <td className="py-3 px-4 text-right text-[#6b6375]">{degree.classes}</td>

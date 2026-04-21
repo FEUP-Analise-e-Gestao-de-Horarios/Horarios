@@ -152,6 +152,7 @@ export default function ChangePasswordPage() {
   if (countdown !== null) {
     return (
       <AuthPageLayout>
+        <title>Mudar palavra-passe · AGH</title>
         <div className="flex flex-col items-center gap-5 w-96 p-8">
           <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
             <svg
@@ -181,6 +182,7 @@ export default function ChangePasswordPage() {
 
   return (
     <AuthPageLayout>
+      <title>Mudar palavra-passe · AGH</title>
       <FormCard onSubmit={handleSubmit}>
         <h1 className="text-[#08060d] text-2xl font-bold m-0">Mudar palavra-passe</h1>
 
