@@ -13,6 +13,7 @@ interface MultiDropdownProps {
   required?: boolean;
   disabled?: boolean;
   showLabel?: boolean;
+  singleSelect?: boolean;
 }
 
 export default function MultiDropdown({
@@ -25,6 +26,7 @@ export default function MultiDropdown({
   required,
   disabled,
   showLabel,
+  singleSelect,
 }: MultiDropdownProps) {
   const isEmpty = required && selected.length === 0;
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -54,17 +56,24 @@ export default function MultiDropdown({
   }, [disabled, open]);
 
   function toggle(item: string) {
+    if (singleSelect) {
+      onSelect([item]);
+      return;
+    }
+
     onSelect(selected.includes(item) ? selected.filter((x) => x !== item) : [...selected, item]);
   }
 
   const triggerLabel =
     selected.length === 0
       ? label
-      : showLabel
-        ? `${label} (${selected.length})`
-        : selected.length === 1
-          ? selected[0]
-          : `${selected.length} selecionados`;
+      : singleSelect
+        ? `${selected[0]} Ano`
+        : showLabel
+          ? `${label} (${selected.length})`
+          : selected.length === 1
+            ? selected[0]
+            : `${selected.length} selecionados`;
 
   return (
     <div ref={wrapperRef} className="relative">

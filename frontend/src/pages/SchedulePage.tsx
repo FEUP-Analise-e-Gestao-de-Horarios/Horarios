@@ -4,17 +4,28 @@ import EditEventDrawer from "@/components/schedule/EditEventDrawer";
 import ConflictsDrawer from "@/components/schedule/ConflictsDrawer";
 import ScheduleNavbar from "@/components/schedule/ScheduleNavbar";
 import { UCS_POR_CURSO, TURMAS_POR_UC } from "@/components/schedule/data";
-import { useProject } from "@/api/hooks/useDashboard";
+import { useProjectDegree, useProjectDegrees, useProject } from "@/api/hooks/useDashboard";
 import { ROUTES } from "@/routes";
 import { buildPath } from "@/utils/routes";
 
-const DEFAULT_ANOS = ["1", "2", "3"];
 const DEFAULT_SEMANAS = ["S1", "S2", "S3", "S4", "S5"];
+const COURSE_GROUPS = ["Licenciaturas", "Mestrados", "Pós-Graduações", "Outros"] as const;
+
+function getCourseGroupLabel(name: string) {
+  const normalized = name.toLowerCase();
+  if (normalized.includes("licenciatura")) return "Licenciaturas";
+  if (normalized.includes("mestrado")) return "Mestrados";
+  if (normalized.includes("pós") || normalized.includes("pos") || normalized.includes("gradua")) {
+    return "Pós-Graduações";
+  }
+  return "Outros";
+}
 
 export default function SchedulePage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const { data: project } = useProject(projectId ?? "");
+  const { data: degrees } = useProjectDegrees(projectId ?? "");
 
   useEffect(() => {
     if (!projectId) {
@@ -37,11 +48,22 @@ export default function SchedulePage() {
 
   const canShowSchedule = curso !== "";
 
-  const ucOptions = useMemo(() => UCS_POR_CURSO[curso] ?? [], [curso]);
-  const effectiveAnos = useMemo(
-    () => (curso ? (anos.length > 0 ? anos : DEFAULT_ANOS) : []),
-    [anos, curso],
+  const activeDegree = useMemo(
+    () => degrees?.find((degree) => degree.acronym === curso) ?? null,
+    [curso, degrees],
   );
+
+  const { data: selectedDegree } = useProjectDegree(projectId ?? "", activeDegree?.id ?? "");
+
+  const ucOptions = useMemo(() => UCS_POR_CURSO[curso] ?? [], [curso]);
+  const effectiveAnos = useMemo(() => {
+    if (!curso) return [];
+    const yearOptions = selectedDegree?.years.map((year) => String(year.number)) ?? [];
+    if (yearOptions.length === 0) return anos;
+    const filtered = anos.filter((ano) => yearOptions.includes(ano));
+    const firstYear = yearOptions[0];
+    return filtered.length > 0 ? filtered : firstYear ? [firstYear] : [];
+  }, [anos, curso, selectedDegree]);
   const effectiveUcs = useMemo(
     () => (curso ? (ucs.length > 0 ? ucs.filter((uc) => ucOptions.includes(uc)) : ucOptions) : []),
     [curso, ucOptions, ucs],
@@ -123,10 +145,39 @@ export default function SchedulePage() {
     [curso, semanas],
   );
 
+  const courseOptions = useMemo(() => {
+    const degreeOptions = (degrees ?? [])
+      .slice()
+      .sort((a, b) => a.acronym.localeCompare(b.acronym))
+      .map((degree) => ({
+        value: degree.acronym,
+        label: degree.acronym,
+        description: degree.name,
+      }));
+
+    const groupedByLabel = new Map<string, typeof degreeOptions>();
+
+    for (const option of degreeOptions) {
+      const groupLabel = getCourseGroupLabel(option.description ?? option.label);
+      const current = groupedByLabel.get(groupLabel) ?? [];
+      groupedByLabel.set(groupLabel, [...current, option]);
+    }
+
+    return COURSE_GROUPS.map((label) => ({
+      label,
+      options: groupedByLabel.get(label) ?? [],
+    })).filter((group) => group.options.length > 0);
+  }, [degrees]);
+
+  const yearOptions = useMemo(
+    () => selectedDegree?.years.map((year) => String(year.number)) ?? [],
+    [selectedDegree],
+  );
+
   if (!projectId) return null;
 
   return (
-    <div className="min-h-screen bg-[#f0eeeb]">
+    <div className="h-screen bg-[#f0eeeb] flex flex-col overflow-hidden">
       <title>{project ? `Horário · ${project.name} · AGH` : "Horário · AGH"}</title>
       <ScheduleNavbar
         key={`${isEditDrawerOpen}-${isConflictsDrawerOpen}`}
@@ -146,6 +197,8 @@ export default function SchedulePage() {
         ucOptions={ucOptions}
         turnoOptions={turnoOptions}
         turmaOptions={turmaOptions}
+        yearOptions={yearOptions}
+        courseOptions={courseOptions}
         onEditEventClick={() => setIsEditDrawerOpen(true)}
         onViewConflicts={() => setIsConflictsDrawerOpen(true)}
       />
@@ -163,7 +216,7 @@ export default function SchedulePage() {
         onClose={() => setIsConflictsDrawerOpen(false)}
       />
 
-      <div className="flex-1 flex items-center justify-center text-gray-500 text-lg overflow-hidden">
+      <div className="flex-1 min-h-0 flex items-center justify-center text-center text-gray-500 text-lg overflow-hidden">
         {canShowSchedule
           ? `Grelha de horário — projeto ${projectId} (a fazer)`
           : "Seleciona Curso para ver o horário"}

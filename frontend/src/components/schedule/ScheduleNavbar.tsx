@@ -4,7 +4,17 @@ import { ROUTES } from "@/routes";
 import { buildPath } from "@/utils/routes";
 import CursoDropdown from "./CursoDropdown";
 import MultiDropdown from "./MultiDropdown";
-import { ANOS } from "./data";
+
+type CourseOption = {
+  value: string;
+  label: string;
+  description?: string;
+};
+
+type CourseGroup = {
+  label: string;
+  options: CourseOption[];
+};
 
 interface ScheduleNavbarProps {
   projectId: string;
@@ -23,6 +33,8 @@ interface ScheduleNavbarProps {
   ucOptions: string[];
   turnoOptions: string[];
   turmaOptions: string[];
+  yearOptions: string[];
+  courseOptions: CourseGroup[];
   onEditEventClick: () => void;
   onViewConflicts: () => void;
 }
@@ -46,6 +58,8 @@ export default function ScheduleNavbar({
   ucOptions,
   turnoOptions,
   turmaOptions,
+  yearOptions,
+  courseOptions,
   onEditEventClick,
   onViewConflicts,
 }: ScheduleNavbarProps) {
@@ -113,17 +127,19 @@ export default function ScheduleNavbar({
         onSelect={handleSelectCurso}
         open={openDropdown === "curso"}
         onToggle={() => toggle("curso")}
+        options={courseOptions}
       />
 
       <MultiDropdown
         label="Ano"
-        options={ANOS}
+        options={yearOptions}
         selected={anos}
         onSelect={setAnos}
         open={openDropdown === "ano"}
         onToggle={() => toggle("ano")}
-        disabled={!curso}
+        disabled={!curso || yearOptions.length === 0}
         showLabel
+        singleSelect
       />
 
       <MultiDropdown
