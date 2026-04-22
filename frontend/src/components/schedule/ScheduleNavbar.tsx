@@ -39,7 +39,7 @@ interface ScheduleNavbarProps {
   ucOptions: string[];
   turnoOptions: DropdownOption[];
   turmaOptions: DropdownOption[];
-  yearOptions: string[];
+  yearOptions: DropdownOption[];
   courseOptions: CourseGroup[];
   onEditEventClick: () => void;
   onViewConflicts: () => void;
@@ -95,7 +95,7 @@ export default function ScheduleNavbar({
   return (
     <header
       ref={navRef}
-      className="relative z-20 px-5 py-2 bg-[#1e2028] flex items-center gap-1.5 w-full flex-wrap overflow-visible border-b border-gray-700"
+      className="relative z-50 px-5 py-2 bg-[#1e2028] flex items-center gap-1.5 w-full flex-wrap overflow-visible border-b border-gray-700"
     >
       <button
         onClick={() => void navigate(ROUTES.HOME)}
@@ -127,7 +127,7 @@ export default function ScheduleNavbar({
 
       <MultiDropdown
         label="Ano"
-        options={yearOptions.map((year) => ({ value: year, label: `${year} Ano` }))}
+        options={yearOptions}
         selected={anos}
         onSelect={setAnos}
         open={openDropdown === "ano"}
@@ -139,7 +139,7 @@ export default function ScheduleNavbar({
       />
 
       <MultiDropdown
-        label="Unidade Curricular"
+        label="UC"
         options={ucOptions.map((uc) => ({ value: uc, label: uc }))}
         selected={ucs}
         onSelect={setUcs}

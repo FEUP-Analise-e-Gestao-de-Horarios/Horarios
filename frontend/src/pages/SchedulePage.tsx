@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import type { WeekGridEvent } from "@/components/schedule/WeekGrid";
+import WeekGrid from "@/components/schedule/WeekGrid";
 import EditEventDrawer from "@/components/schedule/EditEventDrawer";
 import ConflictsDrawer from "@/components/schedule/ConflictsDrawer";
 import ScheduleNavbar from "@/components/schedule/ScheduleNavbar";
@@ -15,6 +17,217 @@ type DropdownOption = {
   label: string;
   secondaryText?: string;
 };
+
+const HARD_CODED_EVENTS: WeekGridEvent[] = [
+  {
+    id: "evt-1",
+    weekday: "wednesday" as const,
+    startTime: 1030,
+    duration: 4,
+    title: "CTEFP",
+    body: ["ACPPF", "JFO", "B322"],
+    type: "TP",
+    turma: "CTFP_2S_T1",
+    uc: "CTEFP",
+    professor: "JFO",
+    sala: "B322",
+  },
+  {
+    id: "evt-2a",
+    weekday: "monday" as const,
+    startTime: 830,
+    duration: 4,
+    title: "P",
+    body: ["JBispo", "DCC - JMPP", "B002"],
+    type: "P",
+    turma: "CTFP_2S_T1",
+    uc: "P",
+    professor: "JBispo",
+    sala: "B002",
+  },
+  {
+    id: "evt-2b",
+    weekday: "monday" as const,
+    startTime: 830,
+    duration: 4,
+    title: "TC",
+    body: ["JAC", "B220"],
+    type: "TC",
+    turma: "CTFP_2S_T1",
+    uc: "TC",
+    professor: "JAC",
+    sala: "B220",
+  },
+  {
+    id: "evt-2c",
+    weekday: "monday" as const,
+    startTime: 830,
+    duration: 4,
+    title: "FI",
+    body: ["MJFVLM", "B119"],
+    type: "FI",
+    turma: "CTFP_2S_T1",
+    uc: "FI",
+    professor: "MJFVLM",
+    sala: "B119",
+  },
+  {
+    id: "evt-2d",
+    weekday: "monday" as const,
+    startTime: 830,
+    duration: 4,
+    title: "AC",
+    body: ["MMC", "B303"],
+    type: "AC",
+    turma: "CTFP_2S_T1",
+    uc: "AC",
+    professor: "MMC",
+    sala: "B303",
+  },
+  {
+    id: "evt-3a",
+    weekday: "monday" as const,
+    startTime: 1030,
+    duration: 2,
+    title: "AM II",
+    body: ["RBAMS", "B322"],
+    type: "PL",
+    turma: "CTFP_2S_T1",
+    uc: "AM II",
+    professor: "RBAMS",
+    sala: "B322",
+  },
+  {
+    id: "evt-3b",
+    weekday: "monday" as const,
+    startTime: 1030,
+    duration: 2,
+    title: "AC",
+    body: ["MMC", "B303"],
+    type: "AC",
+    turma: "CTFP_2S_T1",
+    uc: "AC",
+    professor: "MMC",
+    sala: "B303",
+  },
+  {
+    id: "evt-3c",
+    weekday: "monday" as const,
+    startTime: 1030,
+    duration: 2,
+    title: "P",
+    body: ["JCL", "B301"],
+    type: "P",
+    turma: "CTFP_2S_T1",
+    uc: "P",
+    professor: "JCL",
+    sala: "B301",
+  },
+  {
+    id: "evt-3d",
+    weekday: "monday" as const,
+    startTime: 1030,
+    duration: 2,
+    title: "TC",
+    body: ["LFCA", "B117"],
+    type: "TC",
+    turma: "CTFP_2S_T1",
+    uc: "TC",
+    professor: "LFCA",
+    sala: "B117",
+  },
+  {
+    id: "evt-3e",
+    weekday: "monday" as const,
+    startTime: 1030,
+    duration: 2,
+    title: "AM II",
+    body: ["AMAN", "B323"],
+    type: "PL",
+    turma: "CTFP_2S_T1",
+    uc: "AM II",
+    professor: "AMAN",
+    sala: "B323",
+  },
+  {
+    id: "evt-3f",
+    weekday: "monday" as const,
+    startTime: 1030,
+    duration: 2,
+    title: "FI",
+    body: ["PTPV", "B219"],
+    type: "FI",
+    turma: "CTFP_2S_T1",
+    uc: "FI",
+    professor: "PTPV",
+    sala: "B219",
+  },
+  {
+    id: "evt-3g",
+    weekday: "monday" as const,
+    startTime: 1030,
+    duration: 2,
+    title: "FI",
+    body: ["MJFVLM", "B216"],
+    type: "FI",
+    turma: "CTFP_2S_T1",
+    uc: "FI",
+    professor: "MJFVLM",
+    sala: "B216",
+  },
+  {
+    id: "evt-3h",
+    weekday: "monday" as const,
+    startTime: 1030,
+    duration: 2,
+    title: "TC",
+    body: ["NFMM", "B343"],
+    type: "TC",
+    turma: "CTFP_2S_T1",
+    uc: "TC",
+    professor: "NFMM",
+    sala: "B343",
+  },
+  {
+    id: "evt-3i",
+    weekday: "monday" as const,
+    startTime: 1030,
+    duration: 2,
+    title: "AC",
+    body: ["BMCL", "B307"],
+    type: "AC",
+    turma: "CTFP_2S_T1",
+    uc: "AC",
+    professor: "BMCL",
+    sala: "B307",
+  },
+  {
+    id: "evt-4",
+    weekday: "monday" as const,
+    startTime: 1230,
+    duration: 4,
+    title: "AM II",
+    body: ["AMPA", "B214"],
+    type: "PL",
+    turma: "CTFP_2S_T1",
+    uc: "AM II",
+    professor: "AMPA",
+    sala: "B214",
+  },
+  {
+    id: "evt-5",
+    weekday: "tuesday" as const,
+    startTime: 1030,
+    duration: 4,
+    title: "P",
+    body: ["JBispo", "DCC - JMPP", "B002"],
+    type: "P",
+    turma: "CTFP_2S_T1",
+    uc: "P",
+    professor: "JBispo",
+    sala: "B002",
+  },
+];
 
 function getCourseGroupLabel(name: string) {
   const normalized = name.toLowerCase();
@@ -62,14 +275,18 @@ export default function SchedulePage() {
 
   const { data: selectedDegree } = useProjectDegree(projectId ?? "", activeDegree?.id ?? "");
 
+  const selectedDegreeYearValues = useMemo(
+    () => selectedDegree?.years.map((year) => String(year.number)) ?? [],
+    [selectedDegree],
+  );
+
   const effectiveAnos = useMemo(() => {
     if (!curso) return [];
-    const yearOptions = selectedDegree?.years.map((year) => String(year.number)) ?? [];
-    if (yearOptions.length === 0) return anos;
-    const filtered = anos.filter((ano) => yearOptions.includes(ano));
-    const firstYear = yearOptions[0];
+    if (selectedDegreeYearValues.length === 0) return anos;
+    const filtered = anos.filter((ano) => selectedDegreeYearValues.includes(ano));
+    const firstYear = selectedDegreeYearValues[0];
     return filtered.length > 0 ? filtered : firstYear ? [firstYear] : [];
-  }, [anos, curso, selectedDegree]);
+  }, [anos, curso, selectedDegreeYearValues]);
 
   const selectedYearNumber = effectiveAnos[0] ?? "";
   const selectedYear = useMemo(
@@ -124,6 +341,12 @@ export default function SchedulePage() {
           label: classItem.code,
           secondaryText: `${classItem.shift}º Turno`,
         })),
+    [selectedYearClasses],
+  );
+
+  const turmaShifts = useMemo(
+    () =>
+      Object.fromEntries(selectedYearClasses.map((classItem) => [classItem.code, classItem.shift])),
     [selectedYearClasses],
   );
 
@@ -231,8 +454,13 @@ export default function SchedulePage() {
     })).filter((group) => group.options.length > 0);
   }, [degrees]);
 
-  const yearOptions = useMemo(
-    () => selectedDegree?.years.map((year) => String(year.number)) ?? [],
+  const yearOptions = useMemo<DropdownOption[]>(
+    () =>
+      selectedDegree?.years.map((year) => ({
+        value: String(year.number),
+        label: `${year.number}º Ano`,
+        secondaryText: `${year.subjects.length} UCs · ${year.classes.length} turmas`,
+      })) ?? [],
     [selectedDegree],
   );
 
@@ -278,10 +506,30 @@ export default function SchedulePage() {
         onClose={() => setIsConflictsDrawerOpen(false)}
       />
 
-      <div className="flex-1 min-h-0 flex items-center justify-center text-center text-gray-500 text-lg overflow-hidden">
-        {canShowSchedule
-          ? `Grelha de horário — projeto ${projectId} (a fazer)`
-          : "Seleciona Curso para ver o horário"}
+      <div className="flex-1 min-h-0 overflow-hidden">
+        {canShowSchedule ? (
+          <div className="h-full min-h-0">
+            <WeekGrid
+              events={[...HARD_CODED_EVENTS]}
+              emptyMessage="Sem eventos para mostrar"
+              startTime={800}
+              endTime={1930}
+              weekdayLabels={["SEGUNDA", "TERCA", "QUARTA", "QUINTA", "SEXTA", "SABADO"]}
+              turmaShifts={turmaShifts}
+              selectedTurmas={effectiveTurmas}
+              includeEndSlot
+              headerHeightPx={22}
+              hourLabelFontPx={12}
+              slotHeightPx={31}
+              showHalfHourLabels
+              showHalfHourDividers
+            />
+          </div>
+        ) : (
+          <div className="h-full flex items-center justify-center text-center text-gray-500 text-lg">
+            Seleciona Curso para ver o horário
+          </div>
+        )}
       </div>
     </div>
   );

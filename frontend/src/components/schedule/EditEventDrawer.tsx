@@ -15,15 +15,26 @@ interface EditEventDrawerProps {
   preferredUc?: string;
 }
 
+const MIN_TIME_MINUTES = 8 * 60;
+const MAX_TIME_MINUTES = 19 * 60 + 30;
+
+function formatMinutesToTime(totalMinutes: number): string {
+  const hours = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
+  const minutes = String(totalMinutes % 60).padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
+function clampTimeMinutes(totalMinutes: number): number {
+  return Math.max(MIN_TIME_MINUTES, Math.min(MAX_TIME_MINUTES, totalMinutes));
+}
+
 function shiftTimeByMinutes(time: string, deltaMinutes: number): string {
   const [hours, minutes] = time.split(":").map(Number);
   if (hours === undefined || minutes === undefined || Number.isNaN(hours) || Number.isNaN(minutes))
     return time;
 
-  const totalMinutes = Math.max(0, Math.min(23 * 60 + 59, hours * 60 + minutes + deltaMinutes));
-  const nextHours = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
-  const nextMinutes = String(totalMinutes % 60).padStart(2, "0");
-  return `${nextHours}:${nextMinutes}`;
+  const totalMinutes = clampTimeMinutes(hours * 60 + minutes + deltaMinutes);
+  return formatMinutesToTime(totalMinutes);
 }
 
 function normalizeTimeValue(value: string, fallback: string): string {
@@ -34,9 +45,10 @@ function normalizeTimeValue(value: string, fallback: string): string {
   const hours = Number(match[1]);
   const minutes = Number(match[2]);
   if (Number.isNaN(hours) || Number.isNaN(minutes)) return fallback;
-  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return fallback;
+  if (minutes < 0 || minutes > 59) return fallback;
 
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  const totalMinutes = clampTimeMinutes(hours * 60 + minutes);
+  return formatMinutesToTime(totalMinutes);
 }
 
 function toggleSelection(current: string[], itemId: string): string[] {

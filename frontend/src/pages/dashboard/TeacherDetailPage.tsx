@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { useProject, useProjectTeacher } from "@/api/hooks/useDashboard";
 import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
 import SessionPopup from "@/components/dashboard/SessionPopup";
-import WeekGrid, { type WeekGridEvent } from "@/components/dashboard/WeekGrid";
+import WeekGrid, { type WeekGridEvent } from "@/components/schedule/WeekGrid";
 import type { SessionResponse, WeekBlockResponse } from "@/types/dashboard";
 import { formatBlockLabel } from "@/utils/date";
 
