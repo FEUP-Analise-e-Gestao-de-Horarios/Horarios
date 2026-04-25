@@ -9,7 +9,7 @@ dependencies = [
     "django==6.0.4",
     "matplotlib==3.10.8",
     "networkx==3.6.1",
-    "pydantic==2.12.5",
+    "pydantic==2.13.3",
     "readerwriterlock==1.0.9",
     "requests==2.33.1",
     "six==1.17.0",
