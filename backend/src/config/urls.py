@@ -16,6 +16,9 @@ spa_view = ensure_csrf_cookie(
     TemplateView.as_view(template_name="index.html"),
 )
 
+projectpatterns = [
+    path("export/<int:project_id>", ProjectExportView.as_view()),
+]
 
 urlpatterns = [
     # React URLs
@@ -29,7 +32,7 @@ urlpatterns = [
     path("api/projects/", include("src.projects.urls")),
     path("api/auth/", include("src.login.urls")),
     path("admin/", admin.site.urls, name="admin"),  # TODO Check URL
-    path("export/<int:project_id>", ProjectExportView.as_view()),
+    path("project/", include(projectpatterns)),
 ]
 
 # TODO Check URLs bellow

@@ -356,6 +356,7 @@ class SessionDAO(BaseDAO[Session]):
         room_changes = BaseDAO.get_added_removed_records(
             self,
             other_db_alias,
+            ["*"],
             "session_rooms",
         )
         room_ids = {row["room_id"] for rows in room_changes.values() for row in rows}
@@ -373,6 +374,7 @@ class SessionDAO(BaseDAO[Session]):
         teacher_changes = BaseDAO.get_added_removed_records(
             self,
             other_db_alias,
+            ["*"],
             "session_teachers",
         )
         teacher_ids = {row["teacher_id"] for rows in teacher_changes.values() for row in rows}
@@ -393,6 +395,7 @@ class SessionDAO(BaseDAO[Session]):
         class_subject_changes = BaseDAO.get_added_removed_records(
             self,
             other_db_alias,
+            ["*"],
             SessionClassSubject.__tablename__,
         )
         class_ids = {row["class_id"] for rows in class_subject_changes.values() for row in rows}
@@ -433,3 +436,6 @@ class SessionDAO(BaseDAO[Session]):
                 )
 
         return changes
+
+    def get_added_removed_records(self, other_db_alias):
+        return super().get_added_removed_records(other_db_alias, ["id"], self.model.__tablename__)

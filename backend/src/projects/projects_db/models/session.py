@@ -27,7 +27,11 @@ class Session(Base):
     )
 
     # UUIDs
-    id: Mapped[UUID] = mapped_column(Uuid(native_uuid=False), primary_key=True, default=uuid.uuid7)
+    id: Mapped[UUID] = mapped_column(
+        Uuid(native_uuid=False),
+        primary_key=True,
+        default=uuid.uuid7,
+    )
 
     # Data
     week: Mapped[datetime.date] = mapped_column(Date, index=True)
@@ -38,13 +42,17 @@ class Session(Base):
     original_block_id: Mapped[UUID] = mapped_column(Uuid(native_uuid=False), index=True)
 
     # Relationships
-    rooms: Mapped[list[Room]] = relationship(secondary=session_rooms, back_populates="sessions")
+    rooms: Mapped[list[Room]] = relationship(
+        secondary=session_rooms,
+        back_populates="sessions",
+    )
     teachers: Mapped[list[Teacher]] = relationship(
         secondary=session_teachers,
         back_populates="sessions",
     )
     session_class_subjects: Mapped[list[SessionClassSubject]] = relationship(
         back_populates="session",
+        cascade="all, delete-orphan",
     )
 
     def __str__(self) -> str:

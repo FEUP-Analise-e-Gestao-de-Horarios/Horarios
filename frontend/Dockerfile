@@ -1,10 +1,41 @@
-FROM node:25-alpine
+# Production: builds frontend then serves everything from the Django/Daphne backend.
 
-WORKDIR /workspace/frontend
+# ── Stage 1: Build frontend ───────────────────────────────────────────────────
+FROM node:25-alpine AS frontend-builder
 
-COPY package*.json ./
-RUN npm ci
+WORKDIR /workspace
 
-COPY . .
-EXPOSE 5173
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+COPY frontend/package*.json ./frontend/
+RUN cd frontend && npm ci
+
+COPY frontend/ ./frontend/
+
+RUN cd frontend && npm run build
+
+# ── Stage 2: Production backend ───────────────────────────────────────────────
+FROM python:3.14-slim
+
+COPY --from=ghcr.io/astral-sh/uv:0.11.3 /uv /uvx /bin/
+
+WORKDIR /workspace/backend
+
+COPY backend/pyproject.toml backend/uv.lock ./
+RUN uv sync --frozen --no-dev --no-editable --no-install-project
+
+RUN mkdir -p /workspace/databases/projects
+
+COPY backend/ ./
+
+# Inject the built frontend assets
+COPY --from=frontend-builder /workspace/frontend/dist ./src/static/frontend
+
+
+# Pre-collect static files into STATIC_ROOT so WhiteNoise can serve them
+RUN DJANGO_SETTINGS_MODULE=src.config.settings.prod \
+    SECRET_KEY=placeholder-for-collectstatic \
+    uv run manage.py collectstatic --noinput
+
+EXPOSE 8000
+
+ENTRYPOINT ["/workspace/backend/entrypoint.sh"]
+CMD ["uv", "run", "daphne", "-b", "0.0.0.0", "-p", "8000", "src.config.asgi:application"]

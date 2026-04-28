@@ -193,6 +193,7 @@ class BaseDAO[T]:
     def get_added_removed_records(
         self,
         other_db_alias: DBAlias,
+        pk_list: list[str],
         table_name: str,
     ) -> AddedRemovedRecords:
         """Return rows that exist only in the current or only in an attached database.
@@ -217,17 +218,17 @@ class BaseDAO[T]:
 
         added_query = text(
             f"""
-        SELECT * FROM {current_table}
+        SELECT {",".join(pk_list)} FROM {current_table}
         EXCEPT
-        SELECT * FROM {other_table}
+        SELECT {",".join(pk_list)} FROM {other_table}
         """,
         )
 
         removed_query = text(
             f"""
-            SELECT * FROM {other_table}
+            SELECT {",".join(pk_list)} FROM {other_table}
             EXCEPT
-            SELECT * FROM {current_table}
+            SELECT {",".join(pk_list)} FROM {current_table}
         """,
         )
 

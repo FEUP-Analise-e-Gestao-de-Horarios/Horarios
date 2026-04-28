@@ -1,10 +1,12 @@
 from time import time
+from typing import Any
 
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views import View
 
 from src.core.errors import NotAuthenticatedResponse, ProjectNotFoundResponse
 from src.core.schemas import SuccessResponse
+from src.exporter.export_graph import ExportGraph
 from src.projects.models import Project
 from src.projects.projects_db.dao.class_dao import ClassDAO
 from src.projects.projects_db.dao.room_dao import RoomDAO
@@ -42,7 +44,7 @@ class ProjectExportView(View):
         #     return JsonResponse(
         #         SuccessResponse(
         #             message="Project export computed successfully",
-        #             data=ProjectExportResponse.model_validate(data),
+        #             data=data,
         #         ).model_dump(),
         #     )
 
@@ -54,12 +56,32 @@ class ProjectExportView(View):
 
             start_time = time()
             alias = session_dao.attach_db(initial_db(project_id))
-            data = session_dao.get_changes_only(alias)
+            data: dict[str, Any] = {}
+            modifications = session_dao.get_changes_only(alias)
+            data.update({"modified_sessions": modifications})
+            data.update({"added_removed_sessions": session_dao.get_added_removed_records(alias)})
             data.update({"rooms_conflicts": rooms_dao.get_conflicting_slots()})
             data.update({"teacher_conflicts": teachers_dao.get_conflicting_slots()})
             data.update({"classes_conflicts": class_dao.get_conflicting_slots()})
             session_dao.detach_db(alias)
             end_time = time()
+            export_graph = ExportGraph(modifications, project_id)
+            graphs = export_graph.build_graph()
+            modification_groups = export_graph.order_change_groups_using_graph(graphs)
+            data.update(
+                {
+                    "modification_order": [
+                        str(session_id) for group in modification_groups for session_id in group
+                    ],
+                    "modification_steps": [
+                        {
+                            "type": "exchange" if len(group) > 1 else "move",
+                            "sessions": [str(session_id) for session_id in group],
+                        }
+                        for group in modification_groups
+                    ],
+                },
+            )
 
             print(f"time elapsed: {'%.2f' % (end_time - start_time)}")
 
