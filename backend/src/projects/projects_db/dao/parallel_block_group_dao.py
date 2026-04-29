@@ -171,3 +171,12 @@ class ParallelBlockGroupDAO:
             ),
         )
         return result.rowcount > 0
+
+    def clear_all(self) -> int:
+        """Delete all confirmed parallel group members across every group.
+
+        Returns:
+            The number of rows deleted.
+        """
+        result = self.session.execute(delete(ParallelBlockGroupMember))
+        return result.rowcount
