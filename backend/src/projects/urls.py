@@ -3,6 +3,7 @@ from django.urls import include, path
 from src.projects.views import (
     ProjectClassesView,
     ProjectDegreesView,
+    ProjectDegreesWithParallelCandidatesView,
     ProjectDegreeView,
     ProjectParallelBlockCandidateView,
     ProjectRoomsView,
@@ -26,6 +27,7 @@ year_patterns = [
 
 degree_patterns = [
     path("", ProjectDegreesView.as_view()),
+    path("with-parallel-candidates/", ProjectDegreesWithParallelCandidatesView.as_view()),
     path("<uuid:degree_id>", ProjectDegreeView.as_view()),
     path("<uuid:degree_id>/years/", include(year_patterns)),
 ]

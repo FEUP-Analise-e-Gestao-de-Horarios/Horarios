@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.models.class_ import Class
 from src.projects.projects_db.models.degree import Degree
+from src.projects.projects_db.models.parallel_block_candidate import ParallelBlockCandidate
 from src.projects.projects_db.models.session import Session as SessionModel
 from src.projects.projects_db.models.session_class_subject import SessionClassSubject
 from src.projects.projects_db.models.subject import Subject
@@ -145,3 +146,19 @@ class DegreeDAO(BaseDAO[Degree]):
         ).one_or_none()
 
         return DegreeStats.model_validate(row, from_attributes=True) if row is not None else None
+
+    def get_all_with_parallel_block_candidates(self) -> list[Degree]:
+        """Return all degrees that have at least one parallel block candidate."""
+        stmt = (
+            select(Degree)
+            .join(Year, Year.degree_id == Degree.id)
+            .join(Subject, Subject.year_id == Year.id)
+            .join(SessionClassSubject, SessionClassSubject.subject_id == Subject.id)
+            .join(SessionModel, SessionModel.id == SessionClassSubject.session_id)
+            .join(
+                ParallelBlockCandidate,
+                ParallelBlockCandidate.original_block_id == SessionModel.original_block_id,
+            )
+            .distinct()
+        )
+        return list(self.session.execute(stmt).scalars().all())

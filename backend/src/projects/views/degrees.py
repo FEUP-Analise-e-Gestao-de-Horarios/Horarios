@@ -46,6 +46,32 @@ class ProjectDegreesView(View):
             )
 
 
+class ProjectDegreesWithParallelCandidatesView(View):
+    """API endpoint: list degrees that have at least one parallel block candidate."""
+
+    def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
+        if not request.user.is_authenticated:
+            return NotAuthenticatedResponse()
+
+        try:
+            Project.objects.get(pk=project_id)
+        except Project.DoesNotExist:
+            return ProjectNotFoundResponse()
+
+        with get_project_session(general_db(project_id)) as db_session:
+            dao = DegreeDAO(db_session)
+            candidate_degree_ids = {d.id for d in dao.get_all_with_parallel_block_candidates()}
+            stats = [s for s in dao.get_all_with_stats() if s.id in candidate_degree_ids]
+            result = [DegreeStatsResponse.model_validate(s, from_attributes=True) for s in stats]
+
+            return JsonResponse(
+                SuccessResponse(
+                    message="Degrees with parallel candidates retrieved successfully",
+                    data=ProjectDegreesResponse(degrees=result, count=len(result)),
+                ).model_dump(),
+            )
+
+
 class ProjectDegreeView(View):
     """API endpoint: retrieve a single degree with stats."""
 
