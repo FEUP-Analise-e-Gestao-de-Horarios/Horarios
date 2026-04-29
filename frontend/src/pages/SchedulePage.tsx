@@ -8,6 +8,8 @@ import ScheduleNavbar from "@/components/schedule/ScheduleNavbar";
 import {
   useProjectDegree,
   useProjectDegrees,
+  useProjectRooms,
+  useProjectTeachers,
   useProjectYearWeeks,
   useProject,
 } from "@/api/hooks/useDashboard";
@@ -22,6 +24,20 @@ type DropdownOption = {
   label: string;
   secondaryText?: string;
 };
+
+type ScheduleFilters = {
+  ucs: Set<string>;
+  turnos: Set<string>;
+  turmas: Set<string>;
+  dias: Set<string>;
+};
+
+function sortValuesByReference(values: string[], reference: string[]) {
+  const referenceIndex = new Map(reference.map((value, index) => [value, index]));
+  return [...new Set(values)]
+    .filter((value) => referenceIndex.has(value))
+    .sort((left, right) => (referenceIndex.get(left) ?? 0) - (referenceIndex.get(right) ?? 0));
+}
 
 function getCourseGroupLabel(name: string) {
   const normalized = name.toLowerCase();
@@ -46,8 +62,25 @@ function formatWeekRange(weeks: string[]) {
   return firstWeek === lastWeek ? firstWeek : `${firstWeek} - ${lastWeek}`;
 }
 
-function sessionToEvents(session: SessionResponse): WeekGridEvent[] {
-  const title = session.subjects[0]?.acronym ?? session.type;
+function sessionToEvents(session: SessionResponse, filters: ScheduleFilters): WeekGridEvent[] {
+  const selectedSubjects = new Set(filters.ucs);
+  const selectedTurmas = new Set(filters.turmas);
+  const selectedTurnos = new Set(filters.turnos);
+  const selectedDias = new Set(filters.dias);
+
+  if (
+    selectedSubjects.size > 0 &&
+    !session.subjects.some((subject) => selectedSubjects.has(subject.name))
+  ) {
+    return [];
+  }
+
+  if (selectedDias.size > 0 && !selectedDias.has(session.weekday)) {
+    return [];
+  }
+
+  const primarySubject = session.subjects[0];
+  const title = primarySubject?.acronym ?? session.type;
   const body = [
     session.teachers.map((teacher) => teacher.acronym).join(", "),
     session.subjects.map((subject) => subject.acronym).join(", "),
@@ -55,6 +88,7 @@ function sessionToEvents(session: SessionResponse): WeekGridEvent[] {
   ].filter((item) => item.length > 0);
 
   if (session.classes.length === 0) {
+    if (selectedTurmas.size > 0 || selectedTurnos.size > 0) return [];
     return [
       {
         id: session.id,
@@ -64,26 +98,41 @@ function sessionToEvents(session: SessionResponse): WeekGridEvent[] {
         title,
         body,
         type: session.type,
-        uc: session.subjects[0]?.acronym ?? session.type,
+        classCodes: session.classes.map((classItem) => classItem.code),
+        uc: primarySubject?.name ?? primarySubject?.acronym ?? session.type,
         professor: session.teachers[0]?.acronym,
         sala: session.rooms[0]?.name,
+        teacherIds: session.teachers.map((teacher) => teacher.id),
+        roomIds: session.rooms.map((room) => room.id),
+        subjectNames: session.subjects.map((subject) => subject.name),
       },
     ];
   }
 
-  return session.classes.map((classItem) => ({
-    id: `${session.id}-${classItem.code}`,
-    weekday: session.weekday,
-    startTime: session.start_time,
-    duration: session.duration,
-    title,
-    body,
-    type: session.type,
-    turma: classItem.code,
-    uc: session.subjects[0]?.acronym ?? session.type,
-    professor: session.teachers[0]?.acronym,
-    sala: session.rooms[0]?.name,
-  }));
+  return session.classes
+    .filter((classItem) => {
+      const turno = String(classItem.shift);
+      const matchesTurma = selectedTurmas.size === 0 || selectedTurmas.has(classItem.code);
+      const matchesTurno = selectedTurnos.size === 0 || selectedTurnos.has(turno);
+      return matchesTurma && matchesTurno;
+    })
+    .map((classItem) => ({
+      id: `${session.id}-${classItem.code}`,
+      weekday: session.weekday,
+      startTime: session.start_time,
+      duration: session.duration,
+      title,
+      body,
+      type: session.type,
+      turma: classItem.code,
+      classCodes: session.classes.map((currentClass) => currentClass.code),
+      uc: primarySubject?.name ?? primarySubject?.acronym ?? session.type,
+      professor: session.teachers[0]?.acronym,
+      sala: session.rooms[0]?.name,
+      teacherIds: session.teachers.map((teacher) => teacher.id),
+      roomIds: session.rooms.map((room) => room.id),
+      subjectNames: session.subjects.map((subject) => subject.name),
+    }));
 }
 
 export default function SchedulePage() {
@@ -91,6 +140,8 @@ export default function SchedulePage() {
   const navigate = useNavigate();
   const { data: project } = useProject(projectId ?? "");
   const { data: degrees } = useProjectDegrees(projectId ?? "");
+  const { data: teachers } = useProjectTeachers(projectId ?? "");
+  const { data: rooms } = useProjectRooms(projectId ?? "");
 
   useEffect(() => {
     if (!projectId) {
@@ -110,8 +161,17 @@ export default function SchedulePage() {
   const [turnosTouched, setTurnosTouched] = useState(false);
   const [turmasTouched, setTurmasTouched] = useState(false);
   const [semanas, setSemanas] = useState<string[]>([]);
+  const [dias, setDias] = useState<string[]>([
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+  ]);
   const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
   const [isConflictsDrawerOpen, setIsConflictsDrawerOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<WeekGridEvent | null>(null);
 
   const canShowSchedule = curso !== "";
 
@@ -197,6 +257,34 @@ export default function SchedulePage() {
     [selectedYearClasses],
   );
 
+  const teacherOptions = useMemo(
+    () =>
+      (teachers ?? [])
+        .slice()
+        .sort((a, b) => a.acronym.localeCompare(b.acronym))
+        .map((teacher) => ({
+          id: teacher.id,
+          label: `${teacher.acronym} - ${teacher.name}`,
+        })),
+    [teachers],
+  );
+
+  const roomOptions = useMemo(
+    () =>
+      (rooms ?? [])
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((room) => ({
+          id: room.id,
+          label: room.name,
+          type: room.type ?? "",
+        })),
+    [rooms],
+  );
+
+  const turmaOrder = useMemo(() => turmaOptions.map((option) => option.value), [turmaOptions]);
+  const turnoOrder = useMemo(() => turnoOptions.map((option) => option.value), [turnoOptions]);
+
   const turmaShifts = useMemo(
     () =>
       Object.fromEntries(selectedYearClasses.map((classItem) => [classItem.code, classItem.shift])),
@@ -209,16 +297,18 @@ export default function SchedulePage() {
   const effectiveTurnos = useMemo(() => {
     if (!curso) return [];
     const validSelected = turnos.filter((turno) => allTurnoValues.includes(turno));
-    if (turnosTouched) return validSelected;
-    return validSelected.length > 0 ? validSelected : allTurnoValues;
-  }, [allTurnoValues, curso, turnos, turnosTouched]);
+    if (turnosTouched) return sortValuesByReference(validSelected, turnoOrder);
+    const fallback = validSelected.length > 0 ? validSelected : allTurnoValues;
+    return sortValuesByReference(fallback, turnoOrder);
+  }, [allTurnoValues, curso, turnoOrder, turnos, turnosTouched]);
 
   const effectiveTurmas = useMemo(() => {
     if (!curso) return [];
     const validSelected = turmas.filter((turma) => allTurmaValues.includes(turma));
-    if (turmasTouched) return validSelected;
-    return validSelected.length > 0 ? validSelected : allTurmaValues;
-  }, [allTurmaValues, curso, turmas, turmasTouched]);
+    if (turmasTouched) return sortValuesByReference(validSelected, turmaOrder);
+    const fallback = validSelected.length > 0 ? validSelected : allTurmaValues;
+    return sortValuesByReference(fallback, turmaOrder);
+  }, [allTurmaValues, curso, turmaOrder, turmas, turmasTouched]);
 
   const turnosFromTurmas = (turmaCodes: string[]) => {
     const selectedShifts = new Set<string>();
@@ -251,8 +341,11 @@ export default function SchedulePage() {
       selectedYearClasses.some((classItem) => classItem.code === turma),
     );
 
-    setTurmas(nextTurmasArray);
-    setTurnos(turnosFromTurmas(nextTurmasArray));
+    const orderedTurmas = sortValuesByReference(nextTurmasArray, turmaOrder);
+    const orderedTurnos = sortValuesByReference(turnosFromTurmas(orderedTurmas), turnoOrder);
+
+    setTurmas(orderedTurmas);
+    setTurnos(orderedTurnos);
     setTurmasTouched(true);
     setTurnosTouched(true);
   };
@@ -261,8 +354,9 @@ export default function SchedulePage() {
     const validTurmas = nextTurmas.filter((turma) =>
       selectedYearClasses.some((classItem) => classItem.code === turma),
     );
-    setTurmas(validTurmas);
-    setTurnos(turnosFromTurmas(validTurmas));
+    const orderedTurmas = sortValuesByReference(validTurmas, turmaOrder);
+    setTurmas(orderedTurmas);
+    setTurnos(sortValuesByReference(turnosFromTurmas(orderedTurmas), turnoOrder));
     setTurmasTouched(true);
     setTurnosTouched(true);
   };
@@ -276,6 +370,11 @@ export default function SchedulePage() {
     setSemanas([]);
     setTurnosTouched(false);
     setTurmasTouched(false);
+  };
+
+  const openEditor = (event: WeekGridEvent | null) => {
+    setEditingEvent(event ? { ...event } : null);
+    setIsEditDrawerOpen(true);
   };
 
   const weekOptions = useMemo<DropdownOption[]>(() => {
@@ -310,12 +409,19 @@ export default function SchedulePage() {
   }, [effectiveSemanas, selectedYearWeeks]);
 
   const scheduleEvents = useMemo<WeekGridEvent[]>(() => {
+    const filters: ScheduleFilters = {
+      ucs: new Set(effectiveUcs),
+      turnos: new Set(effectiveTurnos),
+      turmas: new Set(effectiveTurmas),
+      dias: new Set(dias),
+    };
+
     const blockEvents = activeWeekBlocks.flatMap((block) =>
-      block.sessions.flatMap((session) => sessionToEvents(session)),
+      block.sessions.flatMap((session) => sessionToEvents(session, filters)),
     );
 
     return blockEvents;
-  }, [activeWeekBlocks]);
+  }, [activeWeekBlocks, effectiveTurmas, effectiveTurnos, effectiveUcs, dias]);
 
   const displayEvents = useMemo(() => {
     if (scheduleEvents.length > 0) return scheduleEvents;
@@ -356,6 +462,15 @@ export default function SchedulePage() {
     [selectedDegree],
   );
 
+  const dayOptions: DropdownOption[] = [
+    { value: "monday", label: "Segunda-feira" },
+    { value: "tuesday", label: "Terça-feira" },
+    { value: "wednesday", label: "Quarta-feira" },
+    { value: "thursday", label: "Quinta-feira" },
+    { value: "friday", label: "Sexta-feira" },
+    { value: "saturday", label: "Sábado" },
+  ];
+
   if (!projectId) return null;
 
   return (
@@ -374,24 +489,39 @@ export default function SchedulePage() {
         setTurnos={handleSelectTurnos}
         turmas={effectiveTurmas}
         setTurmas={handleSelectTurmas}
+        dias={dias}
+        setDias={setDias}
         semanas={effectiveSemanas}
         setSemanas={setSemanas}
         weekOptions={weekOptions}
+        dayOptions={dayOptions}
         ucOptions={ucOptions}
         turnoOptions={turnoOptions}
         turmaOptions={turmaOptions}
         yearOptions={yearOptions}
         courseOptions={courseOptions}
-        onEditEventClick={() => setIsEditDrawerOpen(true)}
+        onEditEventClick={() => openEditor(null)}
         onViewConflicts={() => setIsConflictsDrawerOpen(true)}
       />
 
       <EditEventDrawer
+        key={editingEvent?.id ?? "new"}
         open={isEditDrawerOpen}
-        onClose={() => setIsEditDrawerOpen(false)}
+        onClose={() => {
+          setIsEditDrawerOpen(false);
+          setEditingEvent(null);
+        }}
+        projectId={projectId}
         ucOptions={ucOptions}
         turmaOptions={turmaOptions.map((option) => option.value)}
+        teacherOptions={teacherOptions}
+        roomOptions={roomOptions}
+        subjectOptions={selectedYearSubjects.map((subject) => ({
+          id: subject.id,
+          name: subject.name,
+        }))}
         preferredUc={effectiveUcs[0]}
+        event={editingEvent}
       />
 
       <ConflictsDrawer
@@ -410,12 +540,15 @@ export default function SchedulePage() {
               weekdayLabels={["SEGUNDA", "TERCA", "QUARTA", "QUINTA", "SEXTA", "SABADO"]}
               turmaShifts={turmaShifts}
               selectedTurmas={effectiveTurmas}
+              selectedDays={dias}
               includeEndSlot
               headerHeightPx={22}
               hourLabelFontPx={12}
               slotHeightPx={31}
               showHalfHourLabels
               showHalfHourDividers
+              editingEventId={isEditDrawerOpen ? editingEvent?.id : undefined}
+              onEventDoubleClick={(event) => openEditor(event)}
             />
           </div>
         ) : (

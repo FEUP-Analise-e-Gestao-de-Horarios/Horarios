@@ -83,19 +83,27 @@ class ProjectSubjectView(View):
             if subject is None:
                 return SubjectNotFoundResponse()
 
-            blocks = WeekBlockResponse.from_sessions(
-                SessionDAO(db_session).get_by_subject(
-                    subject_id,
-                    includes=list(SessionDAO.Include),
-                ),
+            sessions = SessionDAO(db_session).get_by_subject(
+                subject_id,
+                includes=list(SessionDAO.Include),
             )
+            blocks = WeekBlockResponse.from_sessions(sessions)
+
+            teachers_by_id = {}
+            for session in sessions:
+                for teacher in session.teachers:
+                    teachers_by_id[teacher.id] = teacher
 
             return JsonResponse(
                 SuccessResponse(
                     message="Subject retrieved successfully",
                     data=SubjectDetailResponse.model_validate_with_extras(
                         subject,
-                        extras={"degree": subject.year.degree, "blocks": blocks},
+                        extras={
+                            "degree": subject.year.degree,
+                            "teachers": list(teachers_by_id.values()),
+                            "blocks": blocks,
+                        },
                     ),
                 ).model_dump(),
             )

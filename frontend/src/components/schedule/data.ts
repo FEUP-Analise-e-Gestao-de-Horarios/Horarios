@@ -48,54 +48,6 @@ export const TURMAS_POR_UC: Record<string, string[]> = {
   Física: ["1LAERO01", "1LAERO02"],
 };
 
-export type DropdownPerson = {
-  id: string;
-  label: string;
-};
-
-export type DropdownRoom = {
-  id: string;
-  typology: string;
-};
-
-export const ALL_DOCENTES: DropdownPerson[] = [
-  { id: "D001", label: "AA - António José Coelho Dias Arêde" },
-  { id: "D002", label: "AAAF - Alexandre Almeida de Abreu Filho" },
-  { id: "D003", label: "AAG - Ana Cristina Costa Aguiar" },
-  { id: "D004", label: "AAM - Artur Manuel de Oliveira Andrade Moura" },
-  { id: "D005", label: "AARH - António Abel Ribeiro Henriques" },
-  { id: "D006", label: "AASP - Ana Alexandra da Silva Pereira" },
-  { id: "D007", label: "DMat - MJPSR - Maria João Pinto Sampaio Rodrigues" },
-];
-
-export const DOCENTES_POR_UC: Record<string, string[]> = {
-  "Álgebra Linear": ["D001", "D007"],
-  Cálculo: ["D002", "D003"],
-  "Fundamentos de Programação": ["D004", "D006"],
-  "Sistemas Digitais": ["D005", "D003"],
-  Análise: ["D001", "D005"],
-  Física: ["D002", "D004"],
-};
-
-export const ALL_SALAS: DropdownRoom[] = [
-  { id: "B117", typology: "TP" },
-  { id: "B222", typology: "TP" },
-  { id: "B001", typology: "T" },
-  { id: "B002", typology: "T" },
-  { id: "LAB01", typology: "PL" },
-  { id: "LAB02", typology: "PL" },
-  { id: "A201", typology: "Seminário" },
-];
-
-export const SALAS_POR_UC: Record<string, string[]> = {
-  "Álgebra Linear": ["B117", "B222"],
-  Cálculo: ["B001", "B002"],
-  "Fundamentos de Programação": ["LAB01", "LAB02"],
-  "Sistemas Digitais": ["LAB01", "B117"],
-  Análise: ["B002", "A201"],
-  Física: ["LAB02", "A201"],
-};
-
 export type Conflict = {
   id: string;
   eventNames: string[];

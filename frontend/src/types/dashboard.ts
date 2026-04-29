@@ -163,6 +163,7 @@ export interface DegreeDetail extends DegreeBase {
 export interface SubjectDetail extends SubjectBase {
   year: YearBase;
   degree: DegreeBase;
+  teachers: TeacherBase[];
   blocks: WeekBlockResponse[];
 }
 

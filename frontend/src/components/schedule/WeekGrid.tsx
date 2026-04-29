@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import type { Weekday } from "@/types/dashboard";
 
 export interface WeekGridEvent {
@@ -10,9 +10,13 @@ export interface WeekGridEvent {
   body?: string[];
   type?: string;
   turma?: string;
+  classCodes?: string[];
   uc?: string;
   professor?: string;
   sala?: string;
+  teacherIds?: string[];
+  roomIds?: string[];
+  subjectNames?: string[];
 }
 
 export interface WeekGridMark {
@@ -27,6 +31,7 @@ interface WeekGridProps {
   startTime?: number;
   endTime?: number;
   onEventClick?: (event: WeekGridEvent) => void;
+  onEventDoubleClick?: (event: WeekGridEvent) => void;
   emptyMessage?: string;
   weekdayLabels?: string[];
   primaryHeaderLeftLabel?: string;
@@ -40,6 +45,8 @@ interface WeekGridProps {
   includeEndSlot?: boolean;
   headerHeightPx?: number;
   hourLabelFontPx?: number;
+  editingEventId?: string;
+  selectedDays?: string[];
 }
 
 const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
@@ -70,18 +77,18 @@ function weekdayIndex(weekday: Weekday): number {
 }
 
 const TYPE_STYLES: Record<string, { bg: string; border: string; text: string }> = {
-  T: { bg: "bg-blue-100", border: "border-blue-300", text: "text-blue-900" },
-  TP: { bg: "bg-emerald-100", border: "border-emerald-300", text: "text-emerald-900" },
-  PL: { bg: "bg-amber-100", border: "border-amber-300", text: "text-amber-900" },
-  P: { bg: "bg-purple-100", border: "border-purple-300", text: "text-purple-900" },
-  S: { bg: "bg-pink-100", border: "border-pink-300", text: "text-pink-900" },
-  OT: { bg: "bg-slate-100", border: "border-slate-300", text: "text-slate-900" },
-  TC: { bg: "bg-cyan-100", border: "border-cyan-300", text: "text-cyan-900" },
+  T: { bg: "bg-red-200", border: "border-red-400", text: "text-red-900" },
+  TP: { bg: "bg-red-100", border: "border-red-300", text: "text-red-900" },
+  PL: { bg: "bg-red-200", border: "border-red-400", text: "text-red-900" },
+  P: { bg: "bg-red-300", border: "border-red-500", text: "text-red-900" },
+  S: { bg: "bg-red-100", border: "border-red-300", text: "text-red-900" },
+  OT: { bg: "bg-red-200", border: "border-red-400", text: "text-red-900" },
+  TC: { bg: "bg-red-100", border: "border-red-300", text: "text-red-900" },
 };
 const DEFAULT_STYLE = {
-  bg: "bg-slate-100",
-  border: "border-slate-300",
-  text: "text-slate-900",
+  bg: "bg-red-200",
+  border: "border-red-400",
+  text: "text-red-900",
 };
 
 function styleForType(type: string | undefined) {
@@ -100,6 +107,7 @@ export default function WeekGrid({
   startTime,
   endTime,
   onEventClick,
+  onEventDoubleClick,
   emptyMessage,
   weekdayLabels,
   primaryHeaderLeftLabel,
@@ -112,11 +120,26 @@ export default function WeekGrid({
   includeEndSlot = false,
   headerHeightPx,
   hourLabelFontPx,
+  editingEventId,
+  selectedDays,
 }: WeekGridProps) {
+  const gridRef = useRef<HTMLDivElement>(null);
   const labels =
     weekdayLabels && weekdayLabels.length === WEEKDAY_LABELS.length
       ? weekdayLabels
       : WEEKDAY_LABELS;
+
+  const visibleDayIndices = useMemo(() => {
+    if (!selectedDays || selectedDays.length === 0) return [...Array(6).keys()];
+    return WEEKDAYS.map((day, idx) => (selectedDays.includes(day) ? idx : -1)).filter(
+      (idx) => idx >= 0,
+    );
+  }, [selectedDays]);
+
+  const filteredLabels = useMemo(
+    () => visibleDayIndices.map((idx) => labels[idx]),
+    [visibleDayIndices, labels],
+  );
 
   const activeTurmas =
     selectedTurmas.length > 0
@@ -125,7 +148,7 @@ export default function WeekGrid({
   const turmasCount = Math.max(activeTurmas.length, 1);
 
   const expandedSecondaryHeaderValues =
-    activeTurmas.length > 0 ? WEEKDAYS.flatMap(() => activeTurmas) : [];
+    activeTurmas.length > 0 ? visibleDayIndices.flatMap(() => activeTurmas) : [];
   const hasSecondaryHeader = expandedSecondaryHeaderValues.length > 0 && activeTurmas.length > 0;
   const headerRows = hasSecondaryHeader ? 2 : 1;
   const minSlotPx = slotHeightPx ?? MIN_SLOT_PX;
@@ -193,6 +216,10 @@ export default function WeekGrid({
       const dayCol = weekdayIndex(ev.weekday);
       if (dayCol < 0) continue;
 
+      // Filter events by visible days
+      const visibleColIdx = visibleDayIndices.indexOf(dayCol);
+      if (visibleColIdx < 0) continue; // Event is on a hidden day
+
       const startMin = hhmmToMinutes(ev.startTime);
       const rowStart = Math.round((startMin - gridStartMinutes) / SLOT_MINUTES);
       if (rowStart < 0 || rowStart >= slotCount) continue;
@@ -214,7 +241,7 @@ export default function WeekGrid({
       if (turmaIndices.length > 0) {
         result.push({
           ev,
-          dayCol,
+          dayCol: visibleColIdx,
           rowStart,
           span,
           turmaIndices,
@@ -224,7 +251,7 @@ export default function WeekGrid({
     }
 
     return result;
-  }, [events, activeTurmas, gridStartMinutes, slotCount]);
+  }, [events, activeTurmas, gridStartMinutes, slotCount, visibleDayIndices]);
 
   const placedMarks = useMemo(
     () =>
@@ -232,12 +259,14 @@ export default function WeekGrid({
         .map((m) => {
           const col = weekdayIndex(m.weekday);
           if (col < 0) return null;
+          const visibleColIdx = visibleDayIndices.indexOf(col);
+          if (visibleColIdx < 0) return null; // Mark is on a hidden day
           const rowStart = Math.round((hhmmToMinutes(m.time) - gridStartMinutes) / SLOT_MINUTES);
           if (rowStart < 0 || rowStart >= slotCount) return null;
-          return { mark: m, col, rowStart };
+          return { mark: m, col: visibleColIdx, rowStart };
         })
         .filter(<T,>(x: T | null): x is T => x !== null),
-    [marks, gridStartMinutes, slotCount],
+    [marks, gridStartMinutes, slotCount, visibleDayIndices],
   );
 
   if (events.length === 0 && marks.length === 0 && emptyMessage) {
@@ -255,8 +284,9 @@ export default function WeekGrid({
     >
       <div
         className="grid h-full w-max min-w-full"
+        ref={gridRef}
         style={{
-          gridTemplateColumns: `44px repeat(${WEEKDAYS.length * turmasCount}, minmax(${TURMA_COLUMN_MIN_PX}px, 1fr))`,
+          gridTemplateColumns: `44px repeat(${visibleDayIndices.length * turmasCount}, minmax(${TURMA_COLUMN_MIN_PX}px, 1fr))`,
           gridTemplateRows: `${headerPx}px${hasSecondaryHeader ? ` ${headerPx}px` : ""} repeat(${slotCount}, minmax(${minSlotPx}px, 1fr))`,
         }}
       >
@@ -268,14 +298,14 @@ export default function WeekGrid({
             {primaryHeaderLeftLabel ?? ""}
           </div>
         </div>
-        {labels.map((label, dayIdx) => (
+        {filteredLabels.map((label, visibleIdx) => (
           <div
             key={label}
             className={`sticky top-0 z-20 border-b border-[#e5e4e7] bg-[#f9f7f4] px-2 py-1 text-center text-[10px] font-semibold uppercase tracking-wider text-[#08060d] ${
-              dayIdx > 0 ? "border-l border-[#d8d5da]" : ""
+              visibleIdx > 0 ? "border-l border-[#d8d5da]" : ""
             }`}
             style={{
-              gridColumn: `${dayIdx * turmasCount + 2} / span ${turmasCount}`,
+              gridColumn: `${visibleIdx * turmasCount + 2} / span ${turmasCount}`,
               gridRow: 1,
             }}
           >
@@ -382,20 +412,22 @@ export default function WeekGrid({
 
         {placedEvents.map(({ ev, dayCol, rowStart, span, turmaIndices, colSpan }) => {
           const style = styleForType(ev.type);
-          const clickable = !!onEventClick;
+          const clickable = !!onEventClick || !!onEventDoubleClick;
           const firstTurmaIdx = turmaIndices[0];
           if (firstTurmaIdx === undefined) return null;
           const startCol = dayCol * turmasCount + firstTurmaIdx + 2;
+          const isEditingEvent = editingEventId === ev.id;
           return (
             <button
               key={`e-${ev.id}`}
               type="button"
-              onClick={clickable ? () => onEventClick(ev) : undefined}
+              onClick={onEventClick ? () => onEventClick(ev) : undefined}
+              onDoubleClick={onEventDoubleClick ? () => onEventDoubleClick(ev) : undefined}
               className={`relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden ${
-                style.bg
-              } ${style.border} ${style.text} ${
-                clickable ? "cursor-pointer hover:brightness-95 transition" : "cursor-default"
-              }`}
+                isEditingEvent
+                  ? "bg-red-950 border-red-950 text-white"
+                  : `${style.bg} ${style.border} ${style.text}`
+              } ${clickable ? "cursor-pointer hover:brightness-95 transition" : "cursor-default"}`}
               style={{
                 gridColumn: `${startCol} / span ${colSpan}`,
                 gridRow: `${rowStart + headerRows + 1} / span ${span}`,

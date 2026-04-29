@@ -34,9 +34,12 @@ interface ScheduleNavbarProps {
   setTurnos: (v: string[]) => void;
   turmas: string[];
   setTurmas: (v: string[]) => void;
+  dias: string[];
+  setDias: (v: string[]) => void;
   semanas: string[];
   setSemanas: (v: string[]) => void;
   weekOptions: DropdownOption[];
+  dayOptions: DropdownOption[];
   ucOptions: string[];
   turnoOptions: DropdownOption[];
   turmaOptions: DropdownOption[];
@@ -46,7 +49,7 @@ interface ScheduleNavbarProps {
   onViewConflicts: () => void;
 }
 
-type DropdownId = "curso" | "ano" | "uc" | "turno" | "turma" | "semana";
+type DropdownId = "curso" | "ano" | "uc" | "turno" | "turma" | "dia" | "semana";
 
 export default function ScheduleNavbar({
   projectId,
@@ -60,9 +63,12 @@ export default function ScheduleNavbar({
   setTurnos,
   turmas,
   setTurmas,
+  dias,
+  setDias,
   semanas,
   setSemanas,
   weekOptions,
+  dayOptions,
   ucOptions,
   turnoOptions,
   turmaOptions,
@@ -172,6 +178,18 @@ export default function ScheduleNavbar({
         onToggle={() => toggle("turma")}
         disabled={!curso}
         showLabel
+      />
+
+      <MultiDropdown
+        label="Dias"
+        options={dayOptions}
+        selected={dias}
+        onSelect={setDias}
+        open={openDropdown === "dia"}
+        onToggle={() => toggle("dia")}
+        disabled={!curso}
+        showLabel
+        minSelected={1}
       />
 
       <MultiDropdown

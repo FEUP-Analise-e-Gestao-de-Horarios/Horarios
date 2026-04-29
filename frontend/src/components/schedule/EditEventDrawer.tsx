@@ -1,18 +1,35 @@
-import {
-  ALL_DOCENTES,
-  ALL_SALAS,
-  DOCENTES_POR_UC,
-  SALAS_POR_UC,
-  ALL_CONFLICTS,
-} from "@/components/schedule/data";
+import { ALL_CONFLICTS } from "@/components/schedule/data";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useProjectSubject } from "@/api/hooks/useDashboard";
+import type { WeekGridEvent } from "@/components/schedule/WeekGrid";
+
+type TeacherOption = {
+  id: string;
+  label: string;
+};
+
+type RoomOption = {
+  id: string;
+  label: string;
+  type: string;
+};
+
+interface SubjectOption {
+  id: string;
+  name: string;
+}
 
 interface EditEventDrawerProps {
+  projectId: string;
   open: boolean;
   onClose: () => void;
   ucOptions: string[];
   turmaOptions: string[];
+  teacherOptions: TeacherOption[];
+  roomOptions: RoomOption[];
+  subjectOptions: SubjectOption[];
   preferredUc?: string;
+  event?: WeekGridEvent | null;
 }
 
 const MIN_TIME_MINUTES = 8 * 60;
@@ -57,19 +74,107 @@ function toggleSelection(current: string[], itemId: string): string[] {
     : [...current, itemId];
 }
 
+function formatMinutesToInputValue(totalMinutes: number): string {
+  return formatMinutesToTime(totalMinutes);
+}
+
+function hhmmToMinutes(hhmm: number): number {
+  const hours = Math.floor(hhmm / 100);
+  const minutes = hhmm % 100;
+  return hours * 60 + minutes;
+}
+
+function weekdayLabelToValue(weekday: WeekGridEvent["weekday"]): string {
+  const labels: Record<WeekGridEvent["weekday"], string> = {
+    monday: "Segunda-Feira",
+    tuesday: "Terça-Feira",
+    wednesday: "Quarta-Feira",
+    thursday: "Quinta-Feira",
+    friday: "Sexta-Feira",
+    saturday: "Sábado",
+  };
+  return labels[weekday];
+}
+
+function getInitialFormState(event?: WeekGridEvent | null) {
+  if (event) {
+    return {
+      selectedUcOverride: event.uc ?? "",
+      selectedDocenteOverride: event.teacherIds ?? [],
+      selectedSalaOverride: event.roomIds ?? [],
+      selectedTurmasOverride: event.classCodes ?? (event.turma ? [event.turma] : []),
+      selectedWeekday: weekdayLabelToValue(event.weekday),
+      startTime: formatMinutesToInputValue(hhmmToMinutes(event.startTime)),
+      endTime: formatMinutesToInputValue(hhmmToMinutes(event.startTime) + event.duration * 30),
+    };
+  }
+  return {
+    selectedUcOverride: "",
+    selectedDocenteOverride: [] as string[],
+    selectedSalaOverride: [] as string[],
+    selectedTurmasOverride: [] as string[],
+    selectedWeekday: "Segunda-Feira",
+    startTime: "10:30",
+    endTime: "12:30",
+  };
+}
+
 export default function EditEventDrawer({
+  projectId,
   open,
   onClose,
   ucOptions,
   turmaOptions,
+  teacherOptions,
+  roomOptions,
+  subjectOptions,
   preferredUc,
+  event,
 }: EditEventDrawerProps) {
-  const [selectedUcOverride, setSelectedUcOverride] = useState("");
-  const [selectedDocenteOverride, setSelectedDocenteOverride] = useState<string>("");
-  const [selectedSalaOverride, setSelectedSalaOverride] = useState<string>("");
-  const [selectedTurmasOverride, setSelectedTurmasOverride] = useState<string[]>([]);
-  const [startTime, setStartTime] = useState("10:30");
-  const [endTime, setEndTime] = useState("12:30");
+  const [formState, setFormState] = useState(() => getInitialFormState(event));
+  const {
+    selectedUcOverride,
+    selectedDocenteOverride,
+    selectedSalaOverride,
+    selectedTurmasOverride,
+    selectedWeekday,
+    startTime,
+    endTime,
+  } = formState;
+
+  function setSelectedUcOverride(val: string) {
+    setFormState((prev) => ({ ...prev, selectedUcOverride: val }));
+  }
+  function setSelectedDocenteOverride(val: string[] | ((prev: string[]) => string[])) {
+    setFormState((prev) => ({
+      ...prev,
+      selectedDocenteOverride: typeof val === "function" ? val(prev.selectedDocenteOverride) : val,
+    }));
+  }
+  function setSelectedSalaOverride(val: string[] | ((prev: string[]) => string[])) {
+    setFormState((prev) => ({
+      ...prev,
+      selectedSalaOverride: typeof val === "function" ? val(prev.selectedSalaOverride) : val,
+    }));
+  }
+  function setSelectedTurmasOverride(val: string[]) {
+    setFormState((prev) => ({ ...prev, selectedTurmasOverride: val }));
+  }
+  function setSelectedWeekday(val: string) {
+    setFormState((prev) => ({ ...prev, selectedWeekday: val }));
+  }
+  function setStartTime(val: string | ((prev: string) => string)) {
+    setFormState((prev) => ({
+      ...prev,
+      startTime: typeof val === "function" ? val(prev.startTime) : val,
+    }));
+  }
+  function setEndTime(val: string | ((prev: string) => string)) {
+    setFormState((prev) => ({
+      ...prev,
+      endTime: typeof val === "function" ? val(prev.endTime) : val,
+    }));
+  }
   const [docentesSearch, setDocentesSearch] = useState("");
   const [salasSearch, setSalasSearch] = useState("");
   const [turmasSearch, setTurmasSearch] = useState("");
@@ -82,9 +187,19 @@ export default function EditEventDrawer({
       setOpenDropdown(null);
     }
 
+    function handleEscapeKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+
     document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, []);
+    document.addEventListener("keydown", handleEscapeKey);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("keydown", handleEscapeKey);
+    };
+  }, [onClose]);
 
   const selectedUc = useMemo(() => {
     if (selectedUcOverride && ucOptions.includes(selectedUcOverride)) return selectedUcOverride;
@@ -92,33 +207,65 @@ export default function EditEventDrawer({
     return ucOptions[0] ?? "";
   }, [preferredUc, selectedUcOverride, ucOptions]);
 
-  const preferredDocentes = useMemo(() => {
-    const preferredIds = new Set(DOCENTES_POR_UC[selectedUc] ?? []);
-    return ALL_DOCENTES.filter((docente) => preferredIds.has(docente.id));
-  }, [selectedUc]);
+  const selectedSubjectId = useMemo(
+    () => subjectOptions.find((subject) => subject.name === selectedUc)?.id ?? "",
+    [selectedUc, subjectOptions],
+  );
 
-  const otherDocentes = useMemo(() => {
-    const preferredIds = new Set(DOCENTES_POR_UC[selectedUc] ?? []);
-    return ALL_DOCENTES.filter((docente) => !preferredIds.has(docente.id));
-  }, [selectedUc]);
+  const { data: selectedSubject } = useProjectSubject(projectId, selectedSubjectId);
 
-  const { preferredSalas, otherSalas } = useMemo(() => {
-    const preferredRoomIds = SALAS_POR_UC[selectedUc] ?? [];
-    const roomById = new Map(ALL_SALAS.map((room) => [room.id, room]));
-    const preferredTypologies = new Set(
-      preferredRoomIds
-        .map((roomId) => roomById.get(roomId)?.typology)
-        .filter((typology): typology is string => Boolean(typology)),
-    );
+  const subjectTeacherOptions = useMemo(() => selectedSubject?.teachers ?? [], [selectedSubject]);
 
-    const preferred = ALL_SALAS.filter((room) => preferredTypologies.has(room.typology));
-    const others = ALL_SALAS.filter((room) => !preferredTypologies.has(room.typology));
-    return { preferredSalas: preferred, otherSalas: others };
-  }, [selectedUc]);
+  const subjectTeacherIds = useMemo(
+    () => new Set(subjectTeacherOptions.map((teacher) => teacher.id)),
+    [subjectTeacherOptions],
+  );
+
+  const preferredRoomTypes = useMemo(() => {
+    if (!event?.roomIds || event.roomIds.length === 0) return new Set<string>();
+    const roomTypes = roomOptions
+      .filter((room) => event.roomIds?.includes(room.id))
+      .map((room) => room.type)
+      .filter((type) => type.length > 0);
+    return new Set(roomTypes);
+  }, [event, roomOptions]);
+
+  const selectedEventTeacherIds = useMemo(
+    () => new Set(event?.teacherIds ?? []),
+    [event?.teacherIds],
+  );
+
+  const selectedClassDocentes = useMemo(
+    () => teacherOptions.filter((docente) => selectedEventTeacherIds.has(docente.id)),
+    [selectedEventTeacherIds, teacherOptions],
+  );
+
+  const otherSubjectDocentes = useMemo(
+    () =>
+      teacherOptions.filter(
+        (docente) => subjectTeacherIds.has(docente.id) && !selectedEventTeacherIds.has(docente.id),
+      ),
+    [selectedEventTeacherIds, subjectTeacherIds, teacherOptions],
+  );
+
+  const otherDocentes = useMemo(
+    () => teacherOptions.filter((docente) => !subjectTeacherIds.has(docente.id)),
+    [subjectTeacherIds, teacherOptions],
+  );
+
+  const preferredSalas = useMemo(
+    () => roomOptions.filter((room) => preferredRoomTypes.has(room.type)),
+    [preferredRoomTypes, roomOptions],
+  );
+
+  const otherSalas = useMemo(
+    () => roomOptions.filter((room) => !preferredRoomTypes.has(room.type)),
+    [preferredRoomTypes, roomOptions],
+  );
 
   const orderedDocentes = useMemo(
-    () => [...preferredDocentes, ...otherDocentes],
-    [otherDocentes, preferredDocentes],
+    () => [...selectedClassDocentes, ...otherSubjectDocentes, ...otherDocentes],
+    [otherDocentes, otherSubjectDocentes, selectedClassDocentes],
   );
 
   const orderedSalas = useMemo(
@@ -126,11 +273,17 @@ export default function EditEventDrawer({
     [otherSalas, preferredSalas],
   );
 
-  const filteredPreferredDocentes = useMemo(() => {
+  const filteredSelectedClassDocentes = useMemo(() => {
     const query = docentesSearch.toLowerCase().trim();
-    if (!query) return preferredDocentes;
-    return preferredDocentes.filter((docente) => docente.label.toLowerCase().includes(query));
-  }, [docentesSearch, preferredDocentes]);
+    if (!query) return selectedClassDocentes;
+    return selectedClassDocentes.filter((docente) => docente.label.toLowerCase().includes(query));
+  }, [docentesSearch, selectedClassDocentes]);
+
+  const filteredOtherSubjectDocentes = useMemo(() => {
+    const query = docentesSearch.toLowerCase().trim();
+    if (!query) return otherSubjectDocentes;
+    return otherSubjectDocentes.filter((docente) => docente.label.toLowerCase().includes(query));
+  }, [docentesSearch, otherSubjectDocentes]);
 
   const filteredOtherDocentes = useMemo(() => {
     const query = docentesSearch.toLowerCase().trim();
@@ -141,15 +294,13 @@ export default function EditEventDrawer({
   const filteredPreferredSalas = useMemo(() => {
     const query = salasSearch.toLowerCase().trim();
     if (!query) return preferredSalas;
-    return preferredSalas.filter((room) =>
-      `${room.id} ${room.typology}`.toLowerCase().includes(query),
-    );
+    return preferredSalas.filter((room) => `${room.id} ${room.type}`.toLowerCase().includes(query));
   }, [preferredSalas, salasSearch]);
 
   const filteredOtherSalas = useMemo(() => {
     const query = salasSearch.toLowerCase().trim();
     if (!query) return otherSalas;
-    return otherSalas.filter((room) => `${room.id} ${room.typology}`.toLowerCase().includes(query));
+    return otherSalas.filter((room) => `${room.id} ${room.type}`.toLowerCase().includes(query));
   }, [otherSalas, salasSearch]);
 
   const filteredTurmas = useMemo(() => {
@@ -159,18 +310,44 @@ export default function EditEventDrawer({
   }, [turmaOptions, turmasSearch]);
 
   const effectiveSelectedDocente = useMemo(() => {
-    if (selectedDocenteOverride && orderedDocentes.some((d) => d.id === selectedDocenteOverride)) {
-      return selectedDocenteOverride;
-    }
-    return orderedDocentes[0]?.id ?? "";
-  }, [orderedDocentes, selectedDocenteOverride]);
+    const valid = selectedDocenteOverride.filter((id) => teacherOptions.some((d) => d.id === id));
+    if (valid.length > 0) return valid;
+    if (selectedClassDocentes.length > 0) return [selectedClassDocentes[0]!.id];
+    if (subjectTeacherOptions.length > 0) return [subjectTeacherOptions[0]!.id];
+    return orderedDocentes.slice(0, 1).map((docente) => docente.id);
+  }, [
+    orderedDocentes,
+    selectedClassDocentes,
+    selectedDocenteOverride,
+    teacherOptions,
+    subjectTeacherOptions,
+  ]);
 
   const effectiveSelectedSala = useMemo(() => {
-    if (selectedSalaOverride && orderedSalas.some((r) => r.id === selectedSalaOverride)) {
-      return selectedSalaOverride;
-    }
-    return orderedSalas[0]?.id ?? "";
-  }, [orderedSalas, selectedSalaOverride]);
+    const valid = selectedSalaOverride.filter((id) => roomOptions.some((room) => room.id === id));
+    return valid.length > 0 ? valid : orderedSalas.slice(0, 1).map((room) => room.id);
+  }, [orderedSalas, roomOptions, selectedSalaOverride]);
+
+  const selectedDocenteLabel = useMemo(() => {
+    if (effectiveSelectedDocente.length === 0) return "Selecionar...";
+    const labels = effectiveSelectedDocente
+      .map((id) => teacherOptions.find((docente) => docente.id === id)?.label)
+      .filter((label): label is string => Boolean(label));
+    if (labels.length === 0) return "Selecionar...";
+    return labels.length === 1 ? labels[0] : `${labels[0]} (+${labels.length - 1})`;
+  }, [effectiveSelectedDocente, teacherOptions]);
+
+  const selectedSalaLabel = useMemo(() => {
+    if (effectiveSelectedSala.length === 0) return "Selecionar...";
+    const labels = effectiveSelectedSala
+      .map((id) => roomOptions.find((room) => room.id === id))
+      .filter((room): room is (typeof orderedSalas)[number] => Boolean(room));
+    if (labels.length === 0) return "Selecionar...";
+    const first = labels[0];
+    if (!first) return "Selecionar...";
+    const firstLabel = first.label;
+    return labels.length === 1 ? firstLabel : `${firstLabel} (+${labels.length - 1})`;
+  }, [effectiveSelectedSala, roomOptions]);
 
   const effectiveSelectedTurmas = useMemo(() => {
     const valid = selectedTurmasOverride.filter((id) => filteredTurmas.includes(id));
@@ -291,12 +468,17 @@ export default function EditEventDrawer({
             <div className="border-l border-white/20 h-10 ml-1 mr-0.5" />
             <label className="block text-sm flex-1 min-w-0">
               <span className="mb-1.5 block text-white/90">Dia</span>
-              <select className="w-full bg-[#2a303a] border border-white/20 rounded px-2 py-1.5 text-sm">
+              <select
+                value={selectedWeekday}
+                onChange={(event) => setSelectedWeekday(event.target.value)}
+                className="w-full bg-[#2a303a] border border-white/20 rounded px-2 py-1.5 text-sm"
+              >
                 <option>Segunda-Feira</option>
                 <option>Terça-Feira</option>
                 <option>Quarta-Feira</option>
                 <option>Quinta-Feira</option>
                 <option>Sexta-Feira</option>
+                <option>Sábado</option>
               </select>
             </label>
           </div>
@@ -308,10 +490,7 @@ export default function EditEventDrawer({
                 onClick={() => setOpenDropdown((prev) => (prev === "docentes" ? null : "docentes"))}
                 className="w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2 text-left flex items-center justify-between"
               >
-                <span>
-                  {orderedDocentes.find((d) => d.id === effectiveSelectedDocente)?.label ||
-                    "Selecionar..."}
-                </span>
+                <span>{selectedDocenteLabel}</span>
                 <span className="text-white/70">▾</span>
               </button>
 
@@ -324,20 +503,46 @@ export default function EditEventDrawer({
                     className="mb-2 w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2"
                   />
                   <div className="max-h-52 overflow-y-auto space-y-1">
-                    {filteredPreferredDocentes.length > 0 && (
+                    {filteredSelectedClassDocentes.length > 0 && (
                       <p className="px-2 py-1 text-xs uppercase tracking-wide text-white/60">
-                        Docentes da UC
+                        Docentes da turma selecionada
                       </p>
                     )}
-                    {filteredPreferredDocentes.map((docente) => (
+                    {filteredSelectedClassDocentes.map((docente) => (
                       <button
                         key={docente.id}
                         onClick={() => {
-                          setSelectedDocenteOverride(docente.id);
+                          setSelectedDocenteOverride((current) =>
+                            toggleSelection(current, docente.id),
+                          );
                           setOpenDropdown(null);
                         }}
                         className={`w-full px-2 py-1.5 text-left rounded ${
-                          effectiveSelectedDocente === docente.id
+                          effectiveSelectedDocente.includes(docente.id)
+                            ? "bg-red-900/40 text-white font-semibold"
+                            : "text-white hover:bg-white/10"
+                        }`}
+                      >
+                        {docente.label}
+                      </button>
+                    ))}
+
+                    {filteredOtherSubjectDocentes.length > 0 && (
+                      <p className="px-2 py-1 text-xs uppercase tracking-wide text-white/60">
+                        Outros docentes da UC
+                      </p>
+                    )}
+                    {filteredOtherSubjectDocentes.map((docente) => (
+                      <button
+                        key={docente.id}
+                        onClick={() => {
+                          setSelectedDocenteOverride((current) =>
+                            toggleSelection(current, docente.id),
+                          );
+                          setOpenDropdown(null);
+                        }}
+                        className={`w-full px-2 py-1.5 text-left rounded ${
+                          effectiveSelectedDocente.includes(docente.id)
                             ? "bg-red-900/40 text-white font-semibold"
                             : "text-white hover:bg-white/10"
                         }`}
@@ -348,18 +553,20 @@ export default function EditEventDrawer({
 
                     {filteredOtherDocentes.length > 0 && (
                       <p className="px-2 py-1 text-xs uppercase tracking-wide text-white/60">
-                        Outros Docentes
+                        Todos os docentes
                       </p>
                     )}
                     {filteredOtherDocentes.map((docente) => (
                       <button
                         key={docente.id}
                         onClick={() => {
-                          setSelectedDocenteOverride(docente.id);
+                          setSelectedDocenteOverride((current) =>
+                            toggleSelection(current, docente.id),
+                          );
                           setOpenDropdown(null);
                         }}
                         className={`w-full px-2 py-1.5 text-left rounded ${
-                          effectiveSelectedDocente === docente.id
+                          effectiveSelectedDocente.includes(docente.id)
                             ? "bg-red-900/40 text-white font-semibold"
                             : "text-white hover:bg-white/10"
                         }`}
@@ -379,11 +586,7 @@ export default function EditEventDrawer({
                   onClick={() => setOpenDropdown((prev) => (prev === "salas" ? null : "salas"))}
                   className="w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2 text-left flex items-center justify-between"
                 >
-                  <span>
-                    {orderedSalas.find((r) => r.id === effectiveSelectedSala)
-                      ? `${orderedSalas.find((r) => r.id === effectiveSelectedSala)?.id} - ${orderedSalas.find((r) => r.id === effectiveSelectedSala)?.typology}`
-                      : "Selecionar..."}
-                  </span>
+                  <span>{selectedSalaLabel}</span>
                   <span className="text-white/70">▾</span>
                 </button>
 
@@ -405,16 +608,16 @@ export default function EditEventDrawer({
                         <button
                           key={room.id}
                           onClick={() => {
-                            setSelectedSalaOverride(room.id);
+                            setSelectedSalaOverride((current) => toggleSelection(current, room.id));
                             setOpenDropdown(null);
                           }}
                           className={`w-full px-2 py-1.5 text-left rounded ${
-                            effectiveSelectedSala === room.id
+                            effectiveSelectedSala.includes(room.id)
                               ? "bg-red-900/40 text-white font-semibold"
                               : "text-white hover:bg-white/10"
                           }`}
                         >
-                          {room.id} - {room.typology}
+                          {room.label} - {room.type}
                         </button>
                       ))}
 
@@ -427,16 +630,16 @@ export default function EditEventDrawer({
                         <button
                           key={room.id}
                           onClick={() => {
-                            setSelectedSalaOverride(room.id);
+                            setSelectedSalaOverride((current) => toggleSelection(current, room.id));
                             setOpenDropdown(null);
                           }}
                           className={`w-full px-2 py-1.5 text-left rounded ${
-                            effectiveSelectedSala === room.id
+                            effectiveSelectedSala.includes(room.id)
                               ? "bg-red-900/40 text-white font-semibold"
                               : "text-white hover:bg-white/10"
                           }`}
                         >
-                          {room.id} - {room.typology}
+                          {room.label} - {room.type}
                         </button>
                       ))}
                     </div>

@@ -22,6 +22,7 @@ interface MultiDropdownProps {
   singleSelect?: boolean;
   fitContent?: boolean;
   compact?: boolean;
+  minSelected?: number;
 }
 
 export default function MultiDropdown({
@@ -37,6 +38,7 @@ export default function MultiDropdown({
   singleSelect,
   fitContent,
   compact,
+  minSelected = 0,
 }: MultiDropdownProps) {
   const isEmpty = required && selected.length === 0;
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -80,7 +82,14 @@ export default function MultiDropdown({
       return;
     }
 
-    onSelect(selected.includes(item) ? selected.filter((x) => x !== item) : [...selected, item]);
+    const newSelection = selected.includes(item)
+      ? selected.filter((x) => x !== item)
+      : [...selected, item];
+
+    // Prevent deselection if it would go below minSelected
+    if (newSelection.length >= minSelected) {
+      onSelect(newSelection);
+    }
   }
 
   const triggerLabel =

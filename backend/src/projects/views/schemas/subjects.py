@@ -6,6 +6,7 @@ from src.projects.views.schemas.shared import (
     ClassBase,
     DegreeBase,
     SubjectBase,
+    TeacherBase,
     YearBase,
 )
 
@@ -38,6 +39,7 @@ class SubjectStatsResponse(BaseModel):
 class SubjectDetailResponse(ValidateWithExtrasMixin, SubjectBase):
     year: YearBase
     degree: DegreeBase
+    teachers: list[TeacherBase]
     blocks: list[WeekBlockResponse]
 
 
