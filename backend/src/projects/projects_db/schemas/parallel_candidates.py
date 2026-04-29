@@ -6,15 +6,19 @@ from pydantic import BaseModel, ConfigDict
 from src.projects.projects_db.schemas.weekday import WeekDay
 
 
+class ParallelBlockCandidateSession(BaseModel):
+    original_block_id: UUID
+    class_codes: list[str]
+
+
 class ParallelBlockCandidateDetailResponse(BaseModel):
     candidate_group_id: UUID
-    original_block_ids: list[UUID]
+    sessions: list[ParallelBlockCandidateSession]
     subject_name: str
     session_start_time: int
     session_weekday: WeekDay
     session_duration: int
     session_week: date
-    class_codes: str | None = None
     year: int
     degree_id: str
     degree_acronym: str

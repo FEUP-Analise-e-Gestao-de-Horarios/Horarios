@@ -16,6 +16,7 @@ from src.projects.projects_db.models.parallel_block_candidate import ParallelBlo
 from src.projects.projects_db.schemas.parallel_candidates import (
     ParallelBlockCandidateDetailResponse,
     ParallelBlockCandidateFilters,
+    ParallelBlockCandidateSession,
 )
 
 
@@ -140,29 +141,30 @@ class ParallelBlockCandidateDAO:
 
         merged: dict[UUID, ParallelBlockCandidateDetailResponse] = {}
         for row in rows:
+            session = ParallelBlockCandidateSession(
+                original_block_id=row.original_block_id,
+                class_codes=[c.strip() for c in row.class_codes.split(",")]
+                if row.class_codes
+                else [],
+            )
             if row.candidate_group_id not in merged:
                 merged[row.candidate_group_id] = ParallelBlockCandidateDetailResponse(
                     candidate_group_id=row.candidate_group_id,
-                    original_block_ids=[row.original_block_id],
+                    sessions=[session],
                     subject_name=row.subject_name,
                     session_start_time=row.session_start_time,
                     session_weekday=row.session_weekday,
                     session_duration=row.session_duration,
                     session_week=row.session_week,
-                    class_codes=row.class_codes,
                     year=row.year,
                     degree_id=row.degree_id,
                     degree_acronym=row.degree_acronym,
                 )
             else:
-                if row.original_block_id not in merged[row.candidate_group_id].original_block_ids:
-                    merged[row.candidate_group_id].original_block_ids.append(row.original_block_id)
-                existing = (
-                    set(merged[row.candidate_group_id].class_codes.split(","))
-                    if merged[row.candidate_group_id].class_codes
-                    else set()
-                )
-                new = set(row.class_codes.split(",")) if row.class_codes else set()
-                merged[row.candidate_group_id].class_codes = ",".join(sorted(existing | new))
+                existing_ids = {
+                    s.original_block_id for s in merged[row.candidate_group_id].sessions
+                }
+                if row.original_block_id not in existing_ids:
+                    merged[row.candidate_group_id].sessions.append(session)
 
         return list(merged.values())
