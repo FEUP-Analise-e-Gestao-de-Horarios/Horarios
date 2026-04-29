@@ -15,12 +15,14 @@ from src.projects.views import (
     ProjectTeacherView,
     ProjectView,
     ProjectYearsView,
+    ProjectYearWeeksView,
 )
 
 app_name = "projects"
 
 year_patterns = [
     path("", ProjectYearsView.as_view()),
+    path("<uuid:year_id>/weeks/", ProjectYearWeeksView.as_view()),
     path("<uuid:year_id>/subjects/", ProjectSubjectsView.as_view()),
     path("<uuid:year_id>/classes/", ProjectClassesView.as_view()),
 ]

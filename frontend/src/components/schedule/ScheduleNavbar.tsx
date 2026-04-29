@@ -36,6 +36,7 @@ interface ScheduleNavbarProps {
   setTurmas: (v: string[]) => void;
   semanas: string[];
   setSemanas: (v: string[]) => void;
+  weekOptions: DropdownOption[];
   ucOptions: string[];
   turnoOptions: DropdownOption[];
   turmaOptions: DropdownOption[];
@@ -61,6 +62,7 @@ export default function ScheduleNavbar({
   setTurmas,
   semanas,
   setSemanas,
+  weekOptions,
   ucOptions,
   turnoOptions,
   turmaOptions,
@@ -174,12 +176,12 @@ export default function ScheduleNavbar({
 
       <MultiDropdown
         label="Semanas"
-        options={["S1", "S2", "S3", "S4", "S5"].map((week) => ({ value: week, label: week }))}
+        options={weekOptions}
         selected={semanas}
         onSelect={setSemanas}
         open={openDropdown === "semana"}
         onToggle={() => toggle("semana")}
-        disabled={!curso}
+        disabled={!curso || weekOptions.length === 0}
         showLabel
       />
 

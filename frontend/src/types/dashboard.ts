@@ -152,6 +152,10 @@ export interface YearDetail extends YearBase {
   classes: ClassWithSessions[];
 }
 
+export interface YearWeeksResponse {
+  blocks: WeekBlockResponse[];
+}
+
 export interface DegreeDetail extends DegreeBase {
   years: YearDetail[];
 }

@@ -17,6 +17,8 @@ import type {
   TeacherDetail,
   TeachersListPayload,
   TeacherStats,
+  WeekBlockResponse,
+  YearWeeksResponse,
 } from "@/types/dashboard";
 
 const POLL_INTERVAL = 2000;
@@ -100,6 +102,19 @@ export function useProjectYearSubjects(projectId: string, degreeId: string, year
         `/api/projects/${projectId}/degrees/${degreeId}/years/${yearId}/subjects/`,
       );
       return payload.subjects;
+    },
+    enabled: !!projectId && !!degreeId && !!yearId,
+  });
+}
+
+export function useProjectYearWeeks(projectId: string, degreeId: string, yearId: string) {
+  return useQuery({
+    queryKey: queryKeys.projects.yearWeeks(projectId, degreeId, yearId),
+    queryFn: async (): Promise<WeekBlockResponse[]> => {
+      const payload = await api.getData<YearWeeksResponse>(
+        `/api/projects/${projectId}/degrees/${degreeId}/years/${yearId}/weeks/`,
+      );
+      return payload.blocks;
     },
     enabled: !!projectId && !!degreeId && !!yearId,
   });
