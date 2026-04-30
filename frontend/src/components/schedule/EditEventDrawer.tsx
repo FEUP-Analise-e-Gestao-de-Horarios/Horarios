@@ -1,8 +1,41 @@
-import { ALL_CONFLICTS } from "@/components/schedule/data";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useProjectSubject } from "@/api/hooks/useDashboard";
+import type { ConflictRecord } from "@/types/dashboard";
 import type { WeekGridEvent } from "@/components/schedule/WeekGrid";
 
+function normalizeText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function getConflictDay(weekday: WeekGridEvent["weekday"]): string {
+  return weekdayLabelToValue(weekday).split("-")[0] ?? "";
+}
+
+function conflictMatchesEvent(conflict: ConflictRecord, event: WeekGridEvent): boolean {
+  if (conflict.event_ids.includes(event.id)) return true;
+
+  const eventDay = normalizeText(getConflictDay(event.weekday));
+  const conflictDay = normalizeText(conflict.day);
+  if (eventDay !== conflictDay) return false;
+
+  const eventTime = formatMinutesToTime(hhmmToMinutes(event.startTime));
+  if (conflict.time !== eventTime) return false;
+
+  const eventTurma = normalizeText(event.turma ?? event.classCodes?.[0] ?? "");
+  if (eventTurma && normalizeText(conflict.turma) !== eventTurma) return false;
+
+  const conflictText = normalizeText(conflict.event_names.join(" "));
+  const eventTokens = [event.title, event.uc, event.professor, event.sala, event.turma]
+    .filter((token): token is string => Boolean(token))
+    .map(normalizeText);
+
+  if (eventTokens.length === 0) return true;
+  return eventTokens.some((token) => conflictText.includes(token));
+}
 type TeacherOption = {
   id: string;
   label: string;
@@ -23,6 +56,7 @@ interface EditEventDrawerProps {
   projectId: string;
   open: boolean;
   onClose: () => void;
+  conflicts: ConflictRecord[];
   ucOptions: string[];
   turmaOptions: string[];
   teacherOptions: TeacherOption[];
@@ -123,6 +157,7 @@ export default function EditEventDrawer({
   projectId,
   open,
   onClose,
+  conflicts,
   ucOptions,
   turmaOptions,
   teacherOptions,
@@ -178,6 +213,10 @@ export default function EditEventDrawer({
   const [docentesSearch, setDocentesSearch] = useState("");
   const [salasSearch, setSalasSearch] = useState("");
   const [turmasSearch, setTurmasSearch] = useState("");
+  const eventConflicts = useMemo(
+    () => (event ? conflicts.filter((conflict) => conflictMatchesEvent(conflict, event)) : []),
+    [conflicts, event],
+  );
   const [openDropdown, setOpenDropdown] = useState<"docentes" | "salas" | "turmas" | null>(null);
   const dropdownAreaRef = useRef<HTMLDivElement>(null);
 
@@ -701,17 +740,17 @@ export default function EditEventDrawer({
 
           <div className="pt-4 border-t border-white/20">
             <h3 className="text-white/90 font-semibold mb-3">Conflitos Detectados</h3>
-            {ALL_CONFLICTS.length === 0 ? (
+            {eventConflicts.length === 0 ? (
               <p className="text-white/60 text-sm">Nenhum conflito</p>
             ) : (
               <div className="space-y-2">
-                {ALL_CONFLICTS.map((conflict) => (
+                {eventConflicts.map((conflict) => (
                   <div
                     key={conflict.id}
                     className="text-xs border-l-3 border-white/30 bg-white/5 rounded p-2 space-y-1.5"
                   >
                     <div className="text-white/90 font-semibold space-y-0.5">
-                      {conflict.eventNames.map((name, idx) => (
+                      {conflict.event_names.map((name, idx) => (
                         <p key={idx} className="line-clamp-1">
                           {name}
                         </p>
@@ -721,7 +760,7 @@ export default function EditEventDrawer({
                       {conflict.day} · {conflict.time}
                     </p>
                     <div className="space-y-0.5 pt-1 border-t border-white/10">
-                      {conflict.conflictReasons.map((reason, idx) => (
+                      {conflict.conflict_reasons.map((reason, idx) => (
                         <p key={idx} className="text-white/80 flex items-start gap-1">
                           <span className="text-white/60 flex-shrink-0">•</span>
                           <span>{reason}</span>

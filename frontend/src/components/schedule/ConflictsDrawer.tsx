@@ -1,12 +1,21 @@
-import { ALL_CONFLICTS } from "@/components/schedule/data";
 import { useEffect, useRef } from "react";
+import type { ConflictRecord } from "@/types/dashboard";
 
 interface ConflictsDrawerProps {
   open: boolean;
   onClose: () => void;
+  conflicts?: ConflictRecord[];
+  isLoading?: boolean;
+  onRefresh?: () => void;
 }
 
-export default function ConflictsDrawer({ open, onClose }: ConflictsDrawerProps) {
+export default function ConflictsDrawer({
+  open,
+  onClose,
+  conflicts = [],
+  isLoading = false,
+  onRefresh,
+}: ConflictsDrawerProps) {
   const drawerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -44,19 +53,51 @@ export default function ConflictsDrawer({ open, onClose }: ConflictsDrawerProps)
       >
         <div className="sticky top-0 bg-[#1d2128] border-b border-white/10 px-5 py-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Conflitos</h2>
-          <button
-            onClick={onClose}
-            className="text-white/80 hover:text-white border border-white/20 rounded px-2 py-1 text-sm"
-          >
-            Fechar
-          </button>
+          <div className="flex items-center gap-2">
+            {onRefresh ? (
+              <button
+                onClick={onRefresh}
+                disabled={isLoading}
+                className="text-white/80 hover:text-white border border-white/20 rounded px-2 py-1 text-sm flex items-center gap-2"
+              >
+                {isLoading ? (
+                  <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      strokeOpacity="0.2"
+                    />
+                    <path
+                      d="M22 12a10 10 0 00-10-10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                ) : null}
+                <span>{isLoading ? "A atualizar" : "Atualizar"}</span>
+              </button>
+            ) : null}
+
+            <button
+              onClick={onClose}
+              className="text-white/80 hover:text-white border border-white/20 rounded px-2 py-1 text-sm"
+            >
+              Fechar
+            </button>
+          </div>
         </div>
 
         <div className="px-5 py-4 space-y-4">
-          {ALL_CONFLICTS.length === 0 ? (
+          {isLoading ? (
+            <p className="text-white/60 text-center py-8">Carregando conflitos…</p>
+          ) : conflicts.length === 0 ? (
             <p className="text-white/60 text-center py-8">Sem conflitos</p>
           ) : (
-            ALL_CONFLICTS.map((conflict) => (
+            conflicts.map((conflict) => (
               <div
                 key={conflict.id}
                 className="border-l-4 border-white/30 bg-white/5 rounded p-3 space-y-2"
@@ -64,7 +105,7 @@ export default function ConflictsDrawer({ open, onClose }: ConflictsDrawerProps)
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="text-sm font-semibold text-white space-y-1">
-                      {conflict.eventNames.map((name, idx) => (
+                      {conflict.event_names.map((name, idx) => (
                         <p key={idx} className="line-clamp-1">
                           {name}
                         </p>
@@ -77,7 +118,7 @@ export default function ConflictsDrawer({ open, onClose }: ConflictsDrawerProps)
                 </div>
 
                 <div className="space-y-1 pt-2 border-t border-white/10">
-                  {conflict.conflictReasons.map((reason, idx) => (
+                  {conflict.conflict_reasons.map((reason, idx) => (
                     <p key={idx} className="text-xs text-white/80 flex items-start gap-2">
                       <span className="text-white/60 mt-0.5">•</span>
                       <span>{reason}</span>

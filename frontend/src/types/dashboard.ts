@@ -101,6 +101,16 @@ export interface WeekBlockResponse {
   sessions: SessionResponse[];
 }
 
+export interface ConflictRecord {
+  id: string;
+  event_ids: string[];
+  event_names: string[];
+  day: string;
+  time: string;
+  turma: string;
+  conflict_reasons: string[];
+}
+
 // ---------------------------------------------------------------------------
 // Listing (stats) responses
 // ---------------------------------------------------------------------------
@@ -194,5 +204,10 @@ export interface RoomsListPayload {
 
 export interface SubjectsListPayload {
   subjects: SubjectStats[];
+  count: number;
+}
+
+export interface ConflictsListPayload {
+  conflicts: ConflictRecord[];
   count: number;
 }

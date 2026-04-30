@@ -8,6 +8,7 @@ import ScheduleNavbar from "@/components/schedule/ScheduleNavbar";
 import {
   useProjectDegree,
   useProjectDegrees,
+  useProjectYearConflicts,
   useProjectRooms,
   useProjectTeachers,
   useProjectYearWeeks,
@@ -158,8 +159,6 @@ export default function SchedulePage() {
   const [ucs, setUcs] = useState<string[]>([]);
   const [turnos, setTurnos] = useState<string[]>([]);
   const [turmas, setTurmas] = useState<string[]>([]);
-  const [turnosTouched, setTurnosTouched] = useState(false);
-  const [turmasTouched, setTurmasTouched] = useState(false);
   const [semanas, setSemanas] = useState<string[]>([]);
   const [dias, setDias] = useState<string[]>([
     "monday",
@@ -206,6 +205,12 @@ export default function SchedulePage() {
     activeDegree?.id ?? "",
     selectedYear?.id ?? "",
   );
+  const yearConflictsQuery = useProjectYearConflicts(
+    projectId ?? "",
+    activeDegree?.id ?? "",
+    selectedYear?.id ?? "",
+  );
+  const yearConflicts = yearConflictsQuery.data ?? [];
 
   const selectedYearSubjects = useMemo(() => selectedYear?.subjects ?? [], [selectedYear]);
   const selectedYearClasses = useMemo(() => selectedYear?.classes ?? [], [selectedYear]);
@@ -297,18 +302,16 @@ export default function SchedulePage() {
   const effectiveTurnos = useMemo(() => {
     if (!curso) return [];
     const validSelected = turnos.filter((turno) => allTurnoValues.includes(turno));
-    if (turnosTouched) return sortValuesByReference(validSelected, turnoOrder);
     const fallback = validSelected.length > 0 ? validSelected : allTurnoValues;
     return sortValuesByReference(fallback, turnoOrder);
-  }, [allTurnoValues, curso, turnoOrder, turnos, turnosTouched]);
+  }, [allTurnoValues, curso, turnoOrder, turnos]);
 
   const effectiveTurmas = useMemo(() => {
     if (!curso) return [];
     const validSelected = turmas.filter((turma) => allTurmaValues.includes(turma));
-    if (turmasTouched) return sortValuesByReference(validSelected, turmaOrder);
     const fallback = validSelected.length > 0 ? validSelected : allTurmaValues;
     return sortValuesByReference(fallback, turmaOrder);
-  }, [allTurmaValues, curso, turmaOrder, turmas, turmasTouched]);
+  }, [allTurmaValues, curso, turmaOrder, turmas]);
 
   const turnosFromTurmas = (turmaCodes: string[]) => {
     const selectedShifts = new Set<string>();
@@ -346,8 +349,6 @@ export default function SchedulePage() {
 
     setTurmas(orderedTurmas);
     setTurnos(orderedTurnos);
-    setTurmasTouched(true);
-    setTurnosTouched(true);
   };
 
   const handleSelectTurmas = (nextTurmas: string[]) => {
@@ -357,8 +358,6 @@ export default function SchedulePage() {
     const orderedTurmas = sortValuesByReference(validTurmas, turmaOrder);
     setTurmas(orderedTurmas);
     setTurnos(sortValuesByReference(turnosFromTurmas(orderedTurmas), turnoOrder));
-    setTurmasTouched(true);
-    setTurnosTouched(true);
   };
 
   const handleSelectCurso = (nextCurso: string) => {
@@ -368,8 +367,6 @@ export default function SchedulePage() {
     setTurnos([]);
     setTurmas([]);
     setSemanas([]);
-    setTurnosTouched(false);
-    setTurmasTouched(false);
   };
 
   const openEditor = (event: WeekGridEvent | null) => {
@@ -501,7 +498,10 @@ export default function SchedulePage() {
         yearOptions={yearOptions}
         courseOptions={courseOptions}
         onEditEventClick={() => openEditor(null)}
-        onViewConflicts={() => setIsConflictsDrawerOpen(true)}
+        onViewConflicts={() => {
+          void yearConflictsQuery.refetch();
+          setIsConflictsDrawerOpen(true);
+        }}
       />
 
       <EditEventDrawer
@@ -512,6 +512,7 @@ export default function SchedulePage() {
           setEditingEvent(null);
         }}
         projectId={projectId}
+        conflicts={yearConflicts}
         ucOptions={ucOptions}
         turmaOptions={turmaOptions.map((option) => option.value)}
         teacherOptions={teacherOptions}
@@ -527,6 +528,9 @@ export default function SchedulePage() {
       <ConflictsDrawer
         open={isConflictsDrawerOpen}
         onClose={() => setIsConflictsDrawerOpen(false)}
+        conflicts={yearConflicts}
+        isLoading={yearConflictsQuery.isFetching}
+        onRefresh={() => void yearConflictsQuery.refetch()}
       />
 
       <div className="flex-1 min-h-0 overflow-hidden">

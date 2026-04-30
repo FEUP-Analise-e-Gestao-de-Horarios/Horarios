@@ -13,5 +13,7 @@ export const queryKeys = {
     class: (id: string, classId: string) => ["projects", id, "classes", classId] as const,
     yearWeeks: (id: string, degreeId: string, yearId: string) =>
       ["projects", id, "degrees", degreeId, "years", yearId, "weeks"] as const,
+    yearConflicts: (id: string, degreeId: string, yearId: string) =>
+      ["projects", id, "degrees", degreeId, "years", yearId, "conflicts"] as const,
   },
 } as const;

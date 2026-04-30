@@ -4,6 +4,7 @@ import { queryKeys } from "@/api/queryKeys";
 import type { Project } from "@/types/project";
 import type {
   ClassDetail,
+  ConflictsListPayload,
   DegreeDetail,
   DegreesListPayload,
   DegreeStats,
@@ -115,6 +116,19 @@ export function useProjectYearWeeks(projectId: string, degreeId: string, yearId:
         `/api/projects/${projectId}/degrees/${degreeId}/years/${yearId}/weeks/`,
       );
       return payload.blocks;
+    },
+    enabled: !!projectId && !!degreeId && !!yearId,
+  });
+}
+
+export function useProjectYearConflicts(projectId: string, degreeId: string, yearId: string) {
+  return useQuery({
+    queryKey: queryKeys.projects.yearConflicts(projectId, degreeId, yearId),
+    queryFn: async () => {
+      const payload = await api.getData<ConflictsListPayload>(
+        `/api/projects/${projectId}/degrees/${degreeId}/years/${yearId}/conflicts/`,
+      );
+      return payload.conflicts;
     },
     enabled: !!projectId && !!degreeId && !!yearId,
   });

@@ -1,4 +1,5 @@
 from src.projects.views.classes import ProjectClassesView, ProjectClassView
+from src.projects.views.conflicts import ProjectYearConflictsView
 from src.projects.views.degrees import ProjectDegreesView, ProjectDegreeView
 from src.projects.views.project import ProjectsView, ProjectView
 from src.projects.views.rooms import ProjectRoomsView, ProjectRoomView
@@ -20,6 +21,7 @@ __all__ = [
     "ProjectTeacherView",
     "ProjectTeachersView",
     "ProjectView",
+    "ProjectYearConflictsView",
     "ProjectYearWeeksView",
     "ProjectYearsView",
     "ProjectsView",
