@@ -17,7 +17,30 @@ from src.projects.views.schemas.parallel_block_group_members import SaveParallel
 
 
 class ProjectParallelBlockGroupMembersView(View):
-    """API endpoint: save confirmed parallel block groups."""
+    """API endpoint: fetch and save confirmed parallel block groups."""
+
+    def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
+        if not request.user.is_authenticated:
+            return NotAuthenticatedResponse()
+
+        try:
+            Project.objects.get(pk=project_id)
+        except Project.DoesNotExist:
+            return ProjectNotFoundResponse()
+
+        with get_project_session(general_db(project_id)) as db_session:
+            dao = ParallelBlockGroupDAO(db_session)
+            groups = dao.get_all_groups()
+
+        return JsonResponse(
+            SuccessResponse(
+                message="Parallel group members retrieved successfully",
+                data={
+                    str(group_id): [str(block_id) for block_id in block_ids]
+                    for group_id, block_ids in groups.items()
+                },
+            ).model_dump(),
+        )
 
     def post(self, request: HttpRequest, project_id: int) -> HttpResponse:
         if not request.user.is_authenticated:
