@@ -190,6 +190,7 @@ export default function ScheduleNavbar({
         disabled={!curso}
         showLabel
         minSelected={1}
+        hideSelectedCountWhenDisabled
       />
 
       <MultiDropdown

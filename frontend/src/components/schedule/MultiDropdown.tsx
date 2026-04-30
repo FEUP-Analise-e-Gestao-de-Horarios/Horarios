@@ -23,6 +23,7 @@ interface MultiDropdownProps {
   fitContent?: boolean;
   compact?: boolean;
   minSelected?: number;
+  hideSelectedCountWhenDisabled?: boolean;
 }
 
 export default function MultiDropdown({
@@ -39,6 +40,7 @@ export default function MultiDropdown({
   fitContent,
   compact,
   minSelected = 0,
+  hideSelectedCountWhenDisabled = false,
 }: MultiDropdownProps) {
   const isEmpty = required && selected.length === 0;
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -97,11 +99,13 @@ export default function MultiDropdown({
       ? label
       : singleSelect
         ? `${options.find((option) => option.value === selected[0])?.label ?? selected[0]}`
-        : showLabel
-          ? `${label} (${selected.length})`
-          : selected.length === 1
-            ? (options.find((option) => option.value === selected[0])?.label ?? selected[0])
-            : `${selected.length} selecionados`;
+        : hideSelectedCountWhenDisabled && disabled
+          ? label
+          : showLabel
+            ? `${label} (${selected.length})`
+            : selected.length === 1
+              ? (options.find((option) => option.value === selected[0])?.label ?? selected[0])
+              : `${selected.length} selecionados`;
 
   return (
     <div ref={wrapperRef} className="relative">
