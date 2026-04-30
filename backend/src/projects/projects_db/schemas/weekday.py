@@ -2,14 +2,14 @@ from enum import StrEnum
 
 
 class WeekDay(StrEnum):
-    """Days of the week, with Portuguese values for compatibility with external services."""
+    """Days of the week. Portuguese names are accepted on construction via ``_missing_``."""
 
-    MONDAY = "Segunda"
-    TUESDAY = "Terça"
-    WEDNESDAY = "Quarta"
-    THURSDAY = "Quinta"
-    FRIDAY = "Sexta"
-    SATURDAY = "Sábado"
+    MONDAY = "monday"
+    TUESDAY = "tuesday"
+    WEDNESDAY = "wednesday"
+    THURSDAY = "thursday"
+    FRIDAY = "friday"
+    SATURDAY = "saturday"
 
     @classmethod
     def _missing_(cls, value: object) -> WeekDay:

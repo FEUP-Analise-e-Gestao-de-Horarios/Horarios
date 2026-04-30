@@ -7,7 +7,7 @@ from src.projects.models import Project
 from src.projects.projects_db.dao import StatsDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
-from src.projects.views.schemas.stats import ProjectStatsResponse
+from src.projects.views.schemas.stats import StatsResponse
 
 
 class ProjectStatsView(View):
@@ -31,6 +31,6 @@ class ProjectStatsView(View):
             return JsonResponse(
                 SuccessResponse(
                     message="Stats retrieved successfully",
-                    data=ProjectStatsResponse.model_validate(overview, from_attributes=True),
+                    data=StatsResponse.model_validate(overview, from_attributes=True),
                 ).model_dump(),
             )

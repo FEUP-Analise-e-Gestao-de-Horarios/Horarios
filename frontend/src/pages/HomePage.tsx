@@ -11,6 +11,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-svh bg-[#f0eeeb] font-[system-ui,'Segoe_UI',Roboto,sans-serif]">
+      <title>Projetos · AGH</title>
       <Navbar />
 
       <div className="flex flex-wrap p-6 pt-8 gap-4">

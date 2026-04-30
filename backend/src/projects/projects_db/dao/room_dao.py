@@ -2,7 +2,6 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
-from src.projects.projects_db.dao.exceptions import MultipleNotFoundError
 from src.projects.projects_db.models._secondary_tables import session_rooms
 from src.projects.projects_db.models.room import Room
 from src.projects.projects_db.models.room_red_block import RoomRedBlock
@@ -81,28 +80,3 @@ class RoomDAO(BaseDAO[Room]):
         ).all()
 
         return [RoomStats.model_validate(row, from_attributes=True) for row in rows]
-
-    def get_by_names(self, names: set[str], *, check_count: bool = True) -> list[Room]:
-        """Return rooms matching the given names.
-
-        Args:
-            names: Set of room names to fetch.
-            check_count: When True, raises if any name has no matching room.
-
-        Returns:
-            List of Room instances corresponding to the requested names.
-
-        Raises:
-            MultipleNotFoundError: If check_count is True and one or more names
-                have no matching room.
-        """
-        if not names:
-            return []
-
-        rooms = list(self.session.scalars(select(Room).where(Room.name.in_(names))).all())
-        if check_count and len(names) != len(rooms):
-            found = {r.name for r in rooms}
-            missing = names - found
-            raise MultipleNotFoundError("name", missing)
-
-        return rooms

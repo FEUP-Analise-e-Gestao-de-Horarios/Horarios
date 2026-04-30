@@ -108,8 +108,10 @@ class Session(TypedDict):
         classes: Class codes participating in this session.
         rooms: Names of the rooms where the session takes place. Contains
             ``["Online"]`` when no room is listed in the session block.
-        is_theoretical: ``True`` if the session is theoretical
-            (CSS class ``td_tipologia_19``), ``False`` otherwise.
+        type: Session type code as defined by the page's ``Tipologias`` legend
+            (e.g. ``"T"``, ``"TP"``, ``"PL"``, ``"OT"``, ``"TC"``, ...). The set
+            of codes is open and the mapping from ``td_tipologia_*`` CSS classes
+            to codes is per-page, not stable across pages.
     """
 
     subject_acronym: str
@@ -119,4 +121,4 @@ class Session(TypedDict):
     teachers: list[int]
     classes: list[str]
     rooms: list[str]
-    is_theoretical: bool
+    type: str

@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "@/routes";
+import { buildPath } from "@/utils/routes";
 
 interface DashboardNavbarProps {
   projectId: string;
@@ -18,8 +19,14 @@ export default function DashboardNavbar({ projectId, isReady }: DashboardNavbarP
         Início
       </button>
       <button
+        onClick={() => void navigate(buildPath(ROUTES.DASHBOARD, { projectId }))}
+        className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 transition-colors hover:border-gray-400 hover:bg-white/5"
+      >
+        Dashboard
+      </button>
+      <button
         disabled={!isReady}
-        onClick={() => void navigate(ROUTES.SCHEDULE.replace(":projectId", projectId))}
+        onClick={() => void navigate(buildPath(ROUTES.SCHEDULE, { projectId }))}
         className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 transition-colors enabled:hover:border-gray-400 enabled:hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
       >
         Horário

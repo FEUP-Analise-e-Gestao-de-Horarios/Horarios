@@ -9,8 +9,6 @@ export interface Project {
   ingestion_failed_at: string | null;
 }
 
-export interface ProjectsResponse {
-  data: {
-    projects: Project[];
-  };
+export interface ProjectsListPayload {
+  projects: Project[];
 }
