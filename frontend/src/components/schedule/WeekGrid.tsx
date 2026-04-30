@@ -77,18 +77,18 @@ function weekdayIndex(weekday: Weekday): number {
 }
 
 const TYPE_STYLES: Record<string, { bg: string; border: string; text: string }> = {
-  T: { bg: "bg-red-200", border: "border-red-400", text: "text-red-900" },
-  TP: { bg: "bg-red-100", border: "border-red-300", text: "text-red-900" },
-  PL: { bg: "bg-red-200", border: "border-red-400", text: "text-red-900" },
-  P: { bg: "bg-red-300", border: "border-red-500", text: "text-red-900" },
-  S: { bg: "bg-red-100", border: "border-red-300", text: "text-red-900" },
-  OT: { bg: "bg-red-200", border: "border-red-400", text: "text-red-900" },
-  TC: { bg: "bg-red-100", border: "border-red-300", text: "text-red-900" },
+  T: { bg: "bg-[#8C2C19]", border: "border-[#6F2314]", text: "text-white" },
+  TP: { bg: "bg-[#A9361E]", border: "border-[#8C2C19]", text: "text-white" },
+  PL: { bg: "bg-[#C73F24]", border: "border-[#A9361E]", text: "text-white" },
+  P: { bg: "bg-[#E44829]", border: "border-[#C73F24]", text: "text-white" },
+  S: { bg: "bg-[#f08a6d]", border: "border-[#E44829]", text: "text-[#08060d]" },
+  OT: { bg: "bg-[#f7ddd7]", border: "border-[#e0b0a5]", text: "text-[#8C2C19]" },
+  TC: { bg: "bg-[#f0eeeb]", border: "border-[#d8d5da]", text: "text-[#08060d]" },
 };
 const DEFAULT_STYLE = {
-  bg: "bg-red-200",
-  border: "border-red-400",
-  text: "text-red-900",
+  bg: "bg-[#8C2C19]",
+  border: "border-[#6F2314]",
+  text: "text-white",
 };
 
 function styleForType(type: string | undefined) {
@@ -97,7 +97,7 @@ function styleForType(type: string | undefined) {
 }
 
 function getTurmaHeaderStyle(shift?: number): string {
-  if (shift !== undefined && shift % 2 === 0) return "bg-red-100 border-red-200 text-[#08060d]";
+  if (shift !== undefined && shift % 2 === 0) return "bg-[#f7ddd7] border-[#e0b0a5] text-[#8C2C19]";
   return "bg-[#f9f7f4] text-[#08060d]";
 }
 
@@ -400,7 +400,7 @@ export default function WeekGrid({
           return (
             <div
               key={`m-${mark.id}`}
-              className="bg-red-100/70 border-l-2 border-red-400 pointer-events-none"
+              className="bg-[#f7ddd7]/80 border-l-2 border-[#e0b0a5] pointer-events-none"
               style={{
                 gridColumn: `${dayIdx * turmasCount + 2} / span ${turmasCount}`,
                 gridRow: rowStart + headerRows + 1,
@@ -425,7 +425,7 @@ export default function WeekGrid({
               onDoubleClick={onEventDoubleClick ? () => onEventDoubleClick(ev) : undefined}
               className={`relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden ${
                 isEditingEvent
-                  ? "bg-red-950 border-red-950 text-white"
+                  ? "bg-[#250902] border-[#38040e] text-white"
                   : `${style.bg} ${style.border} ${style.text}`
               } ${clickable ? "cursor-pointer hover:brightness-95 transition" : "cursor-default"}`}
               style={{

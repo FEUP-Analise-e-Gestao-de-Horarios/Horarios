@@ -14,7 +14,7 @@ export default function DashboardNavbar({ projectId, isReady }: DashboardNavbarP
     <header className="px-6 py-3 bg-[#1e2028] flex items-center gap-2 border-b border-gray-700">
       <button
         onClick={() => void navigate(ROUTES.HOME)}
-        className="bg-[#8c2d19] text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap hover:bg-[#a33520] transition-colors"
+        className="bg-[#8C2C19] text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap hover:bg-[#A9361E] transition-colors"
       >
         Início
       </button>

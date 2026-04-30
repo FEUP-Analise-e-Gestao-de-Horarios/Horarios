@@ -77,6 +77,8 @@ export default function ScheduleNavbar({
   onEditEventClick,
   onViewConflicts,
 }: ScheduleNavbarProps) {
+  const primaryRedButtonClass =
+    "bg-[#8C2C19] text-white font-semibold px-3 py-1.5 rounded text-sm whitespace-nowrap hover:bg-[#A9361E] transition-colors";
   const navigate = useNavigate();
   const [openDropdown, setOpenDropdown] = useState<DropdownId | null>(null);
   const navRef = useRef<HTMLElement>(null);
@@ -105,10 +107,7 @@ export default function ScheduleNavbar({
       ref={navRef}
       className="relative z-50 px-5 py-2 bg-[#1e2028] flex items-center gap-1.5 w-full flex-wrap overflow-visible border-b border-gray-700"
     >
-      <button
-        onClick={() => void navigate(ROUTES.HOME)}
-        className="bg-[#8c2d19] text-white font-semibold px-3 py-1.5 rounded text-sm whitespace-nowrap hover:bg-[#a33520] transition-colors"
-      >
+      <button onClick={() => void navigate(ROUTES.HOME)} className={primaryRedButtonClass}>
         Início
       </button>
 
@@ -225,7 +224,7 @@ export default function ScheduleNavbar({
 
       <button
         onClick={onViewConflicts}
-        className="bg-transparent text-red-400 font-medium px-3 py-1.5 rounded text-sm whitespace-nowrap border border-red-400 hover:bg-red-400/10 transition-colors"
+        className="bg-transparent text-[#C73F24] font-semibold px-3 py-1.5 rounded text-sm whitespace-nowrap border border-[#C73F24] hover:bg-[#C73F24]/10 transition-colors"
       >
         Ver Conflitos
       </button>
