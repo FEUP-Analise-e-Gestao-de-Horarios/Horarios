@@ -154,13 +154,18 @@ export default function EditEventDrawer({
       />
 
       <aside
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-event-drawer-title"
         className={[
           "absolute right-0 top-0 h-full w-[min(92vw,430px)] bg-[#1d2128] text-white border-l border-white/15 shadow-[-8px_0_24px_rgba(0,0,0,0.45)] transition-transform overflow-y-auto",
           open ? "translate-x-0" : "translate-x-full",
         ].join(" ")}
       >
         <div className="sticky top-0 bg-[#1d2128] border-b border-white/10 px-5 py-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Editar Evento</h2>
+          <h2 id="edit-event-drawer-title" className="text-lg font-semibold">
+            Editar Evento
+          </h2>
           <button
             onClick={onClose}
             className="text-white/80 hover:text-white border border-white/20 rounded px-2 py-1 text-sm"
