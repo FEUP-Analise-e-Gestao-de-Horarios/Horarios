@@ -4,128 +4,6 @@ saves the DOM element of the last selected cell with a class
 */
 let lastClickedAula = null 
 
-function getDropdownConfig(element){
-    if(element === '.docentesDropDown'){
-        return {
-            multipleMode: 'label',
-            searchable: true,
-            searchNoData: '<li class="cursorHover changeCursor" data-bs-toggle="modal" data-bs-target="#newDocenteModal">Novo Docente</li>'
-        }
-    }
-
-    return {
-        multipleMode: 'label',
-        searchable: true,
-    }
-}
-
-function getDropdownSelectedIds(element){
-    return $(element + ' .dropdown-display-label .dropdown-chose-list .dropdown-selected i[data-id]')
-        .map(function() { return String($(this).data('id')); })
-        .get();
-}
-
-function getDropdownSourceOptions(element){
-    const select = document.querySelector(element + ' select');
-    if(!select) return [];
-
-    return Array.from(select.options).map((option) => ({
-        id: String(option.value),
-        name: option.textContent.trim(),
-        tipo: option.getAttribute('data-tipo') || ''
-    }));
-}
-
-function setDropdownOptionsKeepingSelection(element, orderedOptions, selectedIds){
-    const options = getDropdownConfig(element);
-    const dropdown = $(element).dropdown(options).data('dropdown');
-    dropdown.update(orderedOptions.map((o) => ({ id: o.id, name: o.name })), true);
-    dropdown.reset();
-
-    selectedIds.forEach((id) => {
-        dropdown.choose(id, true);
-    });
-}
-
-function sortOptionsByPriorityIds(options, priorityIds){
-    const prioritySet = new Set(priorityIds.map(String));
-    const priority = options.filter((o) => prioritySet.has(String(o.id)));
-    const rest = options.filter((o) => !prioritySet.has(String(o.id)));
-    return [...priority, ...rest];
-}
-
-function getSidebarUcDocenteIds(ucId){
-    if(!ucId) return [];
-
-    const docenteIds = new Set();
-    const ucCells = document.querySelectorAll('td p.uc[id="' + ucId + '"]');
-
-    ucCells.forEach((ucElement) => {
-        const cell = ucElement.closest('td');
-        if(!cell) return;
-        cell.querySelectorAll('p.docente').forEach((docenteElement) => {
-            if(docenteElement.id) docenteIds.add(String(docenteElement.id));
-        });
-    });
-
-    return Array.from(docenteIds);
-}
-
-function getSidebarUcSalaIds(ucId){
-    if(!ucId) return [];
-
-    const salaIds = new Set();
-    const ucCells = document.querySelectorAll('td p.uc[id="' + ucId + '"]');
-
-    ucCells.forEach((ucElement) => {
-        const cell = ucElement.closest('td');
-        if(!cell) return;
-        cell.querySelectorAll('p.sala').forEach((salaElement) => {
-            if(salaElement.id) salaIds.add(String(salaElement.id));
-        });
-    });
-
-    return Array.from(salaIds);
-}
-
-function getSalaTypesByIds(salaIds, salaOptions){
-    const salaTypeSet = new Set();
-    const optionById = new Map(salaOptions.map((o) => [String(o.id), o]));
-
-    salaIds.forEach((id) => {
-        const option = optionById.get(String(id));
-        if(option && option.tipo) salaTypeSet.add(option.tipo);
-    });
-
-    return salaTypeSet;
-}
-
-function sortSalasByTipoPriority(salaOptions, priorityTypes){
-    if(priorityTypes.size === 0) return salaOptions;
-
-    const matching = salaOptions.filter((o) => priorityTypes.has(o.tipo));
-    const rest = salaOptions.filter((o) => !priorityTypes.has(o.tipo));
-    return [...matching, ...rest];
-}
-
-function applySidebarPriorityForUc(ucId, selectedSalaIds = []){
-    if(!ucId) return;
-
-    const docenteOptions = getDropdownSourceOptions('.docentesDropDown');
-    const selectedDocentes = getDropdownSelectedIds('.docentesDropDown');
-    const ucDocenteIds = getSidebarUcDocenteIds(ucId);
-    const orderedDocentes = sortOptionsByPriorityIds(docenteOptions, ucDocenteIds);
-    setDropdownOptionsKeepingSelection('.docentesDropDown', orderedDocentes, selectedDocentes);
-
-    const salaOptions = getDropdownSourceOptions('.salasDropDown');
-    const selectedSalas = getDropdownSelectedIds('.salasDropDown');
-    const ucSalaIds = getSidebarUcSalaIds(ucId);
-    const salaIdsForTypePriority = selectedSalaIds.length > 0 ? selectedSalaIds : ucSalaIds;
-    const preferredTypes = getSalaTypesByIds(salaIdsForTypePriority, salaOptions);
-    const orderedSalas = sortSalasByTipoPriority(salaOptions, preferredTypes);
-    setDropdownOptionsKeepingSelection('.salasDropDown', orderedSalas, selectedSalas);
-}
-
 /* updateSidebarSelection
 
 selects the options on the sidebar
@@ -154,10 +32,6 @@ function updateSidebarSelection(idAula, idUc, initTime, timeSpan, day,
     if(docentesIdList!==null && docentesIdList.length>0) updateSidebarMultiple(docentesIdList, '.docentesDropDown')
     if(salasIdList!==null && salasIdList.length>0) updateSidebarMultiple(salasIdList, '.salasDropDown')
     if(turmasIdList!==null && turmasIdList.length>0) updateSidebarMultiple(turmasIdList, '.turmasDropDown')
-
-    if(idUc !== null){
-        applySidebarPriorityForUc(String(idUc), (salasIdList || []).map(String));
-    }
 }
 
 /* updateSidebarSingle
@@ -201,7 +75,19 @@ updates the dropdown select element with the corresponding element class
 receives a list of ids of options to select on the dropdown select 
 */
 function updateSidebarMultiple(ids, element){
-    let options = getDropdownConfig(element)
+    let options
+    if(element === '.docentesDropDown'){
+        options = {
+            multipleMode: 'label',
+            searchable: true,
+            searchNoData: '<li class="cursorHover changeCursor" data-bs-toggle="modal" data-bs-target="#newDocenteModal">Novo Docente</li>'
+            }
+    }else{
+        options = {
+            multipleMode: 'label',
+            searchable: true,
+        }
+    }
 
     let dropdown = $(element).dropdown(options).data('dropdown')
     dropdown.reset()
@@ -281,13 +167,6 @@ event: ctrl+e
 toggles the sidebar modal
 */
 $(document).ready(function () {
-    const cadeiraEdit = document.getElementById('cadeiraEdit');
-    if(cadeiraEdit){
-        cadeiraEdit.addEventListener('change', function(){
-            applySidebarPriorityForUc(String(this.value));
-        });
-    }
-
     document.addEventListener('keydown', function(event) {
         if (event.ctrlKey && event.key === 'e') {
             event.preventDefault(); // Prevent the default browser behavior (e.g., opening the browser's search feature)
