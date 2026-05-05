@@ -30,21 +30,22 @@ export default function LoginPage() {
     }
   }, [login.isPending, login.isError]);
 
-  const handleKeyDown = (field: Field) => (e: React.KeyboardEvent) => {
+  const handleUsernameKeyDown = (e: React.KeyboardEvent) => {
     if (e.key !== "Enter") return;
     e.preventDefault();
-
-    if (field === "username") {
-      if (!username) {
-        setErrors({ username: "Preencha este campo." });
-        shake("username");
-      } else {
-        setErrors({});
-        passwordRef.current?.focus();
-      }
+    if (!username) {
+      setErrors({ username: "Preencha este campo." });
+      shake("username");
     } else {
-      passwordRef.current?.closest("form")?.requestSubmit();
+      setErrors({});
+      passwordRef.current?.focus();
     }
+  };
+
+  const handlePasswordKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    passwordRef.current?.closest("form")?.requestSubmit();
   };
 
   const handleSubmit = (e: React.SyntheticEvent) => {
@@ -83,6 +84,7 @@ export default function LoginPage() {
 
   return (
     <AuthPageLayout>
+      <title>Entrar · AGH</title>
       <FormCard onSubmit={handleSubmit}>
         <h1 className="text-[#08060d] text-2xl font-bold m-0">Iniciar Sessão</h1>
 
@@ -93,7 +95,7 @@ export default function LoginPage() {
           placeholder="Nome de utilizador"
           value={username}
           onChange={setUsername}
-          onKeyDown={handleKeyDown("username")}
+          onKeyDown={handleUsernameKeyDown}
           error={errors.username}
           shake={isShaking("username")}
           disabled={login.isPending}
@@ -105,7 +107,7 @@ export default function LoginPage() {
           label="Palavra-passe"
           value={password}
           onChange={setPassword}
-          onKeyDown={handleKeyDown("password")}
+          onKeyDown={handlePasswordKeyDown}
           error={errors.password}
           shake={isShaking("password")}
           disabled={login.isPending}

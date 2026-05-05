@@ -9,6 +9,7 @@ from django.http import JsonResponse
 from django.template.loader import render_to_string
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
 from src.config.settings import base
@@ -18,6 +19,7 @@ from src.users.models import User
 
 
 @require_GET
+@ensure_csrf_cookie
 def me(request) -> JsonResponse:
     if not request.user.is_authenticated:
         return NotAuthenticatedResponse()

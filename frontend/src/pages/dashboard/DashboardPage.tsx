@@ -33,6 +33,7 @@ export default function DashboardPage() {
 
   return (
     <div className="h-screen flex flex-col bg-[#f0eeeb]">
+      <title>{project.data ? `${project.data.name} · AGH` : "A carregar… · AGH"}</title>
       <DashboardNavbar projectId={id} isReady={!!project.data?.ingestion_finished_at} />
 
       <div className="flex-1 overflow-hidden">

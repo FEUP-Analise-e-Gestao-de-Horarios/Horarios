@@ -68,7 +68,7 @@ def get_cell_column(item: Tag, matrix: Matrix) -> int:
     """
     for row in matrix:
         for j, td in enumerate(row):
-            if item == td:
+            if item is td:
                 return j
 
     raise ValueError("Item not found in matrix")

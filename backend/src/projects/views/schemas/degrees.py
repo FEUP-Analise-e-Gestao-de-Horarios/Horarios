@@ -2,27 +2,40 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
+from src.core.mixins import ValidateWithExtrasMixin
+from src.projects.views.schemas.shared import (
+    ClassWithSessions,
+    DegreeBase,
+    SubjectWithSessions,
+    YearBase,
+)
 
-class ProjectDegreesResponse(BaseModel):
+
+# -- Degrees list ------------------------------------------------------
+class DegreesResponse(BaseModel):
     degrees: list[DegreeStatsResponse]
     count: int
 
 
-class DegreeStatsResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: UUID
-
-    acronym: str
-    name: str
-
+class DegreeStatsResponse(DegreeBase):
     years: int
     subjects: int
     classes: int
     sessions: int
 
 
-class ProjectYearsResponse(BaseModel):
+# -- Degree detail -----------------------------------------------------
+class DegreeDetailResponse(ValidateWithExtrasMixin, DegreeBase):
+    years: list[YearDetailResponse]
+
+
+class YearDetailResponse(ValidateWithExtrasMixin, YearBase):
+    subjects: list[SubjectWithSessions]
+    classes: list[ClassWithSessions]
+
+
+# -- Years list --------------------------------------------------------
+class YearsResponse(BaseModel):
     years: list[YearStatsResponse]
     count: int
 

@@ -2,6 +2,7 @@ from uuid import UUID
 
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views import View
+from sqlalchemy import select
 
 from src.core.errors import (
     DegreeNotFoundResponse,
@@ -10,12 +11,15 @@ from src.core.errors import (
 )
 from src.core.schemas import SuccessResponse
 from src.projects.models import Project
-from src.projects.projects_db.dao import DegreeDAO
+from src.projects.projects_db.dao import ClassDAO, DegreeDAO, SubjectDAO
+from src.projects.projects_db.models import Year
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
 from src.projects.views.schemas.degrees import (
+    DegreeDetailResponse,
+    DegreesResponse,
     DegreeStatsResponse,
-    ProjectDegreesResponse,
+    YearDetailResponse,
 )
 
 
@@ -41,7 +45,7 @@ class ProjectDegreesView(View):
             return JsonResponse(
                 SuccessResponse(
                     message="Degrees retrieved successfully",
-                    data=ProjectDegreesResponse(degrees=result, count=len(result)),
+                    data=DegreesResponse(degrees=result, count=len(result)),
                 ).model_dump(),
             )
 
@@ -60,15 +64,44 @@ class ProjectDegreeView(View):
         except Project.DoesNotExist:
             return ProjectNotFoundResponse()
 
-        # -- Fetch degree with stats from project DB ---------------------------
+        # -- Fetch degree with nested year / subject / class detail ------------
         with get_project_session(general_db(project_id)) as db_session:
-            degree = DegreeDAO(db_session).get_with_stats(degree_id)
+            degree = DegreeDAO(db_session).get(degree_id)
             if degree is None:
                 return DegreeNotFoundResponse()
+
+            years = list(
+                db_session.scalars(
+                    select(Year).where(Year.degree_id == degree_id).order_by(Year.number),
+                ),
+            )
+
+            subject_dao = SubjectDAO(db_session)
+            class_dao = ClassDAO(db_session)
+
+            year_details = [
+                YearDetailResponse.model_validate_with_extras(
+                    year,
+                    extras={
+                        "subjects": sorted(
+                            subject_dao.get_by_year_with_stats(year.id),
+                            key=lambda s: s.number,
+                        ),
+                        "classes": sorted(
+                            class_dao.get_by_year_with_stats(year.id),
+                            key=lambda c: c.code,
+                        ),
+                    },
+                )
+                for year in years
+            ]
 
             return JsonResponse(
                 SuccessResponse(
                     message="Degree retrieved successfully",
-                    data=DegreeStatsResponse.model_validate(degree, from_attributes=True),
+                    data=DegreeDetailResponse.model_validate_with_extras(
+                        degree,
+                        extras={"years": year_details},
+                    ),
                 ).model_dump(),
             )

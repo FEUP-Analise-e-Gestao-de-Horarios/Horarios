@@ -10,14 +10,15 @@ from src.core.errors import (
 )
 from src.core.schemas import SuccessResponse
 from src.projects.models import Project
-from src.projects.projects_db.dao import RoomDAO, RoomRedBlockDAO, SessionDAO
+from src.projects.projects_db.dao import RoomDAO, SessionDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
 from src.projects.views.schemas.rooms import (
-    ProjectRoomsResponse,
     RoomDetailResponse,
+    RoomsResponse,
     RoomStatsResponse,
 )
+from src.projects.views.schemas.sessions import WeekBlockResponse
 
 
 class ProjectRoomsView(View):
@@ -42,7 +43,7 @@ class ProjectRoomsView(View):
             return JsonResponse(
                 SuccessResponse(
                     message="Rooms retrieved successfully",
-                    data=ProjectRoomsResponse(rooms=result, count=len(result)),
+                    data=RoomsResponse(rooms=result, count=len(result)),
                 ).model_dump(),
             )
 
@@ -67,15 +68,19 @@ class ProjectRoomView(View):
             if room is None:
                 return RoomNotFoundResponse()
 
-            sessions = SessionDAO(db_session).get_by_room(room_id)
-            red_blocks = RoomRedBlockDAO(db_session).get_by_room(room_id)
+            blocks = WeekBlockResponse.from_sessions(
+                SessionDAO(db_session).get_by_room(
+                    room_id,
+                    includes=list(SessionDAO.Include),
+                ),
+            )
 
             return JsonResponse(
                 SuccessResponse(
                     message="Room retrieved successfully",
                     data=RoomDetailResponse.model_validate_with_extras(
                         room,
-                        extras={"sessions": sessions, "red_blocks": red_blocks},
+                        extras={"blocks": blocks},
                     ),
                 ).model_dump(),
             )

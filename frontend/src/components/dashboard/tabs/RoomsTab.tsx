@@ -1,6 +1,9 @@
 import { useRef } from "react";
+import { Link } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useProjectRooms } from "@/api/hooks/useDashboard";
+import { ROUTES } from "@/routes";
+import { buildPath } from "@/utils/routes";
 import { matchesSequence } from "@/utils/search";
 import TableSkeleton from "./TableSkeleton";
 
@@ -95,7 +98,14 @@ export default function RoomsTab({ projectId, search, pollInterval, processing }
                     key={room.id}
                     className="border-b border-[#e5e4e7] last:border-0 hover:bg-[#f9f7f4] transition-colors"
                   >
-                    <td className="py-3 px-4 font-medium text-[#08060d]">{room.name}</td>
+                    <td className="p-0">
+                      <Link
+                        to={buildPath(ROUTES.ROOM_DETAIL, { projectId, roomId: room.id })}
+                        className="block py-3 px-4 font-medium text-[#08060d]"
+                      >
+                        {room.name}
+                      </Link>
+                    </td>
                     <td className="py-3 px-4 text-[#6b6375]">{room.type}</td>
                     <td className="py-3 px-4 text-[#6b6375]">{room.size}</td>
                     <td className="py-3 px-4 text-right text-[#6b6375]">{room.seats}</td>

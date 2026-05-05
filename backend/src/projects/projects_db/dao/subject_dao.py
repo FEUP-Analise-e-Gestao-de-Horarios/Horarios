@@ -4,7 +4,6 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session as DBSession
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
-from src.projects.projects_db.dao.exceptions import MultipleNotFoundError
 from src.projects.projects_db.models import (
     Class,
     Degree,
@@ -49,44 +48,6 @@ class SubjectDAO(BaseDAO[Subject]):
     def get(self, subject_id: UUID) -> Subject | None:
         """Retrieve a single subject by its primary key."""
         return self.session.scalars(select(Subject).where(Subject.id == subject_id)).one_or_none()
-
-    def get_by_number(self, number: int) -> Subject | None:
-        """Retrieve a single subject by its institutional number.
-
-        Args:
-            number: The subject number to look up.
-
-        Returns:
-            The matching Subject instance, or None if not found.
-        """
-        return self.session.scalars(select(Subject).where(Subject.number == number)).one_or_none()
-
-    def get_by_numbers(self, numbers: set[int], *, check_count: bool = True) -> list[Subject]:
-        """Return subjects matching the given institutional numbers.
-
-        Args:
-            numbers: Set of subject numbers to fetch.
-            check_count: When True, raises if any number has no matching subject.
-
-        Returns:
-            List of Subject instances corresponding to the requested numbers.
-
-        Raises:
-            MultipleNotFoundError: If check_count is True and one or more
-                numbers have no matching subject.
-        """
-        if not numbers:
-            return []
-
-        subjects = list(
-            self.session.scalars(select(Subject).where(Subject.number.in_(numbers))).all(),
-        )
-        if check_count and len(numbers) != len(subjects):
-            found = {s.number for s in subjects}
-            missing = numbers - found
-            raise MultipleNotFoundError("number", missing)
-
-        return subjects
 
     def get_by_teacher(self, teacher_id: UUID) -> list[Subject]:
         """Return distinct subjects taught by the given teacher across all their sessions.

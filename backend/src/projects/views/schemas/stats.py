@@ -1,7 +1,8 @@
 from pydantic import BaseModel
 
 
-class ProjectStatsResponse(BaseModel):
+# -- Project stats -----------------------------------------------------
+class StatsResponse(BaseModel):
     rooms: int
     teachers: int
 

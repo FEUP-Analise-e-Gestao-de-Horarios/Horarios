@@ -1,3 +1,5 @@
+import type { ApiResponse } from "@/types/api";
+
 function getCsrfToken(): string {
   return (
     document.cookie
@@ -37,10 +39,15 @@ async function request<T>(
   return res.json() as Promise<T>;
 }
 
+async function unwrap<T>(promise: Promise<ApiResponse<T>>): Promise<T> {
+  return (await promise).data;
+}
+
 export const api = {
   get: <T>(url: string) => request<T>(url, "GET"),
   post: <T>(url: string, data: unknown) => request<T>(url, "POST", data),
   put: <T>(url: string, data: unknown) => request<T>(url, "PUT", data),
   patch: <T>(url: string, data: unknown) => request<T>(url, "PATCH", data),
   delete: <T>(url: string) => request<T>(url, "DELETE"),
+  getData: <T>(url: string) => unwrap<T>(request<ApiResponse<T>>(url, "GET")),
 };

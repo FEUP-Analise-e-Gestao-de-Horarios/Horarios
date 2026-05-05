@@ -24,3 +24,7 @@ export interface ApiRequestError<T extends ApiErrorCode = ApiErrorCode> extends 
   apiMessage?: string;
   status?: number;
 }
+
+export interface ApiResponse<T> {
+  data: T;
+}

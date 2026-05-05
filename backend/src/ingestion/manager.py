@@ -5,7 +5,7 @@ from datetime import date, timedelta
 from uuid import UUID
 
 from django.utils import timezone
-from sqlalchemy import insert
+from sqlalchemy import insert, text
 
 from src.ingestion.schemas.classes import ClassPage, Degree, Teacher
 from src.ingestion.schemas.classes import Session as ScrapedSession
@@ -27,7 +27,15 @@ from src.projects.projects_db.dao import (
     TeacherRedBlockDAO,
     YearDAO,
 )
-from src.projects.projects_db.models import Class, Room, Session, SessionClassSubject, Subject, Year
+from src.projects.projects_db.models import (
+    Class,
+    ParallelBlockCandidate,
+    Room,
+    Session,
+    SessionClassSubject,
+    Subject,
+    Year,
+)
 from src.projects.projects_db.models import Teacher as TeacherModel
 from src.projects.projects_db.models._secondary_tables import session_rooms, session_teachers
 from src.projects.projects_db.paths import general_db, initial_db
@@ -106,8 +114,15 @@ class IngestionManager:
 
             self._ingest_sessions(degrees)
             self._ingest_shifts()
+            self._detect_parallel_block_candidates()
 
             # -- Snapshot general_db into init_db ----------------------------------
+            # Force a WAL checkpoint so every committed row lands in the main DB
+            # file before the snapshot copy. Without this, commits still sitting
+            # in the .db-wal file (notably the parallel block candidates written
+            # just above) would be missing from initial_database.db, since
+            # shutil.copy2 only copies the main .db file.
+            self.db_session.execute(text("PRAGMA wal_checkpoint(TRUNCATE)"))
             self.db_session.close()
             shutil.copy2(general_db(self.proj_id), initial_db(self.proj_id))
 
@@ -432,6 +447,65 @@ class IngestionManager:
 
         self.db_session.commit()
 
+    def _detect_parallel_block_candidates(self) -> None:
+        """Detect and persist candidate parallel block groups.
+
+        Finds sessions that share ``(week, weekday, start_time, subject_id)``
+        in their first week of occurrence and groups their parent blocks
+        (``original_block_id``) together. Groups are stored in
+        ``parallel_block_candidates`` for later user review.
+
+        Only groups with at least two distinct blocks are persisted. Each
+        persisted group is identified by a fresh ``uuid.uuid7()`` label.
+        """
+        detection_sql = text("""
+            WITH session_subjects AS (
+                SELECT DISTINCT
+                    s.original_block_id,
+                    MIN(s.week) OVER (PARTITION BY s.original_block_id) AS first_week,
+                    s.weekday,
+                    s.start_time,
+                    scs.subject_id
+                FROM sessions s
+                JOIN sessions_classes_subject scs ON scs.session_id = s.id
+            ),
+            session_groups AS (
+                SELECT
+                    original_block_id,
+                    DENSE_RANK() OVER (ORDER BY first_week, weekday, start_time, subject_id) AS group_id,
+                    COUNT(*) OVER (PARTITION BY first_week, weekday, start_time, subject_id) AS group_size
+                FROM session_subjects
+            )
+            SELECT DISTINCT group_id, original_block_id
+            FROM session_groups
+            WHERE group_size > 1
+            ORDER BY group_id, original_block_id
+        """)
+
+        rows = self.db_session.execute(detection_sql).all()
+
+        # Bucket blocks by raw group id.
+        # Raw SQL bypasses SQLAlchemy's UUID coercion, so each value comes back
+        # as the underlying 32-char hex string from sqlite.
+        raw_groups: defaultdict[int, set[UUID]] = defaultdict(set)
+        for raw_group_id, original_block_id in rows:
+            raw_groups[raw_group_id].add(UUID(original_block_id))
+
+        # Assign each group a fresh UUID label.
+        candidate_groups: dict[UUID, set[UUID]] = {
+            uuid.uuid7(): block_ids for block_ids in raw_groups.values()
+        }
+
+        candidate_rows = [
+            {"candidate_group_id": group_id, "original_block_id": block_id}
+            for group_id, block_ids in candidate_groups.items()
+            for block_id in block_ids
+        ]
+        if candidate_rows:
+            self.db_session.execute(insert(ParallelBlockCandidate), candidate_rows)
+
+        self.db_session.commit()
+
     # -----------------------------------------------------------------------
     # Auxiliar functions
     # -----------------------------------------------------------------------
@@ -546,7 +620,7 @@ class IngestionManager:
                     "weekday": scraped_session["weekday"],
                     "start_time": scraped_session["start_time"],
                     "duration": scraped_session["duration"],
-                    "type": "T" if scraped_session["is_theoretical"] else "TP",
+                    "type": scraped_session["type"],
                     "original_block_id": original_block_id,
                 },
             )

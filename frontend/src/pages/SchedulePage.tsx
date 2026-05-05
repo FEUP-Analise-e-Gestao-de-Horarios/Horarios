@@ -6,6 +6,7 @@ import ScheduleNavbar from "@/components/schedule/ScheduleNavbar";
 import { UCS_POR_CURSO, TURMAS_POR_UC } from "@/components/schedule/data";
 import { useProject } from "@/api/hooks/useDashboard";
 import { ROUTES } from "@/routes";
+import { buildPath } from "@/utils/routes";
 
 const DEFAULT_ANOS = ["1", "2", "3"];
 const DEFAULT_SEMANAS = ["S1", "S2", "S3", "S4", "S5"];
@@ -22,8 +23,7 @@ export default function SchedulePage() {
     }
     if (!project) return;
     const isReady = !!project.ingestion_finished_at;
-    if (!isReady)
-      void navigate(ROUTES.DASHBOARD.replace(":projectId", projectId), { replace: true });
+    if (!isReady) void navigate(buildPath(ROUTES.DASHBOARD, { projectId }), { replace: true });
   }, [project, projectId, navigate]);
 
   const [curso, setCurso] = useState("");
@@ -127,6 +127,7 @@ export default function SchedulePage() {
 
   return (
     <div className="h-screen bg-[#f0eeeb] overflow-hidden flex flex-col">
+      <title>{project ? `Horário · ${project.name} · AGH` : "Horário · AGH"}</title>
       <ScheduleNavbar
         key={`${isEditDrawerOpen}-${isConflictsDrawerOpen}`}
         projectId={projectId}

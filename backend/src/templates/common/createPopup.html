@@ -58,9 +58,9 @@
             if (projectName.length > 20) {
                 nameError.append('<p class="text-danger">Name must be 20 characters or fewer.</p>');
                 valid = false;
-            } else if (!/^[a-zA-Z0-9 _-]+$/.test(projectName)) {
+            } else if (!/^[a-zA-Z0-9 _:-]+$/.test(projectName)) {
                 nameError.append(
-                    '<p class="text-danger">Name may only contain letters, numbers, spaces, hyphens, and underscores.</p>',
+                    '<p class="text-danger">Name may only contain letters, numbers, spaces, hyphens, underscores, and colons.</p>',
                 );
                 valid = false;
             }
