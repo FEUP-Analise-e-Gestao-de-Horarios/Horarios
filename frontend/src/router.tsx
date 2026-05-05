@@ -25,7 +25,7 @@ export const router = createBrowserRouter([
   },
   { path: ROUTES.CHANGE_PASSWORD, element: <ChangePasswordPage />, loader: requireAuth },
 
-  { path: ROUTES.SCHEDULE, element: <SchedulePage /> },
+  { path: ROUTES.SCHEDULE, element: <SchedulePage />, loader: requireAuth },
   { path: ROUTES.DASHBOARD, element: <DashboardPage />, loader: requireAuth },
   { path: ROUTES.DEGREE_DETAIL, element: <DegreeDetailPage />, loader: requireAuth },
   { path: ROUTES.TEACHER_DETAIL, element: <TeacherDetailPage />, loader: requireAuth },
