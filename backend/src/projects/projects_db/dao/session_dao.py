@@ -222,6 +222,9 @@ class SessionDAO(BaseDAO[Session]):
         year_id: UUID,
         includes: Iterable[Include] = (),
         weeks: Sequence[datetime.date] | None = None,
+        subject_ids: Sequence[UUID] = (),
+        class_ids: Sequence[UUID] = (),
+        weekdays: Sequence[WeekDay] = (),
     ) -> list[Session]:
         """Return all sessions for any subject in the given year.
 
@@ -230,6 +233,12 @@ class SessionDAO(BaseDAO[Session]):
             includes: Relationships to eager-load on each returned Session.
                 Defaults to no eager loading.
             weeks: If given, only sessions in these weeks are returned.
+            subject_ids: If non-empty, restrict to sessions teaching any of
+                these subjects.
+            class_ids: If non-empty, restrict to sessions attended by any of
+                these classes.
+            weekdays: If non-empty, restrict to sessions on any of these
+                weekdays.
 
         Returns:
             List of Session instances, in an unspecified order.
@@ -244,11 +253,20 @@ class SessionDAO(BaseDAO[Session]):
         )
         if weeks is not None:
             stmt = stmt.where(Session.week.in_(weeks))
+        if subject_ids:
+            stmt = stmt.where(SessionClassSubject.subject_id.in_(subject_ids))
+        if class_ids:
+            stmt = stmt.where(SessionClassSubject.class_id.in_(class_ids))
+        if weekdays:
+            stmt = stmt.where(Session.weekday.in_(weekdays))
         return list(self.session.scalars(stmt).all())
 
     def get_year_week_fingerprints(
         self,
         year_id: UUID,
+        subject_ids: Sequence[UUID] = (),
+        class_ids: Sequence[UUID] = (),
+        weekdays: Sequence[WeekDay] = (),
     ) -> list[tuple[datetime.date, frozenset[object]]]:
         """Return one timetable fingerprint per week of sessions in the year.
 
@@ -261,6 +279,11 @@ class SessionDAO(BaseDAO[Session]):
         objects. Intended as a cheap first pass that lets callers identify
         block boundaries before eagerly loading only representative weeks.
 
+        Filters mirror :meth:`get_by_year` so the qualifying session set
+        stays consistent across the two-pass flow. Aggregated id lists in
+        the fingerprint always reflect the session's full content, not the
+        filtered subset.
+
         Returns:
             ``(week, fingerprint)`` pairs sorted by week.
         """
@@ -270,6 +293,14 @@ class SessionDAO(BaseDAO[Session]):
             .join(Subject, Subject.id == SessionClassSubject.subject_id)
             .where(Subject.year_id == year_id)
         )
+        if subject_ids:
+            year_session_ids = year_session_ids.where(
+                SessionClassSubject.subject_id.in_(subject_ids),
+            )
+        if class_ids:
+            year_session_ids = year_session_ids.where(
+                SessionClassSubject.class_id.in_(class_ids),
+            )
 
         teacher_ids_expr = (
             select(func.group_concat(session_teachers.c.teacher_id))
@@ -296,19 +327,20 @@ class SessionDAO(BaseDAO[Session]):
             .scalar_subquery()
         )
 
-        rows = self.session.execute(
-            select(
-                Session.week,
-                Session.weekday,
-                Session.start_time,
-                Session.duration,
-                Session.type,
-                teacher_ids_expr.label("teacher_ids"),
-                room_ids_expr.label("room_ids"),
-                subject_ids_expr.label("subject_ids"),
-                class_ids_expr.label("class_ids"),
-            ).where(Session.id.in_(year_session_ids)),
-        ).all()
+        stmt = select(
+            Session.week,
+            Session.weekday,
+            Session.start_time,
+            Session.duration,
+            Session.type,
+            teacher_ids_expr.label("teacher_ids"),
+            room_ids_expr.label("room_ids"),
+            subject_ids_expr.label("subject_ids"),
+            class_ids_expr.label("class_ids"),
+        ).where(Session.id.in_(year_session_ids))
+        if weekdays:
+            stmt = stmt.where(Session.weekday.in_(weekdays))
+        rows = self.session.execute(stmt).all()
 
         by_week: dict[datetime.date, list[tuple[object, ...]]] = {}
         for r in rows:

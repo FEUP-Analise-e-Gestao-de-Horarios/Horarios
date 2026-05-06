@@ -1,6 +1,8 @@
+from collections.abc import Iterable
 from typing import Any, TypeVar
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.projects.projects_db.base import Base
@@ -41,6 +43,21 @@ class BaseDAO[T]:
             A list of all model instances, in an unspecified order.
         """
         return self.session.query(self.model).all()
+
+    def find_missing_ids(self, ids: Iterable[UUID]) -> list[UUID]:
+        """Return the subset of ``ids`` with no matching row in this DAO's table.
+
+        Deduplicates the input. Order is not preserved.
+        """
+        unique = set(ids)
+        if not unique:
+            return []
+        existing = set(
+            self.session.scalars(
+                select(self.model.id).where(self.model.id.in_(unique)),
+            ).all(),
+        )
+        return list(unique - existing)
 
     def _create(self, **kwargs: Any) -> T:
         """Create a new record and flush it to the session.

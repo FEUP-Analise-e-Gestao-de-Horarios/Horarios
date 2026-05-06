@@ -2,9 +2,14 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views import View
 
 from src.core.decorators import require_auth, require_project
+from src.core.errors import (
+    ClassNotFoundResponse,
+    SubjectNotFoundResponse,
+    YearNotFoundResponse,
+)
 from src.core.schemas import SuccessResponse
 from src.parser.utils import validate_query_params
-from src.projects.projects_db.dao import SessionDAO
+from src.projects.projects_db.dao import ClassDAO, SessionDAO, SubjectDAO, YearDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
 from src.projects.views.schemas.sessions import SessionsQueryParams, SessionsResponse
@@ -22,9 +27,29 @@ class ProjectSessionsView(View):
             return err
 
         with get_project_session(general_db(project_id)) as db_session:
+            if YearDAO(db_session).get(params.year_id) is None:
+                return YearNotFoundResponse(f"Year not found: {params.year_id}.")
+
+            missing_subjects = SubjectDAO(db_session).find_missing_ids(params.subject_ids)
+            if missing_subjects:
+                return SubjectNotFoundResponse(
+                    f"Subjects not found: {', '.join(str(i) for i in missing_subjects)}.",
+                )
+
+            missing_classes = ClassDAO(db_session).find_missing_ids(params.class_ids)
+            if missing_classes:
+                return ClassNotFoundResponse(
+                    f"Classes not found: {', '.join(str(i) for i in missing_classes)}.",
+                )
+
             session_dao = SessionDAO(db_session)
 
-            fingerprints = session_dao.get_year_week_fingerprints(params.year_id)
+            fingerprints = session_dao.get_year_week_fingerprints(
+                params.year_id,
+                subject_ids=params.subject_ids,
+                class_ids=params.class_ids,
+                weekdays=params.weekdays,
+            )
             groups = WeekBlock.group_by_fingerprint(fingerprints)
             representative_weeks = [repr_week for _, repr_week in groups]
 
@@ -32,6 +57,9 @@ class ProjectSessionsView(View):
                 params.year_id,
                 includes=list(SessionDAO.Include),
                 weeks=representative_weeks,
+                subject_ids=params.subject_ids,
+                class_ids=params.class_ids,
+                weekdays=params.weekdays,
             )
 
             blocks = WeekBlock.from_groups(groups, representative_sessions)
