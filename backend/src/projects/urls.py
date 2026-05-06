@@ -8,6 +8,7 @@ from src.projects.views import (
     ProjectRoomsView,
     ProjectRoomView,
     ProjectStatsView,
+    ProjectSubjectsView,
     ProjectSubjectView,
     ProjectsView,
     ProjectTeachersView,
@@ -45,6 +46,7 @@ room_patterns = [
 ]
 
 subject_patterns = [
+    path("", ProjectSubjectsView.as_view()),
     path("<uuid:subject_id>", ProjectSubjectView.as_view()),
 ]
 
