@@ -20,6 +20,33 @@ from src.projects.views.schemas.degrees import (
 
 
 class ProjectYearsView(View):
+    """API endpoint: list all years in the project with stats."""
+
+    def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
+        # -- Check user auth ---------------------------------------------------
+        if not request.user.is_authenticated:
+            return NotAuthenticatedResponse()
+
+        # -- Fetch project -----------------------------------------------------
+        try:
+            Project.objects.get(pk=project_id)
+        except Project.DoesNotExist:
+            return ProjectNotFoundResponse()
+
+        # -- Query years with stats from project DB ----------------------------
+        with get_project_session(general_db(project_id)) as db_session:
+            stats = YearDAO(db_session).get_all_with_stats()
+            result = [YearStatsResponse.model_validate(s, from_attributes=True) for s in stats]
+
+            return JsonResponse(
+                SuccessResponse(
+                    message="Years retrieved successfully",
+                    data=YearsResponse(years=result, count=len(result)),
+                ).model_dump(),
+            )
+
+
+class ProjectDegreeYearsView(View):
     """API endpoint: list years with stats for a given degree."""
 
     def get(self, request: HttpRequest, project_id: int, degree_id: UUID) -> HttpResponse:

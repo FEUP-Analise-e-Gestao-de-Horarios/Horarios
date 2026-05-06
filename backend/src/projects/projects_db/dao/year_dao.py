@@ -39,6 +39,14 @@ class YearDAO(BaseDAO[Year]):
     # -- Get
     # -------------------------------------------------------------------
 
+    def get_all_with_stats(self) -> list[YearStats]:
+        """Return all years with their subject, class, and session counts.
+
+        Returns:
+            A list of YearStats, one per year, in an unspecified order.
+        """
+        return self._get_with_stats()
+
     def get_by_degree_with_stats(self, degree_id: UUID) -> list[YearStats]:
         """Return all years for a degree with their subject, class, and session counts.
 
@@ -48,6 +56,9 @@ class YearDAO(BaseDAO[Year]):
         Returns:
             A list of YearStats, one per year in the given degree.
         """
+        return self._get_with_stats(degree_id=degree_id)
+
+    def _get_with_stats(self, *, degree_id: UUID | None = None) -> list[YearStats]:
         subjects_sq = (
             select(Subject.year_id, func.count(Subject.id).label("cnt"))
             .group_by(Subject.year_id)
@@ -66,7 +77,7 @@ class YearDAO(BaseDAO[Year]):
             .subquery()
         )
 
-        rows = self.session.execute(
+        stmt = (
             select(
                 Year.id,
                 Year.number,
@@ -81,7 +92,10 @@ class YearDAO(BaseDAO[Year]):
             .outerjoin(subjects_sq, subjects_sq.c.year_id == Year.id)
             .outerjoin(classes_sq, classes_sq.c.year_id == Year.id)
             .outerjoin(sessions_sq, sessions_sq.c.year_id == Year.id)
-            .where(Year.degree_id == degree_id),
-        ).all()
+        )
+        if degree_id is not None:
+            stmt = stmt.where(Year.degree_id == degree_id)
+
+        rows = self.session.execute(stmt).all()
 
         return [YearStats.model_validate(row, from_attributes=True) for row in rows]
