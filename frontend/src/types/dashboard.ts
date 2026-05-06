@@ -116,6 +116,7 @@ export interface TeacherStats extends TeacherBase {
   subjects: number;
   classes: number;
   sessions: number;
+  red_blocks: number;
 }
 
 export interface RoomStats extends RoomBase {

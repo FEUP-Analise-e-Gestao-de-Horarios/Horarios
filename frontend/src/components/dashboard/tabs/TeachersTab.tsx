@@ -14,7 +14,7 @@ interface TeachersTabProps {
   processing: boolean;
 }
 
-const GRID_COLS = "80px 220px minmax(0, 1fr) 65px 80px 70px";
+const GRID_COLS = "80px 220px minmax(0, 1fr) 65px 80px 70px 170px";
 
 const HEADERS: { label: string; align?: "right" }[] = [
   { label: "Nº" },
@@ -23,6 +23,7 @@ const HEADERS: { label: string; align?: "right" }[] = [
   { label: "UCs", align: "right" },
   { label: "Turmas", align: "right" },
   { label: "Aulas", align: "right" },
+  { label: "Blocos Vermelhos", align: "right" },
 ];
 
 export default function TeachersTab({
@@ -93,7 +94,7 @@ export default function TeachersTab({
       </div>
 
       {showSkeleton ? (
-        <TableSkeleton cols={6} gridTemplateColumns={GRID_COLS} />
+        <TableSkeleton cols={7} gridTemplateColumns={GRID_COLS} />
       ) : (
         <div role="rowgroup">
           {paddingTop > 0 && <div aria-hidden="true" style={{ height: paddingTop }} />}
@@ -130,6 +131,9 @@ export default function TeachersTab({
                   </div>
                   <div role="cell" className="py-3 px-4 text-right text-[#6b6375]">
                     {teacher.sessions}
+                  </div>
+                  <div role="cell" className="py-3 px-4 text-right text-[#6b6375]">
+                    {teacher.red_blocks}
                   </div>
                 </Link>
               </div>
