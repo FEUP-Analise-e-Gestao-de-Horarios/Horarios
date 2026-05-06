@@ -5,7 +5,7 @@ interface TableSkeletonProps {
 
 export default function TableSkeleton({ cols, gridTemplateColumns }: TableSkeletonProps) {
   return (
-    <div role="rowgroup">
+    <div role="rowgroup" aria-hidden="true">
       {Array.from({ length: 25 }).map((_, row) => (
         <div
           key={row}

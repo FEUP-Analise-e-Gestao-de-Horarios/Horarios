@@ -61,6 +61,7 @@ export default function RoomsTab({ projectId, search, pollInterval, processing }
       ref={containerRef}
       role="table"
       aria-label="Salas"
+      aria-busy={showSkeleton}
       className={`h-full overflow-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [will-change:scroll-position] text-sm ${showSkeleton ? "[mask-image:linear-gradient(to_bottom,black_50%,transparent_100%)]" : ""}`}
     >
       <div role="rowgroup" className="sticky top-0 z-10 bg-white">
