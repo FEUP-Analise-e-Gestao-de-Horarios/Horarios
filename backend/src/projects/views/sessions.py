@@ -30,16 +30,24 @@ class ProjectSessionsView(View):
             if YearDAO(db_session).get(params.year_id) is None:
                 return YearNotFoundResponse(f"Year not found: {params.year_id}.")
 
-            missing_subjects = SubjectDAO(db_session).find_missing_ids(params.subject_ids)
+            missing_subjects = SubjectDAO(db_session).find_missing_in_year(
+                params.year_id,
+                params.subject_ids,
+            )
             if missing_subjects:
                 return SubjectNotFoundResponse(
-                    f"Subjects not found: {', '.join(str(i) for i in missing_subjects)}.",
+                    "Subjects not found in year "
+                    f"{params.year_id}: {', '.join(str(i) for i in missing_subjects)}.",
                 )
 
-            missing_classes = ClassDAO(db_session).find_missing_ids(params.class_ids)
+            missing_classes = ClassDAO(db_session).find_missing_in_year(
+                params.year_id,
+                params.class_ids,
+            )
             if missing_classes:
                 return ClassNotFoundResponse(
-                    f"Classes not found: {', '.join(str(i) for i in missing_classes)}.",
+                    "Classes not found in year "
+                    f"{params.year_id}: {', '.join(str(i) for i in missing_classes)}.",
                 )
 
             session_dao = SessionDAO(db_session)

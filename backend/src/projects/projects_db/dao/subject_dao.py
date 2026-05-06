@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -40,6 +41,22 @@ class SubjectDAO(BaseDAO[Subject]):
     # -------------------------------------------------------------------
     # -- Get Subjects
     # -------------------------------------------------------------------
+
+    def find_missing_in_year(self, year_id: UUID, ids: Iterable[UUID]) -> list[UUID]:
+        """Return the subset of ``ids`` not matching a subject in the given year.
+
+        Deduplicates the input. Order is not preserved. Treats ids that exist
+        but belong to a different year the same as ids that do not exist.
+        """
+        unique = set(ids)
+        if not unique:
+            return []
+        existing = set(
+            self.session.scalars(
+                select(Subject.id).where(Subject.id.in_(unique), Subject.year_id == year_id),
+            ).all(),
+        )
+        return list(unique - existing)
 
     def get_by_teacher(self, teacher_id: UUID) -> list[Subject]:
         """Return distinct subjects taught by the given teacher across all their sessions.
