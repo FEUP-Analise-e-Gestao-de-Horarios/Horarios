@@ -14,7 +14,7 @@ from src.projects.views.schemas.rooms import (
     RoomsResponse,
     RoomStatsResponse,
 )
-from src.projects.views.schemas.sessions import WeekBlockResponse
+from src.projects.views.schemas.week_blocks import WeekBlock
 
 
 class ProjectRoomsView(View):
@@ -46,7 +46,7 @@ class ProjectRoomView(View):
             if room is None:
                 return RoomNotFoundResponse()
 
-            blocks = WeekBlockResponse.from_sessions(
+            blocks = WeekBlock.from_sessions(
                 SessionDAO(db_session).get_by_room(
                     room_id,
                     includes=list(SessionDAO.Include),

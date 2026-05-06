@@ -9,12 +9,12 @@ from src.core.schemas import SuccessResponse
 from src.projects.projects_db.dao import ClassDAO, SessionDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
-from src.projects.views.schemas.sessions import WeekBlockResponse
 from src.projects.views.schemas.subjects import (
     ClassDetailResponse,
     ClassesResponse,
     ClassStatsResponse,
 )
+from src.projects.views.schemas.week_blocks import WeekBlock
 
 
 class ProjectClassesView(View):
@@ -46,7 +46,7 @@ class ProjectClassView(View):
             if class_ is None:
                 return ClassNotFoundResponse()
 
-            blocks = WeekBlockResponse.from_sessions(
+            blocks = WeekBlock.from_sessions(
                 SessionDAO(db_session).get_by_class(
                     class_id,
                     includes=list(SessionDAO.Include),

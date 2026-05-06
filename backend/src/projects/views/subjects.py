@@ -9,12 +9,12 @@ from src.core.schemas import SuccessResponse
 from src.projects.projects_db.dao import SessionDAO, SubjectDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
-from src.projects.views.schemas.sessions import WeekBlockResponse
 from src.projects.views.schemas.subjects import (
     SubjectDetailResponse,
     SubjectsResponse,
     SubjectStatsResponse,
 )
+from src.projects.views.schemas.week_blocks import WeekBlock
 
 
 class ProjectSubjectsView(View):
@@ -46,7 +46,7 @@ class ProjectSubjectView(View):
             if subject is None:
                 return SubjectNotFoundResponse()
 
-            blocks = WeekBlockResponse.from_sessions(
+            blocks = WeekBlock.from_sessions(
                 SessionDAO(db_session).get_by_subject(
                     subject_id,
                     includes=list(SessionDAO.Include),

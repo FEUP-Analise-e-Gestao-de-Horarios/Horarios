@@ -9,12 +9,12 @@ from src.core.schemas import SuccessResponse
 from src.projects.projects_db.dao import ClassDAO, SessionDAO, SubjectDAO, TeacherDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
-from src.projects.views.schemas.sessions import WeekBlockResponse
 from src.projects.views.schemas.teachers import (
     TeacherDetailResponse,
     TeachersResponse,
     TeacherStatsResponse,
 )
+from src.projects.views.schemas.week_blocks import WeekBlock
 
 
 class ProjectTeachersView(View):
@@ -48,7 +48,7 @@ class ProjectTeacherView(View):
 
             subjects = SubjectDAO(db_session).get_by_teacher(teacher_id)
             classes = ClassDAO(db_session).get_by_teacher(teacher_id)
-            blocks = WeekBlockResponse.from_sessions(
+            blocks = WeekBlock.from_sessions(
                 SessionDAO(db_session).get_by_teacher(
                     teacher_id,
                     includes=list(SessionDAO.Include),

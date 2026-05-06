@@ -1,13 +1,13 @@
 from pydantic import BaseModel, computed_field
 
 from src.core.mixins import ValidateWithExtrasMixin
-from src.projects.views.schemas.sessions import WeekBlockResponse
 from src.projects.views.schemas.shared import (
     ClassBase,
     DegreeBase,
     SubjectBase,
     YearBase,
 )
+from src.projects.views.schemas.week_blocks import WeekBlock
 
 
 # -- Subjects list -----------------------------------------------------
@@ -42,7 +42,7 @@ class SubjectStatsResponse(BaseModel):
 class SubjectDetailResponse(ValidateWithExtrasMixin, SubjectBase):
     year: YearBase
     degree: DegreeBase
-    blocks: list[WeekBlockResponse]
+    blocks: list[WeekBlock]
 
 
 # -- Classes list ------------------------------------------------------
@@ -75,4 +75,4 @@ class ClassStatsResponse(BaseModel):
 class ClassDetailResponse(ValidateWithExtrasMixin, ClassBase):
     year: YearBase
     degree: DegreeBase
-    blocks: list[WeekBlockResponse]
+    blocks: list[WeekBlock]
