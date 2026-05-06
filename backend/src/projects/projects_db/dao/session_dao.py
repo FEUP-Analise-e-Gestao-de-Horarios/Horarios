@@ -13,7 +13,6 @@ from src.projects.projects_db.models._secondary_tables import (
     session_rooms,
     session_teachers,
 )
-from src.projects.projects_db.models.class_ import Class
 from src.projects.projects_db.models.session import Session
 from src.projects.projects_db.models.session_class_subject import SessionClassSubject
 from src.projects.projects_db.models.subject import Subject
@@ -266,29 +265,3 @@ class SessionDAO(BaseDAO[Session]):
                 Session.type == type_,
             ),
         ).fetchall()
-
-    # -------------------------------------------------------------------
-    # -- Get Others
-    # -------------------------------------------------------------------
-
-    def get_subjects(self, session_id: UUID) -> list[Subject]:
-        """Return distinct subjects taught in the given session."""
-        return list(
-            self.session.scalars(
-                select(Subject)
-                .join(SessionClassSubject, SessionClassSubject.subject_id == Subject.id)
-                .where(SessionClassSubject.session_id == session_id)
-                .distinct(),
-            ).all(),
-        )
-
-    def get_classes(self, session_id: UUID) -> list[Class]:
-        """Return distinct classes that participate in the given session."""
-        return list(
-            self.session.scalars(
-                select(Class)
-                .join(SessionClassSubject, SessionClassSubject.class_id == Class.id)
-                .where(SessionClassSubject.session_id == session_id)
-                .distinct(),
-            ).all(),
-        )
