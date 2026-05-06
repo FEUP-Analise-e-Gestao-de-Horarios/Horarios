@@ -30,10 +30,8 @@ class ProjectSubjectsView(View):
         if not request.user.is_authenticated:
             return NotAuthenticatedResponse()
 
-        # -- Fetch project -----------------------------------------------------
-        try:
-            Project.objects.get(pk=project_id)
-        except Project.DoesNotExist:
+        # -- Check project exists ----------------------------------------------
+        if not Project.objects.filter(pk=project_id).exists():
             return ProjectNotFoundResponse()
 
         # -- Query subjects with stats from project DB -------------------------
@@ -57,10 +55,8 @@ class ProjectYearSubjectsView(View):
         if not request.user.is_authenticated:
             return NotAuthenticatedResponse()
 
-        # -- Fetch project -----------------------------------------------------
-        try:
-            Project.objects.get(pk=project_id)
-        except Project.DoesNotExist:
+        # -- Check project exists ----------------------------------------------
+        if not Project.objects.filter(pk=project_id).exists():
             return ProjectNotFoundResponse()
 
         # -- Query subjects with stats from project DB -------------------------
@@ -87,10 +83,8 @@ class ProjectSubjectView(View):
         if not request.user.is_authenticated:
             return NotAuthenticatedResponse()
 
-        # -- Fetch project -----------------------------------------------------
-        try:
-            Project.objects.get(pk=project_id)
-        except Project.DoesNotExist:
+        # -- Check project exists ----------------------------------------------
+        if not Project.objects.filter(pk=project_id).exists():
             return ProjectNotFoundResponse()
 
         # -- Fetch subject with year, degree and schedule blocks --------------

@@ -29,10 +29,8 @@ class ProjectRoomsView(View):
         if not request.user.is_authenticated:
             return NotAuthenticatedResponse()
 
-        # -- Fetch project -----------------------------------------------------
-        try:
-            Project.objects.get(pk=project_id)
-        except Project.DoesNotExist:
+        # -- Check project exists ----------------------------------------------
+        if not Project.objects.filter(pk=project_id).exists():
             return ProjectNotFoundResponse()
 
         # -- Query rooms with stats from project DB ----------------------------
@@ -56,10 +54,8 @@ class ProjectRoomView(View):
         if not request.user.is_authenticated:
             return NotAuthenticatedResponse()
 
-        # -- Fetch project -----------------------------------------------------
-        try:
-            Project.objects.get(pk=project_id)
-        except Project.DoesNotExist:
+        # -- Check project exists ----------------------------------------------
+        if not Project.objects.filter(pk=project_id).exists():
             return ProjectNotFoundResponse()
 
         # -- Fetch room with sessions and red blocks from project DB -----------

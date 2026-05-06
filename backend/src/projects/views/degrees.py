@@ -31,10 +31,8 @@ class ProjectDegreesView(View):
         if not request.user.is_authenticated:
             return NotAuthenticatedResponse()
 
-        # -- Fetch project -----------------------------------------------------
-        try:
-            Project.objects.get(pk=project_id)
-        except Project.DoesNotExist:
+        # -- Check project exists ----------------------------------------------
+        if not Project.objects.filter(pk=project_id).exists():
             return ProjectNotFoundResponse()
 
         # -- Query degrees with stats from project DB --------------------------
@@ -58,10 +56,8 @@ class ProjectDegreeView(View):
         if not request.user.is_authenticated:
             return NotAuthenticatedResponse()
 
-        # -- Fetch project -----------------------------------------------------
-        try:
-            Project.objects.get(pk=project_id)
-        except Project.DoesNotExist:
+        # -- Check project exists ----------------------------------------------
+        if not Project.objects.filter(pk=project_id).exists():
             return ProjectNotFoundResponse()
 
         # -- Fetch degree with nested year / subject / class detail ------------
