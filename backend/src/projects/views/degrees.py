@@ -2,13 +2,11 @@ from uuid import UUID
 
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views import View
-from sqlalchemy import select
 
 from src.core.decorators import require_auth, require_project
 from src.core.errors import DegreeNotFoundResponse
 from src.core.schemas import SuccessResponse
-from src.projects.projects_db.dao import ClassDAO, DegreeDAO, SubjectDAO
-from src.projects.projects_db.models import Year
+from src.projects.projects_db.dao import DegreeDAO, YearDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
 from src.projects.views.schemas.degrees import (
@@ -38,7 +36,7 @@ class ProjectDegreesView(View):
 
 
 class ProjectDegreeView(View):
-    """API endpoint: retrieve a single degree with stats."""
+    """API endpoint: retrieve a single degree with its years and per-year stats."""
 
     @require_auth
     @require_project
@@ -48,38 +46,18 @@ class ProjectDegreeView(View):
             if degree is None:
                 return DegreeNotFoundResponse()
 
-            years = list(
-                db_session.scalars(
-                    select(Year).where(Year.degree_id == degree_id).order_by(Year.number),
-                ),
+            year_stats = YearDAO(db_session).get_by_degree_with_stats(degree_id)
+            years = sorted(
+                (DegreeYearResponse.model_validate(y) for y in year_stats),
+                key=lambda y: y.number,
             )
-
-            subject_dao = SubjectDAO(db_session)
-            class_dao = ClassDAO(db_session)
-
-            year_details = [
-                DegreeYearResponse.model_validate_with_extras(
-                    year,
-                    extras={
-                        "subjects": sorted(
-                            subject_dao.get_by_year_with_stats(year.id),
-                            key=lambda s: s.number,
-                        ),
-                        "classes": sorted(
-                            class_dao.get_by_year_with_stats(year.id),
-                            key=lambda c: c.code,
-                        ),
-                    },
-                )
-                for year in years
-            ]
 
             return JsonResponse(
                 SuccessResponse(
                     message="Degree retrieved successfully",
                     data=DegreeDetailResponse.model_validate_with_extras(
                         degree,
-                        extras={"years": year_details},
+                        extras={"years": years},
                     ),
                 ).model_dump(),
             )

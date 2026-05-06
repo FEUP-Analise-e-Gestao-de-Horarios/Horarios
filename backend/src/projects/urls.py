@@ -1,25 +1,13 @@
 from django.urls import include, path
 
-from src.projects.views.classes import (
-    ProjectClassesView,
-    ProjectClassView,
-    ProjectYearClassesView,
-)
+from src.projects.views.classes import ProjectClassesView, ProjectClassView
 from src.projects.views.degrees import ProjectDegreesView, ProjectDegreeView
 from src.projects.views.project import ProjectsView, ProjectView
 from src.projects.views.rooms import ProjectRoomsView, ProjectRoomView
 from src.projects.views.stats import ProjectStatsView
-from src.projects.views.subjects import (
-    ProjectSubjectsView,
-    ProjectSubjectView,
-    ProjectYearSubjectsView,
-)
+from src.projects.views.subjects import ProjectSubjectsView, ProjectSubjectView
 from src.projects.views.teachers import ProjectTeachersView, ProjectTeacherView
-from src.projects.views.years import (
-    ProjectDegreeYearsView,
-    ProjectYearsView,
-    ProjectYearView,
-)
+from src.projects.views.years import ProjectYearsView, ProjectYearView
 
 app_name = "projects"
 
@@ -36,14 +24,11 @@ teacher_patterns = [
 degree_patterns = [
     path("", ProjectDegreesView.as_view()),
     path("<uuid:degree_id>", ProjectDegreeView.as_view()),
-    path("<uuid:degree_id>/years/", ProjectDegreeYearsView.as_view()),
 ]
 
 year_patterns = [
     path("", ProjectYearsView.as_view()),
     path("<uuid:year_id>", ProjectYearView.as_view()),
-    path("<uuid:year_id>/subjects/", ProjectYearSubjectsView.as_view()),
-    path("<uuid:year_id>/classes/", ProjectYearClassesView.as_view()),
 ]
 
 subject_patterns = [

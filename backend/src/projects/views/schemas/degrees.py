@@ -33,9 +33,10 @@ class DegreeDetailResponse(ValidateWithExtrasMixin, DegreeBase):
     years: list[DegreeYearResponse]
 
 
-class DegreeYearResponse(ValidateWithExtrasMixin, YearBase):
-    subjects: list[SubjectWithSessions]
-    classes: list[ClassWithSessions]
+class DegreeYearResponse(YearBase):
+    subjects: int
+    classes: int
+    sessions: int
 
 
 # -- Year detail -------------------------------------------------------

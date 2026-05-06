@@ -4,9 +4,9 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views import View
 
 from src.core.decorators import require_auth, require_project
-from src.core.errors import ClassNotFoundResponse, YearNotFoundResponse
+from src.core.errors import ClassNotFoundResponse
 from src.core.schemas import SuccessResponse
-from src.projects.projects_db.dao import ClassDAO, SessionDAO, YearDAO
+from src.projects.projects_db.dao import ClassDAO, SessionDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
 from src.projects.views.schemas.sessions import WeekBlockResponse
@@ -25,27 +25,6 @@ class ProjectClassesView(View):
     def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
         with get_project_session(general_db(project_id)) as db_session:
             stats = ClassDAO(db_session).get_all_with_stats()
-            result = [ClassStatsResponse.model_validate(s, from_attributes=True) for s in stats]
-
-        return JsonResponse(
-            SuccessResponse(
-                message="Classes retrieved successfully",
-                data=ClassesResponse(classes=result),
-            ).model_dump(),
-        )
-
-
-class ProjectYearClassesView(View):
-    """API endpoint: list classes with stats for a given year."""
-
-    @require_auth
-    @require_project
-    def get(self, request: HttpRequest, project_id: int, year_id: UUID) -> HttpResponse:
-        with get_project_session(general_db(project_id)) as db_session:
-            if YearDAO(db_session).get(year_id) is None:
-                return YearNotFoundResponse()
-
-            stats = ClassDAO(db_session).get_by_year_with_stats(year_id)
             result = [ClassStatsResponse.model_validate(s, from_attributes=True) for s in stats]
 
         return JsonResponse(
