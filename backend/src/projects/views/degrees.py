@@ -19,7 +19,7 @@ from src.projects.views.schemas.degrees import (
     DegreeDetailResponse,
     DegreesResponse,
     DegreeStatsResponse,
-    YearDetailResponse,
+    DegreeYearResponse,
 )
 
 
@@ -80,7 +80,7 @@ class ProjectDegreeView(View):
             class_dao = ClassDAO(db_session)
 
             year_details = [
-                YearDetailResponse.model_validate_with_extras(
+                DegreeYearResponse.model_validate_with_extras(
                     year,
                     extras={
                         "subjects": sorted(

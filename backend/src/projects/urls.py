@@ -16,6 +16,7 @@ from src.projects.views import (
     ProjectTeacherView,
     ProjectView,
     ProjectYearsView,
+    ProjectYearView,
 )
 
 app_name = "projects"
@@ -28,6 +29,7 @@ degree_year_patterns = [
 
 year_patterns = [
     path("", ProjectYearsView.as_view()),
+    path("<uuid:year_id>", ProjectYearView.as_view()),
 ]
 
 degree_patterns = [

@@ -26,10 +26,17 @@ class DegreeStatsResponse(DegreeBase):
 
 # -- Degree detail -----------------------------------------------------
 class DegreeDetailResponse(ValidateWithExtrasMixin, DegreeBase):
-    years: list[YearDetailResponse]
+    years: list[DegreeYearResponse]
 
 
+class DegreeYearResponse(ValidateWithExtrasMixin, YearBase):
+    subjects: list[SubjectWithSessions]
+    classes: list[ClassWithSessions]
+
+
+# -- Year detail -------------------------------------------------------
 class YearDetailResponse(ValidateWithExtrasMixin, YearBase):
+    degree: DegreeBase
     subjects: list[SubjectWithSessions]
     classes: list[ClassWithSessions]
 
