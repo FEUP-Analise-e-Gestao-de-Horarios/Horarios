@@ -9,12 +9,12 @@ from src.projects.views import (
     ProjectRoomsView,
     ProjectRoomView,
     ProjectStatsView,
-    ProjectSubjectsView,
     ProjectSubjectView,
     ProjectsView,
     ProjectTeachersView,
     ProjectTeacherView,
     ProjectView,
+    ProjectYearSubjectsView,
     ProjectYearsView,
     ProjectYearView,
 )
@@ -23,13 +23,13 @@ app_name = "projects"
 
 degree_year_patterns = [
     path("", ProjectDegreeYearsView.as_view()),
-    path("<uuid:year_id>/subjects/", ProjectSubjectsView.as_view()),
     path("<uuid:year_id>/classes/", ProjectClassesView.as_view()),
 ]
 
 year_patterns = [
     path("", ProjectYearsView.as_view()),
     path("<uuid:year_id>", ProjectYearView.as_view()),
+    path("<uuid:year_id>/subjects/", ProjectYearSubjectsView.as_view()),
 ]
 
 degree_patterns = [
