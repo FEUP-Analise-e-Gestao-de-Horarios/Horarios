@@ -27,7 +27,8 @@ mirror:
 
 dev:
 	mkdir -p databases/projects
-	docker compose -f docker-compose.dev.yml up --build
+	docker compose -f docker-compose.dev.yml up --build; \
+	docker compose -f docker-compose.dev.yml down
 
 dev-mirror:
 	mkdir -p databases/projects
