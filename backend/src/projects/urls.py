@@ -23,11 +23,14 @@ from src.projects.views import (
 
 app_name = "projects"
 
-year_patterns = [
-    path("", ProjectYearsView.as_view()),
-    path("<uuid:year_id>", ProjectYearView.as_view()),
-    path("<uuid:year_id>/subjects/", ProjectYearSubjectsView.as_view()),
-    path("<uuid:year_id>/classes/", ProjectYearClassesView.as_view()),
+room_patterns = [
+    path("", ProjectRoomsView.as_view()),
+    path("<uuid:room_id>", ProjectRoomView.as_view()),
+]
+
+teacher_patterns = [
+    path("", ProjectTeachersView.as_view()),
+    path("<uuid:teacher_id>", ProjectTeacherView.as_view()),
 ]
 
 degree_patterns = [
@@ -36,14 +39,11 @@ degree_patterns = [
     path("<uuid:degree_id>/years/", ProjectDegreeYearsView.as_view()),
 ]
 
-teacher_patterns = [
-    path("", ProjectTeachersView.as_view()),
-    path("<uuid:teacher_id>", ProjectTeacherView.as_view()),
-]
-
-room_patterns = [
-    path("", ProjectRoomsView.as_view()),
-    path("<uuid:room_id>", ProjectRoomView.as_view()),
+year_patterns = [
+    path("", ProjectYearsView.as_view()),
+    path("<uuid:year_id>", ProjectYearView.as_view()),
+    path("<uuid:year_id>/subjects/", ProjectYearSubjectsView.as_view()),
+    path("<uuid:year_id>/classes/", ProjectYearClassesView.as_view()),
 ]
 
 subject_patterns = [
