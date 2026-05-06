@@ -6,9 +6,7 @@ from sqlalchemy.orm import Session as DBSession
 from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.models import (
     Class,
-    Session,
     SessionClassSubject,
-    Subject,
 )
 from src.projects.projects_db.models._secondary_tables import session_teachers
 from src.projects.projects_db.schemas.class_ import ClassStats
@@ -40,12 +38,6 @@ class ClassDAO(BaseDAO[Class]):
     # -------------------------------------------------------------------
     # -- Get Classes
     # -------------------------------------------------------------------
-
-    def get(self, class_id: UUID) -> Class | None:
-        """Retrieve a single class by its primary key."""
-        return self.session.scalars(
-            select(Class).where(Class.id == class_id),
-        ).one_or_none()
 
     def get_by_teacher(self, teacher_id: UUID) -> list[Class]:
         """Return distinct classes taught by the given teacher across all their sessions.
@@ -117,29 +109,3 @@ class ClassDAO(BaseDAO[Class]):
         rows = self.session.execute(stmt).all()
 
         return [ClassStats.model_validate(row, from_attributes=True) for row in rows]
-
-    # -------------------------------------------------------------------
-    # -- Get Others
-    # -------------------------------------------------------------------
-
-    def get_subjects(self, class_id: UUID) -> list[Subject]:
-        """Return distinct subjects associated with the given class."""
-        return list(
-            self.session.scalars(
-                select(Subject)
-                .join(SessionClassSubject, SessionClassSubject.subject_id == Subject.id)
-                .where(SessionClassSubject.class_id == class_id)
-                .distinct(),
-            ).all(),
-        )
-
-    def get_sessions(self, class_id: UUID) -> list[Session]:
-        """Return distinct sessions that the given class participates in."""
-        return list(
-            self.session.scalars(
-                select(Session)
-                .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
-                .where(SessionClassSubject.class_id == class_id)
-                .distinct(),
-            ).all(),
-        )

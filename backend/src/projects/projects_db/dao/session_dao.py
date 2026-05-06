@@ -58,66 +58,8 @@ class SessionDAO(BaseDAO[Session]):
         return options
 
     # -------------------------------------------------------------------
-    # -- Create
-    # -------------------------------------------------------------------
-
-    def create(
-        self,
-        *,
-        week: datetime.date,
-        weekday: WeekDay,
-        start_time: int,
-        duration: int,
-        type_: str,
-        original_block_id: UUID,
-        teacher_ids: set[UUID],
-        room_ids: set[UUID],
-    ) -> Session:
-        """Create a new session with its many-to-many associations.
-
-        Args:
-            week: The date representing the week of the session.
-            weekday: The day of the week the session takes place.
-            start_time: The starting timeslot of the session.
-            duration: The duration of the session in timeslot units.
-            type_: The session type (e.g. "T", "TP", "PL").
-            original_block_id: UUID of the originating timetable block.
-            teacher_ids: UUIDs of teachers to associate with this session.
-            room_ids: UUIDs of rooms to associate with this session.
-
-        Returns:
-            The newly created Session instance, flushed to the session.
-        """
-        session = self._create(
-            week=week,
-            weekday=weekday,
-            start_time=start_time,
-            duration=duration,
-            type=type_,
-            original_block_id=original_block_id,
-        )
-
-        if teacher_ids:
-            self.session.execute(
-                session_teachers.insert(),
-                [{"session_id": session.id, "teacher_id": tid} for tid in teacher_ids],
-            )
-
-        if room_ids:
-            self.session.execute(
-                session_rooms.insert(),
-                [{"session_id": session.id, "room_id": rid} for rid in room_ids],
-            )
-
-        return session
-
-    # -------------------------------------------------------------------
     # -- Get Sessions
     # -------------------------------------------------------------------
-
-    def get(self, session_id: UUID) -> Session | None:
-        """Retrieve a single session by its primary key."""
-        return self.session.scalars(select(Session).where(Session.id == session_id)).one_or_none()
 
     def get_by_teacher(
         self,

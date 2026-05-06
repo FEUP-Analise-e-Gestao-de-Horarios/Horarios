@@ -5,8 +5,6 @@ from sqlalchemy.orm import Session as DBSession
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.models import (
-    Class,
-    Session,
     SessionClassSubject,
     Subject,
 )
@@ -42,10 +40,6 @@ class SubjectDAO(BaseDAO[Subject]):
     # -------------------------------------------------------------------
     # -- Get Subjects
     # -------------------------------------------------------------------
-
-    def get(self, subject_id: UUID) -> Subject | None:
-        """Retrieve a single subject by its primary key."""
-        return self.session.scalars(select(Subject).where(Subject.id == subject_id)).one_or_none()
 
     def get_by_teacher(self, teacher_id: UUID) -> list[Subject]:
         """Return distinct subjects taught by the given teacher across all their sessions.
@@ -119,29 +113,3 @@ class SubjectDAO(BaseDAO[Subject]):
         rows = self.session.execute(stmt).all()
 
         return [SubjectStats.model_validate(row, from_attributes=True) for row in rows]
-
-    # -------------------------------------------------------------------
-    # -- Get Others
-    # -------------------------------------------------------------------
-
-    def get_classes(self, subject_id: UUID) -> list[Class]:
-        """Return distinct classes associated with the given subject."""
-        return list(
-            self.session.scalars(
-                select(Class)
-                .join(SessionClassSubject, SessionClassSubject.class_id == Class.id)
-                .where(SessionClassSubject.subject_id == subject_id)
-                .distinct(),
-            ).all(),
-        )
-
-    def get_sessions(self, subject_id: UUID) -> list[Session]:
-        """Return distinct sessions for the given subject."""
-        return list(
-            self.session.scalars(
-                select(Session)
-                .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
-                .where(SessionClassSubject.subject_id == subject_id)
-                .distinct(),
-            ).all(),
-        )

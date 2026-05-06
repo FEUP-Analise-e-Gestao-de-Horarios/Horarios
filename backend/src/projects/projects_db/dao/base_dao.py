@@ -36,14 +36,6 @@ class BaseDAO[T]:
         """
         return self.session.get(self.model, id)
 
-    def get_all(self) -> list[T]:
-        """Retrieve all records of this model.
-
-        Returns:
-            A list of all model instances, in an unspecified order.
-        """
-        return self.session.query(self.model).all()
-
     def find_missing_ids(self, ids: Iterable[UUID]) -> list[UUID]:
         """Return the subset of ``ids`` with no matching row in this DAO's table.
 
@@ -74,27 +66,3 @@ class BaseDAO[T]:
         if self.flush_on_create:
             self.session.flush()
         return instance
-
-    def delete(self, instance: T) -> None:
-        """Mark a model instance for deletion from the database.
-
-        Args:
-            instance: The model instance to delete.
-        """
-        self.session.delete(instance)
-
-    def delete_by_id(self, id: UUID) -> bool:
-        """Delete a record by its primary key.
-
-        Args:
-            id: The UUID primary key of the record to delete.
-
-        Returns:
-            True if the record was found and deleted, False if not found.
-        """
-        instance = self.get(id)
-        if instance is None:
-            return False
-
-        self.session.delete(instance)
-        return True
