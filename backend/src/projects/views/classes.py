@@ -22,6 +22,33 @@ from src.projects.views.schemas.subjects import (
 )
 
 
+class ProjectClassesView(View):
+    """API endpoint: list all classes in the project with stats."""
+
+    def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
+        # -- Check user auth ---------------------------------------------------
+        if not request.user.is_authenticated:
+            return NotAuthenticatedResponse()
+
+        # -- Fetch project -----------------------------------------------------
+        try:
+            Project.objects.get(pk=project_id)
+        except Project.DoesNotExist:
+            return ProjectNotFoundResponse()
+
+        # -- Query classes with stats from project DB --------------------------
+        with get_project_session(general_db(project_id)) as db_session:
+            stats = ClassDAO(db_session).get_all_with_stats()
+            result = [ClassStatsResponse.model_validate(s, from_attributes=True) for s in stats]
+
+        return JsonResponse(
+            SuccessResponse(
+                message="Classes retrieved successfully",
+                data=ClassesResponse(classes=result, count=len(result)),
+            ).model_dump(),
+        )
+
+
 class ProjectYearClassesView(View):
     """API endpoint: list classes with stats for a given year."""
 

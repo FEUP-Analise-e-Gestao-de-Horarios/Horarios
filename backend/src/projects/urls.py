@@ -1,6 +1,7 @@
 from django.urls import include, path
 
 from src.projects.views import (
+    ProjectClassesView,
     ProjectClassView,
     ProjectDegreesView,
     ProjectDegreeView,
@@ -51,6 +52,7 @@ subject_patterns = [
 ]
 
 class_patterns = [
+    path("", ProjectClassesView.as_view()),
     path("<uuid:class_id>", ProjectClassView.as_view()),
 ]
 

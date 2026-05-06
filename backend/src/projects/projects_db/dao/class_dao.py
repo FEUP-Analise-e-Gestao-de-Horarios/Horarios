@@ -75,6 +75,14 @@ class ClassDAO(BaseDAO[Class]):
     # -- Get Classes with Stats
     # -------------------------------------------------------------------
 
+    def get_all_with_stats(self) -> list[ClassStats]:
+        """Return all classes with their session counts and degree info.
+
+        Returns:
+            A list of ClassStats, one per class, in an unspecified order.
+        """
+        return self._get_with_stats()
+
     def get_by_year_with_stats(self, year_id: UUID) -> list[ClassStats]:
         """Return all classes for a year with their session counts and degree info.
 
@@ -84,6 +92,9 @@ class ClassDAO(BaseDAO[Class]):
         Returns:
             A list of ClassStats, one per class in the given year.
         """
+        return self._get_with_stats(year_id=year_id)
+
+    def _get_with_stats(self, *, year_id: UUID | None = None) -> list[ClassStats]:
         sessions_sq = (
             select(SessionClassSubject.class_id, func.count(Session.id).label("cnt"))
             .join(Session, Session.id == SessionClassSubject.session_id)
@@ -106,8 +117,9 @@ class ClassDAO(BaseDAO[Class]):
             .join(Year, Year.id == Class.year_id)
             .join(Degree, Degree.id == Year.degree_id)
             .outerjoin(sessions_sq, sessions_sq.c.class_id == Class.id)
-            .where(Class.year_id == year_id)
         )
+        if year_id is not None:
+            stmt = stmt.where(Class.year_id == year_id)
 
         rows = self.session.execute(stmt).all()
 
