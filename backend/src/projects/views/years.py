@@ -60,7 +60,6 @@ class ProjectYearView(View):
                     data=YearDetailResponse.model_validate_with_extras(
                         year,
                         extras={
-                            "degree": year.degree,
                             "subjects": subjects,
                             "classes": classes,
                         },
