@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.models.class_ import Class
 from src.projects.projects_db.models.degree import Degree
-from src.projects.projects_db.models.session import Session as SessionModel
 from src.projects.projects_db.models.session_class_subject import SessionClassSubject
 from src.projects.projects_db.models.subject import Subject
 from src.projects.projects_db.models.year import Year
@@ -70,9 +69,11 @@ class YearDAO(BaseDAO[Year]):
             .subquery()
         )
         sessions_sq = (
-            select(Subject.year_id, func.count(distinct(SessionModel.id)).label("cnt"))
+            select(
+                Subject.year_id,
+                func.count(distinct(SessionClassSubject.session_id)).label("cnt"),
+            )
             .join(SessionClassSubject, SessionClassSubject.subject_id == Subject.id)
-            .join(SessionModel, SessionModel.id == SessionClassSubject.session_id)
             .group_by(Subject.year_id)
             .subquery()
         )
