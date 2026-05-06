@@ -38,55 +38,27 @@ class TeacherDAO(BaseDAO[Teacher]):
     def get_all_with_stats(self) -> list[TeacherStats]:
         """Return all teachers with their subject, class, and session counts.
 
-        Counts are computed via subqueries and default to 0 when a teacher
-        has no associated records.
+        Counts default to 0 when a teacher has no associated records.
 
         Returns:
             A list of TeacherStats, one per teacher, in an unspecified order.
         """
-        subjects_sq = (
-            select(
-                session_teachers.c.teacher_id,
-                func.count(SessionClassSubject.subject_id.distinct()).label("cnt"),
-            )
-            .join(
-                SessionClassSubject,
-                SessionClassSubject.session_id == session_teachers.c.session_id,
-            )
-            .group_by(session_teachers.c.teacher_id)
-            .subquery()
-        )
-        classes_sq = (
-            select(
-                session_teachers.c.teacher_id,
-                func.count(SessionClassSubject.class_id.distinct()).label("cnt"),
-            )
-            .join(
-                SessionClassSubject,
-                SessionClassSubject.session_id == session_teachers.c.session_id,
-            )
-            .group_by(session_teachers.c.teacher_id)
-            .subquery()
-        )
-        sessions_sq = (
-            select(session_teachers.c.teacher_id, func.count().label("cnt"))
-            .group_by(session_teachers.c.teacher_id)
-            .subquery()
-        )
-
         rows = self.session.execute(
             select(
                 Teacher.id,
                 Teacher.number,
                 Teacher.acronym,
                 Teacher.name,
-                func.coalesce(subjects_sq.c.cnt, 0).label("subjects"),
-                func.coalesce(classes_sq.c.cnt, 0).label("classes"),
-                func.coalesce(sessions_sq.c.cnt, 0).label("sessions"),
+                func.count(SessionClassSubject.subject_id.distinct()).label("subjects"),
+                func.count(SessionClassSubject.class_id.distinct()).label("classes"),
+                func.count(session_teachers.c.session_id.distinct()).label("sessions"),
             )
-            .outerjoin(subjects_sq, subjects_sq.c.teacher_id == Teacher.id)
-            .outerjoin(classes_sq, classes_sq.c.teacher_id == Teacher.id)
-            .outerjoin(sessions_sq, sessions_sq.c.teacher_id == Teacher.id),
+            .outerjoin(session_teachers, session_teachers.c.teacher_id == Teacher.id)
+            .outerjoin(
+                SessionClassSubject,
+                SessionClassSubject.session_id == session_teachers.c.session_id,
+            )
+            .group_by(Teacher.id, Teacher.number, Teacher.acronym, Teacher.name),
         ).all()
 
         return [TeacherStats.model_validate(row, from_attributes=True) for row in rows]
