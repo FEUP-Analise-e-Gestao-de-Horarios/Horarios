@@ -132,6 +132,7 @@ export interface TeacherDetail extends TeacherBase {
   subjects: SubjectBase[];
   classes: ClassBase[];
   blocks: WeekBlockResponse[];
+  red_blocks: RedBlockBase[];
 }
 
 export interface RoomDetail extends RoomBase {
