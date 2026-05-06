@@ -1,4 +1,3 @@
-import { useEffect, useRef } from "react";
 import type { ConflictRecord } from "@/types/dashboard";
 
 interface ConflictsDrawerProps {
@@ -16,20 +15,6 @@ export default function ConflictsDrawer({
   isLoading = false,
   onRefresh,
 }: ConflictsDrawerProps) {
-  const drawerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleOutsideClick(event: MouseEvent) {
-      if (drawerRef.current?.contains(event.target as Node)) return;
-      onClose();
-    }
-
-    if (open) {
-      document.addEventListener("mousedown", handleOutsideClick);
-      return () => document.removeEventListener("mousedown", handleOutsideClick);
-    }
-  }, [open, onClose]);
-
   return (
     <div
       className={[
@@ -45,14 +30,18 @@ export default function ConflictsDrawer({
       />
 
       <aside
-        ref={drawerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="conflicts-drawer-title"
         className={[
           "absolute right-0 top-0 h-full w-[min(92vw,500px)] bg-[#1d2128] text-white border-l border-white/15 shadow-[-8px_0_24px_rgba(0,0,0,0.45)] transition-transform overflow-y-auto",
           open ? "translate-x-0" : "translate-x-full",
         ].join(" ")}
       >
         <div className="sticky top-0 bg-[#1d2128] border-b border-white/10 px-5 py-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Conflitos</h2>
+          <h2 id="conflicts-drawer-title" className="text-lg font-semibold">
+            Conflitos
+          </h2>
           <div className="flex items-center gap-2">
             {onRefresh ? (
               <button

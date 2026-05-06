@@ -76,13 +76,3 @@
     font-weight: normal;
     margin-left: 15px;
 }
-
-#offcanvasDarkNavbar {
-    top: 0;
-    height: 100vh;
-    z-index: 1200;
-}
-
-#offcanvasDarkNavbar .offcanvas-body {
-    overflow-y: auto;
-}
