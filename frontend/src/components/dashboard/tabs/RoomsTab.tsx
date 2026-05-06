@@ -85,7 +85,7 @@ export default function RoomsTab({ projectId, search, pollInterval, processing }
         <TableSkeleton cols={6} gridTemplateColumns={GRID_COLS} />
       ) : (
         <div role="rowgroup">
-          {paddingTop > 0 && <div style={{ height: paddingTop }} />}
+          {paddingTop > 0 && <div aria-hidden="true" style={{ height: paddingTop }} />}
           {virtualItems.map((virtualRow) => {
             const room = filtered[virtualRow.index];
             if (!room) return null;
@@ -124,7 +124,7 @@ export default function RoomsTab({ projectId, search, pollInterval, processing }
               </div>
             );
           })}
-          {paddingBottom > 0 && <div style={{ height: paddingBottom }} />}
+          {paddingBottom > 0 && <div aria-hidden="true" style={{ height: paddingBottom }} />}
         </div>
       )}
     </div>

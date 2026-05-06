@@ -95,7 +95,7 @@ export default function TeachersTab({
         <TableSkeleton cols={6} gridTemplateColumns={GRID_COLS} />
       ) : (
         <div role="rowgroup">
-          {paddingTop > 0 && <div style={{ height: paddingTop }} />}
+          {paddingTop > 0 && <div aria-hidden="true" style={{ height: paddingTop }} />}
           {virtualItems.map((virtualRow) => {
             const teacher = filtered[virtualRow.index];
             if (!teacher) return null;
@@ -134,7 +134,7 @@ export default function TeachersTab({
               </div>
             );
           })}
-          {paddingBottom > 0 && <div style={{ height: paddingBottom }} />}
+          {paddingBottom > 0 && <div aria-hidden="true" style={{ height: paddingBottom }} />}
         </div>
       )}
     </div>
