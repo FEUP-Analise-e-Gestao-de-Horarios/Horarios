@@ -53,15 +53,12 @@ class RoomDAO(BaseDAO[Room]):
             A list of RoomStats, one per room, in an unspecified order.
         """
         sessions_sq = (
-            select(
-                session_rooms.c.room_id,
-                func.count(session_rooms.c.session_id).label("cnt"),
-            )
+            select(session_rooms.c.room_id, func.count().label("cnt"))
             .group_by(session_rooms.c.room_id)
             .subquery()
         )
         red_blocks_sq = (
-            select(RoomRedBlock.room_id, func.count(RoomRedBlock.id).label("cnt"))
+            select(RoomRedBlock.room_id, func.count().label("cnt"))
             .group_by(RoomRedBlock.room_id)
             .subquery()
         )
