@@ -9,7 +9,7 @@ from src.core.schemas import SuccessResponse
 from src.projects.projects_db.dao import ClassDAO, SubjectDAO, YearDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
-from src.projects.views.schemas.degrees import (
+from src.projects.views.schemas.years import (
     YearDetailResponse,
     YearsResponse,
     YearStatsResponse,
