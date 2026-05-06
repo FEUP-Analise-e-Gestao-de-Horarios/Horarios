@@ -27,6 +27,7 @@ mirror:
 
 dev:
 	mkdir -p databases/projects
+	trap 'docker compose -f docker-compose.dev.yml down' EXIT INT TERM; \
 	docker compose -f docker-compose.dev.yml up --build
 
 dev-mirror:
