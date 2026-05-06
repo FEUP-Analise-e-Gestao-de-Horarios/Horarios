@@ -1,3 +1,5 @@
+name: horarios
+
 services:
   backend:
     build:
