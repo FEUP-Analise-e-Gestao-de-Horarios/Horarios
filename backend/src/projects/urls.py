@@ -1,7 +1,6 @@
 from django.urls import include, path
 
 from src.projects.views import (
-    ProjectClassesView,
     ProjectClassView,
     ProjectDegreesView,
     ProjectDegreeView,
@@ -14,6 +13,7 @@ from src.projects.views import (
     ProjectTeachersView,
     ProjectTeacherView,
     ProjectView,
+    ProjectYearClassesView,
     ProjectYearSubjectsView,
     ProjectYearsView,
     ProjectYearView,
@@ -21,21 +21,17 @@ from src.projects.views import (
 
 app_name = "projects"
 
-degree_year_patterns = [
-    path("", ProjectDegreeYearsView.as_view()),
-    path("<uuid:year_id>/classes/", ProjectClassesView.as_view()),
-]
-
 year_patterns = [
     path("", ProjectYearsView.as_view()),
     path("<uuid:year_id>", ProjectYearView.as_view()),
     path("<uuid:year_id>/subjects/", ProjectYearSubjectsView.as_view()),
+    path("<uuid:year_id>/classes/", ProjectYearClassesView.as_view()),
 ]
 
 degree_patterns = [
     path("", ProjectDegreesView.as_view()),
     path("<uuid:degree_id>", ProjectDegreeView.as_view()),
-    path("<uuid:degree_id>/years/", include(degree_year_patterns)),
+    path("<uuid:degree_id>/years/", ProjectDegreeYearsView.as_view()),
 ]
 
 teacher_patterns = [

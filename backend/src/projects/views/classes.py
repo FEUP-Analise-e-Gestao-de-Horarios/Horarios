@@ -5,14 +5,13 @@ from django.views import View
 
 from src.core.errors import (
     ClassNotFoundResponse,
-    DegreeNotFoundResponse,
     NotAuthenticatedResponse,
     ProjectNotFoundResponse,
     YearNotFoundResponse,
 )
 from src.core.schemas import SuccessResponse
 from src.projects.models import Project
-from src.projects.projects_db.dao import ClassDAO, DegreeDAO, SessionDAO, YearDAO
+from src.projects.projects_db.dao import ClassDAO, SessionDAO, YearDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
 from src.projects.views.schemas.sessions import WeekBlockResponse
@@ -23,16 +22,10 @@ from src.projects.views.schemas.subjects import (
 )
 
 
-class ProjectClassesView(View):
-    """API endpoint: list classes with stats for a given degree year."""
+class ProjectYearClassesView(View):
+    """API endpoint: list classes with stats for a given year."""
 
-    def get(
-        self,
-        request: HttpRequest,
-        project_id: int,
-        degree_id: UUID,
-        year_id: UUID,
-    ) -> HttpResponse:
+    def get(self, request: HttpRequest, project_id: int, year_id: UUID) -> HttpResponse:
         # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:
             return NotAuthenticatedResponse()
@@ -45,11 +38,7 @@ class ProjectClassesView(View):
 
         # -- Query classes with stats from project DB --------------------------
         with get_project_session(general_db(project_id)) as db_session:
-            if DegreeDAO(db_session).get(degree_id) is None:
-                return DegreeNotFoundResponse()
-
-            year = YearDAO(db_session).get(year_id)
-            if year is None or year.degree_id != degree_id:
+            if YearDAO(db_session).get(year_id) is None:
                 return YearNotFoundResponse()
 
             stats = ClassDAO(db_session).get_by_year_with_stats(year_id)
