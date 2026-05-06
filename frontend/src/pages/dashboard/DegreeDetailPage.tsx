@@ -2,7 +2,7 @@ import { Link, useParams } from "react-router-dom";
 import { useProject, useProjectDegree } from "@/api/hooks/useDashboard";
 import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
 import { ROUTES } from "@/routes";
-import type { ClassWithSessions, SubjectWithSessions, YearDetail } from "@/types/dashboard";
+import type { ClassWithSessions, SubjectWithSessions, DegreeYearDetail } from "@/types/dashboard";
 import { buildPath } from "@/utils/routes";
 
 export default function DegreeDetailPage() {
@@ -71,7 +71,7 @@ export default function DegreeDetailPage() {
   );
 }
 
-function YearSection({ projectId, year }: { projectId: string; year: YearDetail }) {
+function YearSection({ projectId, year }: { projectId: string; year: DegreeYearDetail }) {
   return (
     <section>
       <div className="flex items-baseline justify-between mb-2">

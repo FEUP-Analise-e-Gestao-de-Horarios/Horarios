@@ -3,6 +3,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 from src.core.mixins import ValidateWithExtrasMixin
+from src.projects.views.schemas.sessions import WeekBlockResponse
 from src.projects.views.schemas.shared import (
     ClassWithSessions,
     DegreeBase,
@@ -26,12 +27,17 @@ class DegreeStatsResponse(DegreeBase):
 
 # -- Degree detail -----------------------------------------------------
 class DegreeDetailResponse(ValidateWithExtrasMixin, DegreeBase):
-    years: list[YearDetailResponse]
+    years: list[DegreeYearResponse]
 
 
-class YearDetailResponse(ValidateWithExtrasMixin, YearBase):
+class DegreeYearResponse(ValidateWithExtrasMixin, YearBase):
     subjects: list[SubjectWithSessions]
     classes: list[ClassWithSessions]
+
+
+# -- Year detail -------------------------------------------------------
+class YearDetailResponse(ValidateWithExtrasMixin, YearBase):
+    blocks: list[WeekBlockResponse]
 
 
 # -- Years list --------------------------------------------------------

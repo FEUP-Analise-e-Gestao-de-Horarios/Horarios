@@ -157,17 +157,17 @@ export interface RoomDetail extends RoomBase {
   red_blocks: RedBlockBase[];
 }
 
-export interface YearDetail extends YearBase {
+export interface DegreeYearDetail extends YearBase {
   subjects: SubjectWithSessions[];
   classes: ClassWithSessions[];
 }
 
-export interface YearWeeksResponse {
+export interface YearDetail extends YearBase {
   blocks: WeekBlockResponse[];
 }
 
 export interface DegreeDetail extends DegreeBase {
-  years: YearDetail[];
+  years: DegreeYearDetail[];
 }
 
 export interface SubjectDetail extends SubjectBase {

@@ -2,7 +2,6 @@ from uuid import UUID
 
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views import View
-from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
@@ -19,16 +18,11 @@ from src.projects.projects_db.models import Class, Session, SessionClassSubject
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
 from src.projects.views.schemas.degrees import (
+    YearDetailResponse,
     YearsResponse,
     YearStatsResponse,
 )
 from src.projects.views.schemas.sessions import WeekBlockResponse
-
-
-class YearWeeksResponse(BaseModel):
-    """Available week blocks for a year."""
-
-    blocks: list[WeekBlockResponse]
 
 
 class ProjectYearsView(View):
@@ -61,8 +55,8 @@ class ProjectYearsView(View):
             )
 
 
-class ProjectYearWeeksView(View):
-    """API endpoint: retrieve the available week blocks for a degree year."""
+class ProjectYearView(View):
+    """API endpoint: retrieve a year detail with its full timetable as week blocks."""
 
     def get(
         self,
@@ -111,7 +105,10 @@ class ProjectYearWeeksView(View):
 
             return JsonResponse(
                 SuccessResponse(
-                    message="Year weeks retrieved successfully",
-                    data=YearWeeksResponse(blocks=blocks),
+                    message="Year retrieved successfully",
+                    data=YearDetailResponse.model_validate_with_extras(
+                        year,
+                        extras={"blocks": blocks},
+                    ),
                 ).model_dump(),
             )

@@ -11,7 +11,7 @@ import {
   useProjectYearConflicts,
   useProjectRooms,
   useProjectTeachers,
-  useProjectYearWeeks,
+  useProjectYear,
   useProject,
 } from "@/api/hooks/useDashboard";
 import { ROUTES } from "@/routes";
@@ -200,11 +200,12 @@ export default function SchedulePage() {
     [selectedDegree, selectedYearNumber],
   );
 
-  const { data: selectedYearWeeks } = useProjectYearWeeks(
+  const { data: selectedYearDetail } = useProjectYear(
     projectId ?? "",
     activeDegree?.id ?? "",
     selectedYear?.id ?? "",
   );
+  const selectedYearWeeks = selectedYearDetail?.blocks;
   const yearConflictsQuery = useProjectYearConflicts(
     projectId ?? "",
     activeDegree?.id ?? "",

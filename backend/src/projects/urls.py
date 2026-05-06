@@ -16,14 +16,14 @@ from src.projects.views import (
     ProjectView,
     ProjectYearConflictsView,
     ProjectYearsView,
-    ProjectYearWeeksView,
+    ProjectYearView,
 )
 
 app_name = "projects"
 
 year_patterns = [
     path("", ProjectYearsView.as_view()),
-    path("<uuid:year_id>/weeks/", ProjectYearWeeksView.as_view()),
+    path("<uuid:year_id>", ProjectYearView.as_view()),
     path("<uuid:year_id>/conflicts/", ProjectYearConflictsView.as_view()),
     path("<uuid:year_id>/subjects/", ProjectSubjectsView.as_view()),
     path("<uuid:year_id>/classes/", ProjectClassesView.as_view()),
