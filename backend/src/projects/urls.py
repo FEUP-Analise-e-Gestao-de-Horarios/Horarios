@@ -1,22 +1,22 @@
 from django.urls import include, path
 
-from src.projects.views import (
+from src.projects.views.classes import (
     ProjectClassesView,
     ProjectClassView,
-    ProjectDegreesView,
-    ProjectDegreeView,
-    ProjectDegreeYearsView,
-    ProjectRoomsView,
-    ProjectRoomView,
-    ProjectStatsView,
+    ProjectYearClassesView,
+)
+from src.projects.views.degrees import ProjectDegreesView, ProjectDegreeView
+from src.projects.views.project import ProjectsView, ProjectView
+from src.projects.views.rooms import ProjectRoomsView, ProjectRoomView
+from src.projects.views.stats import ProjectStatsView
+from src.projects.views.subjects import (
     ProjectSubjectsView,
     ProjectSubjectView,
-    ProjectsView,
-    ProjectTeachersView,
-    ProjectTeacherView,
-    ProjectView,
-    ProjectYearClassesView,
     ProjectYearSubjectsView,
+)
+from src.projects.views.teachers import ProjectTeachersView, ProjectTeacherView
+from src.projects.views.years import (
+    ProjectDegreeYearsView,
     ProjectYearsView,
     ProjectYearView,
 )
