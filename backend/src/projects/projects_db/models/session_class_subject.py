@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, UniqueConstraint
+from sqlalchemy import ForeignKey, Index, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.projects.projects_db.base import Base
@@ -14,7 +14,11 @@ class SessionClassSubject(Base):
     """Junction table linking a session to a class and the subject taught in it."""
 
     __tablename__ = "sessions_classes_subject"
-    __table_args__ = (UniqueConstraint("session_id", "class_id", name="uq_session_class"),)
+    __table_args__ = (
+        UniqueConstraint("session_id", "class_id", name="uq_session_class"),
+        Index("ix_sessions_classes_subject_class_id", "class_id"),
+        Index("ix_sessions_classes_subject_subject_id", "subject_id"),
+    )
 
     # UUIDs
     session_id: Mapped[UUID] = mapped_column(ForeignKey("sessions.id"), primary_key=True)
