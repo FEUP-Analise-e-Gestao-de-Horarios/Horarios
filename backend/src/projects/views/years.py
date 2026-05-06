@@ -29,7 +29,7 @@ class ProjectYearsView(View):
             return JsonResponse(
                 SuccessResponse(
                     message="Years retrieved successfully",
-                    data=YearsResponse(years=result, count=len(result)),
+                    data=YearsResponse(years=result),
                 ).model_dump(),
             )
 
@@ -85,6 +85,6 @@ class ProjectDegreeYearsView(View):
             return JsonResponse(
                 SuccessResponse(
                     message="Years retrieved successfully",
-                    data=YearsResponse(years=result, count=len(result)),
+                    data=YearsResponse(years=result),
                 ).model_dump(),
             )

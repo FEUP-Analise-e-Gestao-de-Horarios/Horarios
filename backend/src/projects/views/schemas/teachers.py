@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 
 from src.core.mixins import ValidateWithExtrasMixin
 from src.projects.views.schemas.sessions import WeekBlockResponse
@@ -8,7 +8,11 @@ from src.projects.views.schemas.shared import ClassBase, SubjectBase, TeacherBas
 # -- Teachers list -----------------------------------------------------
 class TeachersResponse(BaseModel):
     teachers: list[TeacherStatsResponse]
-    count: int
+
+    @computed_field
+    @property
+    def count(self) -> int:
+        return len(self.teachers)
 
 
 class TeacherStatsResponse(TeacherBase):

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 
 from src.core.mixins import ValidateWithExtrasMixin
 from src.projects.views.schemas.sessions import WeekBlockResponse
@@ -13,7 +13,11 @@ from src.projects.views.schemas.shared import (
 # -- Subjects list -----------------------------------------------------
 class SubjectsResponse(BaseModel):
     subjects: list[SubjectStatsResponse]
-    count: int
+
+    @computed_field
+    @property
+    def count(self) -> int:
+        return len(self.subjects)
 
 
 class SubjectStatsResponse(BaseModel):
@@ -44,7 +48,11 @@ class SubjectDetailResponse(ValidateWithExtrasMixin, SubjectBase):
 # -- Classes list ------------------------------------------------------
 class ClassesResponse(BaseModel):
     classes: list[ClassStatsResponse]
-    count: int
+
+    @computed_field
+    @property
+    def count(self) -> int:
+        return len(self.classes)
 
 
 class ClassStatsResponse(BaseModel):

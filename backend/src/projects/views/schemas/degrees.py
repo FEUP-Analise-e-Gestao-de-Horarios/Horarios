@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, computed_field
 
 from src.core.mixins import ValidateWithExtrasMixin
 from src.projects.views.schemas.shared import (
@@ -14,7 +14,11 @@ from src.projects.views.schemas.shared import (
 # -- Degrees list ------------------------------------------------------
 class DegreesResponse(BaseModel):
     degrees: list[DegreeStatsResponse]
-    count: int
+
+    @computed_field
+    @property
+    def count(self) -> int:
+        return len(self.degrees)
 
 
 class DegreeStatsResponse(DegreeBase):
@@ -44,7 +48,11 @@ class YearDetailResponse(ValidateWithExtrasMixin, YearBase):
 # -- Years list --------------------------------------------------------
 class YearsResponse(BaseModel):
     years: list[YearStatsResponse]
-    count: int
+
+    @computed_field
+    @property
+    def count(self) -> int:
+        return len(self.years)
 
 
 class YearStatsResponse(BaseModel):

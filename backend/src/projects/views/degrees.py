@@ -32,7 +32,7 @@ class ProjectDegreesView(View):
             return JsonResponse(
                 SuccessResponse(
                     message="Degrees retrieved successfully",
-                    data=DegreesResponse(degrees=result, count=len(result)),
+                    data=DegreesResponse(degrees=result),
                 ).model_dump(),
             )
 

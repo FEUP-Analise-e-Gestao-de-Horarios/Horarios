@@ -30,7 +30,7 @@ class ProjectClassesView(View):
         return JsonResponse(
             SuccessResponse(
                 message="Classes retrieved successfully",
-                data=ClassesResponse(classes=result, count=len(result)),
+                data=ClassesResponse(classes=result),
             ).model_dump(),
         )
 
@@ -51,7 +51,7 @@ class ProjectYearClassesView(View):
         return JsonResponse(
             SuccessResponse(
                 message="Classes retrieved successfully",
-                data=ClassesResponse(classes=result, count=len(result)),
+                data=ClassesResponse(classes=result),
             ).model_dump(),
         )
 

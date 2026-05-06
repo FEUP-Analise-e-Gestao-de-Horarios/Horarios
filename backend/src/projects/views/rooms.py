@@ -30,7 +30,7 @@ class ProjectRoomsView(View):
             return JsonResponse(
                 SuccessResponse(
                     message="Rooms retrieved successfully",
-                    data=RoomsResponse(rooms=result, count=len(result)),
+                    data=RoomsResponse(rooms=result),
                 ).model_dump(),
             )
 

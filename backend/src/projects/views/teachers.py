@@ -30,7 +30,7 @@ class ProjectTeachersView(View):
             return JsonResponse(
                 SuccessResponse(
                     message="Teachers retrieved successfully",
-                    data=TeachersResponse(teachers=result, count=len(result)),
+                    data=TeachersResponse(teachers=result),
                 ).model_dump(),
             )
 

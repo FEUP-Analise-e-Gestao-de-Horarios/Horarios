@@ -30,7 +30,7 @@ class ProjectSubjectsView(View):
         return JsonResponse(
             SuccessResponse(
                 message="Subjects retrieved successfully",
-                data=SubjectsResponse(subjects=result, count=len(result)),
+                data=SubjectsResponse(subjects=result),
             ).model_dump(),
         )
 
@@ -51,7 +51,7 @@ class ProjectYearSubjectsView(View):
         return JsonResponse(
             SuccessResponse(
                 message="Subjects retrieved successfully",
-                data=SubjectsResponse(subjects=result, count=len(result)),
+                data=SubjectsResponse(subjects=result),
             ).model_dump(),
         )
 
