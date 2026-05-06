@@ -1,6 +1,4 @@
-from uuid import UUID
-
-from pydantic import BaseModel, ConfigDict, computed_field
+from pydantic import BaseModel, computed_field
 
 from src.core.mixins import ValidateWithExtrasMixin
 from src.projects.views.schemas.shared import (
@@ -21,16 +19,7 @@ class YearsResponse(BaseModel):
         return len(self.years)
 
 
-class YearStatsResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: UUID
-    degree_id: UUID
-    degree_acronym: str
-    degree_name: str
-
-    number: int
-
+class YearStatsResponse(YearBase):
     subjects: int
     classes: int
     sessions: int
