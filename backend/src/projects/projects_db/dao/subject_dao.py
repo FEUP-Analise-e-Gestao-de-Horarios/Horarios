@@ -6,11 +6,9 @@ from sqlalchemy.orm import Session as DBSession
 from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.models import (
     Class,
-    Degree,
     Session,
     SessionClassSubject,
     Subject,
-    Year,
 )
 from src.projects.projects_db.models._secondary_tables import session_teachers
 from src.projects.projects_db.schemas.subject import SubjectStats
@@ -76,7 +74,7 @@ class SubjectDAO(BaseDAO[Subject]):
     # -------------------------------------------------------------------
 
     def get_all_with_stats(self) -> list[SubjectStats]:
-        """Return all subjects with their session counts and degree info.
+        """Return all subjects with their session counts.
 
         Returns:
             A list of SubjectStats, one per subject, in an unspecified order.
@@ -84,7 +82,7 @@ class SubjectDAO(BaseDAO[Subject]):
         return self._get_with_stats()
 
     def get_by_year_with_stats(self, year_id: UUID) -> list[SubjectStats]:
-        """Return all subjects for a year with their session counts and degree info.
+        """Return all subjects for a year with their session counts.
 
         Args:
             year_id: UUID of the year to filter subjects by.
@@ -106,24 +104,15 @@ class SubjectDAO(BaseDAO[Subject]):
             ).where(Subject.year_id == year_id)
         sessions_sq = sessions_sq_q.group_by(SessionClassSubject.subject_id).subquery()
 
-        stmt = (
-            select(
-                Subject.id,
-                Subject.number,
-                Subject.code,
-                Subject.acronym,
-                Subject.name,
-                Year.id.label("year_id"),
-                Year.number.label("year_number"),
-                Degree.id.label("degree_id"),
-                Degree.acronym.label("degree_acronym"),
-                Degree.name.label("degree_name"),
-                func.coalesce(sessions_sq.c.cnt, 0).label("sessions"),
-            )
-            .join(Year, Year.id == Subject.year_id)
-            .join(Degree, Degree.id == Year.degree_id)
-            .outerjoin(sessions_sq, sessions_sq.c.subject_id == Subject.id)
-        )
+        stmt = select(
+            Subject.id,
+            Subject.year_id,
+            Subject.number,
+            Subject.code,
+            Subject.acronym,
+            Subject.name,
+            func.coalesce(sessions_sq.c.cnt, 0).label("sessions"),
+        ).outerjoin(sessions_sq, sessions_sq.c.subject_id == Subject.id)
         if year_id is not None:
             stmt = stmt.where(Subject.year_id == year_id)
 

@@ -6,11 +6,9 @@ from sqlalchemy.orm import Session as DBSession
 from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.models import (
     Class,
-    Degree,
     Session,
     SessionClassSubject,
     Subject,
-    Year,
 )
 from src.projects.projects_db.models._secondary_tables import session_teachers
 from src.projects.projects_db.schemas.class_ import ClassStats
@@ -76,7 +74,7 @@ class ClassDAO(BaseDAO[Class]):
     # -------------------------------------------------------------------
 
     def get_all_with_stats(self) -> list[ClassStats]:
-        """Return all classes with their session counts and degree info.
+        """Return all classes with their session counts.
 
         Returns:
             A list of ClassStats, one per class, in an unspecified order.
@@ -84,7 +82,7 @@ class ClassDAO(BaseDAO[Class]):
         return self._get_with_stats()
 
     def get_by_year_with_stats(self, year_id: UUID) -> list[ClassStats]:
-        """Return all classes for a year with their session counts and degree info.
+        """Return all classes for a year with their session counts.
 
         Args:
             year_id: UUID of the year to filter classes by.
@@ -106,22 +104,13 @@ class ClassDAO(BaseDAO[Class]):
             ).where(Class.year_id == year_id)
         sessions_sq = sessions_sq_q.group_by(SessionClassSubject.class_id).subquery()
 
-        stmt = (
-            select(
-                Class.id,
-                Class.code,
-                Class.shift,
-                Year.id.label("year_id"),
-                Year.number.label("year_number"),
-                Degree.id.label("degree_id"),
-                Degree.acronym.label("degree_acronym"),
-                Degree.name.label("degree_name"),
-                func.coalesce(sessions_sq.c.cnt, 0).label("sessions"),
-            )
-            .join(Year, Year.id == Class.year_id)
-            .join(Degree, Degree.id == Year.degree_id)
-            .outerjoin(sessions_sq, sessions_sq.c.class_id == Class.id)
-        )
+        stmt = select(
+            Class.id,
+            Class.year_id,
+            Class.code,
+            Class.shift,
+            func.coalesce(sessions_sq.c.cnt, 0).label("sessions"),
+        ).outerjoin(sessions_sq, sessions_sq.c.class_id == Class.id)
         if year_id is not None:
             stmt = stmt.where(Class.year_id == year_id)
 

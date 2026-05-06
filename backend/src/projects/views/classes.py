@@ -9,7 +9,7 @@ from src.core.schemas import SuccessResponse
 from src.projects.projects_db.dao import ClassDAO, SessionDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
-from src.projects.views.schemas.subjects import (
+from src.projects.views.schemas.classes import (
     ClassDetailResponse,
     ClassesResponse,
     ClassStatsResponse,
@@ -25,7 +25,7 @@ class ProjectClassesView(View):
     def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
         with get_project_session(general_db(project_id)) as db_session:
             stats = ClassDAO(db_session).get_all_with_stats()
-            result = [ClassStatsResponse.model_validate(s, from_attributes=True) for s in stats]
+            result = [ClassStatsResponse.model_validate(s) for s in stats]
 
         return JsonResponse(
             SuccessResponse(
@@ -58,7 +58,7 @@ class ProjectClassView(View):
                     message="Class retrieved successfully",
                     data=ClassDetailResponse.model_validate_with_extras(
                         class_,
-                        extras={"degree": class_.year.degree, "blocks": blocks},
+                        extras={"blocks": blocks},
                     ),
                 ).model_dump(),
             )

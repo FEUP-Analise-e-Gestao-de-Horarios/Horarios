@@ -25,7 +25,7 @@ class ProjectSubjectsView(View):
     def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
         with get_project_session(general_db(project_id)) as db_session:
             stats = SubjectDAO(db_session).get_all_with_stats()
-            result = [SubjectStatsResponse.model_validate(s, from_attributes=True) for s in stats]
+            result = [SubjectStatsResponse.model_validate(s) for s in stats]
 
         return JsonResponse(
             SuccessResponse(
@@ -58,7 +58,7 @@ class ProjectSubjectView(View):
                     message="Subject retrieved successfully",
                     data=SubjectDetailResponse.model_validate_with_extras(
                         subject,
-                        extras={"degree": subject.year.degree, "blocks": blocks},
+                        extras={"blocks": blocks},
                     ),
                 ).model_dump(),
             )
