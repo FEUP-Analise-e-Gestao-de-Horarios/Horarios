@@ -95,35 +95,40 @@ class WeekBlock(BaseModel):
         if not by_week:
             return []
 
-        groups: list[tuple[list[datetime.date], list[Session]]] = []
-        prev_signature: frozenset[object] | None = None
+        fingerprints = [(week, cls._week_fingerprint(by_week[week])) for week in sorted(by_week)]
+        groups = cls.group_by_fingerprint(fingerprints)
 
-        for week in sorted(by_week.keys()):
-            week_sessions = by_week[week]
-            signature = cls._week_fingerprint(week_sessions)
-            if signature == prev_signature and groups:
-                groups[-1][0].append(week)
-            else:
-                groups.append(([week], week_sessions))
-                prev_signature = signature
-
-        return cls.from_blocks(groups)
+        return cls._from_blocks((weeks, by_week[repr_week]) for weeks, repr_week in groups)
 
     @classmethod
-    def from_blocks(
+    def from_groups(
+        cls,
+        groups: Iterable[tuple[list[datetime.date], datetime.date]],
+        representative_sessions: Iterable[Session],
+    ) -> list[Self]:
+        """Build responses from groups and a flat list of representative sessions.
+
+        Args:
+            groups: ``(weeks_in_block, representative_week)`` pairs from
+                :meth:`group_by_fingerprint`.
+            representative_sessions: Sessions for every representative week
+                across all groups, eagerly loaded with teachers, rooms, and
+                ``session_class_subjects`` (with subject and class).
+
+        Returns:
+            One :class:`WeekBlock` per input group, preserving order.
+        """
+        by_week: dict[datetime.date, list[Session]] = {}
+        for s in representative_sessions:
+            by_week.setdefault(s.week, []).append(s)
+
+        return cls._from_blocks((weeks, by_week.get(repr_week, [])) for weeks, repr_week in groups)
+
+    @classmethod
+    def _from_blocks(
         cls,
         blocks: Iterable[tuple[list[datetime.date], list[Session]]],
     ) -> list[Self]:
-        """Build response objects from already-grouped blocks.
-
-        Args:
-            blocks: For each block, a tuple of ``(weeks_in_block, representative_sessions)``.
-                ``representative_sessions`` must be eagerly loaded with teachers,
-                rooms, and ``session_class_subjects`` (with subject and class).
-
-        Returns:
-            One :class:`WeekBlockResponse` per input block, preserving order.
-        """
         return [
             cls(
                 weeks=weeks,

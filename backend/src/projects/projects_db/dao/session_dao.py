@@ -3,7 +3,7 @@ from collections.abc import Iterable, Sequence
 from enum import Enum, auto
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session as DBSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.interfaces import LoaderOption
@@ -221,6 +221,7 @@ class SessionDAO(BaseDAO[Session]):
         self,
         year_id: UUID,
         includes: Iterable[Include] = (),
+        weeks: Sequence[datetime.date] | None = None,
     ) -> list[Session]:
         """Return all sessions for any subject in the given year.
 
@@ -228,20 +229,102 @@ class SessionDAO(BaseDAO[Session]):
             year_id: UUID of the year to filter by.
             includes: Relationships to eager-load on each returned Session.
                 Defaults to no eager loading.
+            weeks: If given, only sessions in these weeks are returned.
 
         Returns:
             List of Session instances, in an unspecified order.
         """
-        return list(
-            self.session.scalars(
-                select(Session)
-                .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
-                .join(Subject, Subject.id == SessionClassSubject.subject_id)
-                .where(Subject.year_id == year_id)
-                .distinct()
-                .options(*self._load_options(includes)),
-            ).all(),
+        stmt = (
+            select(Session)
+            .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
+            .join(Subject, Subject.id == SessionClassSubject.subject_id)
+            .where(Subject.year_id == year_id)
+            .distinct()
+            .options(*self._load_options(includes))
         )
+        if weeks is not None:
+            stmt = stmt.where(Session.week.in_(weeks))
+        return list(self.session.scalars(stmt).all())
+
+    def get_year_week_fingerprints(
+        self,
+        year_id: UUID,
+    ) -> list[tuple[datetime.date, frozenset[object]]]:
+        """Return one timetable fingerprint per week of sessions in the year.
+
+        Two weeks with equal fingerprints have identical timetables (same
+        sessions in terms of weekday/start/duration/type and the same
+        teacher, room, subject and class id sets per session). Lightweight
+        compared to :meth:`get_by_year`: a single SQLite query pulls
+        per-session core columns and ``group_concat``-aggregated id lists,
+        with no ORM hydration of related teacher, room, subject or class
+        objects. Intended as a cheap first pass that lets callers identify
+        block boundaries before eagerly loading only representative weeks.
+
+        Returns:
+            ``(week, fingerprint)`` pairs sorted by week.
+        """
+        year_session_ids = (
+            select(Session.id)
+            .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
+            .join(Subject, Subject.id == SessionClassSubject.subject_id)
+            .where(Subject.year_id == year_id)
+        )
+
+        teacher_ids_expr = (
+            select(func.group_concat(session_teachers.c.teacher_id))
+            .where(session_teachers.c.session_id == Session.id)
+            .correlate(Session)
+            .scalar_subquery()
+        )
+        room_ids_expr = (
+            select(func.group_concat(session_rooms.c.room_id))
+            .where(session_rooms.c.session_id == Session.id)
+            .correlate(Session)
+            .scalar_subquery()
+        )
+        subject_ids_expr = (
+            select(func.group_concat(SessionClassSubject.subject_id.distinct()))
+            .where(SessionClassSubject.session_id == Session.id)
+            .correlate(Session)
+            .scalar_subquery()
+        )
+        class_ids_expr = (
+            select(func.group_concat(SessionClassSubject.class_id.distinct()))
+            .where(SessionClassSubject.session_id == Session.id)
+            .correlate(Session)
+            .scalar_subquery()
+        )
+
+        rows = self.session.execute(
+            select(
+                Session.week,
+                Session.weekday,
+                Session.start_time,
+                Session.duration,
+                Session.type,
+                teacher_ids_expr.label("teacher_ids"),
+                room_ids_expr.label("room_ids"),
+                subject_ids_expr.label("subject_ids"),
+                class_ids_expr.label("class_ids"),
+            ).where(Session.id.in_(year_session_ids)),
+        ).all()
+
+        by_week: dict[datetime.date, list[tuple[object, ...]]] = {}
+        for r in rows:
+            sig = (
+                r.weekday,
+                r.start_time,
+                r.duration,
+                r.type,
+                tuple(sorted(r.teacher_ids.split(","))) if r.teacher_ids else (),
+                tuple(sorted(r.room_ids.split(","))) if r.room_ids else (),
+                tuple(sorted(r.subject_ids.split(","))) if r.subject_ids else (),
+                tuple(sorted(r.class_ids.split(","))) if r.class_ids else (),
+            )
+            by_week.setdefault(r.week, []).append(sig)
+
+        return [(week, frozenset(by_week[week])) for week in sorted(by_week)]
 
     def get_by_subject_type(
         self,

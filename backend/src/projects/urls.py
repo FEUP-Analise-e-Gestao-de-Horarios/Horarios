@@ -4,6 +4,7 @@ from src.projects.views.classes import ProjectClassesView, ProjectClassView
 from src.projects.views.degrees import ProjectDegreesView, ProjectDegreeView
 from src.projects.views.project import ProjectsView, ProjectView
 from src.projects.views.rooms import ProjectRoomsView, ProjectRoomView
+from src.projects.views.sessions import ProjectSessionsView
 from src.projects.views.stats import ProjectStatsView
 from src.projects.views.subjects import ProjectSubjectsView, ProjectSubjectView
 from src.projects.views.teachers import ProjectTeachersView, ProjectTeacherView
@@ -41,6 +42,10 @@ class_patterns = [
     path("<uuid:class_id>", ProjectClassView.as_view()),
 ]
 
+session_patterns = [
+    path("", ProjectSessionsView.as_view()),
+]
+
 project_patterns = [
     path("", ProjectView.as_view()),
     path("/stats", ProjectStatsView.as_view()),
@@ -50,6 +55,7 @@ project_patterns = [
     path("/years/", include(year_patterns)),
     path("/subjects/", include(subject_patterns)),
     path("/classes/", include(class_patterns)),
+    path("/sessions/", include(session_patterns)),
 ]
 
 urlpatterns = [
