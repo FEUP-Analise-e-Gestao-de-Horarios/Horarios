@@ -5,12 +5,12 @@ from collections.abc import Iterable
 from typing import TYPE_CHECKING, Self
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
+from src.projects.projects_db.schemas.weekday import WeekDay
 from src.projects.views.schemas.shared import (
     ClassBase,
     RoomBase,
-    SessionBase,
     SubjectBase,
     TeacherBase,
 )
@@ -101,8 +101,20 @@ class WeekBlockResponse(BaseModel):
 
 
 # -- Session -----------------------------------------------------------
-class SessionResponse(SessionBase):
+class SessionResponse(BaseModel):
     """A session enriched with its full teacher, subject, class and room lists."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    original_block_id: UUID
+
+    week: datetime.date
+    weekday: WeekDay
+    start_time: int
+    duration: int
+
+    type: str
 
     rooms: list[RoomBase]
     teachers: list[TeacherBase]

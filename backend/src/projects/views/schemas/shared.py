@@ -4,7 +4,6 @@ Each ``*Base`` model mirrors the attributes of the corresponding DB table and
 is meant to be inherited (or embedded) by the per-endpoint response schemas.
 """
 
-import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -80,20 +79,6 @@ class ClassBase(BaseModel):
 
     code: str
     shift: int
-
-
-class SessionBase(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: UUID
-    original_block_id: UUID
-
-    week: datetime.date
-    weekday: WeekDay
-    start_time: int
-    duration: int
-
-    type: str
 
 
 class SubjectWithSessions(SubjectBase):
