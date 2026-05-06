@@ -25,7 +25,7 @@ class ProjectTeachersView(View):
     def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
         with get_project_session(general_db(project_id)) as db_session:
             stats = TeacherDAO(db_session).get_all_with_stats()
-            result = [TeacherStatsResponse.model_validate(s, from_attributes=True) for s in stats]
+            result = [TeacherStatsResponse.model_validate(s) for s in stats]
 
             return JsonResponse(
                 SuccessResponse(
