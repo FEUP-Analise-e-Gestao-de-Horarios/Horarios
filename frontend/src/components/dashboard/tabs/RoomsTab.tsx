@@ -1,10 +1,10 @@
 import { useRef } from "react";
-import { Link } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useProjectRooms } from "@/api/hooks/useDashboard";
 import { ROUTES } from "@/routes";
 import { buildPath } from "@/utils/routes";
 import { matchesSequence } from "@/utils/search";
+import RowLinkCell from "./RowLinkCell";
 import TableSkeleton from "./TableSkeleton";
 
 interface RoomsTabProps {
@@ -93,24 +93,30 @@ export default function RoomsTab({ projectId, search, pollInterval, processing }
               {virtualItems.map((virtualRow) => {
                 const room = filtered[virtualRow.index];
                 if (!room) return null;
+                const to = buildPath(ROUTES.ROOM_DETAIL, { projectId, roomId: room.id });
                 return (
                   <tr
                     key={room.id}
                     className="border-b border-[#e5e4e7] last:border-0 hover:bg-[#f9f7f4] transition-colors"
                   >
-                    <td className="p-0">
-                      <Link
-                        to={buildPath(ROUTES.ROOM_DETAIL, { projectId, roomId: room.id })}
-                        className="block py-3 px-4 font-medium text-[#08060d]"
-                      >
-                        {room.name}
-                      </Link>
-                    </td>
-                    <td className="py-3 px-4 text-[#6b6375]">{room.type}</td>
-                    <td className="py-3 px-4 text-[#6b6375]">{room.size}</td>
-                    <td className="py-3 px-4 text-right text-[#6b6375]">{room.seats}</td>
-                    <td className="py-3 px-4 text-right text-[#6b6375]">{room.sessions}</td>
-                    <td className="py-3 px-4 text-right text-[#6b6375]">{room.red_blocks}</td>
+                    <RowLinkCell to={to} primary className="font-medium text-[#08060d]">
+                      {room.name}
+                    </RowLinkCell>
+                    <RowLinkCell to={to} className="text-[#6b6375]">
+                      {room.type}
+                    </RowLinkCell>
+                    <RowLinkCell to={to} className="text-[#6b6375]">
+                      {room.size}
+                    </RowLinkCell>
+                    <RowLinkCell to={to} className="text-right text-[#6b6375]">
+                      {room.seats}
+                    </RowLinkCell>
+                    <RowLinkCell to={to} className="text-right text-[#6b6375]">
+                      {room.sessions}
+                    </RowLinkCell>
+                    <RowLinkCell to={to} className="text-right text-[#6b6375]">
+                      {room.red_blocks}
+                    </RowLinkCell>
                   </tr>
                 );
               })}

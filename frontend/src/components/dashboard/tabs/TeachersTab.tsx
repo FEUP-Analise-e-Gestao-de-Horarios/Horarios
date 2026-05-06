@@ -1,10 +1,10 @@
 import { useRef } from "react";
-import { Link } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useProjectTeachers } from "@/api/hooks/useDashboard";
 import { ROUTES } from "@/routes";
 import { buildPath } from "@/utils/routes";
 import { matchesSequence } from "@/utils/search";
+import RowLinkCell from "./RowLinkCell";
 import TableSkeleton from "./TableSkeleton";
 
 interface TeachersTabProps {
@@ -104,27 +104,30 @@ export default function TeachersTab({
               {virtualItems.map((virtualRow) => {
                 const teacher = filtered[virtualRow.index];
                 if (!teacher) return null;
+                const to = buildPath(ROUTES.TEACHER_DETAIL, { projectId, teacherId: teacher.id });
                 return (
                   <tr
                     key={teacher.id}
                     className="border-b border-[#e5e4e7] last:border-0 hover:bg-[#f9f7f4] transition-colors"
                   >
-                    <td className="py-3 px-4 text-[#6b6375]">{teacher.number}</td>
-                    <td className="py-3 px-4 font-medium text-[#08060d]">{teacher.acronym}</td>
-                    <td className="p-0">
-                      <Link
-                        to={buildPath(ROUTES.TEACHER_DETAIL, {
-                          projectId,
-                          teacherId: teacher.id,
-                        })}
-                        className="block py-3 px-4 text-[#08060d]"
-                      >
-                        {teacher.name}
-                      </Link>
-                    </td>
-                    <td className="py-3 px-4 text-right text-[#6b6375]">{teacher.subjects}</td>
-                    <td className="py-3 px-4 text-right text-[#6b6375]">{teacher.classes}</td>
-                    <td className="py-3 px-4 text-right text-[#6b6375]">{teacher.sessions}</td>
+                    <RowLinkCell to={to} className="text-[#6b6375]">
+                      {teacher.number}
+                    </RowLinkCell>
+                    <RowLinkCell to={to} className="font-medium text-[#08060d]">
+                      {teacher.acronym}
+                    </RowLinkCell>
+                    <RowLinkCell to={to} primary className="text-[#08060d]">
+                      {teacher.name}
+                    </RowLinkCell>
+                    <RowLinkCell to={to} className="text-right text-[#6b6375]">
+                      {teacher.subjects}
+                    </RowLinkCell>
+                    <RowLinkCell to={to} className="text-right text-[#6b6375]">
+                      {teacher.classes}
+                    </RowLinkCell>
+                    <RowLinkCell to={to} className="text-right text-[#6b6375]">
+                      {teacher.sessions}
+                    </RowLinkCell>
                   </tr>
                 );
               })}
