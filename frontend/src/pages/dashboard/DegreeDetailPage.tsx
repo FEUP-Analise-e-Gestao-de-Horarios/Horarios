@@ -1,5 +1,8 @@
+import { useQueries } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
+import { api } from "@/api/client";
 import { useProject, useProjectDegree } from "@/api/hooks/useDashboard";
+import { queryKeys } from "@/api/queryKeys";
 import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
 import { ROUTES } from "@/routes";
 import type { ClassWithSessions, SubjectWithSessions, YearDetail } from "@/types/dashboard";
@@ -11,16 +14,32 @@ export default function DegreeDetailPage() {
   const did = degreeId ?? "";
 
   const project = useProject(pid);
-  const { data, isLoading, isError } = useProjectDegree(pid, did);
+  const degree = useProjectDegree(pid, did);
 
-  const years = data?.years ?? [];
+  const yearStats = degree.data?.years ?? [];
+
+  const yearQueries = useQueries({
+    queries: yearStats.map((y) => ({
+      queryKey: queryKeys.projects.year(pid, y.id),
+      queryFn: () => api.getData<YearDetail>(`/api/projects/${pid}/years/${y.id}`),
+      enabled: !!pid && !!y.id,
+    })),
+  });
+
+  const yearsLoading = yearQueries.some((q) => q.isLoading);
+  const yearsError = yearQueries.some((q) => q.isError);
+  const years = yearQueries.map((q) => q.data).filter((d): d is YearDetail => !!d);
+
+  const isLoading = degree.isLoading || (yearStats.length > 0 && yearsLoading);
+  const isError = degree.isError || yearsError;
+
   const subjectsCount = years.reduce((sum, y) => sum + y.subjects.length, 0);
   const classesCount = years.reduce((sum, y) => sum + y.classes.length, 0);
 
   const title = isError
     ? "Erro · AGH"
-    : data && project.data
-      ? `${data.acronym} · ${project.data.name} · AGH`
+    : degree.data && project.data
+      ? `${degree.data.acronym} · ${project.data.name} · AGH`
       : "A carregar… · AGH";
 
   return (
@@ -32,7 +51,7 @@ export default function DegreeDetailPage() {
         <div className="max-w-7xl mx-auto px-6 pt-6 pb-6 flex flex-col gap-5">
           {isLoading ? (
             <div className="bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)] p-6 h-32 animate-pulse" />
-          ) : isError || !data ? (
+          ) : isError || !degree.data ? (
             <div className="bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)] p-6 text-sm text-red-600">
               Erro ao carregar curso.
             </div>
@@ -40,8 +59,8 @@ export default function DegreeDetailPage() {
             <>
               <div className="bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)] px-6 py-4 flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <h1 className="text-2xl font-bold text-[#08060d]">{data.name}</h1>
-                  <div className="mt-1 text-sm text-[#6b6375]">{data.acronym}</div>
+                  <h1 className="text-2xl font-bold text-[#08060d]">{degree.data.name}</h1>
+                  <div className="mt-1 text-sm text-[#6b6375]">{degree.data.acronym}</div>
                 </div>
                 <div className="shrink-0 text-right text-sm text-[#6b6375]">
                   <div>

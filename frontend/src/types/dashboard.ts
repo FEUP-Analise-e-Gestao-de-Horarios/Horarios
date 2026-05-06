@@ -145,8 +145,14 @@ export interface YearDetail extends YearBase {
   classes: ClassWithSessions[];
 }
 
+export interface DegreeYearStats extends YearBase {
+  subjects: number;
+  classes: number;
+  sessions: number;
+}
+
 export interface DegreeDetail extends DegreeBase {
-  years: YearDetail[];
+  years: DegreeYearStats[];
 }
 
 export interface SubjectDetail extends SubjectBase {
