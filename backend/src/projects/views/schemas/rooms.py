@@ -1,14 +1,18 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 
 from src.core.mixins import ValidateWithExtrasMixin
-from src.projects.views.schemas.sessions import WeekBlockResponse
 from src.projects.views.schemas.shared import RedBlockBase, RoomBase
+from src.projects.views.schemas.week_blocks import WeekBlock
 
 
 # -- Rooms list --------------------------------------------------------
 class RoomsResponse(BaseModel):
     rooms: list[RoomStatsResponse]
-    count: int
+
+    @computed_field
+    @property
+    def count(self) -> int:
+        return len(self.rooms)
 
 
 class RoomStatsResponse(RoomBase):
@@ -18,5 +22,5 @@ class RoomStatsResponse(RoomBase):
 
 # -- Room detail -------------------------------------------------------
 class RoomDetailResponse(ValidateWithExtrasMixin, RoomBase):
-    blocks: list[WeekBlockResponse]
+    blocks: list[WeekBlock]
     red_blocks: list[RedBlockBase]

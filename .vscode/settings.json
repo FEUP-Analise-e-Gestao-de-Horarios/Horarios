@@ -26,6 +26,7 @@
     "Feup",
     "ingestors",
     "isort",
+    "joinedload",
     "lastrowid",
     "livereload",
     "matplotlib",
