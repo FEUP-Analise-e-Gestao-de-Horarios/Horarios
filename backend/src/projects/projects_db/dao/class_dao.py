@@ -95,12 +95,16 @@ class ClassDAO(BaseDAO[Class]):
         return self._get_with_stats(year_id=year_id)
 
     def _get_with_stats(self, *, year_id: UUID | None = None) -> list[ClassStats]:
-        sessions_sq = (
-            select(SessionClassSubject.class_id, func.count(Session.id).label("cnt"))
-            .join(Session, Session.id == SessionClassSubject.session_id)
-            .group_by(SessionClassSubject.class_id)
-            .subquery()
+        sessions_sq_q = select(
+            SessionClassSubject.class_id,
+            func.count(SessionClassSubject.session_id).label("cnt"),
         )
+        if year_id is not None:
+            sessions_sq_q = sessions_sq_q.join(
+                Class,
+                Class.id == SessionClassSubject.class_id,
+            ).where(Class.year_id == year_id)
+        sessions_sq = sessions_sq_q.group_by(SessionClassSubject.class_id).subquery()
 
         stmt = (
             select(
