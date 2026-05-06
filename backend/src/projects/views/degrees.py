@@ -4,13 +4,9 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views import View
 from sqlalchemy import select
 
-from src.core.errors import (
-    DegreeNotFoundResponse,
-    NotAuthenticatedResponse,
-    ProjectNotFoundResponse,
-)
+from src.core.decorators import require_auth, require_project
+from src.core.errors import DegreeNotFoundResponse
 from src.core.schemas import SuccessResponse
-from src.projects.models import Project
 from src.projects.projects_db.dao import ClassDAO, DegreeDAO, SubjectDAO
 from src.projects.projects_db.models import Year
 from src.projects.projects_db.paths import general_db
@@ -26,16 +22,9 @@ from src.projects.views.schemas.degrees import (
 class ProjectDegreesView(View):
     """API endpoint: list all degrees with stats for a project."""
 
+    @require_auth
+    @require_project
     def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
-        # -- Check user auth ---------------------------------------------------
-        if not request.user.is_authenticated:
-            return NotAuthenticatedResponse()
-
-        # -- Check project exists ----------------------------------------------
-        if not Project.objects.filter(pk=project_id).exists():
-            return ProjectNotFoundResponse()
-
-        # -- Query degrees with stats from project DB --------------------------
         with get_project_session(general_db(project_id)) as db_session:
             stats = DegreeDAO(db_session).get_all_with_stats()
             result = [DegreeStatsResponse.model_validate(s, from_attributes=True) for s in stats]
@@ -51,16 +40,9 @@ class ProjectDegreesView(View):
 class ProjectDegreeView(View):
     """API endpoint: retrieve a single degree with stats."""
 
+    @require_auth
+    @require_project
     def get(self, request: HttpRequest, project_id: int, degree_id: UUID) -> HttpResponse:
-        # -- Check user auth ---------------------------------------------------
-        if not request.user.is_authenticated:
-            return NotAuthenticatedResponse()
-
-        # -- Check project exists ----------------------------------------------
-        if not Project.objects.filter(pk=project_id).exists():
-            return ProjectNotFoundResponse()
-
-        # -- Fetch degree with nested year / subject / class detail ------------
         with get_project_session(general_db(project_id)) as db_session:
             degree = DegreeDAO(db_session).get(degree_id)
             if degree is None:
