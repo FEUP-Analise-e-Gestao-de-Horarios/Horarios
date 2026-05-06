@@ -3,7 +3,7 @@ from collections.abc import Iterable, Sequence
 from enum import Enum, auto
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session as DBSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.interfaces import LoaderOption
@@ -139,6 +139,7 @@ class SessionDAO(BaseDAO[Session]):
         self,
         room_id: UUID,
         includes: Iterable[Include] = (),
+        weeks: Sequence[datetime.date] | None = None,
     ) -> list[Session]:
         """Return all sessions that take place in the given room.
 
@@ -146,18 +147,20 @@ class SessionDAO(BaseDAO[Session]):
             room_id: UUID of the room to filter by.
             includes: Relationships to eager-load on each returned Session.
                 Defaults to no eager loading.
+            weeks: If given, only sessions in these weeks are returned.
 
         Returns:
             List of Session instances, in an unspecified order.
         """
-        return list(
-            self.session.scalars(
-                select(Session)
-                .join(session_rooms, session_rooms.c.session_id == Session.id)
-                .where(session_rooms.c.room_id == room_id)
-                .options(*self._load_options(includes)),
-            ).all(),
+        stmt = (
+            select(Session)
+            .join(session_rooms, session_rooms.c.session_id == Session.id)
+            .where(session_rooms.c.room_id == room_id)
+            .options(*self._load_options(includes))
         )
+        if weeks is not None:
+            stmt = stmt.where(Session.week.in_(weeks))
+        return list(self.session.scalars(stmt).all())
 
     def get_by_year(
         self,
@@ -243,7 +246,43 @@ class SessionDAO(BaseDAO[Session]):
             year_session_ids = year_session_ids.where(
                 SessionClassSubject.class_id.in_(class_ids),
             )
+        return self._week_fingerprints(year_session_ids, weekdays=weekdays)
 
+    def get_by_room_week_fingerprints(
+        self,
+        room_id: UUID,
+    ) -> list[tuple[datetime.date, frozenset[object]]]:
+        """Return one timetable fingerprint per week of sessions in the room.
+
+        Lightweight counterpart to :meth:`get_by_room` that mirrors
+        :meth:`get_year_week_fingerprints` but filters by room. Used as a
+        cheap first pass to identify week-block boundaries before
+        eagerly loading only representative weeks.
+
+        Returns:
+            ``(week, fingerprint)`` pairs sorted by week.
+        """
+        room_session_ids = select(session_rooms.c.session_id).where(
+            session_rooms.c.room_id == room_id,
+        )
+        return self._week_fingerprints(room_session_ids)
+
+    def _week_fingerprints(
+        self,
+        session_ids: Select,
+        weekdays: Sequence[WeekDay] = (),
+    ) -> list[tuple[datetime.date, frozenset[object]]]:
+        """Compute per-week fingerprints over a Session.id subquery.
+
+        Args:
+            session_ids: A select statement returning the ``Session.id``
+                values to fingerprint.
+            weekdays: If non-empty, restrict fingerprinted sessions to
+                these weekdays.
+
+        Returns:
+            ``(week, fingerprint)`` pairs sorted by week.
+        """
         teacher_ids_expr = (
             select(func.group_concat(session_teachers.c.teacher_id))
             .where(session_teachers.c.session_id == Session.id)
@@ -279,7 +318,7 @@ class SessionDAO(BaseDAO[Session]):
             room_ids_expr.label("room_ids"),
             subject_ids_expr.label("subject_ids"),
             class_ids_expr.label("class_ids"),
-        ).where(Session.id.in_(year_session_ids))
+        ).where(Session.id.in_(session_ids))
         if weekdays:
             stmt = stmt.where(Session.weekday.in_(weekdays))
         rows = self.session.execute(stmt).all()

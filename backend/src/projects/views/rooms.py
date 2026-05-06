@@ -46,12 +46,19 @@ class ProjectRoomView(View):
             if room is None:
                 return RoomNotFoundResponse()
 
-            blocks = WeekBlock.from_sessions(
-                SessionDAO(db_session).get_by_room(
-                    room_id,
-                    includes=list(SessionDAO.Include),
-                ),
+            session_dao = SessionDAO(db_session)
+
+            fingerprints = session_dao.get_by_room_week_fingerprints(room_id)
+            groups = WeekBlock.group_by_fingerprint(fingerprints)
+            representative_weeks = [repr_week for _, repr_week in groups]
+
+            representative_sessions = session_dao.get_by_room(
+                room_id,
+                includes=list(SessionDAO.Include),
+                weeks=representative_weeks,
             )
+
+            blocks = WeekBlock.from_groups(groups, representative_sessions)
 
             return JsonResponse(
                 SuccessResponse(
