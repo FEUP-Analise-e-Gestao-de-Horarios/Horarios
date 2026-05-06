@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import { queryKeys } from "@/api/queryKeys";
+import { queryKeys, type SessionsQueryFilters } from "@/api/queryKeys";
 import type { Project } from "@/types/project";
 import type {
   ClassDetail,
-  ConflictsListPayload,
+  ConflictRecord,
   DegreeDetail,
   DegreesListPayload,
   DegreeStats,
@@ -12,12 +12,12 @@ import type {
   RoomDetail,
   RoomsListPayload,
   RoomStats,
-  SubjectStats,
-  SubjectsListPayload,
+  SessionsResponse,
   SubjectDetail,
   TeacherDetail,
   TeachersListPayload,
   TeacherStats,
+  WeekBlockResponse,
   YearDetail,
 } from "@/types/dashboard";
 
@@ -94,38 +94,38 @@ export function useProjectDegree(projectId: string, degreeId: string) {
   });
 }
 
-export function useProjectYearSubjects(projectId: string, degreeId: string, yearId: string) {
+export function useProjectYear(projectId: string, yearId: string) {
   return useQuery({
-    queryKey: [...queryKeys.projects.degree(projectId, degreeId), "years", yearId, "subjects"],
-    queryFn: async (): Promise<SubjectStats[]> => {
-      const payload = await api.getData<SubjectsListPayload>(
-        `/api/projects/${projectId}/degrees/${degreeId}/years/${yearId}/subjects/`,
-      );
-      return payload.subjects;
-    },
-    enabled: !!projectId && !!degreeId && !!yearId,
+    queryKey: queryKeys.projects.year(projectId, yearId),
+    queryFn: () => api.getData<YearDetail>(`/api/projects/${projectId}/years/${yearId}`),
+    enabled: !!projectId && !!yearId,
   });
 }
 
-export function useProjectYear(projectId: string, degreeId: string, yearId: string) {
+export function useProjectSessions(projectId: string, filters: SessionsQueryFilters) {
   return useQuery({
-    queryKey: queryKeys.projects.year(projectId, degreeId, yearId),
-    queryFn: () =>
-      api.getData<YearDetail>(`/api/projects/${projectId}/degrees/${degreeId}/years/${yearId}`),
-    enabled: !!projectId && !!degreeId && !!yearId,
+    queryKey: queryKeys.projects.sessions(projectId, filters),
+    queryFn: async (): Promise<WeekBlockResponse[]> => {
+      const params = new URLSearchParams();
+      params.set("year_id", filters.yearId);
+      for (const id of filters.subjectIds) params.append("subject_ids", id);
+      for (const id of filters.classIds) params.append("class_ids", id);
+      for (const day of filters.weekdays) params.append("weekdays", day);
+      const payload = await api.getData<SessionsResponse>(
+        `/api/projects/${projectId}/sessions/?${params.toString()}`,
+      );
+      return payload.blocks;
+    },
+    enabled: !!projectId && !!filters.yearId,
   });
 }
 
-export function useProjectYearConflicts(projectId: string, degreeId: string, yearId: string) {
+export function useProjectYearConflicts(projectId: string, yearId: string) {
   return useQuery({
-    queryKey: queryKeys.projects.yearConflicts(projectId, degreeId, yearId),
-    queryFn: async () => {
-      const payload = await api.getData<ConflictsListPayload>(
-        `/api/projects/${projectId}/degrees/${degreeId}/years/${yearId}/conflicts/`,
-      );
-      return payload.conflicts;
-    },
-    enabled: !!projectId && !!degreeId && !!yearId,
+    queryKey: ["projects", projectId, "years", yearId, "conflicts"] as const,
+    queryFn: (): ConflictRecord[] => [],
+    enabled: false,
+    initialData: [] as ConflictRecord[],
   });
 }
 

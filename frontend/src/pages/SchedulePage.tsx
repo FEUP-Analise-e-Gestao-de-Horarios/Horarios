@@ -11,6 +11,7 @@ import {
   useProjectYearConflicts,
   useProjectRooms,
   useProjectTeachers,
+  useProjectSessions,
   useProjectYear,
   useProject,
 } from "@/api/hooks/useDashboard";
@@ -200,21 +201,44 @@ export default function SchedulePage() {
     [selectedDegree, selectedYearNumber],
   );
 
-  const { data: selectedYearDetail } = useProjectYear(
-    projectId ?? "",
-    activeDegree?.id ?? "",
-    selectedYear?.id ?? "",
-  );
-  const selectedYearWeeks = selectedYearDetail?.blocks;
-  const yearConflictsQuery = useProjectYearConflicts(
-    projectId ?? "",
-    activeDegree?.id ?? "",
-    selectedYear?.id ?? "",
-  );
+  const { data: selectedYearDetail } = useProjectYear(projectId ?? "", selectedYear?.id ?? "");
+  const yearConflictsQuery = useProjectYearConflicts(projectId ?? "", selectedYear?.id ?? "");
   const yearConflicts = yearConflictsQuery.data ?? [];
 
-  const selectedYearSubjects = useMemo(() => selectedYear?.subjects ?? [], [selectedYear]);
-  const selectedYearClasses = useMemo(() => selectedYear?.classes ?? [], [selectedYear]);
+  const selectedYearSubjects = useMemo(
+    () => selectedYearDetail?.subjects ?? [],
+    [selectedYearDetail],
+  );
+  const selectedYearClasses = useMemo(
+    () => selectedYearDetail?.classes ?? [],
+    [selectedYearDetail],
+  );
+
+  const subjectIdsFilter = useMemo(() => {
+    if (ucs.length === 0) return [];
+    const names = new Set(ucs);
+    return selectedYearSubjects
+      .filter((subject) => names.has(subject.name))
+      .map((subject) => subject.id);
+  }, [selectedYearSubjects, ucs]);
+
+  const classIdsFilter = useMemo(() => {
+    if (turmas.length === 0) return [];
+    const codes = new Set(turmas);
+    return selectedYearClasses
+      .filter((classItem) => codes.has(classItem.code))
+      .map((classItem) => classItem.id);
+  }, [selectedYearClasses, turmas]);
+
+  const weekdayFilter = useMemo(() => (dias.length === 6 ? [] : dias), [dias]);
+
+  const sessionsQuery = useProjectSessions(projectId ?? "", {
+    yearId: selectedYear?.id ?? "",
+    subjectIds: subjectIdsFilter,
+    classIds: classIdsFilter,
+    weekdays: weekdayFilter,
+  });
+  const selectedYearWeeks = sessionsQuery.data;
 
   const ucOptions = useMemo(
     () =>
@@ -455,7 +479,7 @@ export default function SchedulePage() {
       selectedDegree?.years.map((year) => ({
         value: String(year.number),
         label: `${year.number}º Ano`,
-        secondaryText: `${year.subjects.length} UCs · ${year.classes.length} turmas`,
+        secondaryText: `${year.subjects} UCs · ${year.classes} turmas`,
       })) ?? [],
     [selectedDegree],
   );
@@ -512,16 +536,11 @@ export default function SchedulePage() {
           setIsEditDrawerOpen(false);
           setEditingEvent(null);
         }}
-        projectId={projectId}
         conflicts={yearConflicts}
         ucOptions={ucOptions}
         turmaOptions={turmaOptions.map((option) => option.value)}
         teacherOptions={teacherOptions}
         roomOptions={roomOptions}
-        subjectOptions={selectedYearSubjects.map((subject) => ({
-          id: subject.id,
-          name: subject.name,
-        }))}
         preferredUc={effectiveUcs[0]}
         event={editingEvent}
       />

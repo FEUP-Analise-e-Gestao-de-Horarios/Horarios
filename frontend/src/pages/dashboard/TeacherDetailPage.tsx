@@ -3,8 +3,8 @@ import { useParams } from "react-router-dom";
 import { useProject, useProjectTeacher } from "@/api/hooks/useDashboard";
 import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
 import SessionPopup from "@/components/dashboard/SessionPopup";
-import WeekGrid, { type WeekGridEvent } from "@/components/schedule/WeekGrid";
-import type { SessionResponse, WeekBlockResponse } from "@/types/dashboard";
+import WeekGrid, { type WeekGridEvent, type WeekGridMark } from "@/components/schedule/WeekGrid";
+import type { RedBlockBase, SessionResponse, WeekBlockResponse } from "@/types/dashboard";
 import { formatBlockLabel } from "@/utils/date";
 
 export default function TeacherDetailPage() {
@@ -40,6 +40,13 @@ export default function TeacherDetailPage() {
       (line) => line.length > 0,
     ),
     type: s.type,
+  }));
+
+  const redBlocks: RedBlockBase[] = data?.red_blocks ?? [];
+  const marks: WeekGridMark[] = redBlocks.map((rb) => ({
+    id: rb.id,
+    weekday: rb.weekday,
+    time: rb.hour,
   }));
 
   const handleEventClick = (ev: WeekGridEvent) => {
@@ -86,6 +93,10 @@ export default function TeacherDetailPage() {
                   <div>
                     <span className="font-semibold text-[#08060d]">{totalSessions}</span> aulas
                   </div>
+                  <div>
+                    <span className="font-semibold text-[#08060d]">{data.red_blocks.length}</span>{" "}
+                    blocos vermelhos
+                  </div>
                 </div>
               </div>
 
@@ -119,8 +130,9 @@ export default function TeacherDetailPage() {
               <div className="flex-1 min-h-0">
                 <WeekGrid
                   events={events}
+                  marks={marks}
                   onEventClick={handleEventClick}
-                  emptyMessage="Sem aulas para este docente."
+                  emptyMessage="Sem aulas nem blocos vermelhos para este docente."
                 />
               </div>
             </>

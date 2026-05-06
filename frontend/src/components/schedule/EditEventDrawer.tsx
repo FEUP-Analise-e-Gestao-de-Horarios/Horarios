@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useProjectSubject } from "@/api/hooks/useDashboard";
 import type { ConflictRecord } from "@/types/dashboard";
 import type { WeekGridEvent } from "@/components/schedule/WeekGrid";
 
@@ -47,13 +46,7 @@ type RoomOption = {
   type: string;
 };
 
-interface SubjectOption {
-  id: string;
-  name: string;
-}
-
 interface EditEventDrawerProps {
-  projectId: string;
   open: boolean;
   onClose: () => void;
   conflicts: ConflictRecord[];
@@ -61,7 +54,6 @@ interface EditEventDrawerProps {
   turmaOptions: string[];
   teacherOptions: TeacherOption[];
   roomOptions: RoomOption[];
-  subjectOptions: SubjectOption[];
   preferredUc?: string;
   event?: WeekGridEvent | null;
 }
@@ -154,7 +146,6 @@ function getInitialFormState(event?: WeekGridEvent | null) {
 }
 
 export default function EditEventDrawer({
-  projectId,
   open,
   onClose,
   conflicts,
@@ -162,7 +153,6 @@ export default function EditEventDrawer({
   turmaOptions,
   teacherOptions,
   roomOptions,
-  subjectOptions,
   preferredUc,
   event,
 }: EditEventDrawerProps) {
@@ -246,19 +236,8 @@ export default function EditEventDrawer({
     return ucOptions[0] ?? "";
   }, [preferredUc, selectedUcOverride, ucOptions]);
 
-  const selectedSubjectId = useMemo(
-    () => subjectOptions.find((subject) => subject.name === selectedUc)?.id ?? "",
-    [selectedUc, subjectOptions],
-  );
-
-  const { data: selectedSubject } = useProjectSubject(projectId, selectedSubjectId);
-
-  const subjectTeacherOptions = useMemo(() => selectedSubject?.teachers ?? [], [selectedSubject]);
-
-  const subjectTeacherIds = useMemo(
-    () => new Set(subjectTeacherOptions.map((teacher) => teacher.id)),
-    [subjectTeacherOptions],
-  );
+  const subjectTeacherOptions = useMemo<{ id: string }[]>(() => [], []);
+  const subjectTeacherIds = useMemo(() => new Set<string>(), []);
 
   const preferredRoomTypes = useMemo(() => {
     if (!event?.roomIds || event.roomIds.length === 0) return new Set<string>();

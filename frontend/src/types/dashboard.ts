@@ -101,6 +101,10 @@ export interface WeekBlockResponse {
   sessions: SessionResponse[];
 }
 
+export interface SessionsResponse {
+  blocks: WeekBlockResponse[];
+}
+
 export interface ConflictRecord {
   id: string;
   event_ids: string[];
@@ -126,6 +130,7 @@ export interface TeacherStats extends TeacherBase {
   subjects: number;
   classes: number;
   sessions: number;
+  red_blocks: number;
 }
 
 export interface RoomStats extends RoomBase {
@@ -150,6 +155,7 @@ export interface TeacherDetail extends TeacherBase {
   subjects: SubjectBase[];
   classes: ClassBase[];
   blocks: WeekBlockResponse[];
+  red_blocks: RedBlockBase[];
 }
 
 export interface RoomDetail extends RoomBase {
@@ -157,29 +163,28 @@ export interface RoomDetail extends RoomBase {
   red_blocks: RedBlockBase[];
 }
 
-export interface DegreeYearDetail extends YearBase {
+export interface YearDetail extends YearBase {
   subjects: SubjectWithSessions[];
   classes: ClassWithSessions[];
 }
 
-export interface YearDetail extends YearBase {
-  blocks: WeekBlockResponse[];
+export interface DegreeYearStats extends YearBase {
+  subjects: number;
+  classes: number;
+  sessions: number;
 }
 
 export interface DegreeDetail extends DegreeBase {
-  years: DegreeYearDetail[];
+  years: DegreeYearStats[];
 }
 
 export interface SubjectDetail extends SubjectBase {
   year: YearBase;
-  degree: DegreeBase;
-  teachers: TeacherBase[];
   blocks: WeekBlockResponse[];
 }
 
 export interface ClassDetail extends ClassBase {
   year: YearBase;
-  degree: DegreeBase;
   blocks: WeekBlockResponse[];
 }
 

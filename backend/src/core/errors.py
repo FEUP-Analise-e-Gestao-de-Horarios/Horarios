@@ -72,25 +72,25 @@ def DegreeNotFoundResponse() -> JsonResponse:
     )
 
 
-def YearNotFoundResponse() -> JsonResponse:
+def YearNotFoundResponse(message: str = "Year not found.") -> JsonResponse:
     return ErrorResponse(
         status=404,
         code=ApiError.PROJECTS_YEARS_NOT_FOUND,
-        message="Year not found.",
+        message=message,
     )
 
 
-def SubjectNotFoundResponse() -> JsonResponse:
+def SubjectNotFoundResponse(message: str = "Subject not found.") -> JsonResponse:
     return ErrorResponse(
         status=404,
         code=ApiError.PROJECTS_SUBJECTS_NOT_FOUND,
-        message="Subject not found.",
+        message=message,
     )
 
 
-def ClassNotFoundResponse() -> JsonResponse:
+def ClassNotFoundResponse(message: str = "Class not found.") -> JsonResponse:
     return ErrorResponse(
         status=404,
         code=ApiError.PROJECTS_CLASSES_NOT_FOUND,
-        message="Class not found.",
+        message=message,
     )

@@ -1,6 +1,5 @@
 from uuid import UUID
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
@@ -30,22 +29,3 @@ class TeacherRedBlockDAO(BaseDAO[TeacherRedBlock]):
             The newly created TeacherRedBlock instance, flushed to the session.
         """
         return self._create(teacher_id=teacher_id, hour=hour, weekday=weekday)
-
-    # -------------------------------------------------------------------
-    # -- Get
-    # -------------------------------------------------------------------
-
-    def get_by_teacher(self, teacher_id: UUID) -> list[TeacherRedBlock]:
-        """Return all red blocks for the given teacher.
-
-        Args:
-            teacher_id: UUID of the teacher to filter by.
-
-        Returns:
-            List of TeacherRedBlock instances for the teacher.
-        """
-        return list(
-            self.session.scalars(
-                select(TeacherRedBlock).where(TeacherRedBlock.teacher_id == teacher_id),
-            ).all(),
-        )
