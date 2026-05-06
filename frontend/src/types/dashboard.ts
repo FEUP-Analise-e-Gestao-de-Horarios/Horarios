@@ -157,13 +157,11 @@ export interface DegreeDetail extends DegreeBase {
 
 export interface SubjectDetail extends SubjectBase {
   year: YearBase;
-  degree: DegreeBase;
   blocks: WeekBlockResponse[];
 }
 
 export interface ClassDetail extends ClassBase {
   year: YearBase;
-  degree: DegreeBase;
   blocks: WeekBlockResponse[];
 }
 
