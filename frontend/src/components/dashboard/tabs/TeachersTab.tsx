@@ -100,33 +100,38 @@ export default function TeachersTab({
             const teacher = filtered[virtualRow.index];
             if (!teacher) return null;
             return (
-              <Link
+              <div
                 key={teacher.id}
                 role="row"
-                to={buildPath(ROUTES.TEACHER_DETAIL, { projectId, teacherId: teacher.id })}
-                draggable={false}
-                className="grid items-center border-b border-[#e5e4e7] last:border-0 hover:bg-[#f9f7f4] transition-colors text-inherit no-underline [-webkit-user-drag:none]"
+                className="grid items-center border-b border-[#e5e4e7] last:border-0 hover:bg-[#f9f7f4] transition-colors has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-[#8c2d19] has-[a:focus-visible]:[outline-offset:-2px]"
                 style={{ gridTemplateColumns: GRID_COLS }}
               >
-                <div role="cell" className="py-3 px-4 text-[#6b6375]">
-                  {teacher.number}
-                </div>
-                <div role="cell" className="py-3 px-4 font-medium text-[#08060d]">
-                  {teacher.acronym}
-                </div>
-                <div role="cell" className="py-3 px-4 text-[#08060d]">
-                  {teacher.name}
-                </div>
-                <div role="cell" className="py-3 px-4 text-right text-[#6b6375]">
-                  {teacher.subjects}
-                </div>
-                <div role="cell" className="py-3 px-4 text-right text-[#6b6375]">
-                  {teacher.classes}
-                </div>
-                <div role="cell" className="py-3 px-4 text-right text-[#6b6375]">
-                  {teacher.sessions}
-                </div>
-              </Link>
+                <Link
+                  to={buildPath(ROUTES.TEACHER_DETAIL, { projectId, teacherId: teacher.id })}
+                  draggable={false}
+                  aria-label={teacher.name}
+                  className="contents text-inherit no-underline [-webkit-user-drag:none]"
+                >
+                  <div role="cell" className="py-3 px-4 text-[#6b6375]">
+                    {teacher.number}
+                  </div>
+                  <div role="cell" className="py-3 px-4 font-medium text-[#08060d]">
+                    {teacher.acronym}
+                  </div>
+                  <div role="cell" className="py-3 px-4 text-[#08060d]">
+                    {teacher.name}
+                  </div>
+                  <div role="cell" className="py-3 px-4 text-right text-[#6b6375]">
+                    {teacher.subjects}
+                  </div>
+                  <div role="cell" className="py-3 px-4 text-right text-[#6b6375]">
+                    {teacher.classes}
+                  </div>
+                  <div role="cell" className="py-3 px-4 text-right text-[#6b6375]">
+                    {teacher.sessions}
+                  </div>
+                </Link>
+              </div>
             );
           })}
           {paddingBottom > 0 && <div style={{ height: paddingBottom }} />}

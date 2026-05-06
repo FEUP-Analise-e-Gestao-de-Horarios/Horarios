@@ -90,33 +90,38 @@ export default function RoomsTab({ projectId, search, pollInterval, processing }
             const room = filtered[virtualRow.index];
             if (!room) return null;
             return (
-              <Link
+              <div
                 key={room.id}
                 role="row"
-                to={buildPath(ROUTES.ROOM_DETAIL, { projectId, roomId: room.id })}
-                draggable={false}
-                className="grid items-center border-b border-[#e5e4e7] last:border-0 hover:bg-[#f9f7f4] transition-colors text-inherit no-underline [-webkit-user-drag:none]"
+                className="grid items-center border-b border-[#e5e4e7] last:border-0 hover:bg-[#f9f7f4] transition-colors has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-[#8c2d19] has-[a:focus-visible]:[outline-offset:-2px]"
                 style={{ gridTemplateColumns: GRID_COLS }}
               >
-                <div role="cell" className="py-3 px-4 font-medium text-[#08060d]">
-                  {room.name}
-                </div>
-                <div role="cell" className="py-3 px-4 text-[#6b6375]">
-                  {room.type}
-                </div>
-                <div role="cell" className="py-3 px-4 text-[#6b6375]">
-                  {room.size}
-                </div>
-                <div role="cell" className="py-3 px-4 text-right text-[#6b6375]">
-                  {room.seats}
-                </div>
-                <div role="cell" className="py-3 px-4 text-right text-[#6b6375]">
-                  {room.sessions}
-                </div>
-                <div role="cell" className="py-3 px-4 text-right text-[#6b6375]">
-                  {room.red_blocks}
-                </div>
-              </Link>
+                <Link
+                  to={buildPath(ROUTES.ROOM_DETAIL, { projectId, roomId: room.id })}
+                  draggable={false}
+                  aria-label={room.name}
+                  className="contents text-inherit no-underline [-webkit-user-drag:none]"
+                >
+                  <div role="cell" className="py-3 px-4 font-medium text-[#08060d]">
+                    {room.name}
+                  </div>
+                  <div role="cell" className="py-3 px-4 text-[#6b6375]">
+                    {room.type}
+                  </div>
+                  <div role="cell" className="py-3 px-4 text-[#6b6375]">
+                    {room.size}
+                  </div>
+                  <div role="cell" className="py-3 px-4 text-right text-[#6b6375]">
+                    {room.seats}
+                  </div>
+                  <div role="cell" className="py-3 px-4 text-right text-[#6b6375]">
+                    {room.sessions}
+                  </div>
+                  <div role="cell" className="py-3 px-4 text-right text-[#6b6375]">
+                    {room.red_blocks}
+                  </div>
+                </Link>
+              </div>
             );
           })}
           {paddingBottom > 0 && <div style={{ height: paddingBottom }} />}
