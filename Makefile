@@ -40,10 +40,10 @@ clean-db:
 	rm -rf databases/
 
 clean-db-volume:
-	docker volume rm pi_db_data
+	docker volume rm horarios_db_data
 
 clean-mirror:
-	docker volume rm pi_mirror_data
+	docker volume rm horarios_mirror_data
 
 deploy-build:
 	docker compose -f docker-compose.prod.yml build
