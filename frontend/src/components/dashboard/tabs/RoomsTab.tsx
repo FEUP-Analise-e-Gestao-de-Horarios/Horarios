@@ -14,7 +14,8 @@ interface RoomsTabProps {
   processing: boolean;
 }
 
-const GRID_COLS = "minmax(90px, 1fr) 110px 110px 80px 70px 140px";
+const GRID_COLS =
+  "minmax(90px, 9fr) minmax(110px, 11fr) minmax(110px, 11fr) minmax(80px, 8fr) minmax(70px, 7fr) minmax(140px, 14fr)";
 
 const HEADERS: { label: string; align?: "right" }[] = [
   { label: "Nome" },
