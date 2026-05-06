@@ -13,3 +13,4 @@ class TeacherStats(BaseModel):
     subjects: int
     classes: int
     sessions: int
+    red_blocks: int

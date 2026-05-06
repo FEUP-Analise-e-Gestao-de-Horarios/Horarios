@@ -107,16 +107,22 @@ export default function ChangePasswordPage() {
     return true;
   };
 
-  const handleKeyDown = (field: "new" | "confirm" | "old") => (e: React.KeyboardEvent) => {
+  const handleNewKeyDown = (e: React.KeyboardEvent) => {
     if (e.key !== "Enter") return;
     e.preventDefault();
-    if (field === "new") {
-      if (validateNewPassword()) confirmPasswordRef.current?.focus();
-    } else if (field === "confirm") {
-      if (validateConfirmPassword()) oldPasswordRef.current?.focus();
-    } else {
-      if (validateOldPassword()) oldPasswordRef.current?.closest("form")?.requestSubmit();
-    }
+    if (validateNewPassword()) confirmPasswordRef.current?.focus();
+  };
+
+  const handleConfirmKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    if (validateConfirmPassword()) oldPasswordRef.current?.focus();
+  };
+
+  const handleOldKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    if (validateOldPassword()) oldPasswordRef.current?.closest("form")?.requestSubmit();
   };
 
   const handleSubmit = (e: React.SyntheticEvent) => {
@@ -192,7 +198,7 @@ export default function ChangePasswordPage() {
           label="Palavra-passe nova"
           value={newPassword}
           onChange={setNewPassword}
-          onKeyDown={handleKeyDown("new")}
+          onKeyDown={handleNewKeyDown}
           error={errors.newPassword}
           shake={isShaking("newPassword")}
           disabled={changePassword.isPending}
@@ -206,7 +212,7 @@ export default function ChangePasswordPage() {
           label="Confirmação da palavra-passe nova"
           value={confirmPassword}
           onChange={setConfirmPassword}
-          onKeyDown={handleKeyDown("confirm")}
+          onKeyDown={handleConfirmKeyDown}
           error={errors.confirmPassword}
           shake={isShaking("confirmPassword")}
           disabled={changePassword.isPending}
@@ -218,7 +224,7 @@ export default function ChangePasswordPage() {
           label="Palavra-passe antiga"
           value={oldPassword}
           onChange={setOldPassword}
-          onKeyDown={handleKeyDown("old")}
+          onKeyDown={handleOldKeyDown}
           error={errors.oldPassword}
           shake={isShaking("oldPassword")}
           disabled={changePassword.isPending}

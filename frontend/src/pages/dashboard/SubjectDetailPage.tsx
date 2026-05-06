@@ -73,7 +73,7 @@ export default function SubjectDetailPage() {
                 <div className="min-w-0">
                   <h1 className="text-2xl font-bold text-[#08060d] truncate">{data.name}</h1>
                   <div className="mt-1 text-sm text-[#6b6375] truncate">
-                    {data.acronym} · {data.code} · {data.degree.acronym} · Ano {data.year.number}
+                    {data.acronym} · {data.code} · Ano {data.year.number}
                   </div>
                 </div>
                 <div className="shrink-0 text-right text-sm text-[#6b6375]">

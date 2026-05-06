@@ -116,6 +116,7 @@ export interface TeacherStats extends TeacherBase {
   subjects: number;
   classes: number;
   sessions: number;
+  red_blocks: number;
 }
 
 export interface RoomStats extends RoomBase {
@@ -131,6 +132,7 @@ export interface TeacherDetail extends TeacherBase {
   subjects: SubjectBase[];
   classes: ClassBase[];
   blocks: WeekBlockResponse[];
+  red_blocks: RedBlockBase[];
 }
 
 export interface RoomDetail extends RoomBase {
@@ -143,19 +145,23 @@ export interface YearDetail extends YearBase {
   classes: ClassWithSessions[];
 }
 
+export interface DegreeYearStats extends YearBase {
+  subjects: number;
+  classes: number;
+  sessions: number;
+}
+
 export interface DegreeDetail extends DegreeBase {
-  years: YearDetail[];
+  years: DegreeYearStats[];
 }
 
 export interface SubjectDetail extends SubjectBase {
   year: YearBase;
-  degree: DegreeBase;
   blocks: WeekBlockResponse[];
 }
 
 export interface ClassDetail extends ClassBase {
   year: YearBase;
-  degree: DegreeBase;
   blocks: WeekBlockResponse[];
 }
 

@@ -15,6 +15,7 @@ import type {
   TeacherDetail,
   TeachersListPayload,
   TeacherStats,
+  YearDetail,
 } from "@/types/dashboard";
 
 const POLL_INTERVAL = 2000;
@@ -87,6 +88,14 @@ export function useProjectDegree(projectId: string, degreeId: string) {
     queryKey: queryKeys.projects.degree(projectId, degreeId),
     queryFn: () => api.getData<DegreeDetail>(`/api/projects/${projectId}/degrees/${degreeId}`),
     enabled: !!projectId && !!degreeId,
+  });
+}
+
+export function useProjectYear(projectId: string, yearId: string) {
+  return useQuery({
+    queryKey: queryKeys.projects.year(projectId, yearId),
+    queryFn: () => api.getData<YearDetail>(`/api/projects/${projectId}/years/${yearId}`),
+    enabled: !!projectId && !!yearId,
   });
 }
 

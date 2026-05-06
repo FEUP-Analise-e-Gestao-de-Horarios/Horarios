@@ -50,27 +50,27 @@ class DegreeDAO(BaseDAO[Degree]):
             A list of DegreeStats, one per degree, in an unspecified order.
         """
         years_sq = (
-            select(Year.degree_id, func.count(Year.id).label("cnt"))
-            .group_by(Year.degree_id)
-            .subquery()
+            select(Year.degree_id, func.count().label("cnt")).group_by(Year.degree_id).subquery()
         )
         subjects_sq = (
-            select(Year.degree_id, func.count(Subject.id).label("cnt"))
+            select(Year.degree_id, func.count().label("cnt"))
             .join(Subject, Subject.year_id == Year.id)
             .group_by(Year.degree_id)
             .subquery()
         )
         classes_sq = (
-            select(Year.degree_id, func.count(Class.id).label("cnt"))
+            select(Year.degree_id, func.count().label("cnt"))
             .join(Class, Class.year_id == Year.id)
             .group_by(Year.degree_id)
             .subquery()
         )
         sessions_sq = (
-            select(Year.degree_id, func.count(distinct(SessionModel.id)).label("cnt"))
+            select(
+                Year.degree_id,
+                func.count(distinct(SessionClassSubject.session_id)).label("cnt"),
+            )
             .join(Subject, Subject.year_id == Year.id)
             .join(SessionClassSubject, SessionClassSubject.subject_id == Subject.id)
-            .join(SessionModel, SessionModel.id == SessionClassSubject.session_id)
             .group_by(Year.degree_id)
             .subquery()
         )
