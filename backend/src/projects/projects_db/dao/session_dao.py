@@ -46,13 +46,13 @@ class SessionDAO(BaseDAO[Session]):
                     options.append(selectinload(Session.rooms))
                 case cls.Include.SUBJECTS:
                     options.append(
-                        selectinload(Session.session_class_subjects).selectinload(
+                        selectinload(Session.session_class_subjects).joinedload(
                             SessionClassSubject.subject,
                         ),
                     )
                 case cls.Include.CLASSES:
                     options.append(
-                        selectinload(Session.session_class_subjects).selectinload(
+                        selectinload(Session.session_class_subjects).joinedload(
                             SessionClassSubject.class_,
                         ),
                     )
