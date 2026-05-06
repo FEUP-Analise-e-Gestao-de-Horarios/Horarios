@@ -14,6 +14,17 @@ interface TeachersTabProps {
   processing: boolean;
 }
 
+const GRID_COLS = "80px 220px minmax(0, 1fr) 65px 80px 70px";
+
+const HEADERS: { label: string; align?: "right" }[] = [
+  { label: "Nº" },
+  { label: "Sigla" },
+  { label: "Nome" },
+  { label: "UCs", align: "right" },
+  { label: "Turmas", align: "right" },
+  { label: "Aulas", align: "right" },
+];
+
 export default function TeachersTab({
   projectId,
   search,
@@ -58,85 +69,75 @@ export default function TeachersTab({
   return (
     <div
       ref={containerRef}
-      className={`h-full overflow-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [will-change:scroll-position] ${showSkeleton ? "[mask-image:linear-gradient(to_bottom,black_50%,transparent_100%)]" : ""}`}
+      role="table"
+      aria-label="Docentes"
+      aria-busy={showSkeleton}
+      className={`h-full overflow-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [will-change:scroll-position] text-sm ${showSkeleton ? "[mask-image:linear-gradient(to_bottom,black_50%,transparent_100%)]" : ""}`}
     >
-      <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
-        <colgroup>
-          <col style={{ width: "80px" }} />
-          <col style={{ width: "220px" }} />
-          <col />
-          <col style={{ width: "65px" }} />
-          <col style={{ width: "80px" }} />
-          <col style={{ width: "70px" }} />
-        </colgroup>
-        <thead className="sticky top-0 bg-white z-10">
-          <tr className="border-b border-[#e5e4e7]">
-            <th className="py-2 px-4 text-xs font-semibold uppercase tracking-wider text-[#08060d] text-left">
-              Nº
-            </th>
-            <th className="py-2 px-4 text-xs font-semibold uppercase tracking-wider text-[#08060d] text-left">
-              Sigla
-            </th>
-            <th className="py-2 px-4 text-xs font-semibold uppercase tracking-wider text-[#08060d] text-left">
-              Nome
-            </th>
-            <th className="py-2 px-4 text-xs font-semibold uppercase tracking-wider text-[#08060d] text-right whitespace-nowrap">
-              UCs
-            </th>
-            <th className="py-2 px-4 text-xs font-semibold uppercase tracking-wider text-[#08060d] text-right whitespace-nowrap">
-              Turmas
-            </th>
-            <th className="py-2 px-4 text-xs font-semibold uppercase tracking-wider text-[#08060d] text-right whitespace-nowrap">
-              Aulas
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {showSkeleton ? (
-            <TableSkeleton cols={6} />
-          ) : (
-            <>
-              {paddingTop > 0 && (
-                <tr>
-                  <td style={{ height: paddingTop }} colSpan={6} />
-                </tr>
-              )}
-              {virtualItems.map((virtualRow) => {
-                const teacher = filtered[virtualRow.index];
-                if (!teacher) return null;
-                return (
-                  <tr
-                    key={teacher.id}
-                    className="border-b border-[#e5e4e7] last:border-0 hover:bg-[#f9f7f4] transition-colors"
-                  >
-                    <td className="py-3 px-4 text-[#6b6375]">{teacher.number}</td>
-                    <td className="py-3 px-4 font-medium text-[#08060d]">{teacher.acronym}</td>
-                    <td className="p-0">
-                      <Link
-                        to={buildPath(ROUTES.TEACHER_DETAIL, {
-                          projectId,
-                          teacherId: teacher.id,
-                        })}
-                        className="block py-3 px-4 text-[#08060d]"
-                      >
-                        {teacher.name}
-                      </Link>
-                    </td>
-                    <td className="py-3 px-4 text-right text-[#6b6375]">{teacher.subjects}</td>
-                    <td className="py-3 px-4 text-right text-[#6b6375]">{teacher.classes}</td>
-                    <td className="py-3 px-4 text-right text-[#6b6375]">{teacher.sessions}</td>
-                  </tr>
-                );
-              })}
-              {paddingBottom > 0 && (
-                <tr>
-                  <td style={{ height: paddingBottom }} colSpan={6} />
-                </tr>
-              )}
-            </>
-          )}
-        </tbody>
-      </table>
+      <div role="rowgroup" className="sticky top-0 z-10 bg-white">
+        <div
+          role="row"
+          className="grid border-b border-[#e5e4e7]"
+          style={{ gridTemplateColumns: GRID_COLS }}
+        >
+          {HEADERS.map((h) => (
+            <div
+              key={h.label}
+              role="columnheader"
+              className={`py-2 px-4 text-xs font-semibold uppercase tracking-wider text-[#08060d] whitespace-nowrap ${h.align === "right" ? "text-right" : "text-left"}`}
+            >
+              {h.label}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {showSkeleton ? (
+        <TableSkeleton cols={6} gridTemplateColumns={GRID_COLS} />
+      ) : (
+        <div role="rowgroup">
+          {paddingTop > 0 && <div aria-hidden="true" style={{ height: paddingTop }} />}
+          {virtualItems.map((virtualRow) => {
+            const teacher = filtered[virtualRow.index];
+            if (!teacher) return null;
+            return (
+              <div
+                key={teacher.id}
+                role="row"
+                className="grid items-center border-b border-[#e5e4e7] last:border-0 hover:bg-[#f9f7f4] transition-colors has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-[#8c2d19] has-[a:focus-visible]:[outline-offset:-2px]"
+                style={{ gridTemplateColumns: GRID_COLS }}
+              >
+                <Link
+                  to={buildPath(ROUTES.TEACHER_DETAIL, { projectId, teacherId: teacher.id })}
+                  draggable={false}
+                  aria-label={teacher.name}
+                  className="contents text-inherit no-underline [-webkit-user-drag:none]"
+                >
+                  <div role="cell" className="py-3 px-4 text-[#6b6375]">
+                    {teacher.number}
+                  </div>
+                  <div role="cell" className="py-3 px-4 font-medium text-[#08060d]">
+                    {teacher.acronym}
+                  </div>
+                  <div role="cell" className="py-3 px-4 text-[#08060d]">
+                    {teacher.name}
+                  </div>
+                  <div role="cell" className="py-3 px-4 text-right text-[#6b6375]">
+                    {teacher.subjects}
+                  </div>
+                  <div role="cell" className="py-3 px-4 text-right text-[#6b6375]">
+                    {teacher.classes}
+                  </div>
+                  <div role="cell" className="py-3 px-4 text-right text-[#6b6375]">
+                    {teacher.sessions}
+                  </div>
+                </Link>
+              </div>
+            );
+          })}
+          {paddingBottom > 0 && <div aria-hidden="true" style={{ height: paddingBottom }} />}
+        </div>
+      )}
     </div>
   );
 }
