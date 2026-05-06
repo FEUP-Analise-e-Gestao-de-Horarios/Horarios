@@ -79,15 +79,3 @@ class ClassBase(BaseModel):
 
     code: str
     shift: int
-
-
-class SubjectWithSessions(SubjectBase):
-    """A subject enriched with its session count — nested inside year details."""
-
-    sessions: int
-
-
-class ClassWithSessions(ClassBase):
-    """A class enriched with its session count — nested inside year details."""
-
-    sessions: int

@@ -218,6 +218,32 @@ class SessionDAO(BaseDAO[Session]):
             ).all(),
         )
 
+    def get_by_year(
+        self,
+        year_id: UUID,
+        includes: Iterable[Include] = (),
+    ) -> list[Session]:
+        """Return all sessions for any subject in the given year.
+
+        Args:
+            year_id: UUID of the year to filter by.
+            includes: Relationships to eager-load on each returned Session.
+                Defaults to no eager loading.
+
+        Returns:
+            List of Session instances, in an unspecified order.
+        """
+        return list(
+            self.session.scalars(
+                select(Session)
+                .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
+                .join(Subject, Subject.id == SessionClassSubject.subject_id)
+                .where(Subject.year_id == year_id)
+                .distinct()
+                .options(*self._load_options(includes)),
+            ).all(),
+        )
+
     def get_by_subject_type(
         self,
         subject: Subject,

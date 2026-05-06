@@ -6,9 +6,10 @@ from django.views import View
 from src.core.decorators import require_auth, require_project
 from src.core.errors import YearNotFoundResponse
 from src.core.schemas import SuccessResponse
-from src.projects.projects_db.dao import ClassDAO, SubjectDAO, YearDAO
+from src.projects.projects_db.dao import ClassDAO, SessionDAO, SubjectDAO, YearDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
+from src.projects.views.schemas.sessions import WeekBlockResponse
 from src.projects.views.schemas.years import (
     YearDetailResponse,
     YearsResponse,
@@ -24,7 +25,7 @@ class ProjectYearsView(View):
     def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
         with get_project_session(general_db(project_id)) as db_session:
             stats = YearDAO(db_session).get_all_with_stats()
-            result = [YearStatsResponse.model_validate(s, from_attributes=True) for s in stats]
+            result = [YearStatsResponse.model_validate(s) for s in stats]
 
             return JsonResponse(
                 SuccessResponse(
@@ -53,6 +54,12 @@ class ProjectYearView(View):
                 ClassDAO(db_session).get_by_year_with_stats(year_id),
                 key=lambda c: c.code,
             )
+            blocks = WeekBlockResponse.from_sessions(
+                SessionDAO(db_session).get_by_year(
+                    year_id,
+                    includes=list(SessionDAO.Include),
+                ),
+            )
 
             return JsonResponse(
                 SuccessResponse(
@@ -63,6 +70,7 @@ class ProjectYearView(View):
                             "degree": year.degree,
                             "subjects": subjects,
                             "classes": classes,
+                            "blocks": blocks,
                         },
                     ),
                 ).model_dump(),

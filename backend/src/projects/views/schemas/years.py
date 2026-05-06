@@ -1,10 +1,11 @@
 from pydantic import BaseModel, computed_field
 
 from src.core.mixins import ValidateWithExtrasMixin
+from src.projects.views.schemas.sessions import WeekBlockResponse
 from src.projects.views.schemas.shared import (
-    ClassWithSessions,
+    ClassBase,
     DegreeBase,
-    SubjectWithSessions,
+    SubjectBase,
     YearBase,
 )
 
@@ -30,3 +31,12 @@ class YearDetailResponse(ValidateWithExtrasMixin, YearBase):
     degree: DegreeBase
     subjects: list[SubjectWithSessions]
     classes: list[ClassWithSessions]
+    blocks: list[WeekBlockResponse]
+
+
+class SubjectWithSessions(SubjectBase):
+    sessions: int
+
+
+class ClassWithSessions(ClassBase):
+    sessions: int
