@@ -172,7 +172,10 @@ export default function ScheduleNavbar({
 
       <div className="w-px h-6 bg-gray-600 mx-1" />
 
-      <button className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors">
+      <button
+        onClick={() => void navigate(buildPath(ROUTES.PARALLEL_CLASSES, { projectId }))}
+        className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors"
+      >
         Editar Aulas em Paralelo
       </button>
 
