@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { Link } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useProjectDegrees } from "@/api/hooks/useDashboard";
+import { useProjectDegrees } from "@/api/hooks/project/degree";
 import { ROUTES } from "@/routes";
 import type { DegreeStats } from "@/types/dashboard";
 import { buildPath } from "@/utils/routes";

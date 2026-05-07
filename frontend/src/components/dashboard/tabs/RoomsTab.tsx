@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { Link } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useProjectRooms } from "@/api/hooks/useDashboard";
+import { useProjectRooms } from "@/api/hooks/project/room";
 import { ROUTES } from "@/routes";
 import { buildPath } from "@/utils/routes";
 import { matchesSequence } from "@/utils/search";

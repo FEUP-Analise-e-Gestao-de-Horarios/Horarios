@@ -5,16 +5,12 @@ import WeekGrid from "@/components/schedule/WeekGrid";
 import EditEventDrawer from "@/components/schedule/EditEventDrawer";
 import ConflictsDrawer from "@/components/schedule/ConflictsDrawer";
 import ScheduleNavbar from "@/components/schedule/ScheduleNavbar";
-import {
-  useProjectDegree,
-  useProjectDegrees,
-  useProjectYearConflicts,
-  useProjectRooms,
-  useProjectTeachers,
-  useProjectSessions,
-  useProjectYear,
-  useProject,
-} from "@/api/hooks/useDashboard";
+import { useProject } from "@/api/hooks/project/project";
+import { useProjectDegree, useProjectDegrees } from "@/api/hooks/project/degree";
+import { useProjectRooms } from "@/api/hooks/project/room";
+import { useProjectTeachers } from "@/api/hooks/project/teacher";
+import { useProjectSessions } from "@/api/hooks/project/sessions";
+import { useProjectYear, useProjectYearConflicts } from "@/api/hooks/project/year";
 import { ROUTES } from "@/routes";
 import { buildPath } from "@/utils/routes";
 import type { SessionResponse } from "@/types/dashboard";

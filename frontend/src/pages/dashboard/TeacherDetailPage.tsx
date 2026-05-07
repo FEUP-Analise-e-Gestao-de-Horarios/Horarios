@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { useProject, useProjectTeacher } from "@/api/hooks/useDashboard";
+import { useProject } from "@/api/hooks/project/project";
+import { useProjectTeacher } from "@/api/hooks/project/teacher";
 import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
 import SessionPopup from "@/components/dashboard/SessionPopup";
 import WeekGrid, { type WeekGridEvent, type WeekGridMark } from "@/components/dashboard/WeekGrid";

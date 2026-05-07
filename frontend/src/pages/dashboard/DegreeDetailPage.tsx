@@ -1,7 +1,8 @@
 import { useQueries } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { api } from "@/api/client";
-import { useProject, useProjectDegree } from "@/api/hooks/useDashboard";
+import { useProject } from "@/api/hooks/project/project";
+import { useProjectDegree } from "@/api/hooks/project/degree";
 import { queryKeys } from "@/api/queryKeys";
 import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
 import { ROUTES } from "@/routes";
