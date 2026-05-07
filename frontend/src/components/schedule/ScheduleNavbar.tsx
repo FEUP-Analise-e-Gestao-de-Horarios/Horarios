@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { ROUTES } from "@/routes";
 import { buildPath } from "@/utils/routes";
 import CursoDropdown from "./CursoDropdown";
@@ -78,8 +78,7 @@ export default function ScheduleNavbar({
   onViewConflicts,
 }: ScheduleNavbarProps) {
   const primaryRedButtonClass =
-    "bg-[#8C2C19] text-white font-semibold px-3 py-1.5 rounded text-sm whitespace-nowrap hover:bg-[#A9361E] transition-colors";
-  const navigate = useNavigate();
+    "bg-[#8C2C19] text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap hover:bg-[#A9361E] transition-colors";
   const [openDropdown, setOpenDropdown] = useState<DropdownId | null>(null);
   const navRef = useRef<HTMLElement>(null);
 
@@ -105,21 +104,20 @@ export default function ScheduleNavbar({
   return (
     <header
       ref={navRef}
-      className="relative z-50 px-5 py-2 bg-[#1e2028] flex items-center gap-1.5 w-full flex-wrap overflow-visible border-b border-gray-700"
+      className="relative z-50 px-6 py-3 bg-[#1e2028] flex items-center gap-2 w-full flex-wrap overflow-visible border-b border-gray-700"
     >
-      <button onClick={() => void navigate(ROUTES.HOME)} className={primaryRedButtonClass}>
+      <Link to={ROUTES.HOME} className={primaryRedButtonClass}>
         Início
-      </button>
+      </Link>
 
-      <button className="bg-transparent text-white font-semibold px-3 py-1.5 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors">
-        Exportar
-      </button>
-
-      <button
-        onClick={() => void navigate(buildPath(ROUTES.DASHBOARD, { projectId }))}
-        className="bg-transparent text-white font-semibold px-3 py-1.5 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors"
+      <Link
+        to={buildPath(ROUTES.DASHBOARD, { projectId })}
+        className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors"
       >
         Dados
+      </Link>
+      <button className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors">
+        Exportar
       </button>
 
       <div className="border-l border-gray-600 h-5 mx-1" />
@@ -205,26 +203,26 @@ export default function ScheduleNavbar({
 
       <div className="border-l border-gray-600 h-5 mx-1" />
 
-      <button className="bg-transparent text-white font-semibold px-3 py-1.5 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors">
+      <button className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors">
         Editar Aulas em Paralelo
       </button>
 
       <button
         onClick={onEditEventClick}
-        className="bg-transparent text-white font-semibold px-3 py-1.5 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors"
+        className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors"
       >
         Editar Evento
       </button>
 
       <div className="border-l border-gray-600 h-5 mx-1" />
 
-      <button className="bg-transparent text-white font-semibold px-3 py-1.5 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors">
+      <button className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors">
         Distribuição
       </button>
 
       <button
         onClick={onViewConflicts}
-        className="bg-transparent text-[#C73F24] font-semibold px-3 py-1.5 rounded text-sm whitespace-nowrap border border-[#C73F24] hover:bg-[#C73F24]/10 transition-colors"
+        className="bg-transparent text-[#C73F24] font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-[#C73F24] hover:bg-[#C73F24]/10 transition-colors"
       >
         Ver Conflitos
       </button>
