@@ -10,7 +10,7 @@ from src.core.errors import (
 from src.core.schemas import SuccessResponse
 from src.parser.utils import validate_request_body
 from src.projects.models import Project
-from src.projects.projects_db.dao import ParallelBlockGroupDAO
+from src.projects.projects_db.dao.parallel_block_group_dao import ParallelBlockGroupDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
 from src.projects.views.schemas.parallel_block_group_members import SaveParallelGroupMembersRequest
