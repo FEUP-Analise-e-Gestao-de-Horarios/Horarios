@@ -5,7 +5,8 @@ import { useProjectRoom } from "@/api/hooks/project/room";
 import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
 import SessionPopup from "@/components/dashboard/SessionPopup";
 import WeekGrid, { type WeekGridEvent, type WeekGridMark } from "@/components/dashboard/WeekGrid";
-import type { RedBlockBase, SessionResponse, WeekBlockResponse } from "@/types/dashboard";
+import type { RedBlockBase } from "@/types/project/red_block";
+import type { SessionResponse, WeekBlockResponse } from "@/types/project/sessions";
 import { formatBlockLabel } from "@/utils/date";
 
 export default function RoomDetailPage() {

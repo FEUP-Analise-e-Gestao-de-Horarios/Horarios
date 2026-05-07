@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { queryKeys } from "@/api/queryKeys";
-import type { TeacherDetail, TeachersListPayload, TeacherStats } from "@/types/dashboard";
+import type { TeacherDetail, TeachersListPayload, TeacherStats } from "@/types/project/teacher";
 
 export function useProjectTeachers(projectId: string, refetchInterval: number | false = false) {
   return useQuery({

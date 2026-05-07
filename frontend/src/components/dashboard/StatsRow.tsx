@@ -8,7 +8,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import StatCard from "./StatCard";
-import type { ProjectStats } from "@/types/dashboard";
+import type { ProjectStats } from "@/types/project/project";
 
 interface StatsRowProps {
   stats: ProjectStats;

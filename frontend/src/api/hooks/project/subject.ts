@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { queryKeys } from "@/api/queryKeys";
-import type { SubjectDetail } from "@/types/dashboard";
+import type { SubjectDetail } from "@/types/project/subject";
 
 export function useProjectSubject(projectId: string, subjectId: string) {
   return useQuery({

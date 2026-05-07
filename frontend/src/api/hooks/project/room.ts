@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { queryKeys } from "@/api/queryKeys";
-import type { RoomDetail, RoomsListPayload, RoomStats } from "@/types/dashboard";
+import type { RoomDetail, RoomsListPayload, RoomStats } from "@/types/project/room";
 
 export function useProjectRooms(projectId: string, refetchInterval: number | false = false) {
   return useQuery({

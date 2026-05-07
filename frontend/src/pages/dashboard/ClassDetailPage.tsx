@@ -5,7 +5,7 @@ import { useProjectClass } from "@/api/hooks/project/class";
 import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
 import SessionPopup from "@/components/dashboard/SessionPopup";
 import WeekGrid, { type WeekGridEvent } from "@/components/dashboard/WeekGrid";
-import type { SessionResponse, WeekBlockResponse } from "@/types/dashboard";
+import type { SessionResponse, WeekBlockResponse } from "@/types/project/sessions";
 import { formatBlockLabel } from "@/utils/date";
 
 export default function ClassDetailPage() {

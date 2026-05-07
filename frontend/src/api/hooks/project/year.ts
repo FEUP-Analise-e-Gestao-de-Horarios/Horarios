@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { queryKeys } from "@/api/queryKeys";
-import type { ConflictRecord, YearDetail } from "@/types/dashboard";
+import type { ConflictRecord } from "@/types/project/conflicts";
+import type { YearDetail } from "@/types/project/year";
 
 export function useProjectYear(projectId: string, yearId: string) {
   return useQuery({

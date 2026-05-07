@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { queryKeys, type SessionsQueryFilters } from "@/api/queryKeys";
-import type { SessionsResponse, WeekBlockResponse } from "@/types/dashboard";
+import type { SessionsResponse, WeekBlockResponse } from "@/types/project/sessions";
 
 export function useProjectSessions(projectId: string, filters: SessionsQueryFilters) {
   return useQuery({

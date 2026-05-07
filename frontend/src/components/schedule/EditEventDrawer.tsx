@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ConflictRecord } from "@/types/dashboard";
+import type { ConflictRecord } from "@/types/project/conflicts";
 import type { WeekGridEvent } from "@/components/schedule/WeekGrid";
 
 function normalizeText(value: string): string {

@@ -6,7 +6,9 @@ import { useProjectDegree } from "@/api/hooks/project/degree";
 import { queryKeys } from "@/api/queryKeys";
 import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
 import { ROUTES } from "@/routes";
-import type { ClassWithSessions, SubjectWithSessions, YearDetail } from "@/types/dashboard";
+import type { ClassWithSessions } from "@/types/project/class";
+import type { SubjectWithSessions } from "@/types/project/subject";
+import type { YearDetail } from "@/types/project/year";
 import { buildPath } from "@/utils/routes";
 
 export default function DegreeDetailPage() {

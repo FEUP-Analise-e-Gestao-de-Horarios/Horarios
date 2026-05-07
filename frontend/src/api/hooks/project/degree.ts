@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { queryKeys } from "@/api/queryKeys";
-import type { DegreeDetail, DegreesListPayload, DegreeStats } from "@/types/dashboard";
+import type { DegreeDetail, DegreesListPayload, DegreeStats } from "@/types/project/degree";
 
 export function useProjectDegrees(projectId: string, refetchInterval: number | false = false) {
   return useQuery({

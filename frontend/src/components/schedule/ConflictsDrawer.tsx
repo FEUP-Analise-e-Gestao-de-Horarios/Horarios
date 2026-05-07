@@ -1,4 +1,4 @@
-import type { ConflictRecord } from "@/types/dashboard";
+import type { ConflictRecord } from "@/types/project/conflicts";
 
 interface ConflictsDrawerProps {
   open: boolean;

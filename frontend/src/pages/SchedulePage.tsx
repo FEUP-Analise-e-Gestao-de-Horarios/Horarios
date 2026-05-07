@@ -13,7 +13,7 @@ import { useProjectSessions } from "@/api/hooks/project/sessions";
 import { useProjectYear, useProjectYearConflicts } from "@/api/hooks/project/year";
 import { ROUTES } from "@/routes";
 import { buildPath } from "@/utils/routes";
-import type { SessionResponse } from "@/types/dashboard";
+import type { SessionResponse } from "@/types/project/sessions";
 
 const COURSE_GROUPS = ["Licenciaturas", "Mestrados", "Pós-Graduações", "Outros"] as const;
 

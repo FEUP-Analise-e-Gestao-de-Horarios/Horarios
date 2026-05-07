@@ -1,8 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { queryKeys } from "@/api/queryKeys";
-import type { Project } from "@/types/project";
-import type { ProjectStats } from "@/types/dashboard";
+import type { Project, ProjectStats } from "@/types/project/project";
 
 const POLL_INTERVAL = 2000;
 

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { queryKeys } from "@/api/queryKeys";
-import type { ClassDetail } from "@/types/dashboard";
+import type { ClassDetail } from "@/types/project/class";
 
 export function useProjectClass(projectId: string, classId: string) {
   return useQuery({
