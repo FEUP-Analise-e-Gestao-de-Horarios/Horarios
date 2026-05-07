@@ -3,7 +3,7 @@ import { ROUTES } from "@/routes";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-export default function Navbar() {
+export default function HomeNavbar() {
   const navigate = useNavigate();
   const logout = useLogout();
   const [dropdownOpen, setDropdownOpen] = useState(false);

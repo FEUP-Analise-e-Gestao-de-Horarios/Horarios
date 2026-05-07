@@ -1,6 +1,6 @@
 import { useProjects } from "@/api/hooks/useProjects";
 import { useState } from "react";
-import Navbar from "@/components/layout/Navbar";
+import HomeNavbar from "@/components/home/HomeNavbar";
 import NewProjectCard from "@/components/home/NewProjectCard";
 import ProjectCard from "@/components/home/ProjectCard";
 import NewProjectModal from "@/components/home/NewProjectModal";
@@ -12,7 +12,7 @@ export default function HomePage() {
   return (
     <div className="min-h-svh bg-[#f0eeeb] font-[system-ui,'Segoe_UI',Roboto,sans-serif]">
       <title>Projetos · AGH</title>
-      <Navbar />
+      <HomeNavbar />
 
       <div className="flex flex-wrap p-6 pt-8 gap-4">
         <NewProjectCard onClick={() => setShowNewProject(true)} />
