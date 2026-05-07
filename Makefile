@@ -32,9 +32,11 @@ dev:
 
 dev-mirror:
 	mkdir -p databases/projects
+	trap 'docker compose -f docker-compose.dev.yml down' EXIT INT TERM; \
 	docker compose -f docker-compose.dev.yml --profile mirror up --build
 
 prod:
+	trap 'docker compose -f docker-compose.prod.yml down' EXIT INT TERM; \
 	docker compose -f docker-compose.prod.yml up --build
 
 clean-db:
