@@ -72,6 +72,7 @@ class ParallelBlockCandidateDAO:
                 Session.weekday,
                 Session.duration,
                 Session.week,
+                Session.type,
             )
             .join(Session, Session.id == first_session_subq.c.session_id)
             .subquery()
@@ -97,6 +98,7 @@ class ParallelBlockCandidateDAO:
                 session_subq.c.weekday.label("session_weekday"),
                 session_subq.c.duration.label("session_duration"),
                 session_subq.c.week.label("session_week"),
+                session_subq.c.type.label("session_type"),
                 class_subq.c.class_codes.label("class_codes"),
                 Year.number.label("year"),
                 Degree.name.label("degree_id"),
@@ -146,6 +148,7 @@ class ParallelBlockCandidateDAO:
                 class_codes=[c.strip() for c in row.class_codes.split(",")]
                 if row.class_codes
                 else [],
+                session_type=row.session_type,
             )
             if row.candidate_group_id not in merged:
                 merged[row.candidate_group_id] = ParallelBlockCandidateDetailResponse(

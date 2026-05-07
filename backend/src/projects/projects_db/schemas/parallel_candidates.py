@@ -9,6 +9,7 @@ from src.projects.projects_db.schemas.weekday import WeekDay
 class ParallelBlockCandidateSession(BaseModel):
     original_block_id: UUID
     class_codes: list[str]
+    session_type: str
 
 
 class ParallelBlockCandidateDetailResponse(BaseModel):
