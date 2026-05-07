@@ -153,6 +153,15 @@ export default function SchedulePage() {
 
   const [curso, setCurso] = useState("");
   const [anos, setAnos] = useState<string[]>([]);
+  const [prevDegrees, setPrevDegrees] = useState(degrees);
+
+  if (degrees !== prevDegrees) {
+    setPrevDegrees(degrees);
+    if (!prevDegrees && degrees?.some((degree) => degree.acronym === "L.EIC")) {
+      setCurso("L.EIC");
+      setAnos(["1"]);
+    }
+  }
   const [ucs, setUcs] = useState<string[]>([]);
   const [turnos, setTurnos] = useState<string[]>([]);
   const [turmas, setTurmas] = useState<string[]>([]);
