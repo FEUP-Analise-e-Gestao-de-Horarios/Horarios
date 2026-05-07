@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
+const DROPDOWN_MAX_WIDTH_PX = 768;
 const DROPDOWN_CLASSES =
-  "absolute left-0 bg-[#1e2028] border border-gray-600 rounded z-[200] w-[min(calc(100vw-1rem),22rem)] max-h-[min(60vh,24rem)] overflow-x-hidden overflow-y-auto shadow-[0_4px_12px_rgba(0,0,0,0.4)]";
+  "absolute left-0 bg-[#1e2028] border border-gray-600 rounded z-[200] w-[min(calc(100vw-1rem),48rem)] max-h-[min(60vh,24rem)] overflow-x-hidden overflow-y-auto shadow-[0_4px_12px_rgba(0,0,0,0.4)]";
 
 type CursoOption = {
   value: string;
@@ -44,7 +45,7 @@ export default function CursoDropdown({
       const rect = trigger.getBoundingClientRect();
       const spaceBelow = window.innerHeight - rect.bottom;
       const spaceAbove = rect.top;
-      const dropdownWidth = Math.min(window.innerWidth - 16, 352);
+      const dropdownWidth = Math.min(window.innerWidth - 16, DROPDOWN_MAX_WIDTH_PX);
       const spaceRight = window.innerWidth - rect.left;
       const spaceLeft = rect.right;
       setOpenUpward(spaceBelow < 280 && spaceAbove > spaceBelow);
@@ -88,44 +89,51 @@ export default function CursoDropdown({
           {options.length === 0 ? (
             <div className="px-3 py-3 text-[13px] text-gray-400">Sem cursos disponíveis.</div>
           ) : (
-            options.map((group) => (
-              <div key={group.label} className="border-b border-gray-700 last:border-b-0">
-                <div className="px-3 py-1.5 text-[11px] text-gray-400 uppercase tracking-widest border-b border-gray-700">
-                  {group.label}
-                </div>
-                <div className="flex flex-col gap-1 p-2">
-                  {group.options.map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelect(option.value);
-                      }}
-                      className={[
-                        "w-full rounded px-3 py-2 text-[13px] cursor-pointer text-left border border-transparent hover:bg-white/5 transition-colors",
-                        value === option.value
-                          ? "text-amber-400 bg-amber-400/10 border-amber-500/20"
-                          : "text-white bg-transparent",
-                      ].join(" ")}
-                      title={
-                        option.description
-                          ? `${option.label} · ${option.description}`
-                          : option.label
-                      }
-                    >
-                      <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-2">
-                        <span className="font-semibold shrink-0">{option.label}</span>
-                        {option.description ? (
-                          <span className="min-w-0 text-[12px] text-gray-400 leading-snug break-words whitespace-normal">
-                            {option.description}
+            <div className="flex flex-row items-stretch">
+              {options.map((group) => (
+                <div
+                  key={group.label}
+                  className="flex-1 min-w-0 border-r border-gray-700 last:border-r-0"
+                >
+                  <div className="px-3 py-1.5 text-[11px] text-gray-400 uppercase tracking-widest border-b border-gray-700">
+                    {group.label}
+                  </div>
+                  <div className="flex flex-col gap-2.5 p-2">
+                    {group.options.map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelect(option.value);
+                        }}
+                        className={[
+                          "w-full rounded px-2 py-1 text-[13px] cursor-pointer text-left border border-transparent hover:bg-white/5 transition-colors",
+                          value === option.value
+                            ? "text-amber-400 bg-amber-400/10 border-amber-500/20"
+                            : "text-white bg-transparent",
+                        ].join(" ")}
+                        title={
+                          option.description
+                            ? `${option.label} · ${option.description}`
+                            : option.label
+                        }
+                      >
+                        <div className="flex flex-col">
+                          <span className="font-semibold shrink-0 leading-tight">
+                            {option.label}
                           </span>
-                        ) : null}
-                      </div>
-                    </button>
-                  ))}
+                          {option.description ? (
+                            <span className="min-w-0 text-[11px] text-gray-400 leading-tight break-words whitespace-normal">
+                              {option.description}
+                            </span>
+                          ) : null}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))
+              ))}
+            </div>
           )}
         </div>
       )}
