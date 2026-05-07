@@ -1,16 +1,12 @@
-from collections.abc import Iterable
-from typing import Any, TypeVar
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.projects.projects_db.base import Base
 
-T = TypeVar("T", bound=Base)
 
-
-class BaseDAO[T]:
+class BaseDAO[T: Base]:
     """Generic base DAO providing CRUD operations for a single SQLAlchemy model."""
 
     def __init__(self, model: type[T], session: Session, *, flush_on_create: bool = True) -> None:
@@ -35,21 +31,6 @@ class BaseDAO[T]:
             The matching model instance, or None if not found.
         """
         return self.session.get(self.model, id)
-
-    def find_missing_ids(self, ids: Iterable[UUID]) -> list[UUID]:
-        """Return the subset of ``ids`` with no matching row in this DAO's table.
-
-        Deduplicates the input. Order is not preserved.
-        """
-        unique = set(ids)
-        if not unique:
-            return []
-        existing = set(
-            self.session.scalars(
-                select(self.model.id).where(self.model.id.in_(unique)),
-            ).all(),
-        )
-        return list(unique - existing)
 
     def _create(self, **kwargs: Any) -> T:
         """Create a new record and flush it to the session.
