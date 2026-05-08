@@ -112,10 +112,7 @@ export default function TurnoTurmaDropdown({
                   group.turmas.length > 0 &&
                   group.turmas.every((turma) => selectedTurmas.includes(turma));
                 return (
-                  <div
-                    key={group.turno}
-                    className="w-[300px] border-r border-gray-700 last:border-r-0"
-                  >
+                  <div key={group.turno} className="border-r border-gray-700 last:border-r-0">
                     <div
                       className={[
                         "px-2 py-1.5 border-b border-gray-700 flex items-center justify-between gap-2",
@@ -138,7 +135,15 @@ export default function TurnoTurmaDropdown({
                         Todas
                       </button>
                     </div>
-                    <div className="grid grid-cols-4 gap-1.5 p-2">
+                    <div
+                      className="grid gap-1.5 p-2"
+                      style={{
+                        gridTemplateColumns: `repeat(${Math.max(
+                          1,
+                          Math.ceil(group.turmas.length / 4),
+                        )}, max-content)`,
+                      }}
+                    >
                       {group.turmas.map((turma) => {
                         const turmaSelected = selectedTurmas.includes(turma);
                         return (

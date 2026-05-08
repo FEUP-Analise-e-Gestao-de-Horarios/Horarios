@@ -174,6 +174,7 @@ export default function ScheduleNavbar({
         onToggle={() => toggle("dia")}
         disabled={!curso}
         showLabel
+        compact
         minSelected={1}
         hideSelectedCountWhenDisabled
       />
