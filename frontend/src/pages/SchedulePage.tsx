@@ -270,26 +270,30 @@ export default function SchedulePage() {
     return groups;
   }, [selectedYearClasses]);
 
-  const turnoOptions = useMemo<DropdownOption[]>(() => {
+  const turnoTurmaGroups = useMemo(() => {
     const byTurno = [...classesByTurno.entries()].sort((a, b) => Number(a[0]) - Number(b[0]));
     return byTurno.map(([turno, classes]) => ({
-      value: turno,
+      turno,
       label: `Turno ${turno}`,
-      secondaryText: `Turmas: ${classes.map((classItem) => classItem.code).join(", ")}`,
+      turmas: classes
+        .slice()
+        .sort((a, b) => a.code.localeCompare(b.code))
+        .map((classItem) => classItem.code),
     }));
   }, [classesByTurno]);
 
-  const turmaOptions = useMemo<DropdownOption[]>(
-    () =>
-      selectedYearClasses
-        .slice()
-        .sort((a, b) => a.shift - b.shift || a.code.localeCompare(b.code))
-        .map((classItem) => ({
-          value: classItem.code,
-          label: classItem.code,
-          secondaryText: `${classItem.shift}º Turno`,
-        })),
-    [selectedYearClasses],
+  const turnoOrder = useMemo(
+    () => turnoTurmaGroups.map((group) => group.turno),
+    [turnoTurmaGroups],
+  );
+  const turmaOrder = useMemo(
+    () => turnoTurmaGroups.flatMap((group) => group.turmas),
+    [turnoTurmaGroups],
+  );
+
+  const turmaOptionsForEditor = useMemo(
+    () => turnoTurmaGroups.flatMap((group) => group.turmas),
+    [turnoTurmaGroups],
   );
 
   const teacherOptions = useMemo(
@@ -317,17 +321,14 @@ export default function SchedulePage() {
     [rooms],
   );
 
-  const turmaOrder = useMemo(() => turmaOptions.map((option) => option.value), [turmaOptions]);
-  const turnoOrder = useMemo(() => turnoOptions.map((option) => option.value), [turnoOptions]);
-
   const turmaShifts = useMemo(
     () =>
       Object.fromEntries(selectedYearClasses.map((classItem) => [classItem.code, classItem.shift])),
     [selectedYearClasses],
   );
 
-  const allTurnoValues = useMemo(() => turnoOptions.map((option) => option.value), [turnoOptions]);
-  const allTurmaValues = useMemo(() => turmaOptions.map((option) => option.value), [turmaOptions]);
+  const allTurnoValues = turnoOrder;
+  const allTurmaValues = turmaOrder;
 
   const effectiveTurnos = useMemo(() => {
     if (!curso) return [];
@@ -523,8 +524,7 @@ export default function SchedulePage() {
         weekOptions={weekOptions}
         dayOptions={dayOptions}
         ucOptions={ucOptions}
-        turnoOptions={turnoOptions}
-        turmaOptions={turmaOptions}
+        turnoTurmaGroups={turnoTurmaGroups}
         yearOptions={yearOptions}
         courseOptions={courseOptions}
         onEditEventClick={() => openEditor(null)}
@@ -543,7 +543,7 @@ export default function SchedulePage() {
         }}
         conflicts={yearConflicts}
         ucOptions={ucOptions}
-        turmaOptions={turmaOptions.map((option) => option.value)}
+        turmaOptions={turmaOptionsForEditor}
         teacherOptions={teacherOptions}
         roomOptions={roomOptions}
         preferredUc={effectiveUcs[0]}

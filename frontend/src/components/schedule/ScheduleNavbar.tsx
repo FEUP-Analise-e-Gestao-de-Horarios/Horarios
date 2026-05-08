@@ -4,6 +4,7 @@ import { ROUTES } from "@/routes";
 import { buildPath } from "@/utils/routes";
 import CursoDropdown from "./CursoDropdown";
 import MultiDropdown from "./MultiDropdown";
+import TurnoTurmaDropdown, { type TurnoTurmaGroup } from "./TurnoTurmaDropdown";
 
 type CourseOption = {
   value: string;
@@ -41,15 +42,14 @@ interface ScheduleNavbarProps {
   weekOptions: DropdownOption[];
   dayOptions: DropdownOption[];
   ucOptions: string[];
-  turnoOptions: DropdownOption[];
-  turmaOptions: DropdownOption[];
+  turnoTurmaGroups: TurnoTurmaGroup[];
   yearOptions: DropdownOption[];
   courseOptions: CourseGroup[];
   onEditEventClick: () => void;
   onViewConflicts: () => void;
 }
 
-type DropdownId = "curso" | "ano" | "uc" | "turno" | "turma" | "dia" | "semana";
+type DropdownId = "curso" | "ano" | "uc" | "turnoTurma" | "dia" | "semana";
 
 export default function ScheduleNavbar({
   projectId,
@@ -70,8 +70,7 @@ export default function ScheduleNavbar({
   weekOptions,
   dayOptions,
   ucOptions,
-  turnoOptions,
-  turmaOptions,
+  turnoTurmaGroups,
   yearOptions,
   courseOptions,
   onEditEventClick,
@@ -144,7 +143,7 @@ export default function ScheduleNavbar({
       />
 
       <MultiDropdown
-        label="UC"
+        label="UCs"
         options={ucOptions.map((uc) => ({ value: uc, label: uc }))}
         selected={ucs}
         onSelect={setUcs}
@@ -155,26 +154,15 @@ export default function ScheduleNavbar({
         fitContent
       />
 
-      <MultiDropdown
-        label="Turno"
-        options={turnoOptions}
-        selected={turnos}
-        onSelect={setTurnos}
-        open={openDropdown === "turno"}
-        onToggle={() => toggle("turno")}
+      <TurnoTurmaDropdown
+        groups={turnoTurmaGroups}
+        selectedTurnos={turnos}
+        selectedTurmas={turmas}
+        onSelectTurnos={setTurnos}
+        onSelectTurmas={setTurmas}
+        open={openDropdown === "turnoTurma"}
+        onToggle={() => toggle("turnoTurma")}
         disabled={!curso}
-        showLabel
-      />
-
-      <MultiDropdown
-        label="Turma"
-        options={turmaOptions}
-        selected={turmas}
-        onSelect={setTurmas}
-        open={openDropdown === "turma"}
-        onToggle={() => toggle("turma")}
-        disabled={!curso}
-        showLabel
       />
 
       <MultiDropdown
