@@ -139,37 +139,8 @@ export default function MultiDropdown({
             openUpward ? "bottom-[calc(100%+4px)]" : "top-[calc(100%+4px)]",
           ].join(" ")}
         >
-          {singleSelect ? (
-            <div className="flex flex-col gap-2.5 p-2">
-              {options.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggle(opt.value);
-                  }}
-                  className={[
-                    "w-full rounded px-2 py-1 text-[13px] cursor-pointer text-left border border-transparent hover:bg-white/5 transition-colors",
-                    selected.includes(opt.value)
-                      ? "text-amber-400 bg-amber-400/10 border-amber-500/20"
-                      : "text-white bg-transparent",
-                  ].join(" ")}
-                >
-                  <div className="flex flex-col">
-                    <span className="font-semibold shrink-0 leading-tight">
-                      {opt.label || opt.value}
-                    </span>
-                    {opt.secondaryText ? (
-                      <span className="min-w-0 text-[11px] text-gray-400 leading-tight break-words whitespace-normal">
-                        {opt.secondaryText}
-                      </span>
-                    ) : null}
-                  </div>
-                </button>
-              ))}
-            </div>
-          ) : (
-            options.map((opt) => (
+          <div className="flex flex-col gap-2.5 p-2">
+            {options.map((opt) => (
               <button
                 key={opt.value}
                 onClick={(e) => {
@@ -177,26 +148,25 @@ export default function MultiDropdown({
                   toggle(opt.value);
                 }}
                 className={[
-                  "w-full px-3 py-2 text-[13px] cursor-pointer flex items-start gap-2 text-left border-none hover:bg-white/5 transition-colors whitespace-normal",
+                  "w-full rounded px-2 py-1 text-[13px] cursor-pointer text-left border border-transparent hover:bg-white/5 transition-colors",
                   selected.includes(opt.value)
-                    ? "text-white bg-red-400/10"
+                    ? "text-amber-400 bg-amber-400/10 border-amber-500/20"
                     : "text-white bg-transparent",
                 ].join(" ")}
               >
-                <span className={selected.includes(opt.value) ? "text-red-400" : "text-white"}>
-                  {selected.includes(opt.value) ? "☑" : "☐"}
-                </span>
-                <span className="min-w-0">
-                  <span className="block font-medium">{opt.label || opt.value}</span>
+                <div className="flex flex-col">
+                  <span className="font-semibold shrink-0 leading-tight">
+                    {opt.label || opt.value}
+                  </span>
                   {opt.secondaryText ? (
-                    <span className="block text-[12px] text-gray-400 leading-snug">
+                    <span className="min-w-0 text-[11px] text-gray-400 leading-tight break-words whitespace-normal">
                       {opt.secondaryText}
                     </span>
                   ) : null}
-                </span>
+                </div>
               </button>
-            ))
-          )}
+            ))}
+          </div>
         </div>
       )}
     </div>
