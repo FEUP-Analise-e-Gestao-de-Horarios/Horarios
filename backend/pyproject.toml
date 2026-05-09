@@ -6,7 +6,7 @@ dependencies = [
     "bleach==6.3.0",
     "bs4==0.0.2",
     "daphne==4.2.1",
-    "django==6.0.4",
+    "django==6.0.5",
     "matplotlib==3.10.9",
     "networkx==3.6.1",
     "pydantic==2.13.3",
