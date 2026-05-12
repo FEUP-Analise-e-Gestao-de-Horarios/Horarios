@@ -5,12 +5,8 @@ from http import HTTPStatus
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views import View
 
-from src.core.errors import (
-    ApiError,
-    ErrorResponse,
-    NotAuthenticatedResponse,
-    ProjectNotFoundResponse,
-)
+from src.core.decorators import require_auth
+from src.core.errors import ApiError, ErrorResponse, ProjectNotFoundResponse
 from src.core.schemas import SuccessResponse
 from src.ingestion.manager import IngestionManager
 from src.parser.utils import validate_request_body
@@ -30,24 +26,18 @@ logger = logging.getLogger(__name__)
 class ProjectsView(View):
     """API endpoint: list all projects (GET) or create a new project (POST)."""
 
+    @require_auth
     def get(self, request: HttpRequest) -> HttpResponse:
-        # -- Check user auth ---------------------------------------------------
-        if not request.user.is_authenticated:
-            return NotAuthenticatedResponse()
-
         # -- Fetch all projects ------------------------------------------------
         projects = list(Project.objects.order_by("-created_at"))
         response = SuccessResponse(
             message="Projects retrieved successfully",
-            data=ProjectsResponse(projects=projects, count=len(projects)),
+            data=ProjectsResponse(projects=projects),
         )
         return JsonResponse(response.model_dump())
 
+    @require_auth
     def post(self, request: HttpRequest) -> HttpResponse:
-        # -- Check user auth ---------------------------------------------------
-        if not request.user.is_authenticated:
-            return NotAuthenticatedResponse()
-
         # -- Validate and extract input ----------------------------------------
         validated, err = validate_request_body(CreateProjectRequest, request.body)
         if err:
@@ -104,11 +94,8 @@ class ProjectsView(View):
 class ProjectView(View):
     """API endpoint: retrieve (GET), rename (PATCH), or delete (DELETE) a single project."""
 
+    @require_auth
     def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
-        # -- Check user auth ---------------------------------------------------
-        if not request.user.is_authenticated:
-            return NotAuthenticatedResponse()
-
         # -- Fetch project -----------------------------------------------------
         try:
             project = Project.objects.get(pk=project_id)
@@ -122,11 +109,8 @@ class ProjectView(View):
         )
         return JsonResponse(response.model_dump())
 
+    @require_auth
     def patch(self, request: HttpRequest, project_id: int) -> HttpResponse:
-        # -- Check user auth ---------------------------------------------------
-        if not request.user.is_authenticated:
-            return NotAuthenticatedResponse()
-
         # -- Validate and extract input ----------------------------------------
         validated, err = validate_request_body(RenameProjectRequest, request.body)
         if err:
@@ -159,11 +143,8 @@ class ProjectView(View):
             ).model_dump(),
         )
 
+    @require_auth
     def delete(self, request: HttpRequest, project_id: int) -> HttpResponse:
-        # -- Check user auth ---------------------------------------------------
-        if not request.user.is_authenticated:
-            return NotAuthenticatedResponse()
-
         # -- Fetch project -----------------------------------------------------
         try:
             project = Project.objects.get(pk=project_id)

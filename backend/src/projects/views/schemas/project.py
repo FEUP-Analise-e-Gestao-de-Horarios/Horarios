@@ -1,7 +1,17 @@
 import re
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, computed_field, field_validator
+
+
+# -- Projects list -----------------------------------------------------
+class ProjectsResponse(BaseModel):
+    projects: list[ProjectResponse]
+
+    @computed_field
+    @property
+    def count(self) -> int:
+        return len(self.projects)
 
 
 class ProjectResponse(BaseModel):
@@ -21,11 +31,7 @@ class ProjectResponse(BaseModel):
     updated_at: datetime
 
 
-class ProjectsResponse(BaseModel):
-    projects: list[ProjectResponse]
-    count: int
-
-
+# -- Create project ----------------------------------------------------
 class CreateProjectRequest(BaseModel):
     name: str = Field(max_length=30)
     url: HttpUrl
@@ -43,6 +49,7 @@ class CreateProjectResponse(BaseModel):
     name: str
 
 
+# -- Rename project ----------------------------------------------------
 class RenameProjectRequest(BaseModel):
     name: str = Field(max_length=30)
 

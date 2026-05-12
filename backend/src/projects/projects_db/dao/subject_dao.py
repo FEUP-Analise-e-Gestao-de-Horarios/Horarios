@@ -1,17 +1,13 @@
+from collections.abc import Iterable
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session as DBSession
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
-from src.projects.projects_db.dao.exceptions import MultipleNotFoundError
 from src.projects.projects_db.models import (
-    Class,
-    Degree,
-    Session,
     SessionClassSubject,
     Subject,
-    Year,
 )
 from src.projects.projects_db.models._secondary_tables import session_teachers
 from src.projects.projects_db.schemas.subject import SubjectStats
@@ -46,47 +42,21 @@ class SubjectDAO(BaseDAO[Subject]):
     # -- Get Subjects
     # -------------------------------------------------------------------
 
-    def get(self, subject_id: UUID) -> Subject | None:
-        """Retrieve a single subject by its primary key."""
-        return self.session.scalars(select(Subject).where(Subject.id == subject_id)).one_or_none()
+    def find_missing_in_year(self, year_id: UUID, ids: Iterable[UUID]) -> list[UUID]:
+        """Return the subset of ``ids`` not matching a subject in the given year.
 
-    def get_by_number(self, number: int) -> Subject | None:
-        """Retrieve a single subject by its institutional number.
-
-        Args:
-            number: The subject number to look up.
-
-        Returns:
-            The matching Subject instance, or None if not found.
+        Deduplicates the input. Order is not preserved. Treats ids that exist
+        but belong to a different year the same as ids that do not exist.
         """
-        return self.session.scalars(select(Subject).where(Subject.number == number)).one_or_none()
-
-    def get_by_numbers(self, numbers: set[int], *, check_count: bool = True) -> list[Subject]:
-        """Return subjects matching the given institutional numbers.
-
-        Args:
-            numbers: Set of subject numbers to fetch.
-            check_count: When True, raises if any number has no matching subject.
-
-        Returns:
-            List of Subject instances corresponding to the requested numbers.
-
-        Raises:
-            MultipleNotFoundError: If check_count is True and one or more
-                numbers have no matching subject.
-        """
-        if not numbers:
+        unique = set(ids)
+        if not unique:
             return []
-
-        subjects = list(
-            self.session.scalars(select(Subject).where(Subject.number.in_(numbers))).all(),
+        existing = set(
+            self.session.scalars(
+                select(Subject.id).where(Subject.id.in_(unique), Subject.year_id == year_id),
+            ).all(),
         )
-        if check_count and len(numbers) != len(subjects):
-            found = {s.number for s in subjects}
-            missing = numbers - found
-            raise MultipleNotFoundError("number", missing)
-
-        return subjects
+        return list(unique - existing)
 
     def get_by_teacher(self, teacher_id: UUID) -> list[Subject]:
         """Return distinct subjects taught by the given teacher across all their sessions.
@@ -114,8 +84,16 @@ class SubjectDAO(BaseDAO[Subject]):
     # -- Get Subjects with Stats
     # -------------------------------------------------------------------
 
+    def get_all_with_stats(self) -> list[SubjectStats]:
+        """Return all subjects with their session counts.
+
+        Returns:
+            A list of SubjectStats, one per subject, in an unspecified order.
+        """
+        return self._get_with_stats()
+
     def get_by_year_with_stats(self, year_id: UUID) -> list[SubjectStats]:
-        """Return all subjects for a year with their session counts and degree info.
+        """Return all subjects for a year with their session counts.
 
         Args:
             year_id: UUID of the year to filter subjects by.
@@ -123,59 +101,32 @@ class SubjectDAO(BaseDAO[Subject]):
         Returns:
             A list of SubjectStats, one per subject in the given year.
         """
-        sessions_sq = (
-            select(SessionClassSubject.subject_id, func.count(Session.id).label("cnt"))
-            .join(Session, Session.id == SessionClassSubject.session_id)
-            .group_by(SessionClassSubject.subject_id)
-            .subquery()
-        )
+        return self._get_with_stats(year_id=year_id)
 
-        stmt = (
-            select(
-                Subject.id,
-                Subject.number,
-                Subject.code,
-                Subject.acronym,
-                Subject.name,
-                Year.id.label("year_id"),
-                Year.number.label("year_number"),
-                Degree.id.label("degree_id"),
-                Degree.acronym.label("degree_acronym"),
-                Degree.name.label("degree_name"),
-                func.coalesce(sessions_sq.c.cnt, 0).label("sessions"),
-            )
-            .join(Year, Year.id == Subject.year_id)
-            .join(Degree, Degree.id == Year.degree_id)
-            .outerjoin(sessions_sq, sessions_sq.c.subject_id == Subject.id)
-            .where(Subject.year_id == year_id)
+    def _get_with_stats(self, *, year_id: UUID | None = None) -> list[SubjectStats]:
+        sessions_sq_q = select(
+            SessionClassSubject.subject_id,
+            func.count(distinct(SessionClassSubject.session_id)).label("cnt"),
         )
+        if year_id is not None:
+            sessions_sq_q = sessions_sq_q.join(
+                Subject,
+                Subject.id == SessionClassSubject.subject_id,
+            ).where(Subject.year_id == year_id)
+        sessions_sq = sessions_sq_q.group_by(SessionClassSubject.subject_id).subquery()
+
+        stmt = select(
+            Subject.id,
+            Subject.year_id,
+            Subject.number,
+            Subject.code,
+            Subject.acronym,
+            Subject.name,
+            func.coalesce(sessions_sq.c.cnt, 0).label("sessions"),
+        ).outerjoin(sessions_sq, sessions_sq.c.subject_id == Subject.id)
+        if year_id is not None:
+            stmt = stmt.where(Subject.year_id == year_id)
 
         rows = self.session.execute(stmt).all()
 
         return [SubjectStats.model_validate(row, from_attributes=True) for row in rows]
-
-    # -------------------------------------------------------------------
-    # -- Get Others
-    # -------------------------------------------------------------------
-
-    def get_classes(self, subject_id: UUID) -> list[Class]:
-        """Return distinct classes associated with the given subject."""
-        return list(
-            self.session.scalars(
-                select(Class)
-                .join(SessionClassSubject, SessionClassSubject.class_id == Class.id)
-                .where(SessionClassSubject.subject_id == subject_id)
-                .distinct(),
-            ).all(),
-        )
-
-    def get_sessions(self, subject_id: UUID) -> list[Session]:
-        """Return distinct sessions for the given subject."""
-        return list(
-            self.session.scalars(
-                select(Session)
-                .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
-                .where(SessionClassSubject.subject_id == subject_id)
-                .distinct(),
-            ).all(),
-        )

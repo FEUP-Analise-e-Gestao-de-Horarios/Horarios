@@ -27,23 +27,26 @@ mirror:
 
 dev:
 	mkdir -p databases/projects
+	trap 'docker compose -f docker-compose.dev.yml down' EXIT INT TERM; \
 	docker compose -f docker-compose.dev.yml up --build
 
 dev-mirror:
 	mkdir -p databases/projects
+	trap 'docker compose -f docker-compose.dev.yml --profile mirror down' EXIT INT TERM; \
 	docker compose -f docker-compose.dev.yml --profile mirror up --build
 
 prod:
+	trap 'docker compose -f docker-compose.prod.yml down' EXIT INT TERM; \
 	docker compose -f docker-compose.prod.yml up --build
 
 clean-db:
 	rm -rf databases/
 
 clean-db-volume:
-	docker volume rm pi_db_data
+	docker volume rm horarios_db_data
 
 clean-mirror:
-	docker volume rm pi_mirror_data
+	docker volume rm horarios_mirror_data
 
 deploy-build:
 	docker compose -f docker-compose.prod.yml build

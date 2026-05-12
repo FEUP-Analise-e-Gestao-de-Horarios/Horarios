@@ -1,7 +1,10 @@
 import { useRef } from "react";
+import { Link } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useProjectDegrees } from "@/api/hooks/useDashboard";
+import { ROUTES } from "@/routes";
 import type { DegreeStats } from "@/types/dashboard";
+import { buildPath } from "@/utils/routes";
 import { matchesSequence } from "@/utils/search";
 import TableSkeleton from "./TableSkeleton";
 
@@ -12,14 +15,16 @@ interface DegreesTabProps {
   processing: boolean;
 }
 
-const COLUMNS: { key: keyof DegreeStats; label: string; align?: "right"; width?: string }[] = [
-  { key: "acronym", label: "Sigla", width: "110px" },
+const COLUMNS: { key: keyof DegreeStats; label: string; align?: "right" }[] = [
+  { key: "acronym", label: "Sigla" },
   { key: "name", label: "Nome" },
-  { key: "years", label: "Anos", align: "right", width: "70px" },
-  { key: "subjects", label: "UCs", align: "right", width: "65px" },
-  { key: "classes", label: "Turmas", align: "right", width: "80px" },
-  { key: "sessions", label: "Aulas", align: "right", width: "70px" },
+  { key: "years", label: "Anos", align: "right" },
+  { key: "subjects", label: "UCs", align: "right" },
+  { key: "classes", label: "Turmas", align: "right" },
+  { key: "sessions", label: "Aulas", align: "right" },
 ];
+
+const GRID_COLS = "110px minmax(0, 1fr) 70px 65px 80px 70px";
 
 export default function DegreesTab({
   projectId,
@@ -61,62 +66,75 @@ export default function DegreesTab({
   return (
     <div
       ref={containerRef}
-      className={`h-full overflow-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [will-change:scroll-position] ${showSkeleton ? "[mask-image:linear-gradient(to_bottom,black_50%,transparent_100%)]" : ""}`}
+      role="table"
+      aria-label="Cursos"
+      aria-busy={showSkeleton}
+      className={`h-full overflow-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [will-change:scroll-position] text-sm ${showSkeleton ? "[mask-image:linear-gradient(to_bottom,black_50%,transparent_100%)]" : ""}`}
     >
-      <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
-        <colgroup>
+      <div role="rowgroup" className="sticky top-0 z-10 bg-white">
+        <div
+          role="row"
+          className="grid border-b border-[#e5e4e7]"
+          style={{ gridTemplateColumns: GRID_COLS }}
+        >
           {COLUMNS.map((col) => (
-            <col key={col.key} style={col.width ? { width: col.width } : undefined} />
+            <div
+              key={col.key}
+              role="columnheader"
+              className={`py-2 px-4 text-xs font-semibold uppercase tracking-wider text-[#08060d] whitespace-nowrap ${col.align === "right" ? "text-right" : "text-left"}`}
+            >
+              {col.label}
+            </div>
           ))}
-        </colgroup>
-        <thead className="sticky top-0 bg-white z-10">
-          <tr className="border-b border-[#e5e4e7]">
-            {COLUMNS.map((col) => (
-              <th
-                key={col.key}
-                className={`py-2 px-4 text-xs font-semibold uppercase tracking-wider text-[#08060d] whitespace-nowrap ${col.align === "right" ? "text-right" : "text-left"}`}
+        </div>
+      </div>
+
+      {showSkeleton ? (
+        <TableSkeleton cols={COLUMNS.length} gridTemplateColumns={GRID_COLS} />
+      ) : (
+        <div role="rowgroup">
+          {paddingTop > 0 && <div aria-hidden="true" style={{ height: paddingTop }} />}
+          {virtualItems.map((virtualRow) => {
+            const degree = filtered[virtualRow.index];
+            if (!degree) return null;
+            return (
+              <div
+                key={degree.id}
+                role="row"
+                className="grid items-center border-b border-[#e5e4e7] last:border-0 hover:bg-[#f9f7f4] transition-colors has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-[#8c2d19] has-[a:focus-visible]:[outline-offset:-2px]"
+                style={{ gridTemplateColumns: GRID_COLS }}
               >
-                {col.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {showSkeleton ? (
-            <TableSkeleton cols={COLUMNS.length} />
-          ) : (
-            <>
-              {paddingTop > 0 && (
-                <tr>
-                  <td style={{ height: paddingTop }} colSpan={COLUMNS.length} />
-                </tr>
-              )}
-              {virtualItems.map((virtualRow) => {
-                const degree = filtered[virtualRow.index];
-                if (!degree) return null;
-                return (
-                  <tr
-                    key={degree.id}
-                    className="border-b border-[#e5e4e7] last:border-0 hover:bg-[#f9f7f4] transition-colors"
-                  >
-                    <td className="py-3 px-4 font-medium text-[#08060d]">{degree.acronym}</td>
-                    <td className="py-3 px-4 text-[#08060d]">{degree.name}</td>
-                    <td className="py-3 px-4 text-right text-[#6b6375]">{degree.years}</td>
-                    <td className="py-3 px-4 text-right text-[#6b6375]">{degree.subjects}</td>
-                    <td className="py-3 px-4 text-right text-[#6b6375]">{degree.classes}</td>
-                    <td className="py-3 px-4 text-right text-[#6b6375]">{degree.sessions}</td>
-                  </tr>
-                );
-              })}
-              {paddingBottom > 0 && (
-                <tr>
-                  <td style={{ height: paddingBottom }} colSpan={COLUMNS.length} />
-                </tr>
-              )}
-            </>
-          )}
-        </tbody>
-      </table>
+                <Link
+                  to={buildPath(ROUTES.DEGREE_DETAIL, { projectId, degreeId: degree.id })}
+                  draggable={false}
+                  aria-label={degree.name}
+                  className="contents text-inherit no-underline [-webkit-user-drag:none]"
+                >
+                  <div role="cell" className="py-3 px-4 font-medium text-[#08060d]">
+                    {degree.acronym}
+                  </div>
+                  <div role="cell" className="py-3 px-4 text-[#08060d]">
+                    {degree.name}
+                  </div>
+                  <div role="cell" className="py-3 px-4 text-right text-[#6b6375]">
+                    {degree.years}
+                  </div>
+                  <div role="cell" className="py-3 px-4 text-right text-[#6b6375]">
+                    {degree.subjects}
+                  </div>
+                  <div role="cell" className="py-3 px-4 text-right text-[#6b6375]">
+                    {degree.classes}
+                  </div>
+                  <div role="cell" className="py-3 px-4 text-right text-[#6b6375]">
+                    {degree.sessions}
+                  </div>
+                </Link>
+              </div>
+            );
+          })}
+          {paddingBottom > 0 && <div aria-hidden="true" style={{ height: paddingBottom }} />}
+        </div>
+      )}
     </div>
   );
 }

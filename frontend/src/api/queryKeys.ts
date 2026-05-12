@@ -4,7 +4,13 @@ export const queryKeys = {
     detail: (id: string) => ["projects", id] as const,
     stats: (id: string) => ["projects", id, "stats"] as const,
     degrees: (id: string) => ["projects", id, "degrees"] as const,
+    degree: (id: string, degreeId: string) => ["projects", id, "degrees", degreeId] as const,
+    year: (id: string, yearId: string) => ["projects", id, "years", yearId] as const,
     teachers: (id: string) => ["projects", id, "teachers"] as const,
+    teacher: (id: string, teacherId: string) => ["projects", id, "teachers", teacherId] as const,
     rooms: (id: string) => ["projects", id, "rooms"] as const,
+    room: (id: string, roomId: string) => ["projects", id, "rooms", roomId] as const,
+    subject: (id: string, subjectId: string) => ["projects", id, "subjects", subjectId] as const,
+    class: (id: string, classId: string) => ["projects", id, "classes", classId] as const,
   },
 } as const;

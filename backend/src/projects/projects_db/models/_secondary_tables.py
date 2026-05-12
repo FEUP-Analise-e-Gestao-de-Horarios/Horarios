@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, Table, Uuid
+from sqlalchemy import Column, ForeignKey, Index, Table, Uuid
 
 from src.projects.projects_db.base import Base
 
@@ -17,6 +17,7 @@ session_rooms = Table(
         ForeignKey("rooms.id"),
         primary_key=True,
     ),
+    Index("ix_session_rooms_room_id", "room_id"),
 )
 
 session_teachers = Table(
@@ -34,4 +35,5 @@ session_teachers = Table(
         ForeignKey("teachers.id"),
         primary_key=True,
     ),
+    Index("ix_session_teachers_teacher_id", "teacher_id"),
 )

@@ -107,16 +107,22 @@ export default function ChangePasswordPage() {
     return true;
   };
 
-  const handleKeyDown = (field: "new" | "confirm" | "old") => (e: React.KeyboardEvent) => {
+  const handleNewKeyDown = (e: React.KeyboardEvent) => {
     if (e.key !== "Enter") return;
     e.preventDefault();
-    if (field === "new") {
-      if (validateNewPassword()) confirmPasswordRef.current?.focus();
-    } else if (field === "confirm") {
-      if (validateConfirmPassword()) oldPasswordRef.current?.focus();
-    } else {
-      if (validateOldPassword()) oldPasswordRef.current?.closest("form")?.requestSubmit();
-    }
+    if (validateNewPassword()) confirmPasswordRef.current?.focus();
+  };
+
+  const handleConfirmKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    if (validateConfirmPassword()) oldPasswordRef.current?.focus();
+  };
+
+  const handleOldKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    if (validateOldPassword()) oldPasswordRef.current?.closest("form")?.requestSubmit();
   };
 
   const handleSubmit = (e: React.SyntheticEvent) => {
@@ -152,6 +158,7 @@ export default function ChangePasswordPage() {
   if (countdown !== null) {
     return (
       <AuthPageLayout>
+        <title>Mudar palavra-passe · AGH</title>
         <div className="flex flex-col items-center gap-5 w-96 p-8">
           <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
             <svg
@@ -181,6 +188,7 @@ export default function ChangePasswordPage() {
 
   return (
     <AuthPageLayout>
+      <title>Mudar palavra-passe · AGH</title>
       <FormCard onSubmit={handleSubmit}>
         <h1 className="text-[#08060d] text-2xl font-bold m-0">Mudar palavra-passe</h1>
 
@@ -190,7 +198,7 @@ export default function ChangePasswordPage() {
           label="Palavra-passe nova"
           value={newPassword}
           onChange={setNewPassword}
-          onKeyDown={handleKeyDown("new")}
+          onKeyDown={handleNewKeyDown}
           error={errors.newPassword}
           shake={isShaking("newPassword")}
           disabled={changePassword.isPending}
@@ -204,7 +212,7 @@ export default function ChangePasswordPage() {
           label="Confirmação da palavra-passe nova"
           value={confirmPassword}
           onChange={setConfirmPassword}
-          onKeyDown={handleKeyDown("confirm")}
+          onKeyDown={handleConfirmKeyDown}
           error={errors.confirmPassword}
           shake={isShaking("confirmPassword")}
           disabled={changePassword.isPending}
@@ -216,7 +224,7 @@ export default function ChangePasswordPage() {
           label="Palavra-passe antiga"
           value={oldPassword}
           onChange={setOldPassword}
-          onKeyDown={handleKeyDown("old")}
+          onKeyDown={handleOldKeyDown}
           error={errors.oldPassword}
           shake={isShaking("oldPassword")}
           disabled={changePassword.isPending}

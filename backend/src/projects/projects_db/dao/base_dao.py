@@ -82,7 +82,7 @@ Structure::
 _SQLITE_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
-class BaseDAO[T]:
+class BaseDAO[T: Base]:
     """Generic base DAO providing CRUD operations for a single SQLAlchemy model."""
 
     def __init__(

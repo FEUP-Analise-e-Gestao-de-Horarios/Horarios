@@ -8,13 +8,7 @@ from src.projects.projects_db.schemas.weekday import WeekDay
 
 class ClassStats(BaseModel):
     id: UUID
-
-    degree_id: UUID
-    degree_acronym: str
-    degree_name: str
-
     year_id: UUID
-    year_number: int
 
     code: str
     shift: int

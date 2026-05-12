@@ -1,45 +1,25 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
+
+from src.core.mixins import ValidateWithExtrasMixin
+from src.projects.views.schemas.shared import SubjectBase, YearBase
+from src.projects.views.schemas.week_blocks import WeekBlock
 
 
-class SubjectStatsResponse(BaseModel):
-    id: str
-
-    degree_id: str
-    degree_acronym: str
-    degree_name: str
-
-    year_id: str
-    year_number: int
-
-    number: int
-    code: str
-    acronym: str
-    name: str
-
-    sessions: int
-
-
-class ProjectSubjectsResponse(BaseModel):
+# -- Subjects list -----------------------------------------------------
+class SubjectsResponse(BaseModel):
     subjects: list[SubjectStatsResponse]
-    count: int
+
+    @computed_field
+    @property
+    def count(self) -> int:
+        return len(self.subjects)
 
 
-class ClassStatsResponse(BaseModel):
-    id: str
-
-    code: str
-    shift: int
-
-    year_id: str
-    year_number: int
-
-    degree_id: str
-    degree_acronym: str
-    degree_name: str
-
+class SubjectStatsResponse(SubjectBase):
     sessions: int
 
 
-class ProjectClassesResponse(BaseModel):
-    classes: list[ClassStatsResponse]
-    count: int
+# -- Subject detail ----------------------------------------------------
+class SubjectDetailResponse(ValidateWithExtrasMixin, SubjectBase):
+    year: YearBase
+    blocks: list[WeekBlock]

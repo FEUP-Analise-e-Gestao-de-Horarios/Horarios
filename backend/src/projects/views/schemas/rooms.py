@@ -1,35 +1,26 @@
-from uuid import UUID
-
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 
 from src.core.mixins import ValidateWithExtrasMixin
-from src.projects.views.schemas.shared import RedBlockResponse, SessionResponse
+from src.projects.views.schemas.shared import RedBlockBase, RoomBase
+from src.projects.views.schemas.week_blocks import WeekBlock
 
 
-class ProjectRoomsResponse(BaseModel):
+# -- Rooms list --------------------------------------------------------
+class RoomsResponse(BaseModel):
     rooms: list[RoomStatsResponse]
-    count: int
+
+    @computed_field
+    @property
+    def count(self) -> int:
+        return len(self.rooms)
 
 
-class RoomStatsResponse(BaseModel):
-    id: UUID
-
-    name: str
-    type: str | None
-    size: str | None
-    seats: str | None
-
+class RoomStatsResponse(RoomBase):
     sessions: int
     red_blocks: int
 
 
-class RoomDetailResponse(ValidateWithExtrasMixin, BaseModel):
-    id: UUID
-
-    name: str
-    type: str | None
-    size: str | None
-    seats: str | None
-
-    sessions: list[SessionResponse]
-    red_blocks: list[RedBlockResponse]
+# -- Room detail -------------------------------------------------------
+class RoomDetailResponse(ValidateWithExtrasMixin, RoomBase):
+    blocks: list[WeekBlock]
+    red_blocks: list[RedBlockBase]

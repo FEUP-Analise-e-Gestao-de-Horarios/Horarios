@@ -14,6 +14,8 @@ class ApiError(StrEnum):
     PROJECTS_SESSIONS_NOT_FOUND = "projects.sessions.not_found"
     PROJECTS_DEGREES_NOT_FOUND = "projects.degrees.not_found"
     PROJECTS_YEARS_NOT_FOUND = "projects.years.not_found"
+    PROJECTS_SUBJECTS_NOT_FOUND = "projects.subjects.not_found"
+    PROJECTS_CLASSES_NOT_FOUND = "projects.classes.not_found"
 
     # Auth
     AUTH_NOT_AUTHENTICATED = "auth.not_authenticated"
@@ -79,9 +81,25 @@ def DegreeNotFoundResponse() -> JsonResponse:
     )
 
 
-def YearNotFoundResponse() -> JsonResponse:
+def YearNotFoundResponse(message: str = "Year not found.") -> JsonResponse:
     return ErrorResponse(
         status=404,
         code=ApiError.PROJECTS_YEARS_NOT_FOUND,
-        message="Year not found.",
+        message=message,
+    )
+
+
+def SubjectNotFoundResponse(message: str = "Subject not found.") -> JsonResponse:
+    return ErrorResponse(
+        status=404,
+        code=ApiError.PROJECTS_SUBJECTS_NOT_FOUND,
+        message=message,
+    )
+
+
+def ClassNotFoundResponse(message: str = "Class not found.") -> JsonResponse:
+    return ErrorResponse(
+        status=404,
+        code=ApiError.PROJECTS_CLASSES_NOT_FOUND,
+        message=message,
     )

@@ -31,3 +31,4 @@ class TeacherConflict(dict):
 
     collisions: int
     session_ids: list[UUID]
+    red_blocks: int
