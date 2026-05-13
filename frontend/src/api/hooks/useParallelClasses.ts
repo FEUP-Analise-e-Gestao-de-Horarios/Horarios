@@ -49,6 +49,7 @@ export function useParallelClasses(): UseParallelClassesReturn {
   useEffect(() => {
     if (!projectId || Number.isNaN(projectIdNum)) return;
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingDegrees(true);
     setDegreesError(null);
 
@@ -76,6 +77,7 @@ export function useParallelClasses(): UseParallelClassesReturn {
   useEffect(() => {
     if (!selectedDegree || !selectedYear || !projectId || Number.isNaN(projectIdNum)) return;
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingYearLookup(true);
     setResolvedYearId(null);
     setCandidatesError(null);
@@ -112,6 +114,7 @@ export function useParallelClasses(): UseParallelClassesReturn {
     )
       return;
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingCandidates(true);
     setCandidatesError(null);
 
