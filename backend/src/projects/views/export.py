@@ -66,20 +66,22 @@ class ProjectExportView(View):
             session_dao.detach_db(alias)
             end_time = time()
             export_graph = ExportGraph(modifications, project_id)
-            graphs = export_graph.build_graph()
-            modification_groups = export_graph.order_change_groups_using_graph(graphs)
+            export_graph.build_graph()
+            modification_groups = export_graph.order_change_groups_using_graph()
+            dependencies = export_graph.get_dependencies()
             data.update(
                 {
-                    "modification_order": [
-                        str(session_id) for group in modification_groups for session_id in group
-                    ],
                     "modification_steps": [
                         {
                             "type": "exchange" if len(group) > 1 else "move",
-                            "sessions": [str(session_id) for session_id in group],
+                            "sessions": {
+                                str(session_id): modifications[str(session_id)]
+                                for session_id in group
+                            },
                         }
                         for group in modification_groups
                     ],
+                    "modifications_dependencies": dependencies,
                 },
             )
 

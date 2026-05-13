@@ -11,6 +11,7 @@ from src.projects.projects_db.registry import get_session
 class ExportGraph:
     def __init__(self, changes: ChangedRecords, project_id: int):
         self.changes = changes
+        self.dependency_graph: nx.DiGraph | None = None
 
         with get_session(general_db(project_id)) as session:
             session_dao = SessionDAO(session)
@@ -172,41 +173,101 @@ class ExportGraph:
 
     def order_change_groups_using_graph(
         self,
-        graphs: dict[str, nx.DiGraph] | None = None,
     ) -> list[list[Any]]:
-        if graphs is None:
-            graphs = self.build_graph()
+        if self.dependency_graph is None:
+            self.build_graph()
 
-        dependency_graph = self.build_change_dependency_graph(graphs)
+        dependency_graph = self.dependency_graph
+        assert dependency_graph is not None
         components = list(nx.strongly_connected_components(dependency_graph))
         condensed_graph = nx.condensation(dependency_graph, components)
 
         return [
-            sorted(condensed_graph.nodes[component]["members"], key=str)
-            for component in nx.topological_sort(condensed_graph)
-        ]
-
-    def order_changes_using_graph(
-        self,
-        graphs: dict[str, nx.DiGraph] | None = None,
-    ) -> list[Any]:
-        return [
-            session_id
-            for group in self.order_change_groups_using_graph(graphs)
-            for session_id in group
+            self.sort_group_by_classes(condensed_graph.nodes[component]["members"])
+            for component in self.topological_sort_by_classes(condensed_graph)
         ]
 
     def build_modification_steps(
         self,
-        graphs: dict[str, nx.DiGraph] | None = None,
     ) -> list[dict[str, Any]]:
+        if self.dependency_graph is None:
+            self.build_graph()
+
+        assert self.dependency_graph is not None
         return [
             {
                 "type": "exchange" if len(group) > 1 else "move",
                 "sessions": [str(session_id) for session_id in group],
             }
-            for group in self.order_change_groups_using_graph(graphs)
+            for group in self.order_change_groups_using_graph()
         ]
+
+    def get_session_classes(self, session_id: Any) -> tuple[str, ...]:
+        session_data = self.sessions_by_change_key.get(self.normalize_id(session_id), {})
+        return tuple(
+            sorted(str(class_code) for class_code in session_data.get("classes", [])),
+        )
+
+    def get_group_classes(self, group: set[Any] | list[Any]) -> tuple[str, ...]:
+        classes: set[str] = set()
+
+        for session_id in group:
+            classes.update(self.get_session_classes(session_id))
+
+        return tuple(sorted(classes))
+
+    def sort_group_by_classes(self, group: set[Any]) -> list[Any]:
+        return sorted(
+            group,
+            key=lambda session_id: (
+                self.get_session_classes(session_id),
+                str(session_id),
+            ),
+        )
+
+    def topological_sort_by_classes(self, condensed_graph: nx.DiGraph) -> list[Any]:
+        """Topologically sort dependency groups while keeping classes clustered."""
+        in_degrees = dict(condensed_graph.in_degree())
+        ready = [node for node, degree in in_degrees.items() if degree == 0]
+        ordered = []
+        previous_classes: set[str] = set()
+
+        while ready:
+            ready.sort(
+                key=lambda component: self.class_priority_key(
+                    condensed_graph.nodes[component]["members"],
+                    previous_classes,
+                ),
+            )
+            component = ready.pop(0)
+            ordered.append(component)
+            previous_classes = set(
+                self.get_group_classes(condensed_graph.nodes[component]["members"]),
+            )
+
+            for successor in condensed_graph.successors(component):
+                in_degrees[successor] -= 1
+                if in_degrees[successor] == 0:
+                    ready.append(successor)
+
+        if len(ordered) != condensed_graph.number_of_nodes():
+            raise nx.NetworkXUnfeasible("Dependency graph contains a cycle.")
+
+        return ordered
+
+    def class_priority_key(
+        self,
+        group: set[Any],
+        previous_classes: set[str],
+    ) -> tuple[int, tuple[str, ...], tuple[str, ...]]:
+        group_classes = self.get_group_classes(group)
+        class_overlap = len(previous_classes.intersection(group_classes))
+
+        return (
+            -class_overlap,
+            group_classes,
+            tuple(sorted(str(session_id) for session_id in group)),
+        )
 
     def build_graph(self):
         room_graph = nx.DiGraph()
@@ -243,5 +304,29 @@ class ExportGraph:
             "teachers": teacher_graph,
             "classes": class_graph,
         }
+
         self.connect_nodes_according_to_changes(graphs)
+        self.dependency_graph = self.build_change_dependency_graph(graphs)
         return graphs
+
+    def get_dependencies(
+        self,
+        *,
+        transitive: bool = False,
+    ) -> dict[Any, list[Any]]:
+        """Return prerequisite changes for each changed-session node."""
+        if self.dependency_graph is None:
+            self.build_graph()
+
+        assert self.dependency_graph is not None
+        dependencies = {}
+
+        for node in self.dependency_graph.nodes:
+            if transitive:
+                node_dependencies = nx.ancestors(self.dependency_graph, node)
+            else:
+                node_dependencies = self.dependency_graph.predecessors(node)
+
+            dependencies[node] = sorted(node_dependencies, key=str)
+
+        return dependencies
