@@ -59,7 +59,9 @@ class ProjectExportView(View):
             data: dict[str, Any] = {}
             modifications = session_dao.get_changes_only(alias)
             data.update({"modified_sessions": modifications})
-            data.update({"added_removed_sessions": session_dao.get_added_removed_records(alias)})
+            data.update(
+                {"added_removed_sessions": session_dao.get_added_removed_records(alias)},
+            )
             data.update({"rooms_conflicts": rooms_dao.get_conflicting_slots()})
             data.update({"teacher_conflicts": teachers_dao.get_conflicting_slots()})
             data.update({"classes_conflicts": class_dao.get_conflicting_slots()})
@@ -67,21 +69,9 @@ class ProjectExportView(View):
             end_time = time()
             export_graph = ExportGraph(modifications, project_id)
             export_graph.build_graph()
-            modification_groups = export_graph.order_change_groups_using_graph()
-            dependencies = export_graph.get_dependencies()
             data.update(
                 {
-                    "modification_steps": [
-                        {
-                            "type": "exchange" if len(group) > 1 else "move",
-                            "sessions": {
-                                str(session_id): modifications[str(session_id)]
-                                for session_id in group
-                            },
-                        }
-                        for group in modification_groups
-                    ],
-                    "modifications_dependencies": dependencies,
+                    "modification_steps": export_graph.build_modification_steps(),
                 },
             )
 
