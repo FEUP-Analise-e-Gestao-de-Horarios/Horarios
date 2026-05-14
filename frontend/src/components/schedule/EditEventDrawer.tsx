@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { ConflictRecord } from "@/types/project/conflicts";
 import type { WeekGridEvent } from "@/components/schedule/WeekGrid";
 import { hhmmToMinutes, minutesToTime } from "@/utils/time";
@@ -103,7 +103,29 @@ function weekdayLabelToValue(weekday: WeekGridEvent["weekday"]): string {
   return WEEKDAY_LABELS_LONG[weekday];
 }
 
-function getInitialFormState(event?: WeekGridEvent | null) {
+type FormState = {
+  selectedUcOverride: string;
+  selectedDocenteOverride: string[];
+  selectedSalaOverride: string[];
+  selectedTurmasOverride: string[];
+  selectedWeekday: string;
+  startTime: string;
+  endTime: string;
+};
+
+type TimeField = "startTime" | "endTime";
+
+type FormAction =
+  | { type: "setUc"; value: string }
+  | { type: "setWeekday"; value: string }
+  | { type: "setTime"; field: TimeField; value: string }
+  | { type: "shiftTime"; field: TimeField; delta: number }
+  | { type: "normalizeTime"; field: TimeField; raw: string }
+  | { type: "toggleDocente"; id: string }
+  | { type: "toggleSala"; id: string }
+  | { type: "setTurmas"; value: string[] };
+
+function getInitialFormState(event?: WeekGridEvent | null): FormState {
   if (event) {
     return {
       selectedUcOverride: event.uc ?? "",
@@ -117,13 +139,40 @@ function getInitialFormState(event?: WeekGridEvent | null) {
   }
   return {
     selectedUcOverride: "",
-    selectedDocenteOverride: [] as string[],
-    selectedSalaOverride: [] as string[],
-    selectedTurmasOverride: [] as string[],
+    selectedDocenteOverride: [],
+    selectedSalaOverride: [],
+    selectedTurmasOverride: [],
     selectedWeekday: WEEKDAY_LABELS_LONG.monday,
     startTime: "10:30",
     endTime: "12:30",
   };
+}
+
+function formReducer(state: FormState, action: FormAction): FormState {
+  switch (action.type) {
+    case "setUc":
+      return { ...state, selectedUcOverride: action.value };
+    case "setWeekday":
+      return { ...state, selectedWeekday: action.value };
+    case "setTime":
+      return { ...state, [action.field]: action.value };
+    case "shiftTime":
+      return { ...state, [action.field]: shiftTimeByMinutes(state[action.field], action.delta) };
+    case "normalizeTime":
+      return { ...state, [action.field]: normalizeTimeValue(action.raw, state[action.field]) };
+    case "toggleDocente":
+      return {
+        ...state,
+        selectedDocenteOverride: toggleSelection(state.selectedDocenteOverride, action.id),
+      };
+    case "toggleSala":
+      return {
+        ...state,
+        selectedSalaOverride: toggleSelection(state.selectedSalaOverride, action.id),
+      };
+    case "setTurmas":
+      return { ...state, selectedTurmasOverride: action.value };
+  }
 }
 
 export default function EditEventDrawer({
@@ -139,7 +188,7 @@ export default function EditEventDrawer({
   preferredUc,
   event,
 }: EditEventDrawerProps) {
-  const [formState, setFormState] = useState(() => getInitialFormState(event));
+  const [formState, dispatch] = useReducer(formReducer, event, getInitialFormState);
   const {
     selectedUcOverride,
     selectedDocenteOverride,
@@ -150,39 +199,6 @@ export default function EditEventDrawer({
     endTime,
   } = formState;
 
-  function setSelectedUcOverride(val: string) {
-    setFormState((prev) => ({ ...prev, selectedUcOverride: val }));
-  }
-  function setSelectedDocenteOverride(val: string[] | ((prev: string[]) => string[])) {
-    setFormState((prev) => ({
-      ...prev,
-      selectedDocenteOverride: typeof val === "function" ? val(prev.selectedDocenteOverride) : val,
-    }));
-  }
-  function setSelectedSalaOverride(val: string[] | ((prev: string[]) => string[])) {
-    setFormState((prev) => ({
-      ...prev,
-      selectedSalaOverride: typeof val === "function" ? val(prev.selectedSalaOverride) : val,
-    }));
-  }
-  function setSelectedTurmasOverride(val: string[]) {
-    setFormState((prev) => ({ ...prev, selectedTurmasOverride: val }));
-  }
-  function setSelectedWeekday(val: string) {
-    setFormState((prev) => ({ ...prev, selectedWeekday: val }));
-  }
-  function setStartTime(val: string | ((prev: string) => string)) {
-    setFormState((prev) => ({
-      ...prev,
-      startTime: typeof val === "function" ? val(prev.startTime) : val,
-    }));
-  }
-  function setEndTime(val: string | ((prev: string) => string)) {
-    setFormState((prev) => ({
-      ...prev,
-      endTime: typeof val === "function" ? val(prev.endTime) : val,
-    }));
-  }
   const [docentesSearch, setDocentesSearch] = useState("");
   const [salasSearch, setSalasSearch] = useState("");
   const [turmasSearch, setTurmasSearch] = useState("");
@@ -409,7 +425,7 @@ export default function EditEventDrawer({
             <span className="mb-1.5 block text-white/90">UC Selecionada</span>
             <select
               value={selectedUc}
-              onChange={(event) => setSelectedUcOverride(event.target.value)}
+              onChange={(event) => dispatch({ type: "setUc", value: event.target.value })}
               className="w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2"
             >
               {ucOptions.map((uc) => (
@@ -426,7 +442,7 @@ export default function EditEventDrawer({
               <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  onClick={() => setStartTime((current) => shiftTimeByMinutes(current, -30))}
+                  onClick={() => dispatch({ type: "shiftTime", field: "startTime", delta: -30 })}
                   className="h-8 w-8 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white text-sm"
                   aria-label="Diminuir hora de inicio em 30 minutos"
                 >
@@ -437,15 +453,17 @@ export default function EditEventDrawer({
                   inputMode="numeric"
                   placeholder="HH:MM"
                   value={startTime}
-                  onChange={(event) => setStartTime(event.target.value)}
+                  onChange={(event) =>
+                    dispatch({ type: "setTime", field: "startTime", value: event.target.value })
+                  }
                   onBlur={(event) =>
-                    setStartTime((previous) => normalizeTimeValue(event.target.value, previous))
+                    dispatch({ type: "normalizeTime", field: "startTime", raw: event.target.value })
                   }
                   className="w-14 bg-[#2a303a] border border-white/20 rounded px-1.5 py-1.5 text-white text-center text-sm"
                 />
                 <button
                   type="button"
-                  onClick={() => setStartTime((current) => shiftTimeByMinutes(current, 30))}
+                  onClick={() => dispatch({ type: "shiftTime", field: "startTime", delta: 30 })}
                   className="h-8 w-8 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white text-sm"
                   aria-label="Aumentar hora de inicio em 30 minutos"
                 >
@@ -458,7 +476,7 @@ export default function EditEventDrawer({
               <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  onClick={() => setEndTime((current) => shiftTimeByMinutes(current, -30))}
+                  onClick={() => dispatch({ type: "shiftTime", field: "endTime", delta: -30 })}
                   className="h-8 w-8 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white text-sm"
                   aria-label="Diminuir hora de fim em 30 minutos"
                 >
@@ -469,15 +487,17 @@ export default function EditEventDrawer({
                   inputMode="numeric"
                   placeholder="HH:MM"
                   value={endTime}
-                  onChange={(event) => setEndTime(event.target.value)}
+                  onChange={(event) =>
+                    dispatch({ type: "setTime", field: "endTime", value: event.target.value })
+                  }
                   onBlur={(event) =>
-                    setEndTime((previous) => normalizeTimeValue(event.target.value, previous))
+                    dispatch({ type: "normalizeTime", field: "endTime", raw: event.target.value })
                   }
                   className="w-14 bg-[#2a303a] border border-white/20 rounded px-1.5 py-1.5 text-white text-center text-sm"
                 />
                 <button
                   type="button"
-                  onClick={() => setEndTime((current) => shiftTimeByMinutes(current, 30))}
+                  onClick={() => dispatch({ type: "shiftTime", field: "endTime", delta: 30 })}
                   className="h-8 w-8 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white text-sm"
                   aria-label="Aumentar hora de fim em 30 minutos"
                 >
@@ -490,7 +510,7 @@ export default function EditEventDrawer({
               <span className="mb-1.5 block text-white/90">Dia</span>
               <select
                 value={selectedWeekday}
-                onChange={(event) => setSelectedWeekday(event.target.value)}
+                onChange={(event) => dispatch({ type: "setWeekday", value: event.target.value })}
                 className="w-full bg-[#2a303a] border border-white/20 rounded px-2 py-1.5 text-sm"
               >
                 {WEEKDAYS.map((weekday) => (
@@ -520,9 +540,7 @@ export default function EditEventDrawer({
                 { heading: "Todos os docentes", options: filteredOtherDocentes },
               ]}
               selectedIds={effectiveSelectedDocente}
-              onToggleOption={(id) =>
-                setSelectedDocenteOverride((current) => toggleSelection(current, id))
-              }
+              onToggleOption={(id) => dispatch({ type: "toggleDocente", id })}
             />
 
             <div className="flex items-end gap-2">
@@ -552,9 +570,7 @@ export default function EditEventDrawer({
                     },
                   ]}
                   selectedIds={effectiveSelectedSala}
-                  onToggleOption={(id) =>
-                    setSelectedSalaOverride((current) => toggleSelection(current, id))
-                  }
+                  onToggleOption={(id) => dispatch({ type: "toggleSala", id })}
                 />
               </div>
 
@@ -572,7 +588,10 @@ export default function EditEventDrawer({
                   ]}
                   selectedIds={effectiveSelectedTurmas}
                   onToggleOption={(id) =>
-                    setSelectedTurmasOverride(toggleSelection(effectiveSelectedTurmas, id))
+                    dispatch({
+                      type: "setTurmas",
+                      value: toggleSelection(effectiveSelectedTurmas, id),
+                    })
                   }
                 />
               </div>
