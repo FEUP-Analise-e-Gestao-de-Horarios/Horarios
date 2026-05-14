@@ -231,7 +231,12 @@ export default function SchedulePage() {
       .map((classItem) => classItem.id);
   }, [selectedYearClasses, turmas]);
 
-  const weekdayFilter = useMemo(() => (dias.length === 6 ? [] : dias), [dias]);
+  const weekdayFilter = useMemo(() => {
+    if (dias.length === 0 || dias.length === SCHEDULE_VIEW_DAYS.length) return [];
+    // Always request saturday so we can tell whether it has any sessions, even
+    // when it is currently deselected in the day filter.
+    return [...new Set([...dias, "saturday"])];
+  }, [dias]);
 
   const sessionsQuery = useProjectSessions(projectId ?? "", {
     yearId: selectedYear?.id ?? "",
@@ -240,6 +245,20 @@ export default function SchedulePage() {
     weekdays: weekdayFilter,
   });
   const selectedYearWeeks = sessionsQuery.data;
+
+  const hasSaturdaySessions = useMemo(
+    () =>
+      (selectedYearWeeks ?? []).some((block) =>
+        block.sessions.some((session) => session.weekday === "saturday"),
+      ),
+    [selectedYearWeeks],
+  );
+
+  // Saturday is only shown when the selected year actually has sessions on it.
+  const effectiveDias = useMemo(
+    () => (hasSaturdaySessions ? dias : dias.filter((day) => day !== "saturday")),
+    [dias, hasSaturdaySessions],
+  );
 
   const ucOptions = useMemo(
     () =>
@@ -580,7 +599,7 @@ export default function SchedulePage() {
       ucs: new Set(effectiveUcs),
       turnos: new Set(effectiveTurnos),
       turmas: new Set(effectiveTurmas),
-      dias: new Set(dias),
+      dias: new Set(effectiveDias),
     };
 
     const blockEvents = activeWeekBlocks.flatMap((block) =>
@@ -588,7 +607,7 @@ export default function SchedulePage() {
     );
 
     return blockEvents;
-  }, [activeWeekBlocks, effectiveTurmas, effectiveTurnos, effectiveUcs, dias]);
+  }, [activeWeekBlocks, effectiveTurmas, effectiveTurnos, effectiveUcs, effectiveDias]);
 
   const displayEvents = useMemo(() => {
     if (scheduleEvents.length > 0) return scheduleEvents;
@@ -629,14 +648,17 @@ export default function SchedulePage() {
     [selectedDegree],
   );
 
-  const dayOptions: DropdownOption[] = [
-    { value: "monday", label: "Segunda-feira" },
-    { value: "tuesday", label: "Terça-feira" },
-    { value: "wednesday", label: "Quarta-feira" },
-    { value: "thursday", label: "Quinta-feira" },
-    { value: "friday", label: "Sexta-feira" },
-    { value: "saturday", label: "Sábado" },
-  ];
+  const dayOptions = useMemo<DropdownOption[]>(() => {
+    const options: DropdownOption[] = [
+      { value: "monday", label: "Segunda-feira" },
+      { value: "tuesday", label: "Terça-feira" },
+      { value: "wednesday", label: "Quarta-feira" },
+      { value: "thursday", label: "Quinta-feira" },
+      { value: "friday", label: "Sexta-feira" },
+      { value: "saturday", label: "Sábado" },
+    ];
+    return hasSaturdaySessions ? options : options.filter((option) => option.value !== "saturday");
+  }, [hasSaturdaySessions]);
 
   if (!projectId) return null;
 
@@ -656,7 +678,7 @@ export default function SchedulePage() {
         setTurnos={handleSelectTurnos}
         turmas={effectiveTurmas}
         setTurmas={handleSelectTurmas}
-        dias={dias}
+        dias={effectiveDias}
         setDias={setDias}
         semanas={effectiveSemanas}
         setSemanas={setSemanas}
@@ -709,7 +731,7 @@ export default function SchedulePage() {
               weekdayLabels={["SEGUNDA", "TERCA", "QUARTA", "QUINTA", "SEXTA", "SABADO"]}
               turmaShifts={turmaShifts}
               selectedTurmas={effectiveTurmas}
-              selectedDays={dias}
+              selectedDays={effectiveDias}
               includeEndSlot
               headerHeightPx={22}
               hourLabelFontPx={12}
