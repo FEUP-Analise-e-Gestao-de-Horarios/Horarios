@@ -80,6 +80,56 @@ function weekdayIndex(weekday: Weekday): number {
   return WEEKDAYS.indexOf(weekday);
 }
 
+// Marquee scroll speed in pixels per second. The animation duration is derived
+// from this and the overflow distance, so text always scrolls at this exact
+// rate regardless of how much it overflows.
+const MARQUEE_SPEED_PX_PER_SEC = 9;
+
+// One line of text inside an event card. When the text is wider than the
+// available space it scrolls back and forth while the parent card (a `group`)
+// is hovered, so the clipped part can still be read.
+function MarqueeText({ children, className = "" }: { children: string; className?: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLSpanElement>(null);
+  const [overflowPx, setOverflowPx] = useState(0);
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    const text = textRef.current;
+    if (!container || !text) return;
+    const measure = () => {
+      const diff = Math.ceil(text.scrollWidth - container.clientWidth);
+      setOverflowPx(diff > 1 ? diff : 0);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(container);
+    observer.observe(text);
+    return () => observer.disconnect();
+  }, [children]);
+
+  const isOverflowing = overflowPx > 0;
+
+  return (
+    <div ref={containerRef} className={`overflow-hidden ${className}`}>
+      <span
+        ref={textRef}
+        className={`inline-block whitespace-nowrap ${isOverflowing ? "marquee" : ""}`}
+        style={
+          isOverflowing
+            ? ({
+                "--marquee-shift": `-${overflowPx}px`,
+                "--marquee-duration": `${overflowPx / MARQUEE_SPEED_PX_PER_SEC}s`,
+              } as React.CSSProperties)
+            : undefined
+        }
+      >
+        {children}
+      </span>
+    </div>
+  );
+}
+
 function getTurmaHeaderStyle(shift?: number): string {
   if (shift !== undefined && shift % 2 === 0) return "bg-[#f7ddd7] border-[#e0b0a5] text-[#8C2C19]";
   return "bg-[#f9f7f4] text-[#08060d]";
@@ -582,7 +632,7 @@ export default function WeekGrid({
               data-schedule-event=""
               onClick={onEventClick ? () => onEventClick(ev) : undefined}
               onDoubleClick={onEventDoubleClick ? () => onEventDoubleClick(ev) : undefined}
-              className={`relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden ${
+              className={`group relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden ${
                 isEditingEvent
                   ? "bg-[#250902] border-[#38040e] text-white"
                   : `${style.bg} ${style.border} ${style.text}`
@@ -603,18 +653,16 @@ export default function WeekGrid({
                     "linear-gradient(to bottom, black calc(100% - 3px), rgba(0,0,0,0.2) calc(100% - 1px), transparent 100%)",
                 }}
               >
-                <div className="flex items-baseline gap-1">
-                  {ev.title && <span className="min-w-0 truncate font-semibold">{ev.title}</span>}
-                  {ev.type && (
-                    <span className="ml-auto shrink-0 text-[10px] uppercase leading-none opacity-70">
-                      {ev.type}
-                    </span>
-                  )}
-                </div>
+                {ev.title && <MarqueeText className="font-semibold">{ev.title}</MarqueeText>}
+                {ev.type && (
+                  <MarqueeText className="text-[10px] uppercase leading-none opacity-70">
+                    {ev.type}
+                  </MarqueeText>
+                )}
                 {ev.body?.map((line, i) => (
-                  <div key={i} className="truncate opacity-80">
+                  <MarqueeText key={i} className="opacity-80">
                     {line}
-                  </div>
+                  </MarqueeText>
                 ))}
               </div>
             </button>
