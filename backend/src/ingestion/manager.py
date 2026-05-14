@@ -5,7 +5,8 @@ from datetime import date, timedelta
 from uuid import UUID
 
 from django.utils import timezone
-from sqlalchemy import insert, text
+from sqlalchemy import insert, select, text
+from sqlalchemy.orm import selectinload
 
 from src.ingestion.schemas.classes import ClassPage, Degree, Teacher
 from src.ingestion.schemas.classes import Session as ScrapedSession
@@ -114,6 +115,9 @@ class IngestionManager:
 
             self._ingest_sessions(degrees)
             self._ingest_shifts()
+            # Block ids must be assigned before parallel-block detection,
+            # which groups sessions by original_block_id.
+            self._assign_block_ids()
             self._detect_parallel_block_candidates()
 
             # -- Snapshot general_db into init_db ----------------------------------
@@ -506,6 +510,59 @@ class IngestionManager:
 
         self.db_session.commit()
 
+    def _assign_block_ids(self) -> None:
+        """Regroup sessions into blocks by fingerprinting their content.
+
+        The scraper splits each class's schedule into multiple pages by date
+        range, so a single recurring session that spans a page boundary is
+        ingested as several disjoint per-page blocks. This post-processing
+        step discards those provisional ids and reassigns ``original_block_id``
+        purely by content: all sessions that share an identical fingerprint
+        are collapsed into a single block identified by a fresh
+        ``uuid.uuid7()``, regardless of which weeks they fall in (the weeks
+        need not be contiguous).
+
+        A fingerprint covers everything that identifies a session except the
+        week it falls in (see :meth:`_session_fingerprint`). Two sessions in
+        the same week must therefore not share a fingerprint: they could not
+        belong to the same block under the ``(week, original_block_id)``
+        unique constraint.
+
+        Raises:
+            ValueError: If two sessions in the same week share a fingerprint.
+        """
+        sessions = self.db_session.scalars(
+            select(Session).options(
+                selectinload(Session.teachers),
+                selectinload(Session.rooms),
+                selectinload(Session.session_class_subjects),
+            ),
+        ).all()
+
+        # Bucket every session by its week-invariant content fingerprint.
+        sessions_by_fingerprint: defaultdict[tuple[object, ...], list[Session]] = defaultdict(
+            list,
+        )
+        for session in sessions:
+            sessions_by_fingerprint[self._session_fingerprint(session)].append(session)
+
+        # Each fingerprint is one block, spanning every week it occurs in.
+        for group in sessions_by_fingerprint.values():
+            block_id = uuid.uuid7()
+            sessions_by_week: dict[date, Session] = {}
+            for session in group:
+                clash = sessions_by_week.get(session.week)
+                if clash is not None:
+                    raise ValueError(
+                        f"Sessions {clash.id} and {session.id} share a "
+                        f"content fingerprint in week {session.week} and "
+                        f"cannot belong to the same block",
+                    )
+                sessions_by_week[session.week] = session
+                session.original_block_id = block_id
+
+        self.db_session.commit()
+
     # -----------------------------------------------------------------------
     # Auxiliar functions
     # -----------------------------------------------------------------------
@@ -550,6 +607,25 @@ class IngestionManager:
             current += timedelta(weeks=1)
         return weeks
 
+    @staticmethod
+    def _session_fingerprint(session: Session) -> tuple[object, ...]:
+        """Return a hashable, week-invariant fingerprint of a session's content.
+
+        Two sessions in different weeks belong to the same recurring block iff
+        their fingerprints are equal: same weekday, start time, duration and
+        type, and the same teacher, room, subject and class id sets.
+        """
+        return (
+            session.weekday,
+            session.start_time,
+            session.duration,
+            session.type,
+            tuple(sorted(teacher.id for teacher in session.teachers)),
+            tuple(sorted(room.id for room in session.rooms)),
+            tuple(sorted({scs.subject_id for scs in session.session_class_subjects})),
+            tuple(sorted({scs.class_id for scs in session.session_class_subjects})),
+        )
+
     def _process_scraped_session(
         self,
         scraped_session: ScrapedSession,
@@ -570,6 +646,7 @@ class IngestionManager:
         record or, for multi-class sessions that were already created by
         another class, updates the existing class-subject mapping.
         """
+        # Provisional id; _assign_block_ids reassigns block ids post-ingestion.
         original_block_id = uuid.uuid7()
 
         subject_db_entry = subjects_by_acronym.get(
