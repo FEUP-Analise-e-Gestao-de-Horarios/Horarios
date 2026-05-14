@@ -341,66 +341,68 @@ export default function ParallelClassesPage() {
                   </p>
                 ) : (
                   <div className="flex flex-col gap-4">
-                    {[...candidatesBySubject.entries()].map(([subjectName, candidates]) => {
-                      const hasWeeks = candidates.some((c) => c.showWeek);
+                    {[...candidatesBySubject.entries()]
+                      .sort(([a], [b]) => a.localeCompare(b))
+                      .map(([subjectName, candidates]) => {
+                        const hasWeeks = candidates.some((c) => c.showWeek);
 
-                      const weekMap = new Map<string, DisplayCandidate[]>();
-                      for (const c of candidates) {
-                        const weekKey = c.displayWeeks[0] ?? "";
-                        const list = weekMap.get(weekKey);
-                        if (list) list.push(c);
-                        else weekMap.set(weekKey, [c]);
-                      }
-                      const sortedWeeks = [...weekMap.keys()].sort();
+                        const weekMap = new Map<string, DisplayCandidate[]>();
+                        for (const c of candidates) {
+                          const weekKey = c.displayWeeks[0] ?? "";
+                          const list = weekMap.get(weekKey);
+                          if (list) list.push(c);
+                          else weekMap.set(weekKey, [c]);
+                        }
+                        const sortedWeeks = [...weekMap.keys()].sort();
 
-                      return (
-                        <div
-                          key={subjectName}
-                          className="overflow-hidden rounded-2xl border border-[#e8e8e8] shadow-sm"
-                        >
-                          <div className="px-4 py-2.5 bg-[#fafafa] border-b border-[#e8e8e8]">
-                            <p className="font-semibold text-[#222] text-sm">{subjectName}</p>
+                        return (
+                          <div
+                            key={subjectName}
+                            className="overflow-hidden rounded-2xl border border-[#e8e8e8] shadow-sm"
+                          >
+                            <div className="px-4 py-2.5 bg-[#fafafa] border-b border-[#e8e8e8]">
+                              <p className="font-semibold text-[#222] text-sm">{subjectName}</p>
+                            </div>
+                            <div className="overflow-x-auto [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300/60">
+                              <table className="min-w-full text-sm border-collapse">
+                                <thead>
+                                  <tr className="bg-white border-b border-[#e8e8e8]">
+                                    <th className="text-left px-3 py-2 text-[11px] font-bold tracking-widest uppercase text-[#999] w-[52px]">
+                                      Dia
+                                    </th>
+                                    <th className="text-left px-3 py-2 text-[11px] font-bold tracking-widest uppercase text-[#999] w-[64px]">
+                                      Hora
+                                    </th>
+                                    <th className="text-left px-4 py-2 text-[11px] font-bold tracking-widest uppercase text-[#999]">
+                                      Turmas em paralelo
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {hasWeeks
+                                    ? sortedWeeks.flatMap((weekKey, weekIdx) => [
+                                        <tr
+                                          key={`whdr-${weekKey}`}
+                                          className="bg-[#f5f4f1] border-t border-[#e8e8e8]"
+                                        >
+                                          <td colSpan={3} className="px-3 py-1.5">
+                                            <span className="text-[10px] font-bold tracking-widest uppercase text-[#888]">
+                                              Semana {weekIdx + 1}
+                                              {weekKey ? ` · ${formatWeekDate(weekKey)}` : ""}
+                                            </span>
+                                          </td>
+                                        </tr>,
+                                        ...(weekMap.get(weekKey) ?? []).map((c, i) =>
+                                          renderRow(c, i, hasWeeks),
+                                        ),
+                                      ])
+                                    : candidates.map((c, i) => renderRow(c, i, hasWeeks))}
+                                </tbody>
+                              </table>
+                            </div>
                           </div>
-                          <div className="overflow-x-auto [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300/60">
-                            <table className="min-w-full text-sm border-collapse">
-                              <thead>
-                                <tr className="bg-white border-b border-[#e8e8e8]">
-                                  <th className="text-left px-3 py-2 text-[11px] font-bold tracking-widest uppercase text-[#999] w-[52px]">
-                                    Dia
-                                  </th>
-                                  <th className="text-left px-3 py-2 text-[11px] font-bold tracking-widest uppercase text-[#999] w-[64px]">
-                                    Hora
-                                  </th>
-                                  <th className="text-left px-4 py-2 text-[11px] font-bold tracking-widest uppercase text-[#999]">
-                                    Turmas em paralelo
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {hasWeeks
-                                  ? sortedWeeks.flatMap((weekKey, weekIdx) => [
-                                      <tr
-                                        key={`whdr-${weekKey}`}
-                                        className="bg-[#f5f4f1] border-t border-[#e8e8e8]"
-                                      >
-                                        <td colSpan={3} className="px-3 py-1.5">
-                                          <span className="text-[10px] font-bold tracking-widest uppercase text-[#888]">
-                                            Semana {weekIdx + 1}
-                                            {weekKey ? ` · ${formatWeekDate(weekKey)}` : ""}
-                                          </span>
-                                        </td>
-                                      </tr>,
-                                      ...(weekMap.get(weekKey) ?? []).map((c, i) =>
-                                        renderRow(c, i, hasWeeks),
-                                      ),
-                                    ])
-                                  : candidates.map((c, i) => renderRow(c, i, hasWeeks))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
                   </div>
                 )}
               </div>
@@ -416,85 +418,87 @@ export default function ParallelClassesPage() {
                   <p className="text-xs text-[#aaa] text-center py-8">Nenhum grupo criado ainda.</p>
                 ) : (
                   <div className="flex flex-col gap-5">
-                    {[...groupsBySubject.entries()].map(([subjName, items]) => (
-                      <div
-                        key={subjName}
-                        className="overflow-hidden rounded-2xl border border-[#d4d4d4] shadow-sm"
-                      >
-                        <div className="px-3 py-2 bg-[#e8e8e8] border-b border-[#d4d4d4]">
-                          <p className="text-[11px] font-bold tracking-widest uppercase text-[#444]">
-                            {subjName}
-                          </p>
-                        </div>
-                        <div className="flex flex-col gap-2 p-2">
-                          {items.map(({ group, weekday, start_time, session_week, sessions }) => {
-                            const day = DAY_CONFIG[weekday] ?? {
-                              short: "?",
-                              bg: "bg-gray-400",
-                              text: "text-white",
-                            };
-                            return (
-                              <div
-                                key={group.id}
-                                className="overflow-hidden rounded-xl border border-[#e8e8e8] shadow-sm bg-white"
-                              >
-                                <div className="px-3 py-1.5 bg-[#1e2028] flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <span
-                                      className={`text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded ${day.bg} ${day.text}`}
-                                    >
-                                      {day.short}
-                                    </span>
-                                    {session_week && (
-                                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-600 text-gray-300 tabular-nums whitespace-nowrap">
-                                        {formatWeekDate(session_week)}
+                    {[...groupsBySubject.entries()]
+                      .sort(([a], [b]) => a.localeCompare(b))
+                      .map(([subjName, items]) => (
+                        <div
+                          key={subjName}
+                          className="overflow-hidden rounded-2xl border border-[#d4d4d4] shadow-sm"
+                        >
+                          <div className="px-3 py-2 bg-[#e8e8e8] border-b border-[#d4d4d4]">
+                            <p className="text-[11px] font-bold tracking-widest uppercase text-[#444]">
+                              {subjName}
+                            </p>
+                          </div>
+                          <div className="flex flex-col gap-2 p-2">
+                            {items.map(({ group, weekday, start_time, session_week, sessions }) => {
+                              const day = DAY_CONFIG[weekday] ?? {
+                                short: "?",
+                                bg: "bg-gray-400",
+                                text: "text-white",
+                              };
+                              return (
+                                <div
+                                  key={group.id}
+                                  className="overflow-hidden rounded-xl border border-[#e8e8e8] shadow-sm bg-white"
+                                >
+                                  <div className="px-3 py-1.5 bg-[#1e2028] flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <span
+                                        className={`text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded ${day.bg} ${day.text}`}
+                                      >
+                                        {day.short}
                                       </span>
-                                    )}
-                                    <span className="text-[11px] font-bold text-gray-300 tabular-nums">
-                                      {formatTime(start_time)}
-                                    </span>
+                                      {session_week && (
+                                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-600 text-gray-300 tabular-nums whitespace-nowrap">
+                                          {formatWeekDate(session_week)}
+                                        </span>
+                                      )}
+                                      <span className="text-[11px] font-bold text-gray-300 tabular-nums">
+                                        {formatTime(start_time)}
+                                      </span>
+                                    </div>
+                                    <button
+                                      onClick={() => handleRemoveGroup(group.id)}
+                                      className="flex items-center justify-center w-5 h-5 rounded bg-red-600 hover:bg-red-500 transition-colors text-white text-xs font-bold leading-none cursor-pointer"
+                                      title="Remover grupo"
+                                    >
+                                      ×
+                                    </button>
                                   </div>
-                                  <button
-                                    onClick={() => handleRemoveGroup(group.id)}
-                                    className="flex items-center justify-center w-5 h-5 rounded bg-red-600 hover:bg-red-500 transition-colors text-white text-xs font-bold leading-none cursor-pointer"
-                                    title="Remover grupo"
-                                  >
-                                    ×
-                                  </button>
+                                  <div className="px-3 py-2 flex flex-col gap-1 overflow-x-auto [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300/60">
+                                    {sessions.map((meta, i) => {
+                                      const typeLabel = meta.session_type ?? null;
+                                      const typeStyle = typeLabel
+                                        ? (SESSION_TYPE_CONFIG[typeLabel] ?? SESSION_TYPE_DEFAULT)
+                                        : null;
+                                      return (
+                                        <div key={i} className="flex items-center gap-1 w-max">
+                                          {typeLabel && typeStyle && (
+                                            <span
+                                              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${typeStyle.bg} ${typeStyle.text}`}
+                                            >
+                                              {typeLabel}
+                                            </span>
+                                          )}
+                                          {meta.class_codes.map((code: string) => (
+                                            <span
+                                              key={`${group.id}-${i}-${code}`}
+                                              className="rounded px-1.5 py-0.5 text-[11px] font-semibold bg-[#ffc107] text-[#222]"
+                                            >
+                                              {code}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
                                 </div>
-                                <div className="px-3 py-2 flex flex-col gap-1 overflow-x-auto [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300/60">
-                                  {sessions.map((meta, i) => {
-                                    const typeLabel = meta.session_type ?? null;
-                                    const typeStyle = typeLabel
-                                      ? (SESSION_TYPE_CONFIG[typeLabel] ?? SESSION_TYPE_DEFAULT)
-                                      : null;
-                                    return (
-                                      <div key={i} className="flex items-center gap-1 w-max">
-                                        {typeLabel && typeStyle && (
-                                          <span
-                                            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${typeStyle.bg} ${typeStyle.text}`}
-                                          >
-                                            {typeLabel}
-                                          </span>
-                                        )}
-                                        {meta.class_codes.map((code: string) => (
-                                          <span
-                                            key={`${group.id}-${i}-${code}`}
-                                            className="rounded px-1.5 py-0.5 text-[11px] font-semibold bg-[#ffc107] text-[#222]"
-                                          >
-                                            {code}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
                   </div>
                 )}
               </div>
