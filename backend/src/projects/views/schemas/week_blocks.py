@@ -35,8 +35,11 @@ class WeekBlock(BaseModel):
         """Hashable fingerprint of a week's sessions, excluding the ``week`` field.
 
         Each session contributes a tuple of its non-week attributes plus the
-        sorted id-sets of its teachers, rooms, subjects and classes. Two weeks
-        with the same frozenset of these tuples have identical timetables.
+        sorted id-sets of its teachers and rooms and the sorted set of its
+        (class id, subject id) pairs. The pairs are fingerprinted together
+        rather than as two independent sets so that sessions mapping distinct
+        subjects to distinct classes cannot collide. Two weeks with the same
+        frozenset of these tuples have identical timetables.
         """
         return frozenset(
             (
@@ -46,8 +49,7 @@ class WeekBlock(BaseModel):
                 s.type,
                 tuple(sorted(t.id for t in s.teachers)),
                 tuple(sorted(r.id for r in s.rooms)),
-                tuple(sorted({scs.subject_id for scs in s.session_class_subjects})),
-                tuple(sorted({scs.class_id for scs in s.session_class_subjects})),
+                tuple(sorted((scs.class_id, scs.subject_id) for scs in s.session_class_subjects)),
             )
             for s in sessions
         )
