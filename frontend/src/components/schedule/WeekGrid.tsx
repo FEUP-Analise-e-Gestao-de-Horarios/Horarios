@@ -77,18 +77,18 @@ function weekdayIndex(weekday: Weekday): number {
 }
 
 const TYPE_STYLES: Record<string, { bg: string; border: string; text: string }> = {
-  T: { bg: "bg-[#8C2C19]", border: "border-[#6F2314]", text: "text-white" },
-  TP: { bg: "bg-[#A9361E]", border: "border-[#8C2C19]", text: "text-white" },
-  PL: { bg: "bg-[#C73F24]", border: "border-[#A9361E]", text: "text-white" },
-  P: { bg: "bg-[#E44829]", border: "border-[#C73F24]", text: "text-white" },
-  S: { bg: "bg-[#f08a6d]", border: "border-[#E44829]", text: "text-[#08060d]" },
-  OT: { bg: "bg-[#f7ddd7]", border: "border-[#e0b0a5]", text: "text-[#8C2C19]" },
-  TC: { bg: "bg-[#f0eeeb]", border: "border-[#d8d5da]", text: "text-[#08060d]" },
+  T: { bg: "bg-blue-100", border: "border-blue-300", text: "text-blue-900" },
+  TP: { bg: "bg-emerald-100", border: "border-emerald-300", text: "text-emerald-900" },
+  PL: { bg: "bg-amber-100", border: "border-amber-300", text: "text-amber-900" },
+  P: { bg: "bg-purple-100", border: "border-purple-300", text: "text-purple-900" },
+  S: { bg: "bg-pink-100", border: "border-pink-300", text: "text-pink-900" },
+  OT: { bg: "bg-slate-100", border: "border-slate-300", text: "text-slate-900" },
+  TC: { bg: "bg-cyan-100", border: "border-cyan-300", text: "text-cyan-900" },
 };
 const DEFAULT_STYLE = {
-  bg: "bg-[#8C2C19]",
-  border: "border-[#6F2314]",
-  text: "text-white",
+  bg: "bg-slate-100",
+  border: "border-slate-300",
+  text: "text-slate-900",
 };
 
 function styleForType(type: string | undefined) {
