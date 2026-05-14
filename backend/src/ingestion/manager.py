@@ -613,7 +613,10 @@ class IngestionManager:
 
         Two sessions in different weeks belong to the same recurring block iff
         their fingerprints are equal: same weekday, start time, duration and
-        type, and the same teacher, room, subject and class id sets.
+        type, the same teacher and room id sets, and the same set of
+        (class id, subject id) pairs. The pairs are fingerprinted together
+        rather than as two independent sets so that sessions mapping distinct
+        subjects to distinct classes cannot collide.
         """
         return (
             session.weekday,
@@ -622,8 +625,9 @@ class IngestionManager:
             session.type,
             tuple(sorted(teacher.id for teacher in session.teachers)),
             tuple(sorted(room.id for room in session.rooms)),
-            tuple(sorted({scs.subject_id for scs in session.session_class_subjects})),
-            tuple(sorted({scs.class_id for scs in session.session_class_subjects})),
+            tuple(
+                sorted((scs.class_id, scs.subject_id) for scs in session.session_class_subjects),
+            ),
         )
 
     def _process_scraped_session(
