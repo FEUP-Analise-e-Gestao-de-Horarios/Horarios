@@ -713,7 +713,7 @@ export default function SchedulePage() {
               showHalfHourLabels
               showHalfHourDividers
               editingEventId={isEditDrawerOpen ? editingEvent?.id : undefined}
-              onEventDoubleClick={(event) => openEditor(event)}
+              onEventClick={(event) => openEditor(event)}
             />
           </div>
         ) : (
