@@ -85,10 +85,9 @@ function sessionToEvents(session: SessionResponse, filters: ScheduleFilters): We
   }
 
   const primarySubject = session.subjects[0];
-  const title = primarySubject?.acronym ?? session.type;
+  const title = session.subjects.map((subject) => subject.acronym).join(", ") || session.type;
   const body = [
     session.teachers.map((teacher) => teacher.acronym).join(", "),
-    session.subjects.map((subject) => subject.acronym).join(", "),
     session.rooms.map((room) => room.name).join(", "),
   ].filter((item) => item.length > 0);
 
