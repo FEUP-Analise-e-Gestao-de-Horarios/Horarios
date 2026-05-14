@@ -69,18 +69,17 @@ export default function MultiDropdown({
     }
   }
 
-  const triggerLabel =
-    selected.length === 0
-      ? label
-      : singleSelect
-        ? `${options.find((option) => option.value === selected[0])?.label ?? selected[0]}`
-        : hideSelectedCountWhenDisabled && disabled
-          ? label
-          : showLabel
-            ? `${label} (${selected.length}/${options.length})`
-            : selected.length === 1
-              ? (options.find((option) => option.value === selected[0])?.label ?? selected[0])
-              : `${selected.length} selecionados`;
+  function getTriggerLabel(): string {
+    if (selected.length === 0) return label;
+    const firstLabel =
+      options.find((option) => option.value === selected[0])?.label ?? selected[0] ?? label;
+    if (singleSelect) return firstLabel;
+    if (hideSelectedCountWhenDisabled && disabled) return label;
+    if (showLabel) return `${label} (${selected.length}/${options.length})`;
+    if (selected.length === 1) return firstLabel;
+    return `${selected.length} selecionados`;
+  }
+  const triggerLabel = getTriggerLabel();
 
   return (
     <div ref={wrapperRef} className="relative">
@@ -130,7 +129,7 @@ export default function MultiDropdown({
                     isSelected
                       ? optionStyle
                         ? `${optionStyle.bg} ${optionStyle.border} ${optionStyle.text}`
-                        : "text-amber-400 bg-amber-400/10 border-amber-500/20 border-transparent"
+                        : "text-amber-400 bg-amber-400/10 border-amber-500/20"
                       : "text-white bg-transparent border-transparent",
                   ].join(" ")}
                 >
