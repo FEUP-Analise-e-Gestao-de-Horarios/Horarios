@@ -3,6 +3,7 @@ import type { ConflictRecord } from "@/types/project/conflicts";
 import type { WeekGridEvent } from "@/components/schedule/WeekGrid";
 import { hhmmToMinutes, minutesToTime } from "@/utils/time";
 import { WEEKDAYS, WEEKDAY_LABELS_LONG } from "@/utils/weekdays";
+import DrawerMultiSelect from "./DrawerMultiSelect";
 
 function normalizeText(value: string): string {
   return value
@@ -343,8 +344,9 @@ export default function EditEventDrawer({
     const labels = effectiveSelectedDocente
       .map((id) => teacherOptions.find((docente) => docente.id === id)?.label)
       .filter((label): label is string => Boolean(label));
-    if (labels.length === 0) return "Selecionar...";
-    return labels.length === 1 ? labels[0] : `${labels[0]} (+${labels.length - 1})`;
+    const first = labels[0];
+    if (!first) return "Selecionar...";
+    return labels.length === 1 ? first : `${first} (+${labels.length - 1})`;
   }, [effectiveSelectedDocente, teacherOptions]);
 
   const selectedSalaLabel = useMemo(() => {
@@ -501,218 +503,86 @@ export default function EditEventDrawer({
           </div>
 
           <div className="space-y-4" ref={dropdownAreaRef}>
-            <div className="relative text-sm">
-              <span className="mb-1.5 block text-white/90">Docentes</span>
-              <button
-                onClick={() => setOpenDropdown((prev) => (prev === "docentes" ? null : "docentes"))}
-                className="w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2 text-left flex items-center justify-between"
-              >
-                <span>{selectedDocenteLabel}</span>
-                <span className="text-white/70">▾</span>
-              </button>
-
-              {openDropdown === "docentes" && (
-                <div className="absolute z-10 mt-2 w-full bg-[#222834] border border-white/20 rounded shadow-[0_10px_20px_rgba(0,0,0,0.45)] p-2">
-                  <input
-                    value={docentesSearch}
-                    onChange={(event) => setDocentesSearch(event.target.value)}
-                    placeholder="Search..."
-                    className="mb-2 w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2"
-                  />
-                  <div className="max-h-52 overflow-y-auto space-y-1">
-                    {filteredSelectedClassDocentes.length > 0 && (
-                      <p className="px-2 py-1 text-xs uppercase tracking-wide text-white/60">
-                        Docentes da turma selecionada
-                      </p>
-                    )}
-                    {filteredSelectedClassDocentes.map((docente) => (
-                      <button
-                        key={docente.id}
-                        onClick={() => {
-                          setSelectedDocenteOverride((current) =>
-                            toggleSelection(current, docente.id),
-                          );
-                          setOpenDropdown(null);
-                        }}
-                        className={`w-full px-2 py-1.5 text-left rounded ${
-                          effectiveSelectedDocente.includes(docente.id)
-                            ? "bg-red-900/40 text-white font-semibold"
-                            : "text-white hover:bg-white/10"
-                        }`}
-                      >
-                        {docente.label}
-                      </button>
-                    ))}
-
-                    {filteredOtherSubjectDocentes.length > 0 && (
-                      <p className="px-2 py-1 text-xs uppercase tracking-wide text-white/60">
-                        Outros docentes da UC
-                      </p>
-                    )}
-                    {filteredOtherSubjectDocentes.map((docente) => (
-                      <button
-                        key={docente.id}
-                        onClick={() => {
-                          setSelectedDocenteOverride((current) =>
-                            toggleSelection(current, docente.id),
-                          );
-                          setOpenDropdown(null);
-                        }}
-                        className={`w-full px-2 py-1.5 text-left rounded ${
-                          effectiveSelectedDocente.includes(docente.id)
-                            ? "bg-red-900/40 text-white font-semibold"
-                            : "text-white hover:bg-white/10"
-                        }`}
-                      >
-                        {docente.label}
-                      </button>
-                    ))}
-
-                    {filteredOtherDocentes.length > 0 && (
-                      <p className="px-2 py-1 text-xs uppercase tracking-wide text-white/60">
-                        Todos os docentes
-                      </p>
-                    )}
-                    {filteredOtherDocentes.map((docente) => (
-                      <button
-                        key={docente.id}
-                        onClick={() => {
-                          setSelectedDocenteOverride((current) =>
-                            toggleSelection(current, docente.id),
-                          );
-                          setOpenDropdown(null);
-                        }}
-                        className={`w-full px-2 py-1.5 text-left rounded ${
-                          effectiveSelectedDocente.includes(docente.id)
-                            ? "bg-red-900/40 text-white font-semibold"
-                            : "text-white hover:bg-white/10"
-                        }`}
-                      >
-                        {docente.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            <DrawerMultiSelect
+              label="Docentes"
+              triggerLabel={selectedDocenteLabel}
+              open={openDropdown === "docentes"}
+              onToggle={() => setOpenDropdown((prev) => (prev === "docentes" ? null : "docentes"))}
+              search={docentesSearch}
+              onSearchChange={setDocentesSearch}
+              listMaxHeightClass="max-h-52"
+              groups={[
+                {
+                  heading: "Docentes da turma selecionada",
+                  options: filteredSelectedClassDocentes,
+                },
+                { heading: "Outros docentes da UC", options: filteredOtherSubjectDocentes },
+                { heading: "Todos os docentes", options: filteredOtherDocentes },
+              ]}
+              selectedIds={effectiveSelectedDocente}
+              onToggleOption={(id) =>
+                setSelectedDocenteOverride((current) => toggleSelection(current, id))
+              }
+            />
 
             <div className="flex items-end gap-2">
-              <div className="relative text-sm flex-[1.05] min-w-0">
-                <span className="mb-1.5 block text-white/90">Sala</span>
-                <button
-                  onClick={() => setOpenDropdown((prev) => (prev === "salas" ? null : "salas"))}
-                  className="w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2 text-left flex items-center justify-between"
-                >
-                  <span>{selectedSalaLabel}</span>
-                  <span className="text-white/70">▾</span>
-                </button>
-
-                {openDropdown === "salas" && (
-                  <div className="absolute z-10 mt-2 w-full bg-[#222834] border border-white/20 rounded shadow-[0_10px_20px_rgba(0,0,0,0.45)] p-2">
-                    <input
-                      value={salasSearch}
-                      onChange={(event) => setSalasSearch(event.target.value)}
-                      placeholder="Search..."
-                      className="mb-2 w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2"
-                    />
-                    <div className="max-h-48 overflow-y-auto space-y-1">
-                      {filteredPreferredSalas.length > 0 && (
-                        <p className="px-2 py-1 text-xs uppercase tracking-wide text-white/60">
-                          Tipologia correspondente
-                        </p>
-                      )}
-                      {filteredPreferredSalas.map((room) => (
-                        <button
-                          key={room.id}
-                          onClick={() => {
-                            setSelectedSalaOverride((current) => toggleSelection(current, room.id));
-                            setOpenDropdown(null);
-                          }}
-                          className={`w-full px-2 py-1.5 text-left rounded ${
-                            effectiveSelectedSala.includes(room.id)
-                              ? "bg-red-900/40 text-white font-semibold"
-                              : "text-white hover:bg-white/10"
-                          }`}
-                        >
-                          {room.label} - {room.type}
-                        </button>
-                      ))}
-
-                      {filteredOtherSalas.length > 0 && (
-                        <p className="px-2 py-1 text-xs uppercase tracking-wide text-white/60">
-                          Outras Salas
-                        </p>
-                      )}
-                      {filteredOtherSalas.map((room) => (
-                        <button
-                          key={room.id}
-                          onClick={() => {
-                            setSelectedSalaOverride((current) => toggleSelection(current, room.id));
-                            setOpenDropdown(null);
-                          }}
-                          className={`w-full px-2 py-1.5 text-left rounded ${
-                            effectiveSelectedSala.includes(room.id)
-                              ? "bg-red-900/40 text-white font-semibold"
-                              : "text-white hover:bg-white/10"
-                          }`}
-                        >
-                          {room.label} - {room.type}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+              <div className="flex-[1.05] min-w-0">
+                <DrawerMultiSelect
+                  label="Sala"
+                  triggerLabel={selectedSalaLabel}
+                  open={openDropdown === "salas"}
+                  onToggle={() => setOpenDropdown((prev) => (prev === "salas" ? null : "salas"))}
+                  search={salasSearch}
+                  onSearchChange={setSalasSearch}
+                  listMaxHeightClass="max-h-48"
+                  groups={[
+                    {
+                      heading: "Tipologia correspondente",
+                      options: filteredPreferredSalas.map((room) => ({
+                        id: room.id,
+                        label: `${room.label} - ${room.type}`,
+                      })),
+                    },
+                    {
+                      heading: "Outras Salas",
+                      options: filteredOtherSalas.map((room) => ({
+                        id: room.id,
+                        label: `${room.label} - ${room.type}`,
+                      })),
+                    },
+                  ]}
+                  selectedIds={effectiveSelectedSala}
+                  onToggleOption={(id) =>
+                    setSelectedSalaOverride((current) => toggleSelection(current, id))
+                  }
+                />
               </div>
 
-              <div className="relative text-sm flex-[1.15] min-w-0">
-                <span className="mb-1.5 block text-white/90">Turmas</span>
-                <button
-                  onClick={() => setOpenDropdown((prev) => (prev === "turmas" ? null : "turmas"))}
-                  className="w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2 text-left flex items-center justify-between"
-                >
-                  <span>Turmas ({effectiveSelectedTurmas.length})</span>
-                  <span className="text-white/70">▾</span>
-                </button>
-
-                {openDropdown === "turmas" && (
-                  <div className="absolute z-10 mt-2 w-full bg-[#222834] border border-white/20 rounded shadow-[0_10px_20px_rgba(0,0,0,0.45)] p-2">
-                    <input
-                      value={turmasSearch}
-                      onChange={(event) => setTurmasSearch(event.target.value)}
-                      placeholder="Search..."
-                      className="mb-2 w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2"
-                    />
-                    <div className="max-h-44 overflow-y-auto space-y-1">
-                      {filteredTurmas.map((turma) => (
-                        <button
-                          key={turma}
-                          onClick={() =>
-                            setSelectedTurmasOverride(
-                              toggleSelection(effectiveSelectedTurmas, turma),
-                            )
-                          }
-                          className="w-full px-2 py-1.5 text-left text-white hover:bg-white/10 rounded flex items-start gap-2"
-                        >
-                          <span
-                            className={`mt-0.5 ${
-                              effectiveSelectedTurmas.includes(turma)
-                                ? "text-red-400"
-                                : "text-white"
-                            }`}
-                          >
-                            {effectiveSelectedTurmas.includes(turma) ? "☑" : "☐"}
-                          </span>
-                          <span>{turma}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+              <div className="flex-[1.15] min-w-0">
+                <DrawerMultiSelect
+                  label="Turmas"
+                  triggerLabel={`Turmas (${effectiveSelectedTurmas.length})`}
+                  open={openDropdown === "turmas"}
+                  onToggle={() => setOpenDropdown((prev) => (prev === "turmas" ? null : "turmas"))}
+                  search={turmasSearch}
+                  onSearchChange={setTurmasSearch}
+                  listMaxHeightClass="max-h-44"
+                  groups={[
+                    { options: filteredTurmas.map((turma) => ({ id: turma, label: turma })) },
+                  ]}
+                  selectedIds={effectiveSelectedTurmas}
+                  onToggleOption={(id) =>
+                    setSelectedTurmasOverride(toggleSelection(effectiveSelectedTurmas, id))
+                  }
+                />
               </div>
             </div>
           </div>
 
-          <button className="w-full bg-[#8c2d19] text-white font-semibold rounded py-2.5 hover:brightness-110 transition mt-4">
+          <button
+            type="button"
+            className="w-full bg-[#8c2d19] text-white font-semibold rounded py-2.5 hover:brightness-110 transition mt-4"
+          >
             Submit
           </button>
 
