@@ -101,6 +101,7 @@ export default function ScheduleNavbar({
   return (
     <header
       ref={navRef}
+      data-schedule-navbar=""
       className="relative z-50 shrink-0 px-6 py-3 bg-[#1e2028] flex items-center gap-2 w-full flex-wrap overflow-visible border-b border-gray-700"
     >
       <Link to={ROUTES.HOME} className={primaryRedButtonClass}>

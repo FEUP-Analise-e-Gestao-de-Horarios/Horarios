@@ -49,6 +49,8 @@ type RoomOption = {
 interface EditEventDrawerProps {
   open: boolean;
   onClose: () => void;
+  collapsed: boolean;
+  onCollapsedChange: (collapsed: boolean) => void;
   conflicts: ConflictRecord[];
   ucOptions: string[];
   turmaOptions: string[];
@@ -148,6 +150,8 @@ function getInitialFormState(event?: WeekGridEvent | null) {
 export default function EditEventDrawer({
   open,
   onClose,
+  collapsed,
+  onCollapsedChange,
   conflicts,
   ucOptions,
   turmaOptions,
@@ -209,11 +213,21 @@ export default function EditEventDrawer({
   );
   const [openDropdown, setOpenDropdown] = useState<"docentes" | "salas" | "turmas" | null>(null);
   const dropdownAreaRef = useRef<HTMLDivElement>(null);
+  const asideRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     function handleOutsideClick(event: MouseEvent) {
-      if (dropdownAreaRef.current?.contains(event.target as Node)) return;
+      const target = event.target as Node | null;
+      if (dropdownAreaRef.current?.contains(target)) return;
       setOpenDropdown(null);
+      if (!asideRef.current || asideRef.current.contains(target)) return;
+      if (
+        target instanceof Element &&
+        target.closest("[data-schedule-event],[data-schedule-navbar]")
+      ) {
+        return;
+      }
+      onClose();
     }
 
     function handleEscapeKey(event: KeyboardEvent) {
@@ -372,30 +386,32 @@ export default function EditEventDrawer({
     return valid.length > 0 ? valid : [...filteredTurmas];
   }, [filteredTurmas, selectedTurmasOverride]);
 
+  if (!open) return null;
+
   return (
-    <div
+    <aside
+      ref={asideRef}
+      role="dialog"
+      aria-labelledby="edit-event-drawer-title"
       className={[
-        "fixed inset-0 z-50 transition-opacity",
-        open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
+        "fixed left-0 top-[15vh] h-[70vh] w-[min(92vw,420px)] z-40 transition-transform duration-200",
+        collapsed ? "-translate-x-full" : "translate-x-0",
       ].join(" ")}
-      aria-hidden={!open}
     >
       <button
-        onClick={onClose}
-        className="absolute inset-0 bg-black/45"
-        aria-label="Fechar painel de edição"
-      />
-
-      <aside
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="edit-event-drawer-title"
-        className={[
-          "absolute right-0 top-0 h-full w-[min(92vw,450px)] bg-[#1d2128] text-white border-l border-white/15 shadow-[-8px_0_24px_rgba(0,0,0,0.45)] transition-transform overflow-y-auto",
-          open ? "translate-x-0" : "translate-x-full",
-        ].join(" ")}
+        type="button"
+        onClick={() => onCollapsedChange(!collapsed)}
+        onMouseEnter={() => {
+          if (collapsed) onCollapsedChange(false);
+        }}
+        aria-label={collapsed ? "Expandir painel de edição" : "Colapsar painel de edição"}
+        className="absolute left-full top-1/2 -translate-y-1/2 flex h-24 w-6 items-center justify-center rounded-r-md border border-l-0 border-white/15 bg-[#1d2128] text-lg leading-none text-white/70 shadow-[4px_0_12px_rgba(0,0,0,0.35)] hover:text-white"
       >
-        <div className="sticky top-0 z-20 bg-[#1d2128] border-b border-white/10 px-5 py-4 flex items-center justify-between">
+        {collapsed ? "›" : "‹"}
+      </button>
+
+      <div className="flex h-full flex-col overflow-hidden rounded-r-lg border border-l-0 border-white/15 bg-[#1d2128] text-white shadow-[6px_0_24px_rgba(0,0,0,0.45)]">
+        <div className="bg-[#1d2128] border-b border-white/10 px-5 py-4 flex items-center justify-between shrink-0">
           <h2 id="edit-event-drawer-title" className="text-lg font-semibold">
             Editar Evento
           </h2>
@@ -407,7 +423,7 @@ export default function EditEventDrawer({
           </button>
         </div>
 
-        <div className="px-5 py-4 space-y-4">
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
           <label className="block text-sm">
             <span className="mb-1.5 block text-white/90">UC Selecionada</span>
             <select
@@ -757,7 +773,7 @@ export default function EditEventDrawer({
             )}
           </div>
         </div>
-      </aside>
-    </div>
+      </div>
+    </aside>
   );
 }

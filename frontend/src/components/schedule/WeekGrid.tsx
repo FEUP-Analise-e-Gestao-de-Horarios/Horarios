@@ -32,6 +32,7 @@ interface WeekGridProps {
   endTime?: number;
   onEventClick?: (event: WeekGridEvent) => void;
   onEventDoubleClick?: (event: WeekGridEvent) => void;
+  onHorizontalScroll?: () => void;
   emptyMessage?: string;
   weekdayLabels?: string[];
   primaryHeaderLeftLabel?: string;
@@ -144,6 +145,7 @@ export default function WeekGrid({
   endTime,
   onEventClick,
   onEventDoubleClick,
+  onHorizontalScroll,
   emptyMessage,
   weekdayLabels,
   primaryHeaderLeftLabel,
@@ -160,6 +162,7 @@ export default function WeekGrid({
   selectedDays,
 }: WeekGridProps) {
   const gridRef = useRef<HTMLDivElement>(null);
+  const lastScrollLeftRef = useRef(0);
 
   // Uniform width applied to every turma column once a resize finishes
   // (null = use the default flexible layout).
@@ -429,7 +432,16 @@ export default function WeekGrid({
   }
 
   return (
-    <div className="bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)] overflow-x-auto overflow-y-auto h-full">
+    <div
+      className="bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)] overflow-x-auto overflow-y-auto h-full"
+      onScroll={(e) => {
+        const { scrollLeft } = e.currentTarget;
+        if (scrollLeft !== lastScrollLeftRef.current) {
+          lastScrollLeftRef.current = scrollLeft;
+          onHorizontalScroll?.();
+        }
+      }}
+    >
       <div
         className="grid h-full w-max min-w-full"
         ref={gridRef}
@@ -584,6 +596,7 @@ export default function WeekGrid({
             <button
               key={`e-${ev.id}`}
               type="button"
+              data-schedule-event=""
               onClick={onEventClick ? () => onEventClick(ev) : undefined}
               onDoubleClick={onEventDoubleClick ? () => onEventDoubleClick(ev) : undefined}
               className={`relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden ${

@@ -170,6 +170,7 @@ export default function SchedulePage() {
   const [semanas, setSemanas] = useState<string[]>([]);
   const [dias, setDias] = useState<string[]>([...SCHEDULE_VIEW_DAYS]);
   const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
+  const [isEditDrawerCollapsed, setIsEditDrawerCollapsed] = useState(false);
   const [isConflictsDrawerOpen, setIsConflictsDrawerOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<WeekGridEvent | null>(null);
 
@@ -397,6 +398,7 @@ export default function SchedulePage() {
 
   const openEditor = (event: WeekGridEvent | null) => {
     setEditingEvent(event ? { ...event } : null);
+    setIsEditDrawerCollapsed(false);
     setIsEditDrawerOpen(true);
   };
 
@@ -673,6 +675,8 @@ export default function SchedulePage() {
       <EditEventDrawer
         key={editingEvent?.id ?? "new"}
         open={isEditDrawerOpen}
+        collapsed={isEditDrawerCollapsed}
+        onCollapsedChange={setIsEditDrawerCollapsed}
         onClose={() => {
           setIsEditDrawerOpen(false);
           setEditingEvent(null);
@@ -714,6 +718,7 @@ export default function SchedulePage() {
               showHalfHourDividers
               editingEventId={isEditDrawerOpen ? editingEvent?.id : undefined}
               onEventClick={(event) => openEditor(event)}
+              onHorizontalScroll={() => setIsEditDrawerCollapsed(true)}
             />
           </div>
         ) : (
