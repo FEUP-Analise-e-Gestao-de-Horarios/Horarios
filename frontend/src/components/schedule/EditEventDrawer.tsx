@@ -245,9 +245,6 @@ export default function EditEventDrawer({
     return ucOptions[0] ?? "";
   }, [preferredUc, selectedUcOverride, ucOptions]);
 
-  const subjectTeacherOptions = useMemo<{ id: string }[]>(() => [], []);
-  const subjectTeacherIds = useMemo(() => new Set<string>(), []);
-
   const preferredRoomTypes = useMemo(() => {
     if (!event?.roomIds || event.roomIds.length === 0) return new Set<string>();
     const roomTypes = roomOptions
@@ -267,17 +264,10 @@ export default function EditEventDrawer({
     [selectedEventTeacherIds, teacherOptions],
   );
 
-  const otherSubjectDocentes = useMemo(
-    () =>
-      teacherOptions.filter(
-        (docente) => subjectTeacherIds.has(docente.id) && !selectedEventTeacherIds.has(docente.id),
-      ),
-    [selectedEventTeacherIds, subjectTeacherIds, teacherOptions],
-  );
-
+  // Everyone not already shown under "the event's own teachers".
   const otherDocentes = useMemo(
-    () => teacherOptions.filter((docente) => !subjectTeacherIds.has(docente.id)),
-    [subjectTeacherIds, teacherOptions],
+    () => teacherOptions.filter((docente) => !selectedEventTeacherIds.has(docente.id)),
+    [selectedEventTeacherIds, teacherOptions],
   );
 
   const preferredSalas = useMemo(
@@ -291,8 +281,8 @@ export default function EditEventDrawer({
   );
 
   const orderedDocentes = useMemo(
-    () => [...selectedClassDocentes, ...otherSubjectDocentes, ...otherDocentes],
-    [otherDocentes, otherSubjectDocentes, selectedClassDocentes],
+    () => [...selectedClassDocentes, ...otherDocentes],
+    [otherDocentes, selectedClassDocentes],
   );
 
   const orderedSalas = useMemo(
@@ -305,12 +295,6 @@ export default function EditEventDrawer({
     if (!query) return selectedClassDocentes;
     return selectedClassDocentes.filter((docente) => docente.label.toLowerCase().includes(query));
   }, [docentesSearch, selectedClassDocentes]);
-
-  const filteredOtherSubjectDocentes = useMemo(() => {
-    const query = docentesSearch.toLowerCase().trim();
-    if (!query) return otherSubjectDocentes;
-    return otherSubjectDocentes.filter((docente) => docente.label.toLowerCase().includes(query));
-  }, [docentesSearch, otherSubjectDocentes]);
 
   const filteredOtherDocentes = useMemo(() => {
     const query = docentesSearch.toLowerCase().trim();
@@ -340,15 +324,8 @@ export default function EditEventDrawer({
     const valid = selectedDocenteOverride.filter((id) => teacherOptions.some((d) => d.id === id));
     if (valid.length > 0) return valid;
     if (selectedClassDocentes.length > 0) return [selectedClassDocentes[0]!.id];
-    if (subjectTeacherOptions.length > 0) return [subjectTeacherOptions[0]!.id];
     return orderedDocentes.slice(0, 1).map((docente) => docente.id);
-  }, [
-    orderedDocentes,
-    selectedClassDocentes,
-    selectedDocenteOverride,
-    teacherOptions,
-    subjectTeacherOptions,
-  ]);
+  }, [orderedDocentes, selectedClassDocentes, selectedDocenteOverride, teacherOptions]);
 
   const effectiveSelectedSala = useMemo(() => {
     const valid = selectedSalaOverride.filter((id) => roomOptions.some((room) => room.id === id));
@@ -536,7 +513,6 @@ export default function EditEventDrawer({
                   heading: "Docentes da turma selecionada",
                   options: filteredSelectedClassDocentes,
                 },
-                { heading: "Outros docentes da UC", options: filteredOtherSubjectDocentes },
                 { heading: "Todos os docentes", options: filteredOtherDocentes },
               ]}
               selectedIds={effectiveSelectedDocente}
