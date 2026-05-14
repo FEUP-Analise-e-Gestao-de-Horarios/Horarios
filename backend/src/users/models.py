@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import ClassVar
 
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.db.models import BooleanField, DateTimeField, EmailField, TextField
@@ -27,7 +28,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
 
     USERNAME_FIELD = "username"
-    REQUIRED_FIELDS = ["email"]
+    REQUIRED_FIELDS: ClassVar[list[str]] = ["email"]
 
     objects = UserManager()
 
