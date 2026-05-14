@@ -664,7 +664,6 @@ export default function SchedulePage() {
         turnoTurmaGroups={turnoTurmaGroups}
         yearOptions={yearOptions}
         courseOptions={courseOptions}
-        onEditEventClick={() => openEditor(null)}
         onViewConflicts={() => {
           void yearConflictsQuery.refetch();
           setIsConflictsDrawerOpen(true);

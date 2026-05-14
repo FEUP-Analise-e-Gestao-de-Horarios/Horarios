@@ -45,7 +45,6 @@ interface ScheduleNavbarProps {
   turnoTurmaGroups: TurnoTurmaGroup[];
   yearOptions: DropdownOption[];
   courseOptions: CourseGroup[];
-  onEditEventClick: () => void;
   onViewConflicts: () => void;
 }
 
@@ -73,7 +72,6 @@ export default function ScheduleNavbar({
   turnoTurmaGroups,
   yearOptions,
   courseOptions,
-  onEditEventClick,
   onViewConflicts,
 }: ScheduleNavbarProps) {
   const primaryRedButtonClass =
@@ -194,13 +192,6 @@ export default function ScheduleNavbar({
 
       <button className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors">
         Editar Aulas em Paralelo
-      </button>
-
-      <button
-        onClick={onEditEventClick}
-        className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors"
-      >
-        Editar Evento
       </button>
 
       <div className="border-l border-gray-600 h-5 mx-1" />
