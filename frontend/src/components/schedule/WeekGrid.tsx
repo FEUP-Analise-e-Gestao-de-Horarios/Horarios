@@ -1,8 +1,10 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
 import type { Weekday } from "@/types/project/weekday";
 import { hhmmToMinutes, minutesToTime } from "@/utils/time";
 import { WEEKDAYS, WEEKDAY_LABELS_SHORT } from "@/utils/weekdays";
+import MarqueeText from "./MarqueeText";
 import { styleForSubject } from "./subjectColors";
+import { useColumnResize } from "./useColumnResize";
 
 export interface WeekGridEvent {
   id: string;
@@ -59,63 +61,11 @@ const DEFAULT_END_HHMM = 2000;
 const SLOT_MINUTES = 30;
 const MIN_SLOT_PX = 16;
 const HEADER_PX = 40;
-const TURMA_COLUMN_MIN_PX = 32;
-const TURMA_COLUMN_MAX_PX = 320;
 // Width each turma column gets in the default (un-resized) flexible layout.
 const TURMA_COLUMN_DEFAULT_MIN_PX = 64;
 
 function weekdayIndex(weekday: Weekday): number {
   return WEEKDAYS.indexOf(weekday);
-}
-
-// Marquee scroll speed in pixels per second. The animation duration is derived
-// from this and the overflow distance, so text always scrolls at this exact
-// rate regardless of how much it overflows.
-const MARQUEE_SPEED_PX_PER_SEC = 9;
-
-// One line of text inside an event card. When the text is wider than the
-// available space it scrolls back and forth while the parent card (a `group`)
-// is hovered, so the clipped part can still be read.
-function MarqueeText({ children, className = "" }: { children: string; className?: string }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const textRef = useRef<HTMLSpanElement>(null);
-  const [overflowPx, setOverflowPx] = useState(0);
-
-  useLayoutEffect(() => {
-    const container = containerRef.current;
-    const text = textRef.current;
-    if (!container || !text) return;
-    const measure = () => {
-      const diff = Math.ceil(text.scrollWidth - container.clientWidth);
-      setOverflowPx(diff > 1 ? diff : 0);
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(container);
-    observer.observe(text);
-    return () => observer.disconnect();
-  }, [children]);
-
-  const isOverflowing = overflowPx > 0;
-
-  return (
-    <div ref={containerRef} className={`overflow-hidden ${className}`}>
-      <span
-        ref={textRef}
-        className={`inline-block whitespace-nowrap ${isOverflowing ? "marquee" : ""}`}
-        style={
-          isOverflowing
-            ? ({
-                "--marquee-shift": `-${overflowPx}px`,
-                "--marquee-duration": `${overflowPx / MARQUEE_SPEED_PX_PER_SEC}s`,
-              } as React.CSSProperties)
-            : undefined
-        }
-      >
-        {children}
-      </span>
-    </div>
-  );
 }
 
 function getTurmaHeaderStyle(shift?: number): string {
@@ -182,28 +132,9 @@ export default function WeekGrid({
   editingEventId,
   selectedDays,
 }: WeekGridProps) {
-  const gridRef = useRef<HTMLDivElement>(null);
   const lastScrollLeftRef = useRef(0);
-
-  // Uniform width applied to every turma column once a resize finishes
-  // (null = use the default flexible layout).
-  const [columnWidthPx, setColumnWidthPx] = useState<number | null>(null);
-  // While a resize is in progress, only the dragged column changes width;
-  // every other column stays frozen at `othersWidth`.
-  const [dragState, setDragState] = useState<{
-    colIndex: number;
-    width: number;
-    othersWidth: number;
-  } | null>(null);
-  const dragInfoRef = useRef<{
-    colIndex: number;
-    startX: number;
-    startWidth: number;
-    width: number;
-  } | null>(null);
-  // Pending horizontal scroll correction so a resized column keeps its on-screen
-  // position once every column adopts the new width.
-  const scrollAdjustRef = useRef(0);
+  const { gridRef, columnWidthPx, dragState, handleResizeStart, handleResizeKeyDown } =
+    useColumnResize();
 
   const labels =
     weekdayLabels && weekdayLabels.length === WEEKDAY_LABELS.length
@@ -249,91 +180,6 @@ export default function WeekGrid({
     : columnWidthPx != null
       ? `44px repeat(${turmaColumnCount}, ${columnWidthPx}px)`
       : `44px repeat(${turmaColumnCount}, minmax(${TURMA_COLUMN_DEFAULT_MIN_PX}px, 1fr))`;
-
-  const handleResizeStart = (columnIndex: number, event: React.MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const cell = event.currentTarget.parentElement;
-    if (!cell) return;
-    const startWidth = Math.round(cell.getBoundingClientRect().width);
-    dragInfoRef.current = {
-      colIndex: columnIndex,
-      startX: event.clientX,
-      startWidth,
-      width: startWidth,
-    };
-    setDragState({ colIndex: columnIndex, width: startWidth, othersWidth: startWidth });
-  };
-
-  const handleResizeKeyDown = (
-    columnIndex: number,
-    event: React.KeyboardEvent<HTMLButtonElement>,
-  ) => {
-    const direction = event.key === "ArrowLeft" ? -1 : event.key === "ArrowRight" ? 1 : 0;
-    if (direction === 0) return;
-    event.preventDefault();
-    const cell = event.currentTarget.parentElement;
-    if (!cell) return;
-    const step = event.shiftKey ? 32 : 8;
-    const currentWidth = Math.round(cell.getBoundingClientRect().width);
-    const nextWidth = Math.min(
-      TURMA_COLUMN_MAX_PX,
-      Math.max(TURMA_COLUMN_MIN_PX, currentWidth + direction * step),
-    );
-    scrollAdjustRef.current = columnIndex * (nextWidth - currentWidth);
-    setColumnWidthPx(nextWidth);
-  };
-
-  const isResizing = dragState !== null;
-  useEffect(() => {
-    if (!isResizing) return;
-
-    const handleMove = (event: MouseEvent) => {
-      const info = dragInfoRef.current;
-      if (!info) return;
-      const nextWidth = Math.min(
-        TURMA_COLUMN_MAX_PX,
-        Math.max(TURMA_COLUMN_MIN_PX, Math.round(info.startWidth + (event.clientX - info.startX))),
-      );
-      info.width = nextWidth;
-      setDragState({ colIndex: info.colIndex, width: nextWidth, othersWidth: info.startWidth });
-    };
-
-    const handleUp = () => {
-      const info = dragInfoRef.current;
-      if (info) {
-        // Once every column adopts the new width, the dragged column's left edge
-        // shifts by colIndex * (newWidth - oldWidth); cancel it out via scrollLeft.
-        scrollAdjustRef.current = info.colIndex * (info.width - info.startWidth);
-        setColumnWidthPx(info.width);
-      }
-      dragInfoRef.current = null;
-      setDragState(null);
-    };
-
-    const previousCursor = document.body.style.cursor;
-    const previousUserSelect = document.body.style.userSelect;
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-    document.addEventListener("mousemove", handleMove);
-    document.addEventListener("mouseup", handleUp);
-    return () => {
-      document.body.style.cursor = previousCursor;
-      document.body.style.userSelect = previousUserSelect;
-      document.removeEventListener("mousemove", handleMove);
-      document.removeEventListener("mouseup", handleUp);
-    };
-  }, [isResizing]);
-
-  // After a resize commits the new column width, shift the scroll position so the
-  // resized column stays exactly where it was on screen.
-  useLayoutEffect(() => {
-    const adjustment = scrollAdjustRef.current;
-    if (adjustment === 0) return;
-    scrollAdjustRef.current = 0;
-    const scrollContainer = gridRef.current?.parentElement;
-    if (scrollContainer) scrollContainer.scrollLeft += adjustment;
-  }, [columnWidthPx]);
 
   const { gridStartMinutes, slotCount } = useMemo(() => {
     let min = hhmmToMinutes(startTime ?? DEFAULT_START_HHMM);
