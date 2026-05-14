@@ -5,6 +5,7 @@ import WeekGrid from "@/components/schedule/WeekGrid";
 import EditEventDrawer from "@/components/schedule/EditEventDrawer";
 import ConflictsDrawer from "@/components/schedule/ConflictsDrawer";
 import ScheduleNavbar from "@/components/schedule/ScheduleNavbar";
+import { useTurnoTurmaSync } from "@/components/schedule/useTurnoTurmaSync";
 import { useProject } from "@/api/hooks/project/project";
 import { useProjectDegree, useProjectDegrees } from "@/api/hooks/project/degree";
 import { useProjectRooms } from "@/api/hooks/project/room";
@@ -248,52 +249,15 @@ export default function SchedulePage() {
     return sortValuesByReference(fallback, turmaOrder);
   }, [curso, turmaOrder, turmas]);
 
-  const turnosFromTurmas = (turmaCodes: string[]) => {
-    const selectedShifts = new Set<string>();
-    for (const classItem of selectedYearClasses) {
-      if (turmaCodes.includes(classItem.code)) {
-        selectedShifts.add(String(classItem.shift));
-      }
-    }
-    return [...selectedShifts].sort((a, b) => Number(a) - Number(b));
-  };
-
-  const handleSelectTurnos = (nextTurnos: string[]) => {
-    const currentTurnos = effectiveTurnos;
-    const currentTurmas = effectiveTurmas;
-    const addedTurnos = nextTurnos.filter((turno) => !currentTurnos.includes(turno));
-    const removedTurnos = currentTurnos.filter((turno) => !nextTurnos.includes(turno));
-
-    const turmasToAdd = selectedYearClasses
-      .filter((classItem) => addedTurnos.includes(String(classItem.shift)))
-      .map((classItem) => classItem.code);
-    const turmasToRemove = selectedYearClasses
-      .filter((classItem) => removedTurnos.includes(String(classItem.shift)))
-      .map((classItem) => classItem.code);
-
-    const nextTurmas = new Set(currentTurmas);
-    turmasToAdd.forEach((turma) => nextTurmas.add(turma));
-    turmasToRemove.forEach((turma) => nextTurmas.delete(turma));
-
-    const nextTurmasArray = [...nextTurmas].filter((turma) =>
-      selectedYearClasses.some((classItem) => classItem.code === turma),
-    );
-
-    const orderedTurmas = sortValuesByReference(nextTurmasArray, turmaOrder);
-    const orderedTurnos = sortValuesByReference(turnosFromTurmas(orderedTurmas), turnoOrder);
-
-    setTurmas(orderedTurmas);
-    setTurnos(orderedTurnos);
-  };
-
-  const handleSelectTurmas = (nextTurmas: string[]) => {
-    const validTurmas = nextTurmas.filter((turma) =>
-      selectedYearClasses.some((classItem) => classItem.code === turma),
-    );
-    const orderedTurmas = sortValuesByReference(validTurmas, turmaOrder);
-    setTurmas(orderedTurmas);
-    setTurnos(sortValuesByReference(turnosFromTurmas(orderedTurmas), turnoOrder));
-  };
+  const { handleSelectTurnos, handleSelectTurmas } = useTurnoTurmaSync({
+    classes: selectedYearClasses,
+    turnoOrder,
+    turmaOrder,
+    effectiveTurnos,
+    effectiveTurmas,
+    setTurnos,
+    setTurmas,
+  });
 
   const handleSelectCurso = (nextCurso: string) => {
     setCurso(nextCurso);
