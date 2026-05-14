@@ -56,7 +56,6 @@ const DEFAULT_START_HHMM = 800;
 const DEFAULT_END_HHMM = 2000;
 const SLOT_MINUTES = 30;
 const MIN_SLOT_PX = 16;
-const MAX_SLOT_PX = 36;
 const HEADER_PX = 40;
 const TURMA_COLUMN_MIN_PX = 64;
 
@@ -152,7 +151,6 @@ export default function WeekGrid({
   const hasSecondaryHeader = expandedSecondaryHeaderValues.length > 0 && activeTurmas.length > 0;
   const headerRows = hasSecondaryHeader ? 2 : 1;
   const minSlotPx = slotHeightPx ?? MIN_SLOT_PX;
-  const maxSlotPx = slotHeightPx ?? MAX_SLOT_PX;
   const headerPx = headerHeightPx ?? HEADER_PX;
   const hourFontPx = hourLabelFontPx ?? 10;
 
@@ -278,10 +276,7 @@ export default function WeekGrid({
   }
 
   return (
-    <div
-      className="bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)] overflow-x-auto overflow-y-auto h-full"
-      style={{ maxHeight: slotCount * maxSlotPx + headerPx * headerRows }}
-    >
+    <div className="bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)] overflow-x-auto overflow-y-auto h-full">
       <div
         className="grid h-full w-max min-w-full"
         ref={gridRef}
@@ -291,7 +286,7 @@ export default function WeekGrid({
         }}
       >
         <div
-          className="sticky top-0 z-20 border-b border-r border-[#e5e4e7] bg-[#f9f7f4]"
+          className="sticky top-0 left-0 z-30 border-b border-r border-[#e5e4e7] bg-[#f9f7f4]"
           style={{ gridColumn: 1, gridRow: 1 }}
         >
           <div className="px-2 py-1 text-center text-[10px] font-semibold uppercase tracking-wider text-[#08060d]">
@@ -316,7 +311,7 @@ export default function WeekGrid({
         {hasSecondaryHeader ? (
           <>
             <div
-              className="sticky z-20 border-b border-r border-[#e5e4e7] bg-[#f9f7f4]"
+              className="sticky left-0 z-30 border-b border-r border-[#e5e4e7] bg-[#f9f7f4]"
               style={{ gridColumn: 1, gridRow: 2, top: headerPx }}
             >
               <div className="px-2 py-1 text-center text-[10px] font-semibold uppercase tracking-wider text-[#08060d]">
@@ -355,7 +350,7 @@ export default function WeekGrid({
           return (
             <div
               key={`t-${i}`}
-              className={`border-r border-[#e5e4e7] px-2 text-right text-[#6b6375] ${rowDividerClass}`}
+              className={`sticky left-0 z-10 bg-white border-r border-[#e5e4e7] px-2 text-right text-[#6b6375] ${rowDividerClass}`}
               style={{
                 gridColumn: 1,
                 gridRow: i + headerRows + 1,
