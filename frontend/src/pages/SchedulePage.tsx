@@ -20,6 +20,7 @@ import {
   parseScheduleView,
   unpackSections,
 } from "@/utils/scheduleView";
+import { WEEKDAYS, WEEKDAY_LABELS_LONG, WEEKDAY_LABELS_UPPER } from "@/utils/weekdays";
 import type { SessionResponse } from "@/types/project/sessions";
 
 const COURSE_GROUPS = ["Licenciaturas", "Mestrados", "Pós-Graduações", "Outros"] as const;
@@ -636,14 +637,10 @@ export default function SchedulePage() {
   );
 
   const dayOptions = useMemo<DropdownOption[]>(() => {
-    const options: DropdownOption[] = [
-      { value: "monday", label: "Segunda-feira" },
-      { value: "tuesday", label: "Terça-feira" },
-      { value: "wednesday", label: "Quarta-feira" },
-      { value: "thursday", label: "Quinta-feira" },
-      { value: "friday", label: "Sexta-feira" },
-      { value: "saturday", label: "Sábado" },
-    ];
+    const options: DropdownOption[] = WEEKDAYS.map((weekday) => ({
+      value: weekday,
+      label: WEEKDAY_LABELS_LONG[weekday],
+    }));
     return hasSaturdaySessions ? options : options.filter((option) => option.value !== "saturday");
   }, [hasSaturdaySessions]);
 
@@ -715,7 +712,7 @@ export default function SchedulePage() {
               emptyMessage="Sem eventos para mostrar"
               startTime={800}
               endTime={1930}
-              weekdayLabels={["SEGUNDA", "TERCA", "QUARTA", "QUINTA", "SEXTA", "SABADO"]}
+              weekdayLabels={WEEKDAYS.map((weekday) => WEEKDAY_LABELS_UPPER[weekday])}
               turmaShifts={turmaShifts}
               selectedTurmas={effectiveTurmas}
               selectedDays={effectiveDias}

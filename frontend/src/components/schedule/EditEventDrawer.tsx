@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ConflictRecord } from "@/types/project/conflicts";
 import type { WeekGridEvent } from "@/components/schedule/WeekGrid";
+import { hhmmToMinutes, minutesToTime } from "@/utils/time";
+import { WEEKDAYS, WEEKDAY_LABELS_LONG } from "@/utils/weekdays";
 
 function normalizeText(value: string): string {
   return value
@@ -21,7 +23,7 @@ function conflictMatchesEvent(conflict: ConflictRecord, event: WeekGridEvent): b
   const conflictDay = normalizeText(conflict.day);
   if (eventDay !== conflictDay) return false;
 
-  const eventTime = formatMinutesToTime(hhmmToMinutes(event.startTime));
+  const eventTime = minutesToTime(hhmmToMinutes(event.startTime));
   if (conflict.time !== eventTime) return false;
 
   const eventTurma = normalizeText(event.turma ?? event.classCodes?.[0] ?? "");
@@ -63,12 +65,6 @@ interface EditEventDrawerProps {
 const MIN_TIME_MINUTES = 8 * 60;
 const MAX_TIME_MINUTES = 19 * 60 + 30;
 
-function formatMinutesToTime(totalMinutes: number): string {
-  const hours = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
-  const minutes = String(totalMinutes % 60).padStart(2, "0");
-  return `${hours}:${minutes}`;
-}
-
 function clampTimeMinutes(totalMinutes: number): number {
   return Math.max(MIN_TIME_MINUTES, Math.min(MAX_TIME_MINUTES, totalMinutes));
 }
@@ -79,7 +75,7 @@ function shiftTimeByMinutes(time: string, deltaMinutes: number): string {
     return time;
 
   const totalMinutes = clampTimeMinutes(hours * 60 + minutes + deltaMinutes);
-  return formatMinutesToTime(totalMinutes);
+  return minutesToTime(totalMinutes);
 }
 
 function normalizeTimeValue(value: string, fallback: string): string {
@@ -93,7 +89,7 @@ function normalizeTimeValue(value: string, fallback: string): string {
   if (minutes < 0 || minutes > 59) return fallback;
 
   const totalMinutes = clampTimeMinutes(hours * 60 + minutes);
-  return formatMinutesToTime(totalMinutes);
+  return minutesToTime(totalMinutes);
 }
 
 function toggleSelection(current: string[], itemId: string): string[] {
@@ -102,22 +98,8 @@ function toggleSelection(current: string[], itemId: string): string[] {
     : [...current, itemId];
 }
 
-function hhmmToMinutes(hhmm: number): number {
-  const hours = Math.floor(hhmm / 100);
-  const minutes = hhmm % 100;
-  return hours * 60 + minutes;
-}
-
 function weekdayLabelToValue(weekday: WeekGridEvent["weekday"]): string {
-  const labels: Record<WeekGridEvent["weekday"], string> = {
-    monday: "Segunda-Feira",
-    tuesday: "Terça-Feira",
-    wednesday: "Quarta-Feira",
-    thursday: "Quinta-Feira",
-    friday: "Sexta-Feira",
-    saturday: "Sábado",
-  };
-  return labels[weekday];
+  return WEEKDAY_LABELS_LONG[weekday];
 }
 
 function getInitialFormState(event?: WeekGridEvent | null) {
@@ -128,8 +110,8 @@ function getInitialFormState(event?: WeekGridEvent | null) {
       selectedSalaOverride: event.roomIds ?? [],
       selectedTurmasOverride: event.classCodes ?? (event.turma ? [event.turma] : []),
       selectedWeekday: weekdayLabelToValue(event.weekday),
-      startTime: formatMinutesToTime(hhmmToMinutes(event.startTime)),
-      endTime: formatMinutesToTime(hhmmToMinutes(event.startTime) + event.duration * 30),
+      startTime: minutesToTime(hhmmToMinutes(event.startTime)),
+      endTime: minutesToTime(hhmmToMinutes(event.startTime) + event.duration * 30),
     };
   }
   return {
@@ -137,7 +119,7 @@ function getInitialFormState(event?: WeekGridEvent | null) {
     selectedDocenteOverride: [] as string[],
     selectedSalaOverride: [] as string[],
     selectedTurmasOverride: [] as string[],
-    selectedWeekday: "Segunda-Feira",
+    selectedWeekday: WEEKDAY_LABELS_LONG.monday,
     startTime: "10:30",
     endTime: "12:30",
   };
@@ -508,12 +490,11 @@ export default function EditEventDrawer({
                 onChange={(event) => setSelectedWeekday(event.target.value)}
                 className="w-full bg-[#2a303a] border border-white/20 rounded px-2 py-1.5 text-sm"
               >
-                <option>Segunda-Feira</option>
-                <option>Terça-Feira</option>
-                <option>Quarta-Feira</option>
-                <option>Quinta-Feira</option>
-                <option>Sexta-Feira</option>
-                <option>Sábado</option>
+                {WEEKDAYS.map((weekday) => (
+                  <option key={weekday} value={WEEKDAY_LABELS_LONG[weekday]}>
+                    {WEEKDAY_LABELS_LONG[weekday]}
+                  </option>
+                ))}
               </select>
             </label>
           </div>

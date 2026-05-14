@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Weekday } from "@/types/project/weekday";
+import { hhmmToMinutes, minutesToTime } from "@/utils/time";
+import { WEEKDAYS, WEEKDAY_LABELS_SHORT } from "@/utils/weekdays";
 import { styleForSubject } from "./subjectColors";
 
 export interface WeekGridEvent {
@@ -50,8 +52,7 @@ interface WeekGridProps {
   selectedDays?: string[];
 }
 
-const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-const WEEKDAY_LABELS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const WEEKDAY_LABELS = WEEKDAYS.map((day) => WEEKDAY_LABELS_SHORT[day]);
 
 const DEFAULT_START_HHMM = 800;
 const DEFAULT_END_HHMM = 2000;
@@ -62,18 +63,6 @@ const TURMA_COLUMN_MIN_PX = 32;
 const TURMA_COLUMN_MAX_PX = 320;
 // Width each turma column gets in the default (un-resized) flexible layout.
 const TURMA_COLUMN_DEFAULT_MIN_PX = 64;
-
-function hhmmToMinutes(hhmm: number): number {
-  const h = Math.floor(hhmm / 100);
-  const m = hhmm % 100;
-  return h * 60 + m;
-}
-
-function minutesToLabel(mins: number): string {
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
-}
 
 function weekdayIndex(weekday: Weekday): number {
   return WEEKDAYS.indexOf(weekday);
@@ -222,7 +211,7 @@ export default function WeekGrid({
       : WEEKDAY_LABELS;
 
   const visibleDayIndices = useMemo(() => {
-    if (!selectedDays || selectedDays.length === 0) return [...Array(6).keys()];
+    if (!selectedDays || selectedDays.length === 0) return WEEKDAYS.map((_, idx) => idx);
     return WEEKDAYS.map((day, idx) => (selectedDays.includes(day) ? idx : -1)).filter(
       (idx) => idx >= 0,
     );
@@ -569,7 +558,7 @@ export default function WeekGrid({
                 fontSize: `${hourFontPx}px`,
               }}
             >
-              {showLabel ? minutesToLabel(mins) : ""}
+              {showLabel ? minutesToTime(mins) : ""}
             </div>
           );
         })}

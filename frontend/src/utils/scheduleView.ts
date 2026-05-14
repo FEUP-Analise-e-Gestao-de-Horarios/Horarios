@@ -1,11 +1,7 @@
-export const SCHEDULE_VIEW_DAYS = [
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-] as const;
+import { WEEKDAYS } from "@/utils/weekdays";
+
+/** Day order used when bit-packing the day filter into the URL. */
+export const SCHEDULE_VIEW_DAYS = WEEKDAYS;
 
 export type ScheduleViewSelection = {
   degreeId: string;
