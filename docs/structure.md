@@ -47,7 +47,6 @@ Horarios/
 | `core/`               | Core API endpoints for the schedule editor                                          |
 | `ingestion/`          | Schedule data ingestion pipeline (see [Ingestion](internals/ingestion-pipeline.md)) |
 | `login/`              | Authentication views and session management                                         |
-| `parser/`             | Legacy schedule parsing views                                                       |
 | `projects/`           | `Project` and `Group` models, project management views                              |
 | `users/`              | Custom `User` model and user management                                             |
 

@@ -55,7 +55,6 @@ urlpatterns = [
 ]
 
 # TODO Check URLs bellow
-# path("parser/", include("src.parser.urls")),
 # path("groups", views.groups),
 # path("deleteProject", views.deleteProject),
 # path("editturnos/<int:projId>", views.editTurnos),

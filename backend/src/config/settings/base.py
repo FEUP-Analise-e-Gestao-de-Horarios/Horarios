@@ -30,7 +30,6 @@ INSTALLED_APPS = [
     "src.users",
     "src.login",
     "src.projects",
-    "src.parser",
 ]
 
 MIDDLEWARE = [

@@ -8,7 +8,7 @@ from src.core.errors import (
     YearNotFoundResponse,
 )
 from src.core.schemas import SuccessResponse
-from src.parser.utils import validate_query_params
+from src.core.validation import validate_query_params
 from src.projects.projects_db.dao import ClassDAO, SessionDAO, SubjectDAO, YearDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
