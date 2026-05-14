@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import type { WeekGridEvent } from "@/components/schedule/WeekGrid";
 import WeekGrid from "@/components/schedule/WeekGrid";
 import EditEventDrawer from "@/components/schedule/EditEventDrawer";
 import ConflictsDrawer from "@/components/schedule/ConflictsDrawer";
 import ScheduleNavbar from "@/components/schedule/ScheduleNavbar";
 import { useTurnoTurmaSync } from "@/components/schedule/useTurnoTurmaSync";
+import { useScheduleViewUrl } from "@/components/schedule/useScheduleViewUrl";
 import { useProject } from "@/api/hooks/project/project";
 import { useProjectDegree, useProjectDegrees } from "@/api/hooks/project/degree";
 import { useProjectRooms } from "@/api/hooks/project/room";
@@ -14,13 +15,7 @@ import { useProjectSessions } from "@/api/hooks/project/sessions";
 import { useProjectYear, useProjectYearConflicts } from "@/api/hooks/project/year";
 import { ROUTES } from "@/routes";
 import { buildPath } from "@/utils/routes";
-import {
-  SCHEDULE_VIEW_DAYS,
-  degreeKey,
-  encodeScheduleView,
-  parseScheduleView,
-  unpackSections,
-} from "@/utils/scheduleView";
+import { SCHEDULE_VIEW_DAYS } from "@/utils/scheduleView";
 import {
   COURSE_GROUPS,
   formatWeekRange,
@@ -54,11 +49,6 @@ export default function SchedulePage() {
     const isReady = !!project.ingestion_finished_at;
     if (!isReady) void navigate(buildPath(ROUTES.DASHBOARD, { projectId }), { replace: true });
   }, [project, projectId, navigate]);
-
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [initialView] = useState<string | null>(() => searchParams.get("view"));
-  const hydrationPhaseRef = useRef(0);
-  const [isHydrated, setIsHydrated] = useState(false);
 
   const [curso, setCurso] = useState("");
   const [anos, setAnos] = useState<string[]>([]);
@@ -290,147 +280,29 @@ export default function SchedulePage() {
 
   const allWeekValues = useMemo(() => weekOptions.map((option) => option.value), [weekOptions]);
 
-  useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect */
-    if (isHydrated) return;
-    if (!degrees) return;
-
-    if (!initialView) {
-      if (degrees.some((degree) => degree.acronym === "L.EIC")) {
-        setCurso("L.EIC");
-        setAnos(["1"]);
-      }
-      setIsHydrated(true);
-      return;
-    }
-
-    const parsed = parseScheduleView(initialView);
-    if (!parsed.degreeKey) {
-      setIsHydrated(true);
-      return;
-    }
-
-    if (hydrationPhaseRef.current < 1) {
-      const matchingDegree = degrees.find((degree) => degreeKey(degree.id) === parsed.degreeKey);
-      if (!matchingDegree) {
-        setIsHydrated(true);
-        return;
-      }
-      setCurso(matchingDegree.acronym);
-      if (parsed.year) setAnos([parsed.year]);
-      hydrationPhaseRef.current = 1;
-      if (!parsed.bytes || parsed.bytes.length === 0) {
-        setIsHydrated(true);
-        return;
-      }
-    }
-
-    if (!parsed.bytes) {
-      setIsHydrated(true);
-      return;
-    }
-
-    if (hydrationPhaseRef.current < 2) {
-      if (!selectedYearDetail) return;
-      const sections = unpackSections(parsed.bytes, [
-        { ref: ucOptions },
-        { ref: turmaOrder },
-        { ref: [...SCHEDULE_VIEW_DAYS] },
-        { ref: allWeekValues },
-      ]);
-      const ucsSection = sections[0];
-      const turmasSection = sections[1];
-      const diasSection = sections[2];
-      if (ucsSection && !ucsSection.isAll) setUcs(ucsSection.values);
-      if (turmasSection) {
-        const decodedTurmas = turmasSection.isAll ? [] : turmasSection.values;
-        setTurmas(decodedTurmas);
-        const shifts = new Set<string>();
-        for (const classItem of selectedYearClasses) {
-          if (decodedTurmas.includes(classItem.code)) shifts.add(String(classItem.shift));
-        }
-        setTurnos(sortValuesByReference([...shifts], turnoOrder));
-      }
-      if (diasSection) {
-        setDias(diasSection.isAll ? [...SCHEDULE_VIEW_DAYS] : diasSection.values);
-      }
-      hydrationPhaseRef.current = 2;
-    }
-
-    if (hydrationPhaseRef.current < 3) {
-      if (selectedYearWeeks === undefined) return;
-      if (allWeekValues.length > 0) {
-        const sections = unpackSections(parsed.bytes, [
-          { ref: ucOptions },
-          { ref: turmaOrder },
-          { ref: [...SCHEDULE_VIEW_DAYS] },
-          { ref: allWeekValues },
-        ]);
-        const semanasSection = sections[3];
-        if (semanasSection && !semanasSection.isAll) setSemanas(semanasSection.values);
-      }
-      hydrationPhaseRef.current = 3;
-      setIsHydrated(true);
-    }
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, [
-    isHydrated,
-    initialView,
+  useScheduleViewUrl({
     degrees,
-    selectedYearDetail,
-    selectedYearWeeks,
+    hasYearDetail: !!selectedYearDetail,
+    hasYearWeeks: selectedYearWeeks !== undefined,
     selectedYearClasses,
     ucOptions,
-    turmaOrder,
     turnoOrder,
+    turmaOrder,
     allWeekValues,
-  ]);
-
-  useEffect(() => {
-    if (!isHydrated) return;
-
-    const newView = encodeScheduleView(
-      {
-        degreeId: activeDegree?.id ?? "",
-        ano: effectiveAnos[0] ?? "",
-        ucs,
-        turmas,
-        dias,
-        semanas,
-      },
-      {
-        ucOrder: ucOptions,
-        turmaOrder,
-        weekOrder: allWeekValues,
-      },
-    );
-
-    const currentView = searchParams.get("view") ?? "";
-    if (newView === currentView) return;
-
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (newView) next.set("view", newView);
-        else next.delete("view");
-        return next;
-      },
-      { replace: true },
-    );
-  }, [
-    isHydrated,
-    activeDegree?.id,
-    effectiveAnos,
+    activeDegreeId: activeDegree?.id ?? "",
+    ano: effectiveAnos[0] ?? "",
     ucs,
     turmas,
     dias,
     semanas,
-    ucOptions,
-    turmaOrder,
-    allWeekValues,
-    searchParams,
-    setSearchParams,
-  ]);
+    setCurso,
+    setAnos,
+    setUcs,
+    setTurnos,
+    setTurmas,
+    setDias,
+    setSemanas,
+  });
 
   const effectiveSemanas = useMemo(() => {
     if (!curso) return [];
