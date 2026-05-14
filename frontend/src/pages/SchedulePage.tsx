@@ -650,7 +650,7 @@ export default function SchedulePage() {
     <div className="h-screen bg-[#f0eeeb] flex flex-col overflow-hidden">
       <title>{project ? `Horário · ${project.name} · AGH` : "Horário · AGH"}</title>
       <ScheduleNavbar
-        key={`${isEditDrawerOpen}-${isConflictsDrawerOpen}`}
+        anyDialogOpen={isEditDrawerOpen || isConflictsDrawerOpen}
         projectId={projectId}
         curso={curso}
         setCurso={handleSelectCurso}

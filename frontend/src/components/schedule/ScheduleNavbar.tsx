@@ -47,6 +47,8 @@ interface ScheduleNavbarProps {
   yearOptions: DropdownOption[];
   courseOptions: CourseGroup[];
   onViewConflicts: () => void;
+  // When a drawer/dialog opens, any open filter dropdown should collapse.
+  anyDialogOpen: boolean;
 }
 
 type DropdownId = "curso" | "ano" | "uc" | "turnoTurma" | "dia" | "semana";
@@ -74,6 +76,7 @@ export default function ScheduleNavbar({
   yearOptions,
   courseOptions,
   onViewConflicts,
+  anyDialogOpen,
 }: ScheduleNavbarProps) {
   const primaryRedButtonClass =
     "bg-[#8C2C19] text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap hover:bg-[#A9361E] transition-colors";
@@ -89,6 +92,17 @@ export default function ScheduleNavbar({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Collapse any open filter dropdown when a drawer/dialog takes over. This
+  // replaces a `key` remount of the whole navbar from the parent, which threw
+  // away all navbar state on every drawer toggle. Adjusting state during
+  // render (rather than in an effect) is the documented pattern for reacting
+  // to a prop change without an extra commit.
+  const [dialogWasOpen, setDialogWasOpen] = useState(anyDialogOpen);
+  if (anyDialogOpen !== dialogWasOpen) {
+    setDialogWasOpen(anyDialogOpen);
+    if (anyDialogOpen) setOpenDropdown(null);
+  }
 
   function toggle(id: DropdownId) {
     setOpenDropdown((prev) => (prev === id ? null : id));
