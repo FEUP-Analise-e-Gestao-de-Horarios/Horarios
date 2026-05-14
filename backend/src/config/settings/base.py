@@ -29,11 +29,8 @@ INSTALLED_APPS = [
     "src.core",
     "src.users",
     "src.login",
-    "src.getHorariosFromDB",
     "src.projects",
     "src.parser",
-    "src.FeupScheduleEditor",
-    "src.FeupScheduleEditor.templatetags.my_filters",
 ]
 
 MIDDLEWARE = [
