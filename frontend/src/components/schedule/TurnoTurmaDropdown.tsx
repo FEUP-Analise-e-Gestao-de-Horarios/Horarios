@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useDropdownPosition } from "./useDropdownPosition";
 
-const DROPDOWN_MAX_WIDTH_PX = 768;
 const DROPDOWN_CLASSES =
-  "absolute left-0 bg-[#1e2028] border border-gray-600 rounded z-[200] w-max max-w-[min(calc(100vw-1rem),48rem)] max-h-[min(60vh,24rem)] overflow-x-hidden overflow-y-auto shadow-[0_4px_12px_rgba(0,0,0,0.4)]";
+  "absolute bg-[#1e2028] border border-gray-600 rounded z-[200] w-max max-w-[min(calc(100vw-1rem),48rem)] max-h-[min(60vh,24rem)] overflow-x-hidden overflow-y-auto shadow-[0_4px_12px_rgba(0,0,0,0.4)]";
 
 export type TurnoTurmaGroup = {
   turno: string;
@@ -31,36 +30,9 @@ export default function TurnoTurmaDropdown({
   onToggle,
   disabled,
 }: TurnoTurmaDropdownProps) {
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const [openUpward, setOpenUpward] = useState(false);
-  const [openLeftward, setOpenLeftward] = useState(false);
-
-  useEffect(() => {
-    if (!open || disabled) return;
-
-    const updateDirection = () => {
-      const wrapper = wrapperRef.current;
-      const trigger = wrapper?.querySelector("button");
-      if (!wrapper || !trigger) return;
-
-      const rect = trigger.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const spaceAbove = rect.top;
-      const dropdownWidth = Math.min(window.innerWidth - 16, DROPDOWN_MAX_WIDTH_PX);
-      const spaceRight = window.innerWidth - rect.left;
-      const spaceLeft = rect.right;
-      setOpenUpward(spaceBelow < 280 && spaceAbove > spaceBelow);
-      setOpenLeftward(spaceRight < dropdownWidth && spaceLeft > spaceRight);
-    };
-
-    updateDirection();
-    window.addEventListener("resize", updateDirection);
-    window.addEventListener("scroll", updateDirection, true);
-    return () => {
-      window.removeEventListener("resize", updateDirection);
-      window.removeEventListener("scroll", updateDirection, true);
-    };
-  }, [disabled, open]);
+  const { wrapperRef, panelRef, openUpward, horizontalOffset } = useDropdownPosition(
+    open && !disabled,
+  );
 
   const triggerLabel = "Turmas";
 
@@ -97,11 +69,12 @@ export default function TurnoTurmaDropdown({
 
       {open && !disabled && (
         <div
+          ref={panelRef}
           className={[
             DROPDOWN_CLASSES,
-            openLeftward ? "right-0 left-auto" : "left-0 right-auto",
             openUpward ? "bottom-[calc(100%+4px)]" : "top-[calc(100%+4px)]",
           ].join(" ")}
+          style={{ left: horizontalOffset }}
         >
           {groups.length === 0 ? (
             <div className="px-3 py-3 text-[13px] text-gray-400">Sem turnos disponíveis.</div>

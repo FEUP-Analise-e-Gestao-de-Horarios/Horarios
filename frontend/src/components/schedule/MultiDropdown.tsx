@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useDropdownPosition } from "./useDropdownPosition";
 
 const DROPDOWN_CLASSES =
-  "absolute left-0 bg-[#1e2028] border border-gray-600 rounded z-[200] w-[min(calc(100vw-1rem),18rem)] max-w-[min(calc(100vw-1rem),18rem)] max-h-64 overflow-x-hidden overflow-y-auto shadow-[0_4px_12px_rgba(0,0,0,0.4)]";
+  "absolute bg-[#1e2028] border border-gray-600 rounded z-[200] w-[min(calc(100vw-1rem),18rem)] max-w-[min(calc(100vw-1rem),18rem)] max-h-64 overflow-x-hidden overflow-y-auto shadow-[0_4px_12px_rgba(0,0,0,0.4)]";
 
 type DropdownOption = {
   value: string;
@@ -43,40 +43,9 @@ export default function MultiDropdown({
   hideSelectedCountWhenDisabled = false,
 }: MultiDropdownProps) {
   const isEmpty = required && selected.length === 0;
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const [openUpward, setOpenUpward] = useState(false);
-  const [openLeftward, setOpenLeftward] = useState(false);
-
-  useEffect(() => {
-    if (!open || disabled) return;
-
-    const updateDirection = () => {
-      const wrapper = wrapperRef.current;
-      const trigger = wrapper?.querySelector("button");
-      if (!wrapper || !trigger) return;
-
-      const rect = trigger.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const spaceAbove = rect.top;
-      const dropdownWidth = compact
-        ? Math.min(window.innerWidth - 16, 160)
-        : fitContent
-          ? Math.min(window.innerWidth - 16, 352)
-          : 288;
-      const spaceRight = window.innerWidth - rect.left;
-      const spaceLeft = rect.right;
-      setOpenUpward(spaceBelow < 280 && spaceAbove > spaceBelow);
-      setOpenLeftward(spaceRight < dropdownWidth && spaceLeft > spaceRight);
-    };
-
-    updateDirection();
-    window.addEventListener("resize", updateDirection);
-    window.addEventListener("scroll", updateDirection, true);
-    return () => {
-      window.removeEventListener("resize", updateDirection);
-      window.removeEventListener("scroll", updateDirection, true);
-    };
-  }, [compact, disabled, fitContent, open]);
+  const { wrapperRef, panelRef, openUpward, horizontalOffset } = useDropdownPosition(
+    open && !disabled,
+  );
 
   function toggle(item: string) {
     if (singleSelect) {
@@ -129,15 +98,16 @@ export default function MultiDropdown({
 
       {open && !disabled && (
         <div
+          ref={panelRef}
           className={[
             fitContent
-              ? "absolute left-0 bg-[#1e2028] border border-gray-600 rounded z-[200] w-[min(calc(100vw-1rem),18rem)] max-w-[min(calc(100vw-1rem),18rem)] overflow-visible shadow-[0_4px_12px_rgba(0,0,0,0.4)]"
+              ? "absolute bg-[#1e2028] border border-gray-600 rounded z-[200] w-[min(calc(100vw-1rem),18rem)] max-w-[min(calc(100vw-1rem),18rem)] overflow-visible shadow-[0_4px_12px_rgba(0,0,0,0.4)]"
               : compact
-                ? "absolute left-0 bg-[#1e2028] border border-gray-600 rounded z-[200] w-[min(calc(100vw-1rem),10rem)] max-w-[min(calc(100vw-1rem),10rem)] max-h-64 overflow-x-hidden overflow-y-auto shadow-[0_4px_12px_rgba(0,0,0,0.4)]"
+                ? "absolute bg-[#1e2028] border border-gray-600 rounded z-[200] w-[min(calc(100vw-1rem),10rem)] max-w-[min(calc(100vw-1rem),10rem)] max-h-64 overflow-x-hidden overflow-y-auto shadow-[0_4px_12px_rgba(0,0,0,0.4)]"
                 : DROPDOWN_CLASSES,
-            openLeftward ? "right-0 left-auto" : "left-0 right-auto",
             openUpward ? "bottom-[calc(100%+4px)]" : "top-[calc(100%+4px)]",
           ].join(" ")}
+          style={{ left: horizontalOffset }}
         >
           <div className="flex flex-col gap-2.5 p-2">
             {options.map((opt) => (
