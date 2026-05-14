@@ -60,6 +60,8 @@ const MIN_SLOT_PX = 16;
 const HEADER_PX = 40;
 const TURMA_COLUMN_MIN_PX = 32;
 const TURMA_COLUMN_MAX_PX = 320;
+// Width each turma column gets in the default (un-resized) flexible layout.
+const TURMA_COLUMN_DEFAULT_MIN_PX = 64;
 
 function hhmmToMinutes(hhmm: number): number {
   const h = Math.floor(hhmm / 100);
@@ -223,7 +225,7 @@ export default function WeekGrid({
       ).join(" ")}`
     : columnWidthPx != null
       ? `44px repeat(${turmaColumnCount}, ${columnWidthPx}px)`
-      : `44px repeat(${turmaColumnCount}, minmax(${TURMA_COLUMN_MIN_PX}px, 1fr))`;
+      : `44px repeat(${turmaColumnCount}, minmax(${TURMA_COLUMN_DEFAULT_MIN_PX}px, 1fr))`;
 
   const handleResizeStart = (columnIndex: number, event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
