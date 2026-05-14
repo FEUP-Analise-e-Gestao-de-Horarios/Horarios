@@ -222,17 +222,21 @@ export default function WeekGrid({
     [visibleDayIndices, labels],
   );
 
-  const activeTurmas =
-    selectedTurmas.length > 0
-      ? selectedTurmas
-      : Array.from(new Set(events.map((e) => e.turma).filter(Boolean) as string[])).sort();
+  // When no turmas are explicitly selected, fall back to every turma present
+  // in the events. Memoized because `activeTurmas` feeds several downstream
+  // memos — recreating it each render would invalidate all of them.
+  const activeTurmas = useMemo(
+    () =>
+      selectedTurmas.length > 0
+        ? selectedTurmas
+        : Array.from(new Set(events.map((e) => e.turma).filter(Boolean) as string[])).sort(),
+    [selectedTurmas, events],
+  );
   const turmasCount = Math.max(activeTurmas.length, 1);
   const turmaColumnCount = visibleDayIndices.length * turmasCount;
   const turmaShortLabels = useMemo(() => getTurmaShortLabels(activeTurmas), [activeTurmas]);
 
-  const expandedSecondaryHeaderValues =
-    activeTurmas.length > 0 ? visibleDayIndices.flatMap(() => activeTurmas) : [];
-  const hasSecondaryHeader = expandedSecondaryHeaderValues.length > 0 && activeTurmas.length > 0;
+  const hasSecondaryHeader = activeTurmas.length > 0 && visibleDayIndices.length > 0;
   const headerRows = hasSecondaryHeader ? 2 : 1;
   const minSlotPx = slotHeightPx ?? MIN_SLOT_PX;
   const headerPx = headerHeightPx ?? HEADER_PX;
