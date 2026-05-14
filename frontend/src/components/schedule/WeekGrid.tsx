@@ -430,13 +430,8 @@ export default function WeekGrid({
               title={ev.title}
               disabled={!clickable}
             >
-              {ev.type && (
-                <div className="absolute top-1 right-1.5 z-10 text-[10px] opacity-70 uppercase leading-none">
-                  {ev.type}
-                </div>
-              )}
               <div
-                className="absolute inset-0 overflow-hidden px-1.5 py-1 pr-6"
+                className="absolute inset-0 overflow-hidden px-1.5 py-1"
                 style={{
                   maskImage:
                     "linear-gradient(to bottom, black calc(100% - 3px), rgba(0,0,0,0.2) calc(100% - 1px), transparent 100%)",
@@ -444,7 +439,14 @@ export default function WeekGrid({
                     "linear-gradient(to bottom, black calc(100% - 3px), rgba(0,0,0,0.2) calc(100% - 1px), transparent 100%)",
                 }}
               >
-                {ev.title && <div className="font-semibold truncate">{ev.title}</div>}
+                <div className="flex items-baseline gap-1">
+                  {ev.title && <span className="min-w-0 truncate font-semibold">{ev.title}</span>}
+                  {ev.type && (
+                    <span className="ml-auto shrink-0 text-[10px] uppercase leading-none opacity-70">
+                      {ev.type}
+                    </span>
+                  )}
+                </div>
                 {ev.body?.map((line, i) => (
                   <div key={i} className="truncate opacity-80">
                     {line}
