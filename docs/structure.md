@@ -50,8 +50,6 @@ Horarios/
 | `parser/`             | Legacy schedule parsing views                                                       |
 | `projects/`           | `Project` and `Group` models, project management views                              |
 | `users/`              | Custom `User` model and user management                                             |
-| `getHorariosFromDB/`  | Schedule query helpers and conflict-detection logic                                 |
-| `FeupScheduleEditor/` | Shared utilities and template tags                                                  |
 
 Within each application the following files are most relevant:
 
