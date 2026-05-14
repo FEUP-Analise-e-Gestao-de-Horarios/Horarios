@@ -109,6 +109,22 @@ function getTurmaShortLabels(turmas: string[]): Map<string, string> {
   return labels;
 }
 
+// Collapses a sorted, ascending list of column indices into contiguous runs.
+// A merged event may cover non-adjacent turma columns (e.g. [0, 2]); each run
+// is rendered as its own card so a card never spans a gap.
+function toContiguousRuns(sortedIndices: number[]): { start: number; span: number }[] {
+  const runs: { start: number; span: number }[] = [];
+  for (const index of sortedIndices) {
+    const last = runs[runs.length - 1];
+    if (last && index === last.start + last.span) {
+      last.span += 1;
+    } else {
+      runs.push({ start: index, span: 1 });
+    }
+  }
+  return runs;
+}
+
 export default function WeekGrid({
   events,
   marks = [],
@@ -205,6 +221,10 @@ export default function WeekGrid({
   }, [events, marks, startTime, endTime, includeEndSlot]);
 
   const placedEvents = useMemo(() => {
+    // The backend emits one event per (session, class code). Events that are
+    // really the same session — same day/time/duration/type and same
+    // title/teacher/room — are merged into a single card that spans every
+    // turma column it belongs to, instead of drawing N identical cards.
     const getMergeKey = (ev: WeekGridEvent): string => {
       return [ev.weekday, ev.startTime, ev.duration, ev.type, ev.title, ev.professor, ev.sala].join(
         "||",
@@ -228,8 +248,8 @@ export default function WeekGrid({
       dayCol: number;
       rowStart: number;
       span: number;
-      turmaIndices: number[];
-      colSpan: number;
+      // Contiguous column runs the event occupies; usually one run.
+      runs: { start: number; span: number }[];
     };
 
     const result: PlacedEvent[] = [];
@@ -269,8 +289,7 @@ export default function WeekGrid({
           dayCol: visibleColIdx,
           rowStart,
           span,
-          turmaIndices,
-          colSpan: turmaIndices.length,
+          runs: toContiguousRuns(turmaIndices),
         });
       }
     }
@@ -456,55 +475,55 @@ export default function WeekGrid({
           );
         })}
 
-        {placedEvents.map(({ ev, dayCol, rowStart, span, turmaIndices, colSpan }) => {
+        {placedEvents.flatMap(({ ev, dayCol, rowStart, span, runs }) => {
           const style = styleForSubject(ev.uc);
           const clickable = !!onEventClick || !!onEventDoubleClick;
-          const firstTurmaIdx = turmaIndices[0];
-          if (firstTurmaIdx === undefined) return null;
-          const startCol = dayCol * turmasCount + firstTurmaIdx + 2;
           const isEditingEvent = editingEventId === ev.id;
-          return (
-            <button
-              key={`e-${ev.id}`}
-              type="button"
-              data-schedule-event=""
-              onClick={onEventClick ? () => onEventClick(ev) : undefined}
-              onDoubleClick={onEventDoubleClick ? () => onEventDoubleClick(ev) : undefined}
-              className={`group relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden ${
-                isEditingEvent
-                  ? "bg-[#250902] border-[#38040e] text-white"
-                  : `${style.bg} ${style.border} ${style.text}`
-              } ${clickable ? "cursor-pointer hover:brightness-95 transition" : "cursor-default"}`}
-              style={{
-                gridColumn: `${startCol} / span ${colSpan}`,
-                gridRow: `${rowStart + headerRows + 1} / span ${span}`,
-              }}
-              title={ev.title}
-              disabled={!clickable}
-            >
-              <div
-                className="absolute inset-0 overflow-hidden px-1.5 py-1"
+          return runs.map((run) => {
+            const startCol = dayCol * turmasCount + run.start + 2;
+            return (
+              <button
+                key={`e-${ev.id}-${run.start}`}
+                type="button"
+                data-schedule-event=""
+                onClick={onEventClick ? () => onEventClick(ev) : undefined}
+                onDoubleClick={onEventDoubleClick ? () => onEventDoubleClick(ev) : undefined}
+                className={`group relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden ${
+                  isEditingEvent
+                    ? "bg-[#250902] border-[#38040e] text-white"
+                    : `${style.bg} ${style.border} ${style.text}`
+                } ${clickable ? "cursor-pointer hover:brightness-95 transition" : "cursor-default"}`}
                 style={{
-                  maskImage:
-                    "linear-gradient(to bottom, black calc(100% - 3px), rgba(0,0,0,0.2) calc(100% - 1px), transparent 100%)",
-                  WebkitMaskImage:
-                    "linear-gradient(to bottom, black calc(100% - 3px), rgba(0,0,0,0.2) calc(100% - 1px), transparent 100%)",
+                  gridColumn: `${startCol} / span ${run.span}`,
+                  gridRow: `${rowStart + headerRows + 1} / span ${span}`,
                 }}
+                title={ev.title}
+                disabled={!clickable}
               >
-                {ev.title && <MarqueeText className="font-semibold">{ev.title}</MarqueeText>}
-                {ev.type && (
-                  <MarqueeText className="text-[10px] uppercase leading-none opacity-70">
-                    {ev.type}
-                  </MarqueeText>
-                )}
-                {ev.body?.map((line, i) => (
-                  <MarqueeText key={i} className="opacity-80">
-                    {line}
-                  </MarqueeText>
-                ))}
-              </div>
-            </button>
-          );
+                <div
+                  className="absolute inset-0 overflow-hidden px-1.5 py-1"
+                  style={{
+                    maskImage:
+                      "linear-gradient(to bottom, black calc(100% - 3px), rgba(0,0,0,0.2) calc(100% - 1px), transparent 100%)",
+                    WebkitMaskImage:
+                      "linear-gradient(to bottom, black calc(100% - 3px), rgba(0,0,0,0.2) calc(100% - 1px), transparent 100%)",
+                  }}
+                >
+                  {ev.title && <MarqueeText className="font-semibold">{ev.title}</MarqueeText>}
+                  {ev.type && (
+                    <MarqueeText className="text-[10px] uppercase leading-none opacity-70">
+                      {ev.type}
+                    </MarqueeText>
+                  )}
+                  {ev.body?.map((line, i) => (
+                    <MarqueeText key={i} className="opacity-80">
+                      {line}
+                    </MarqueeText>
+                  ))}
+                </div>
+              </button>
+            );
+          });
         })}
       </div>
     </div>
