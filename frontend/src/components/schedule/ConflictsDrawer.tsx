@@ -85,7 +85,7 @@ export default function ConflictsDrawer({
 
         <div className="px-5 py-4 space-y-4">
           {isLoading ? (
-            <p className="text-white/60 text-center py-8">Carregando conflitos…</p>
+            <p className="text-white/60 text-center py-8">A carregar conflitos…</p>
           ) : conflicts.length === 0 ? (
             <p className="text-white/60 text-center py-8">Sem conflitos</p>
           ) : (

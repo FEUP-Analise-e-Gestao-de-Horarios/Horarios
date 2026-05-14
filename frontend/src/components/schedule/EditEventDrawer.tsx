@@ -565,7 +565,7 @@ export default function EditEventDrawer({
           <div className="pt-4 border-t border-white/20">
             <h3 className="text-white/90 font-semibold mb-3">Conflitos Detectados</h3>
             {eventConflicts.length === 0 ? (
-              <p className="text-white/60 text-sm">Nenhum conflito</p>
+              <p className="text-white/60 text-sm">Sem conflitos</p>
             ) : (
               <div className="space-y-2">
                 {eventConflicts.map((conflict) => (
