@@ -9,39 +9,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
           node-version: "24"
       - uses: astral-sh/setup-uv@v7
       - run: cd frontend && npm install
-      - run: uvx pre-commit run frontend-typecheck --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
+      - run: uvx pre-commit run frontend-typecheck --all-files
 
   frontend-lint:
     name: "Lint"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
           node-version: "24"
       - uses: astral-sh/setup-uv@v7
       - run: cd frontend && npm install
-      - run: uvx pre-commit run frontend-lint --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
+      - run: uvx pre-commit run frontend-lint --all-files
 
   frontend-format:
     name: "Format"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
           node-version: "24"
       - uses: astral-sh/setup-uv@v7
       - run: cd frontend && npm install
-      - run: uvx pre-commit run frontend-format --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
+      - run: uvx pre-commit run frontend-format --all-files
