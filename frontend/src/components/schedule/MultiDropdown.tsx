@@ -72,7 +72,7 @@ export default function MultiDropdown({
         : hideSelectedCountWhenDisabled && disabled
           ? label
           : showLabel
-            ? `${label} (${selected.length})`
+            ? `${label} (${selected.length}/${options.length})`
             : selected.length === 1
               ? (options.find((option) => option.value === selected[0])?.label ?? selected[0])
               : `${selected.length} selecionados`;

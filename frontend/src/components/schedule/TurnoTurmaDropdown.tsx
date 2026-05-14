@@ -34,7 +34,9 @@ export default function TurnoTurmaDropdown({
     open && !disabled,
   );
 
-  const triggerLabel = "Turmas";
+  const totalTurmas = groups.reduce((sum, group) => sum + group.turmas.length, 0);
+  const triggerLabel =
+    totalTurmas === 0 ? "Turmas" : `Turmas (${selectedTurmas.length}/${totalTurmas})`;
 
   const handleToggleTurno = (turno: string) => {
     const next = selectedTurnos.includes(turno)
