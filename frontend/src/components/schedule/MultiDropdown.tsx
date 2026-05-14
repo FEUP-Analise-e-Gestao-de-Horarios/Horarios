@@ -1,8 +1,12 @@
-import { useDropdownPosition } from "./useDropdownPosition";
+import DropdownShell from "./DropdownShell";
 import type { SubjectStyle } from "./subjectColors";
 
-const DROPDOWN_CLASSES =
-  "absolute bg-[#1e2028] border border-gray-600 rounded z-[200] w-[min(calc(100vw-1rem),18rem)] max-w-[min(calc(100vw-1rem),18rem)] max-h-64 overflow-x-hidden overflow-y-auto shadow-[0_4px_12px_rgba(0,0,0,0.4)]";
+const PANEL_CLASS_DEFAULT =
+  "w-[min(calc(100vw-1rem),18rem)] max-w-[min(calc(100vw-1rem),18rem)] max-h-64 overflow-x-hidden overflow-y-auto";
+const PANEL_CLASS_FIT_CONTENT =
+  "w-[min(calc(100vw-1rem),18rem)] max-w-[min(calc(100vw-1rem),18rem)] overflow-visible";
+const PANEL_CLASS_COMPACT =
+  "w-[min(calc(100vw-1rem),10rem)] max-w-[min(calc(100vw-1rem),10rem)] max-h-64 overflow-x-hidden overflow-y-auto";
 
 type DropdownOption = {
   value: string;
@@ -48,9 +52,12 @@ export default function MultiDropdown({
   getOptionStyle,
 }: MultiDropdownProps) {
   const isEmpty = required && selected.length === 0;
-  const { wrapperRef, panelRef, openUpward, horizontalOffset } = useDropdownPosition(
-    open && !disabled,
-  );
+  const isOpen = open && !disabled;
+  const panelClassName = fitContent
+    ? PANEL_CLASS_FIT_CONTENT
+    : compact
+      ? PANEL_CLASS_COMPACT
+      : PANEL_CLASS_DEFAULT;
 
   function toggle(item: string) {
     if (singleSelect) {
@@ -82,75 +89,64 @@ export default function MultiDropdown({
   const triggerLabel = getTriggerLabel();
 
   return (
-    <div ref={wrapperRef} className="relative">
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          if (!disabled) onToggle();
-        }}
-        className={[
-          "bg-[#1e2028] rounded px-3.5 py-2 text-sm whitespace-nowrap text-left border transition-colors",
-          disabled
-            ? "text-gray-500 cursor-not-allowed border-gray-600"
-            : isEmpty
-              ? "text-red-400 border-red-900 cursor-pointer"
-              : "text-white border-gray-600 cursor-pointer hover:border-gray-400",
-        ].join(" ")}
-      >
-        {triggerLabel}
-      </button>
-
-      {open && !disabled && (
-        <div
-          ref={panelRef}
+    <DropdownShell
+      open={isOpen}
+      panelClassName={panelClassName}
+      trigger={
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!disabled) onToggle();
+          }}
           className={[
-            fitContent
-              ? "absolute bg-[#1e2028] border border-gray-600 rounded z-[200] w-[min(calc(100vw-1rem),18rem)] max-w-[min(calc(100vw-1rem),18rem)] overflow-visible shadow-[0_4px_12px_rgba(0,0,0,0.4)]"
-              : compact
-                ? "absolute bg-[#1e2028] border border-gray-600 rounded z-[200] w-[min(calc(100vw-1rem),10rem)] max-w-[min(calc(100vw-1rem),10rem)] max-h-64 overflow-x-hidden overflow-y-auto shadow-[0_4px_12px_rgba(0,0,0,0.4)]"
-                : DROPDOWN_CLASSES,
-            openUpward ? "bottom-[calc(100%+4px)]" : "top-[calc(100%+4px)]",
+            "bg-[#1e2028] rounded px-3.5 py-2 text-sm whitespace-nowrap text-left border transition-colors",
+            disabled
+              ? "text-gray-500 cursor-not-allowed border-gray-600"
+              : isEmpty
+                ? "text-red-400 border-red-900 cursor-pointer"
+                : "text-white border-gray-600 cursor-pointer hover:border-gray-400",
           ].join(" ")}
-          style={{ left: horizontalOffset }}
         >
-          <div className="flex flex-col gap-2.5 p-2">
-            {options.map((opt) => {
-              const isSelected = selected.includes(opt.value);
-              const optionStyle = getOptionStyle?.(opt.value) ?? null;
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggle(opt.value);
-                  }}
-                  className={[
-                    "w-full rounded px-2 py-1 text-[13px] cursor-pointer text-left border hover:bg-white/5 transition-colors",
-                    isSelected
-                      ? optionStyle
-                        ? `${optionStyle.bg} ${optionStyle.border} ${optionStyle.text}`
-                        : "text-amber-400 bg-amber-400/10 border-amber-500/20"
-                      : "text-white bg-transparent border-transparent",
-                  ].join(" ")}
-                >
-                  <div className="flex flex-col">
-                    <span className="font-semibold shrink-0 leading-tight">
-                      {opt.label || opt.value}
-                    </span>
-                    {opt.secondaryText ? (
-                      <span className="min-w-0 text-[11px] text-gray-400 leading-tight break-words whitespace-normal">
-                        {opt.secondaryText}
-                      </span>
-                    ) : null}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
+          {triggerLabel}
+        </button>
+      }
+    >
+      <div className="flex flex-col gap-2.5 p-2">
+        {options.map((opt) => {
+          const isSelected = selected.includes(opt.value);
+          const optionStyle = getOptionStyle?.(opt.value) ?? null;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggle(opt.value);
+              }}
+              className={[
+                "w-full rounded px-2 py-1 text-[13px] cursor-pointer text-left border hover:bg-white/5 transition-colors",
+                isSelected
+                  ? optionStyle
+                    ? `${optionStyle.bg} ${optionStyle.border} ${optionStyle.text}`
+                    : "text-amber-400 bg-amber-400/10 border-amber-500/20"
+                  : "text-white bg-transparent border-transparent",
+              ].join(" ")}
+            >
+              <div className="flex flex-col">
+                <span className="font-semibold shrink-0 leading-tight">
+                  {opt.label || opt.value}
+                </span>
+                {opt.secondaryText ? (
+                  <span className="min-w-0 text-[11px] text-gray-400 leading-tight break-words whitespace-normal">
+                    {opt.secondaryText}
+                  </span>
+                ) : null}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </DropdownShell>
   );
 }
