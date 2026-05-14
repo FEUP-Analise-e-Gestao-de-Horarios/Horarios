@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Weekday } from "@/types/project/weekday";
 
 export interface WeekGridEvent {
@@ -57,7 +57,8 @@ const DEFAULT_END_HHMM = 2000;
 const SLOT_MINUTES = 30;
 const MIN_SLOT_PX = 16;
 const HEADER_PX = 40;
-const TURMA_COLUMN_MIN_PX = 64;
+const TURMA_COLUMN_MIN_PX = 32;
+const TURMA_COLUMN_MAX_PX = 320;
 
 function hhmmToMinutes(hhmm: number): number {
   const h = Math.floor(hhmm / 100);
@@ -100,6 +101,42 @@ function getTurmaHeaderStyle(shift?: number): string {
   return "bg-[#f9f7f4] text-[#08060d]";
 }
 
+// Maps each turma code to a shortened label with the prefix/suffix shared by
+// every code stripped off (e.g. "2LEIC01", "2LEIC02" -> "01", "02"). Used when
+// a column is too narrow to show the full code.
+function getTurmaShortLabels(turmas: string[]): Map<string, string> {
+  const labels = new Map<string, string>();
+  const first = turmas[0];
+  if (turmas.length < 2 || !first) {
+    for (const turma of turmas) labels.set(turma, turma);
+    return labels;
+  }
+
+  // Longest common prefix shared by every turma code.
+  let prefixLen = first.length;
+  for (const turma of turmas) {
+    let i = 0;
+    const max = Math.min(prefixLen, turma.length);
+    while (i < max && turma[i] === first[i]) i++;
+    prefixLen = i;
+  }
+
+  // Longest common suffix, measured on what is left after the shared prefix.
+  let suffixLen = first.length - prefixLen;
+  for (const turma of turmas) {
+    let i = 0;
+    const max = Math.min(suffixLen, turma.length - prefixLen);
+    while (i < max && turma[turma.length - 1 - i] === first[first.length - 1 - i]) i++;
+    suffixLen = i;
+  }
+
+  for (const turma of turmas) {
+    const short = turma.slice(prefixLen, turma.length - suffixLen);
+    labels.set(turma, short.length > 0 ? short : turma);
+  }
+  return labels;
+}
+
 export default function WeekGrid({
   events,
   marks = [],
@@ -123,6 +160,27 @@ export default function WeekGrid({
   selectedDays,
 }: WeekGridProps) {
   const gridRef = useRef<HTMLDivElement>(null);
+
+  // Uniform width applied to every turma column once a resize finishes
+  // (null = use the default flexible layout).
+  const [columnWidthPx, setColumnWidthPx] = useState<number | null>(null);
+  // While a resize is in progress, only the dragged column changes width;
+  // every other column stays frozen at `othersWidth`.
+  const [dragState, setDragState] = useState<{
+    colIndex: number;
+    width: number;
+    othersWidth: number;
+  } | null>(null);
+  const dragInfoRef = useRef<{
+    colIndex: number;
+    startX: number;
+    startWidth: number;
+    width: number;
+  } | null>(null);
+  // Pending horizontal scroll correction so a resized column keeps its on-screen
+  // position once every column adopts the new width.
+  const scrollAdjustRef = useRef(0);
+
   const labels =
     weekdayLabels && weekdayLabels.length === WEEKDAY_LABELS.length
       ? weekdayLabels
@@ -145,6 +203,8 @@ export default function WeekGrid({
       ? selectedTurmas
       : Array.from(new Set(events.map((e) => e.turma).filter(Boolean) as string[])).sort();
   const turmasCount = Math.max(activeTurmas.length, 1);
+  const turmaColumnCount = visibleDayIndices.length * turmasCount;
+  const turmaShortLabels = useMemo(() => getTurmaShortLabels(activeTurmas), [activeTurmas]);
 
   const expandedSecondaryHeaderValues =
     activeTurmas.length > 0 ? visibleDayIndices.flatMap(() => activeTurmas) : [];
@@ -153,6 +213,99 @@ export default function WeekGrid({
   const minSlotPx = slotHeightPx ?? MIN_SLOT_PX;
   const headerPx = headerHeightPx ?? HEADER_PX;
   const hourFontPx = hourLabelFontPx ?? 10;
+
+  const gridTemplateColumns = dragState
+    ? `44px ${Array.from({ length: turmaColumnCount }, (_, columnIndex) =>
+        columnIndex === dragState.colIndex ? `${dragState.width}px` : `${dragState.othersWidth}px`,
+      ).join(" ")}`
+    : columnWidthPx != null
+      ? `44px repeat(${turmaColumnCount}, ${columnWidthPx}px)`
+      : `44px repeat(${turmaColumnCount}, minmax(${TURMA_COLUMN_MIN_PX}px, 1fr))`;
+
+  const handleResizeStart = (columnIndex: number, event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const cell = event.currentTarget.parentElement;
+    if (!cell) return;
+    const startWidth = Math.round(cell.getBoundingClientRect().width);
+    dragInfoRef.current = {
+      colIndex: columnIndex,
+      startX: event.clientX,
+      startWidth,
+      width: startWidth,
+    };
+    setDragState({ colIndex: columnIndex, width: startWidth, othersWidth: startWidth });
+  };
+
+  const handleResizeKeyDown = (
+    columnIndex: number,
+    event: React.KeyboardEvent<HTMLButtonElement>,
+  ) => {
+    const direction = event.key === "ArrowLeft" ? -1 : event.key === "ArrowRight" ? 1 : 0;
+    if (direction === 0) return;
+    event.preventDefault();
+    const cell = event.currentTarget.parentElement;
+    if (!cell) return;
+    const step = event.shiftKey ? 32 : 8;
+    const currentWidth = Math.round(cell.getBoundingClientRect().width);
+    const nextWidth = Math.min(
+      TURMA_COLUMN_MAX_PX,
+      Math.max(TURMA_COLUMN_MIN_PX, currentWidth + direction * step),
+    );
+    scrollAdjustRef.current = columnIndex * (nextWidth - currentWidth);
+    setColumnWidthPx(nextWidth);
+  };
+
+  const isResizing = dragState !== null;
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMove = (event: MouseEvent) => {
+      const info = dragInfoRef.current;
+      if (!info) return;
+      const nextWidth = Math.min(
+        TURMA_COLUMN_MAX_PX,
+        Math.max(TURMA_COLUMN_MIN_PX, Math.round(info.startWidth + (event.clientX - info.startX))),
+      );
+      info.width = nextWidth;
+      setDragState({ colIndex: info.colIndex, width: nextWidth, othersWidth: info.startWidth });
+    };
+
+    const handleUp = () => {
+      const info = dragInfoRef.current;
+      if (info) {
+        // Once every column adopts the new width, the dragged column's left edge
+        // shifts by colIndex * (newWidth - oldWidth); cancel it out via scrollLeft.
+        scrollAdjustRef.current = info.colIndex * (info.width - info.startWidth);
+        setColumnWidthPx(info.width);
+      }
+      dragInfoRef.current = null;
+      setDragState(null);
+    };
+
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", handleMove);
+    document.addEventListener("mouseup", handleUp);
+    return () => {
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+      document.removeEventListener("mousemove", handleMove);
+      document.removeEventListener("mouseup", handleUp);
+    };
+  }, [isResizing]);
+
+  // After a resize commits the new column width, shift the scroll position so the
+  // resized column stays exactly where it was on screen.
+  useLayoutEffect(() => {
+    const adjustment = scrollAdjustRef.current;
+    if (adjustment === 0) return;
+    scrollAdjustRef.current = 0;
+    const scrollContainer = gridRef.current?.parentElement;
+    if (scrollContainer) scrollContainer.scrollLeft += adjustment;
+  }, [columnWidthPx]);
 
   const { gridStartMinutes, slotCount } = useMemo(() => {
     let min = hhmmToMinutes(startTime ?? DEFAULT_START_HHMM);
@@ -281,7 +434,7 @@ export default function WeekGrid({
         className="grid h-full w-max min-w-full"
         ref={gridRef}
         style={{
-          gridTemplateColumns: `44px repeat(${visibleDayIndices.length * turmasCount}, minmax(${TURMA_COLUMN_MIN_PX}px, 1fr))`,
+          gridTemplateColumns,
           gridTemplateRows: `${headerPx}px${hasSecondaryHeader ? ` ${headerPx}px` : ""} repeat(${slotCount}, minmax(${minSlotPx}px, 1fr))`,
         }}
       >
@@ -319,21 +472,36 @@ export default function WeekGrid({
               </div>
             </div>
             {visibleDayIndices.map((_, visibleIdx) =>
-              activeTurmas.map((turma, turmaIdx) => (
-                <div
-                  key={`sub-${visibleIdx}-${turmaIdx}`}
-                  className={`sticky z-20 border-b px-2 py-1 text-center text-[10px] font-semibold uppercase tracking-wider ${getTurmaHeaderStyle(
-                    turmaShifts[turma],
-                  )} ${turmaIdx === 0 && visibleIdx > 0 ? "border-l border-[#d8d5da]" : "border-[#e5e4e7]"}`}
-                  style={{
-                    gridColumn: visibleIdx * turmasCount + turmaIdx + 2,
-                    gridRow: 2,
-                    top: headerPx,
-                  }}
-                >
-                  {turma}
-                </div>
-              )),
+              activeTurmas.map((turma, turmaIdx) => {
+                const columnIndex = visibleIdx * turmasCount + turmaIdx;
+                const shortLabel = turmaShortLabels.get(turma) ?? turma;
+                return (
+                  <div
+                    key={`sub-${visibleIdx}-${turmaIdx}`}
+                    className={`@container sticky z-20 overflow-hidden border-b px-2 py-1 text-center text-[10px] font-semibold uppercase tracking-wider ${getTurmaHeaderStyle(
+                      turmaShifts[turma],
+                    )} ${turmaIdx === 0 && visibleIdx > 0 ? "border-l border-[#d8d5da]" : "border-[#e5e4e7]"}`}
+                    style={{
+                      gridColumn: columnIndex + 2,
+                      gridRow: 2,
+                      top: headerPx,
+                    }}
+                  >
+                    <span className="inline @min-[32px]:hidden">{shortLabel}</span>
+                    <span className="hidden @min-[32px]:inline">{turma}</span>
+                    <button
+                      type="button"
+                      aria-label="Redimensionar colunas"
+                      onMouseDown={(event) => handleResizeStart(columnIndex, event)}
+                      onKeyDown={(event) => handleResizeKeyDown(columnIndex, event)}
+                      className={`absolute top-0 right-0 z-10 h-full w-2 cursor-col-resize border-0 bg-transparent p-0 hover:bg-[#8C2C19]/40 focus:bg-[#8C2C19]/60 focus:outline-none ${
+                        dragState?.colIndex === columnIndex ? "bg-[#8C2C19]/60" : ""
+                      }`}
+                      title="Arrasta para redimensionar as colunas"
+                    />
+                  </div>
+                );
+              }),
             )}
           </>
         ) : null}
