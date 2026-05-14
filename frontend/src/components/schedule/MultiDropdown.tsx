@@ -1,4 +1,5 @@
 import { useDropdownPosition } from "./useDropdownPosition";
+import type { SubjectStyle } from "./subjectColors";
 
 const DROPDOWN_CLASSES =
   "absolute bg-[#1e2028] border border-gray-600 rounded z-[200] w-[min(calc(100vw-1rem),18rem)] max-w-[min(calc(100vw-1rem),18rem)] max-h-64 overflow-x-hidden overflow-y-auto shadow-[0_4px_12px_rgba(0,0,0,0.4)]";
@@ -24,6 +25,9 @@ interface MultiDropdownProps {
   compact?: boolean;
   minSelected?: number;
   hideSelectedCountWhenDisabled?: boolean;
+  // When provided, a selected option is tinted with this style instead of the
+  // default amber highlight (used to mirror the week grid's per-subject colours).
+  getOptionStyle?: (value: string) => SubjectStyle | null;
 }
 
 export default function MultiDropdown({
@@ -41,6 +45,7 @@ export default function MultiDropdown({
   compact,
   minSelected = 0,
   hideSelectedCountWhenDisabled = false,
+  getOptionStyle,
 }: MultiDropdownProps) {
   const isEmpty = required && selected.length === 0;
   const { wrapperRef, panelRef, openUpward, horizontalOffset } = useDropdownPosition(
@@ -110,32 +115,38 @@ export default function MultiDropdown({
           style={{ left: horizontalOffset }}
         >
           <div className="flex flex-col gap-2.5 p-2">
-            {options.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggle(opt.value);
-                }}
-                className={[
-                  "w-full rounded px-2 py-1 text-[13px] cursor-pointer text-left border border-transparent hover:bg-white/5 transition-colors",
-                  selected.includes(opt.value)
-                    ? "text-amber-400 bg-amber-400/10 border-amber-500/20"
-                    : "text-white bg-transparent",
-                ].join(" ")}
-              >
-                <div className="flex flex-col">
-                  <span className="font-semibold shrink-0 leading-tight">
-                    {opt.label || opt.value}
-                  </span>
-                  {opt.secondaryText ? (
-                    <span className="min-w-0 text-[11px] text-gray-400 leading-tight break-words whitespace-normal">
-                      {opt.secondaryText}
+            {options.map((opt) => {
+              const isSelected = selected.includes(opt.value);
+              const optionStyle = getOptionStyle?.(opt.value) ?? null;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggle(opt.value);
+                  }}
+                  className={[
+                    "w-full rounded px-2 py-1 text-[13px] cursor-pointer text-left border hover:bg-white/5 transition-colors",
+                    isSelected
+                      ? optionStyle
+                        ? `${optionStyle.bg} ${optionStyle.border} ${optionStyle.text}`
+                        : "text-amber-400 bg-amber-400/10 border-amber-500/20 border-transparent"
+                      : "text-white bg-transparent border-transparent",
+                  ].join(" ")}
+                >
+                  <div className="flex flex-col">
+                    <span className="font-semibold shrink-0 leading-tight">
+                      {opt.label || opt.value}
                     </span>
-                  ) : null}
-                </div>
-              </button>
-            ))}
+                    {opt.secondaryText ? (
+                      <span className="min-w-0 text-[11px] text-gray-400 leading-tight break-words whitespace-normal">
+                        {opt.secondaryText}
+                      </span>
+                    ) : null}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

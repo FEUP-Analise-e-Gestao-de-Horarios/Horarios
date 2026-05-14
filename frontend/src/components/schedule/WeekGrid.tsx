@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Weekday } from "@/types/project/weekday";
+import { styleForSubject } from "./subjectColors";
 
 export interface WeekGridEvent {
   id: string;
@@ -77,26 +78,6 @@ function minutesToLabel(mins: number): string {
 
 function weekdayIndex(weekday: Weekday): number {
   return WEEKDAYS.indexOf(weekday);
-}
-
-const TYPE_STYLES: Record<string, { bg: string; border: string; text: string }> = {
-  T: { bg: "bg-blue-100", border: "border-blue-300", text: "text-blue-900" },
-  TP: { bg: "bg-emerald-100", border: "border-emerald-300", text: "text-emerald-900" },
-  PL: { bg: "bg-amber-100", border: "border-amber-300", text: "text-amber-900" },
-  P: { bg: "bg-purple-100", border: "border-purple-300", text: "text-purple-900" },
-  S: { bg: "bg-pink-100", border: "border-pink-300", text: "text-pink-900" },
-  OT: { bg: "bg-slate-100", border: "border-slate-300", text: "text-slate-900" },
-  TC: { bg: "bg-cyan-100", border: "border-cyan-300", text: "text-cyan-900" },
-};
-const DEFAULT_STYLE = {
-  bg: "bg-slate-100",
-  border: "border-slate-300",
-  text: "text-slate-900",
-};
-
-function styleForType(type: string | undefined) {
-  if (!type) return DEFAULT_STYLE;
-  return TYPE_STYLES[type.toUpperCase()] ?? DEFAULT_STYLE;
 }
 
 function getTurmaHeaderStyle(shift?: number): string {
@@ -588,7 +569,7 @@ export default function WeekGrid({
         })}
 
         {placedEvents.map(({ ev, dayCol, rowStart, span, turmaIndices, colSpan }) => {
-          const style = styleForType(ev.type);
+          const style = styleForSubject(ev.uc);
           const clickable = !!onEventClick || !!onEventDoubleClick;
           const firstTurmaIdx = turmaIndices[0];
           if (firstTurmaIdx === undefined) return null;

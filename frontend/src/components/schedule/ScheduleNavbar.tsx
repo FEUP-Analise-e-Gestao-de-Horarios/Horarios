@@ -5,6 +5,7 @@ import { buildPath } from "@/utils/routes";
 import CursoDropdown from "./CursoDropdown";
 import MultiDropdown from "./MultiDropdown";
 import TurnoTurmaDropdown, { type TurnoTurmaGroup } from "./TurnoTurmaDropdown";
+import { styleForSubjectDark } from "./subjectColors";
 
 type CourseOption = {
   value: string;
@@ -151,6 +152,7 @@ export default function ScheduleNavbar({
         disabled={!curso}
         showLabel
         fitContent
+        getOptionStyle={styleForSubjectDark}
       />
 
       <TurnoTurmaDropdown
