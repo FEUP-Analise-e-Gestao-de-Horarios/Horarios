@@ -306,11 +306,6 @@ export default function SchedulePage() {
     [turnoTurmaGroups],
   );
 
-  const turmaOptionsForEditor = useMemo(
-    () => turnoTurmaGroups.flatMap((group) => group.turmas),
-    [turnoTurmaGroups],
-  );
-
   const teacherOptions = useMemo(
     () =>
       (teachers ?? [])
@@ -342,22 +337,19 @@ export default function SchedulePage() {
     [selectedYearClasses],
   );
 
-  const allTurnoValues = turnoOrder;
-  const allTurmaValues = turmaOrder;
-
   const effectiveTurnos = useMemo(() => {
     if (!curso) return [];
-    const validSelected = turnos.filter((turno) => allTurnoValues.includes(turno));
-    const fallback = validSelected.length > 0 ? validSelected : allTurnoValues;
+    const validSelected = turnos.filter((turno) => turnoOrder.includes(turno));
+    const fallback = validSelected.length > 0 ? validSelected : turnoOrder;
     return sortValuesByReference(fallback, turnoOrder);
-  }, [allTurnoValues, curso, turnoOrder, turnos]);
+  }, [curso, turnoOrder, turnos]);
 
   const effectiveTurmas = useMemo(() => {
     if (!curso) return [];
-    const validSelected = turmas.filter((turma) => allTurmaValues.includes(turma));
-    const fallback = validSelected.length > 0 ? validSelected : allTurmaValues;
+    const validSelected = turmas.filter((turma) => turmaOrder.includes(turma));
+    const fallback = validSelected.length > 0 ? validSelected : turmaOrder;
     return sortValuesByReference(fallback, turmaOrder);
-  }, [allTurmaValues, curso, turmaOrder, turmas]);
+  }, [curso, turmaOrder, turmas]);
 
   const turnosFromTurmas = (turmaCodes: string[]) => {
     const selectedShifts = new Set<string>();
@@ -609,11 +601,6 @@ export default function SchedulePage() {
     return blockEvents;
   }, [activeWeekBlocks, effectiveTurmas, effectiveTurnos, effectiveUcs, effectiveDias]);
 
-  const displayEvents = useMemo(() => {
-    if (scheduleEvents.length > 0) return scheduleEvents;
-    return [];
-  }, [scheduleEvents]);
-
   const courseOptions = useMemo(() => {
     const degreeOptions = (degrees ?? [])
       .slice()
@@ -705,7 +692,7 @@ export default function SchedulePage() {
         }}
         conflicts={yearConflicts}
         ucOptions={ucOptions}
-        turmaOptions={turmaOptionsForEditor}
+        turmaOptions={turmaOrder}
         teacherOptions={teacherOptions}
         roomOptions={roomOptions}
         preferredUc={effectiveUcs[0]}
@@ -724,7 +711,7 @@ export default function SchedulePage() {
         {canShowSchedule ? (
           <div className="h-full min-h-0">
             <WeekGrid
-              events={displayEvents}
+              events={scheduleEvents}
               emptyMessage="Sem eventos para mostrar"
               startTime={800}
               endTime={1930}

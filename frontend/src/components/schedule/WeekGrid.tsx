@@ -38,7 +38,6 @@ interface WeekGridProps {
   weekdayLabels?: string[];
   primaryHeaderLeftLabel?: string;
   secondaryHeaderLeftLabel?: string;
-  secondaryHeaderValues?: string[];
   selectedTurmas?: string[];
   turmaShifts?: Record<string, number>;
   slotHeightPx?: number;

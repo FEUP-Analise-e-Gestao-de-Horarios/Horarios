@@ -102,10 +102,6 @@ function toggleSelection(current: string[], itemId: string): string[] {
     : [...current, itemId];
 }
 
-function formatMinutesToInputValue(totalMinutes: number): string {
-  return formatMinutesToTime(totalMinutes);
-}
-
 function hhmmToMinutes(hhmm: number): number {
   const hours = Math.floor(hhmm / 100);
   const minutes = hhmm % 100;
@@ -132,8 +128,8 @@ function getInitialFormState(event?: WeekGridEvent | null) {
       selectedSalaOverride: event.roomIds ?? [],
       selectedTurmasOverride: event.classCodes ?? (event.turma ? [event.turma] : []),
       selectedWeekday: weekdayLabelToValue(event.weekday),
-      startTime: formatMinutesToInputValue(hhmmToMinutes(event.startTime)),
-      endTime: formatMinutesToInputValue(hhmmToMinutes(event.startTime) + event.duration * 30),
+      startTime: formatMinutesToTime(hhmmToMinutes(event.startTime)),
+      endTime: formatMinutesToTime(hhmmToMinutes(event.startTime) + event.duration * 30),
     };
   }
   return {
