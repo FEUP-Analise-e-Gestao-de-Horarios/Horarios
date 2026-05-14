@@ -350,7 +350,7 @@ export default function WeekGrid({
           return (
             <div
               key={`t-${i}`}
-              className={`sticky left-0 z-10 bg-white border-r border-[#e5e4e7] px-2 text-right text-[#6b6375] ${rowDividerClass}`}
+              className={`sticky left-0 z-10 flex items-center justify-center bg-white border-r border-[#e5e4e7] px-2 text-center text-[#6b6375] ${rowDividerClass}`}
               style={{
                 gridColumn: 1,
                 gridRow: i + headerRows + 1,
