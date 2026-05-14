@@ -323,15 +323,15 @@ export default function WeekGrid({
                 {secondaryHeaderLeftLabel ?? ""}
               </div>
             </div>
-            {WEEKDAYS.map((_, dayIdx) =>
+            {visibleDayIndices.map((_, visibleIdx) =>
               activeTurmas.map((turma, turmaIdx) => (
                 <div
-                  key={`sub-${dayIdx}-${turmaIdx}`}
+                  key={`sub-${visibleIdx}-${turmaIdx}`}
                   className={`sticky z-20 border-b px-2 py-1 text-center text-[10px] font-semibold uppercase tracking-wider ${getTurmaHeaderStyle(
                     turmaShifts[turma],
-                  )} ${turmaIdx === 0 && dayIdx > 0 ? "border-l border-[#d8d5da]" : "border-[#e5e4e7]"}`}
+                  )} ${turmaIdx === 0 && visibleIdx > 0 ? "border-l border-[#d8d5da]" : "border-[#e5e4e7]"}`}
                   style={{
-                    gridColumn: dayIdx * turmasCount + turmaIdx + 2,
+                    gridColumn: visibleIdx * turmasCount + turmaIdx + 2,
                     gridRow: 2,
                     top: headerPx,
                   }}
@@ -368,7 +368,7 @@ export default function WeekGrid({
         })}
 
         {Array.from({ length: slotCount }).map((_, i) =>
-          WEEKDAYS.flatMap((_, dayIdx) =>
+          visibleDayIndices.flatMap((_, visibleIdx) =>
             Array.from({ length: turmasCount }).map((_, turmaIdx) => {
               const mins = gridStartMinutes + i * SLOT_MINUTES;
               const isHour = mins % 60 === 0;
@@ -378,15 +378,15 @@ export default function WeekGrid({
                   ? "border-t"
                   : "";
               const isLastTurma = turmaIdx === turmasCount - 1;
-              const isLastDay = dayIdx === WEEKDAYS.length - 1;
+              const isLastDay = visibleIdx === visibleDayIndices.length - 1;
               return (
                 <div
-                  key={`c-${i}-${dayIdx}-${turmaIdx}`}
+                  key={`c-${i}-${visibleIdx}-${turmaIdx}`}
                   className={`border-r border-[#e5e4e7] ${rowDividerClass} ${
-                    turmaIdx === 0 && dayIdx > 0 ? "border-l border-[#d8d5da]" : ""
+                    turmaIdx === 0 && visibleIdx > 0 ? "border-l border-[#d8d5da]" : ""
                   } ${isLastDay && isLastTurma ? "border-r-0" : ""}`}
                   style={{
-                    gridColumn: dayIdx * turmasCount + turmaIdx + 2,
+                    gridColumn: visibleIdx * turmasCount + turmaIdx + 2,
                     gridRow: i + headerRows + 1,
                   }}
                 />
