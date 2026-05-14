@@ -84,6 +84,7 @@ export default function MultiDropdown({
   return (
     <div ref={wrapperRef} className="relative">
       <button
+        type="button"
         onClick={(e) => {
           e.stopPropagation();
           if (!disabled) onToggle();
@@ -120,6 +121,7 @@ export default function MultiDropdown({
               return (
                 <button
                   key={opt.value}
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     toggle(opt.value);

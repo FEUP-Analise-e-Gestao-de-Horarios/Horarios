@@ -115,7 +115,10 @@ export default function ScheduleNavbar({
       >
         Dados
       </Link>
-      <button className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors">
+      <button
+        type="button"
+        className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors"
+      >
         Exportar
       </button>
 
@@ -193,17 +196,24 @@ export default function ScheduleNavbar({
 
       <div className="border-l border-gray-600 h-5 mx-1" />
 
-      <button className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors">
+      <button
+        type="button"
+        className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors"
+      >
         Editar Aulas em Paralelo
       </button>
 
       <div className="border-l border-gray-600 h-5 mx-1" />
 
-      <button className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors">
+      <button
+        type="button"
+        className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors"
+      >
         Distribuição
       </button>
 
       <button
+        type="button"
         onClick={onViewConflicts}
         className="bg-transparent text-[#C73F24] font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-[#C73F24] hover:bg-[#C73F24]/10 transition-colors"
       >

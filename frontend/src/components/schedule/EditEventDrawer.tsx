@@ -394,6 +394,7 @@ export default function EditEventDrawer({
             Editar Evento
           </h2>
           <button
+            type="button"
             onClick={onClose}
             className="text-white/80 hover:text-white border border-white/20 rounded px-2 py-1 text-sm"
           >

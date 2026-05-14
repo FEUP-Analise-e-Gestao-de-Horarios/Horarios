@@ -55,6 +55,7 @@ export default function TurnoTurmaDropdown({
   return (
     <div ref={wrapperRef} className="relative">
       <button
+        type="button"
         onClick={(e) => {
           e.stopPropagation();
           if (!disabled) onToggle();
@@ -96,6 +97,7 @@ export default function TurnoTurmaDropdown({
                     >
                       <span className="text-[11px] uppercase tracking-widest">{group.label}</span>
                       <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleToggleTurno(group.turno);
@@ -124,6 +126,7 @@ export default function TurnoTurmaDropdown({
                         return (
                           <button
                             key={turma}
+                            type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleToggleTurma(turma);

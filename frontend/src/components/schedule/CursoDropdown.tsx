@@ -34,6 +34,7 @@ export default function CursoDropdown({
   return (
     <div ref={wrapperRef} className="relative">
       <button
+        type="button"
         onClick={(e) => {
           e.stopPropagation();
           onToggle();
@@ -73,6 +74,7 @@ export default function CursoDropdown({
                     {group.options.map((option) => (
                       <button
                         key={option.value}
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           onSelect(option.value);

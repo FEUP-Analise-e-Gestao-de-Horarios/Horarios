@@ -24,6 +24,7 @@ export default function ConflictsDrawer({
       aria-hidden={!open}
     >
       <button
+        type="button"
         onClick={onClose}
         className="absolute inset-0 bg-black/45"
         aria-label="Fechar painel de conflitos"
@@ -45,6 +46,7 @@ export default function ConflictsDrawer({
           <div className="flex items-center gap-2">
             {onRefresh ? (
               <button
+                type="button"
                 onClick={onRefresh}
                 disabled={isLoading}
                 className="text-white/80 hover:text-white border border-white/20 rounded px-2 py-1 text-sm flex items-center gap-2"
@@ -72,6 +74,7 @@ export default function ConflictsDrawer({
             ) : null}
 
             <button
+              type="button"
               onClick={onClose}
               className="text-white/80 hover:text-white border border-white/20 rounded px-2 py-1 text-sm"
             >
