@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ROUTES } from "@/routes";
 import { buildPath } from "@/utils/routes";
@@ -6,6 +6,7 @@ import CursoDropdown from "./CursoDropdown";
 import MultiDropdown from "./MultiDropdown";
 import TurnoTurmaDropdown, { type TurnoTurmaGroup } from "./TurnoTurmaDropdown";
 import { styleForSubjectDark } from "./subjectColors";
+import { useDismissable } from "./useDismissable";
 
 type CourseOption = {
   value: string;
@@ -83,15 +84,7 @@ export default function ScheduleNavbar({
   const [openDropdown, setOpenDropdown] = useState<DropdownId | null>(null);
   const navRef = useRef<HTMLElement>(null);
 
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (navRef.current && !navRef.current.contains(e.target as Node)) {
-        setOpenDropdown(null);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  useDismissable(navRef, () => setOpenDropdown(null));
 
   // Collapse any open filter dropdown when a drawer/dialog takes over. This
   // replaces a `key` remount of the whole navbar from the parent, which threw

@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useMemo, useReducer, useRef, useState } from "react";
 import type { ConflictRecord } from "@/types/project/conflicts";
 import type { WeekGridEvent } from "@/components/schedule/WeekGrid";
 import { hhmmToMinutes, minutesToTime } from "@/utils/time";
 import { WEEKDAYS, WEEKDAY_LABELS_LONG } from "@/utils/weekdays";
 import DrawerMultiSelect from "./DrawerMultiSelect";
+import { useDismissable } from "./useDismissable";
 
 function normalizeText(value: string): string {
   return value
@@ -210,34 +211,14 @@ export default function EditEventDrawer({
   const dropdownAreaRef = useRef<HTMLDivElement>(null);
   const asideRef = useRef<HTMLElement>(null);
 
-  useEffect(() => {
-    function handleOutsideClick(event: MouseEvent) {
-      const target = event.target as Node | null;
-      if (dropdownAreaRef.current?.contains(target)) return;
-      setOpenDropdown(null);
-      if (!asideRef.current || asideRef.current.contains(target)) return;
-      if (
-        target instanceof Element &&
-        target.closest("[data-schedule-event],[data-schedule-navbar]")
-      ) {
-        return;
-      }
-      onClose();
-    }
-
-    function handleEscapeKey(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    }
-
-    document.addEventListener("mousedown", handleOutsideClick);
-    document.addEventListener("keydown", handleEscapeKey);
-    return () => {
-      document.removeEventListener("mousedown", handleOutsideClick);
-      document.removeEventListener("keydown", handleEscapeKey);
-    };
-  }, [onClose]);
+  // A click outside the inner dropdown area collapses any open dropdown; a
+  // click outside the whole drawer (or Escape) closes it — except clicks on a
+  // grid event or the navbar, which open/retarget the drawer instead.
+  useDismissable(dropdownAreaRef, () => setOpenDropdown(null));
+  useDismissable(asideRef, onClose, {
+    escape: true,
+    ignoreSelector: "[data-schedule-event],[data-schedule-navbar]",
+  });
 
   const selectedUc = useMemo(() => {
     if (selectedUcOverride && ucOptions.includes(selectedUcOverride)) return selectedUcOverride;
