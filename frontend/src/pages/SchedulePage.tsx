@@ -20,125 +20,21 @@ import {
   parseScheduleView,
   unpackSections,
 } from "@/utils/scheduleView";
+import {
+  COURSE_GROUPS,
+  formatWeekRange,
+  getCourseGroupLabel,
+  sessionToEvents,
+  sortValuesByReference,
+  type ScheduleFilters,
+} from "@/utils/scheduleEvents";
 import { WEEKDAYS, WEEKDAY_LABELS_LONG, WEEKDAY_LABELS_UPPER } from "@/utils/weekdays";
-import type { SessionResponse } from "@/types/project/sessions";
-
-const COURSE_GROUPS = ["Licenciaturas", "Mestrados", "Pós-Graduações", "Outros"] as const;
 
 type DropdownOption = {
   value: string;
   label: string;
   secondaryText?: string;
 };
-
-type ScheduleFilters = {
-  ucs: Set<string>;
-  turnos: Set<string>;
-  turmas: Set<string>;
-  dias: Set<string>;
-};
-
-function sortValuesByReference(values: string[], reference: string[]) {
-  const referenceIndex = new Map(reference.map((value, index) => [value, index]));
-  return [...new Set(values)]
-    .filter((value) => referenceIndex.has(value))
-    .sort((left, right) => (referenceIndex.get(left) ?? 0) - (referenceIndex.get(right) ?? 0));
-}
-
-function getCourseGroupLabel(name: string) {
-  const normalized = name.toLowerCase();
-  if (normalized.includes("licenciatura")) return "Licenciaturas";
-  if (normalized.includes("mestrado")) return "Mestrados";
-  if (normalized.includes("pós") || normalized.includes("pos") || normalized.includes("gradua")) {
-    return "Pós-Graduações";
-  }
-  return "Outros";
-}
-
-function formatDateLabel(value: string) {
-  const [year, month, day] = value.split("-");
-  if (!year || !month || !day) return value;
-  return `${day}-${month}-${year}`;
-}
-
-function formatWeekRange(weeks: string[]) {
-  if (weeks.length === 0) return "";
-  const firstWeek = formatDateLabel(weeks.at(0) ?? "");
-  const lastWeek = formatDateLabel(weeks.at(-1) ?? "");
-  return firstWeek === lastWeek ? firstWeek : `${firstWeek} - ${lastWeek}`;
-}
-
-function sessionToEvents(session: SessionResponse, filters: ScheduleFilters): WeekGridEvent[] {
-  const selectedSubjects = new Set(filters.ucs);
-  const selectedTurmas = new Set(filters.turmas);
-  const selectedTurnos = new Set(filters.turnos);
-  const selectedDias = new Set(filters.dias);
-
-  if (
-    selectedSubjects.size > 0 &&
-    !session.subjects.some((subject) => selectedSubjects.has(subject.name))
-  ) {
-    return [];
-  }
-
-  if (selectedDias.size > 0 && !selectedDias.has(session.weekday)) {
-    return [];
-  }
-
-  const primarySubject = session.subjects[0];
-  const title = session.subjects.map((subject) => subject.acronym).join(", ") || session.type;
-  const body = [
-    session.teachers.map((teacher) => teacher.acronym).join(", "),
-    session.rooms.map((room) => room.name).join(", "),
-  ].filter((item) => item.length > 0);
-
-  if (session.classes.length === 0) {
-    if (selectedTurmas.size > 0 || selectedTurnos.size > 0) return [];
-    return [
-      {
-        id: session.id,
-        weekday: session.weekday,
-        startTime: session.start_time,
-        duration: session.duration,
-        title,
-        body,
-        type: session.type,
-        classCodes: session.classes.map((classItem) => classItem.code),
-        uc: primarySubject?.name ?? primarySubject?.acronym ?? session.type,
-        professor: session.teachers[0]?.acronym,
-        sala: session.rooms[0]?.name,
-        teacherIds: session.teachers.map((teacher) => teacher.id),
-        roomIds: session.rooms.map((room) => room.id),
-        subjectNames: session.subjects.map((subject) => subject.name),
-      },
-    ];
-  }
-
-  return session.classes
-    .filter((classItem) => {
-      const turno = String(classItem.shift);
-      const matchesTurma = selectedTurmas.size === 0 || selectedTurmas.has(classItem.code);
-      const matchesTurno = selectedTurnos.size === 0 || selectedTurnos.has(turno);
-      return matchesTurma && matchesTurno;
-    })
-    .map((classItem) => ({
-      id: `${session.id}-${classItem.code}`,
-      weekday: session.weekday,
-      startTime: session.start_time,
-      duration: session.duration,
-      title,
-      body,
-      type: session.type,
-      turma: classItem.code,
-      classCodes: session.classes.map((currentClass) => currentClass.code),
-      uc: primarySubject?.name ?? primarySubject?.acronym ?? session.type,
-      professor: session.teachers[0]?.acronym,
-      sala: session.rooms[0]?.name,
-      teacherIds: session.teachers.map((teacher) => teacher.id),
-      roomIds: session.rooms.map((room) => room.id),
-      subjectNames: session.subjects.map((subject) => subject.name),
-    }));
-}
 
 export default function SchedulePage() {
   const { projectId } = useParams<{ projectId: string }>();
