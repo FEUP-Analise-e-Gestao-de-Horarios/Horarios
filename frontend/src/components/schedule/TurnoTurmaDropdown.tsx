@@ -55,6 +55,9 @@ export default function TurnoTurmaDropdown({
       trigger={
         <button
           type="button"
+          aria-haspopup="true"
+          aria-expanded={open && !disabled}
+          aria-disabled={disabled || undefined}
           onClick={(e) => {
             e.stopPropagation();
             if (!disabled) onToggle();

@@ -45,6 +45,8 @@ export default function DrawerMultiSelect({
       <span className="mb-1.5 block text-white/90">{label}</span>
       <button
         type="button"
+        aria-haspopup="true"
+        aria-expanded={open}
         onClick={onToggle}
         className="w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2 text-left flex items-center justify-between"
       >

@@ -95,6 +95,9 @@ export default function MultiDropdown({
       trigger={
         <button
           type="button"
+          aria-haspopup="true"
+          aria-expanded={isOpen}
+          aria-disabled={disabled || undefined}
           onClick={(e) => {
             e.stopPropagation();
             if (!disabled) onToggle();

@@ -36,6 +36,8 @@ export default function CursoDropdown({
       trigger={
         <button
           type="button"
+          aria-haspopup="true"
+          aria-expanded={open}
           onClick={(e) => {
             e.stopPropagation();
             onToggle();
