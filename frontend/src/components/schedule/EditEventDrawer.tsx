@@ -555,11 +555,19 @@ export default function EditEventDrawer({
             </div>
           </div>
 
+          {/*
+            The drawer is still read-only: there is no save endpoint or onSave
+            prop yet, so the form edits live only in local state. Keep the
+            button visibly disabled until the persistence path is wired up
+            rather than shipping a button that silently does nothing.
+          */}
           <button
             type="button"
-            className="w-full bg-[#8c2d19] text-white font-semibold rounded py-2.5 hover:brightness-110 transition mt-4"
+            disabled
+            title="Edição ainda não disponível"
+            className="w-full bg-[#8c2d19]/40 text-white/50 font-semibold rounded py-2.5 mt-4 cursor-not-allowed"
           >
-            Submit
+            Guardar
           </button>
 
           <div className="pt-4 border-t border-white/20">
