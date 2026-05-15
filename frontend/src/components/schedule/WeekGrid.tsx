@@ -2,6 +2,7 @@ import { useMemo, useRef } from "react";
 import type { Weekday } from "@/types/project/weekday";
 import { hhmmToMinutes, minutesToTime } from "@/utils/time";
 import { WEEKDAYS, WEEKDAY_LABELS_SHORT } from "@/utils/weekdays";
+import { SCHEDULE_EVENT_DATA_ATTR } from "./dismissable";
 import MarqueeText from "./MarqueeText";
 import { styleForSubject } from "./subjectColors";
 import { useColumnResize } from "./useColumnResize";
@@ -483,7 +484,7 @@ export default function WeekGrid({
               <button
                 key={`e-${ev.id}-${run.start}`}
                 type="button"
-                data-schedule-event=""
+                {...{ [SCHEDULE_EVENT_DATA_ATTR]: "" }}
                 onClick={onEventClick ? () => onEventClick(ev) : undefined}
                 className={`group relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden ${
                   isEditingEvent

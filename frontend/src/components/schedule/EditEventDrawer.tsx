@@ -3,6 +3,7 @@ import type { ConflictRecord } from "@/types/project/conflicts";
 import type { WeekGridEvent } from "@/components/schedule/WeekGrid";
 import { hhmmToMinutes, minutesToTime } from "@/utils/time";
 import { WEEKDAYS, WEEKDAY_LABELS_LONG } from "@/utils/weekdays";
+import { DRAWER_DISMISS_IGNORE_SELECTOR } from "./dismissable";
 import DrawerMultiSelect from "./DrawerMultiSelect";
 import { useDismissable } from "./useDismissable";
 
@@ -184,7 +185,7 @@ export default function EditEventDrawer({
   useDismissable(dropdownAreaRef, () => setOpenDropdown(null));
   useDismissable(asideRef, onClose, {
     escape: true,
-    ignoreSelector: "[data-schedule-event],[data-schedule-navbar]",
+    ignoreSelector: DRAWER_DISMISS_IGNORE_SELECTOR,
   });
 
   const selectedUc = useMemo(() => {

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ROUTES } from "@/routes";
 import { buildPath } from "@/utils/routes";
 import CursoDropdown from "./CursoDropdown";
+import { SCHEDULE_NAVBAR_DATA_ATTR } from "./dismissable";
 import MultiDropdown from "./MultiDropdown";
 import TurnoTurmaDropdown, { type TurnoTurmaGroup } from "./TurnoTurmaDropdown";
 import { styleForSubjectDark } from "./subjectColors";
@@ -93,7 +94,7 @@ export default function ScheduleNavbar({
   return (
     <header
       ref={navRef}
-      data-schedule-navbar=""
+      {...{ [SCHEDULE_NAVBAR_DATA_ATTR]: "" }}
       className="relative z-50 shrink-0 px-6 py-3 bg-[#1e2028] flex items-center gap-2 w-full flex-wrap overflow-visible border-b border-gray-700"
     >
       <Link to={ROUTES.HOME} className={primaryRedButtonClass}>
