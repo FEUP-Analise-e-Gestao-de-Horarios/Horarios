@@ -6,6 +6,7 @@ import { WEEKDAYS, WEEKDAY_LABELS_LONG } from "@/utils/weekdays";
 import { DRAWER_DISMISS_IGNORE_SELECTOR } from "./dismissable";
 import DrawerMultiSelect from "./DrawerMultiSelect";
 import { useDismissable } from "./useDismissable";
+import { useDrawerSearch } from "./useDrawerSearch";
 
 type TeacherOption = {
   id: string;
@@ -164,9 +165,9 @@ export default function EditEventDrawer({
     endTime,
   } = formState;
 
-  const [docentesSearch, setDocentesSearch] = useState("");
-  const [salasSearch, setSalasSearch] = useState("");
-  const [turmasSearch, setTurmasSearch] = useState("");
+  const docentesSearch = useDrawerSearch();
+  const salasSearch = useDrawerSearch();
+  const turmasSearch = useDrawerSearch();
   const eventConflicts = useMemo(
     () => (event ? conflicts.filter((conflict) => conflict.event_ids.includes(event.id)) : []),
     [conflicts, event],
@@ -235,35 +236,34 @@ export default function EditEventDrawer({
     [otherSalas, preferredSalas],
   );
 
-  const filteredSelectedClassDocentes = useMemo(() => {
-    const query = docentesSearch.toLowerCase().trim();
-    if (!query) return selectedClassDocentes;
-    return selectedClassDocentes.filter((docente) => docente.label.toLowerCase().includes(query));
-  }, [docentesSearch, selectedClassDocentes]);
+  const docenteMatches = docentesSearch.matches;
+  const salaMatches = salasSearch.matches;
+  const turmaMatches = turmasSearch.matches;
 
-  const filteredOtherDocentes = useMemo(() => {
-    const query = docentesSearch.toLowerCase().trim();
-    if (!query) return otherDocentes;
-    return otherDocentes.filter((docente) => docente.label.toLowerCase().includes(query));
-  }, [docentesSearch, otherDocentes]);
+  const filteredSelectedClassDocentes = useMemo(
+    () => selectedClassDocentes.filter((docente) => docenteMatches(docente.label)),
+    [docenteMatches, selectedClassDocentes],
+  );
 
-  const filteredPreferredSalas = useMemo(() => {
-    const query = salasSearch.toLowerCase().trim();
-    if (!query) return preferredSalas;
-    return preferredSalas.filter((room) => `${room.id} ${room.type}`.toLowerCase().includes(query));
-  }, [preferredSalas, salasSearch]);
+  const filteredOtherDocentes = useMemo(
+    () => otherDocentes.filter((docente) => docenteMatches(docente.label)),
+    [docenteMatches, otherDocentes],
+  );
 
-  const filteredOtherSalas = useMemo(() => {
-    const query = salasSearch.toLowerCase().trim();
-    if (!query) return otherSalas;
-    return otherSalas.filter((room) => `${room.id} ${room.type}`.toLowerCase().includes(query));
-  }, [otherSalas, salasSearch]);
+  const filteredPreferredSalas = useMemo(
+    () => preferredSalas.filter((room) => salaMatches(`${room.id} ${room.type}`)),
+    [preferredSalas, salaMatches],
+  );
 
-  const filteredTurmas = useMemo(() => {
-    const query = turmasSearch.toLowerCase().trim();
-    if (!query) return turmaOptions;
-    return turmaOptions.filter((turma) => turma.toLowerCase().includes(query));
-  }, [turmaOptions, turmasSearch]);
+  const filteredOtherSalas = useMemo(
+    () => otherSalas.filter((room) => salaMatches(`${room.id} ${room.type}`)),
+    [otherSalas, salaMatches],
+  );
+
+  const filteredTurmas = useMemo(
+    () => turmaOptions.filter((turma) => turmaMatches(turma)),
+    [turmaOptions, turmaMatches],
+  );
 
   const effectiveSelectedDocente = useMemo(() => {
     const valid = selectedDocenteOverride.filter((id) => teacherOptions.some((d) => d.id === id));
@@ -450,8 +450,8 @@ export default function EditEventDrawer({
               triggerLabel={selectedDocenteLabel}
               open={openDropdown === "docentes"}
               onToggle={() => setOpenDropdown((prev) => (prev === "docentes" ? null : "docentes"))}
-              search={docentesSearch}
-              onSearchChange={setDocentesSearch}
+              search={docentesSearch.query}
+              onSearchChange={docentesSearch.setQuery}
               listMaxHeightClass="max-h-52"
               groups={[
                 {
@@ -471,8 +471,8 @@ export default function EditEventDrawer({
                   triggerLabel={selectedSalaLabel}
                   open={openDropdown === "salas"}
                   onToggle={() => setOpenDropdown((prev) => (prev === "salas" ? null : "salas"))}
-                  search={salasSearch}
-                  onSearchChange={setSalasSearch}
+                  search={salasSearch.query}
+                  onSearchChange={salasSearch.setQuery}
                   listMaxHeightClass="max-h-48"
                   groups={[
                     {
@@ -501,8 +501,8 @@ export default function EditEventDrawer({
                   triggerLabel={`Turmas (${effectiveSelectedTurmas.length})`}
                   open={openDropdown === "turmas"}
                   onToggle={() => setOpenDropdown((prev) => (prev === "turmas" ? null : "turmas"))}
-                  search={turmasSearch}
-                  onSearchChange={setTurmasSearch}
+                  search={turmasSearch.query}
+                  onSearchChange={turmasSearch.setQuery}
                   listMaxHeightClass="max-h-44"
                   groups={[
                     { options: filteredTurmas.map((turma) => ({ id: turma, label: turma })) },
