@@ -7,6 +7,7 @@ import MarqueeText from "./MarqueeText";
 import { placeEventsOnGrid } from "./scheduleGrid";
 import { styleForSubject } from "./subjectColors";
 import { useColumnResize } from "./useColumnResize";
+import { useGridTimeRange } from "./useGridTimeRange";
 
 export interface WeekGridEvent {
   id: string;
@@ -57,8 +58,6 @@ interface WeekGridProps {
 
 const WEEKDAY_LABELS = WEEKDAYS.map((day) => WEEKDAY_LABELS_SHORT[day]);
 
-const DEFAULT_START_HHMM = 800;
-const DEFAULT_END_HHMM = 2000;
 const SLOT_MINUTES = 30;
 const MIN_SLOT_PX = 16;
 const HEADER_PX = 40;
@@ -177,28 +176,13 @@ export default function WeekGrid({
       ? `44px repeat(${turmaColumnCount}, ${columnWidthPx}px)`
       : `44px repeat(${turmaColumnCount}, minmax(${TURMA_COLUMN_DEFAULT_MIN_PX}px, 1fr))`;
 
-  const { gridStartMinutes, slotCount } = useMemo(() => {
-    let min = hhmmToMinutes(startTime ?? DEFAULT_START_HHMM);
-    let max = hhmmToMinutes(endTime ?? DEFAULT_END_HHMM);
-
-    if (startTime === undefined || endTime === undefined) {
-      for (const ev of events) {
-        const start = hhmmToMinutes(ev.startTime);
-        const end = start + ev.duration * SLOT_MINUTES;
-        if (startTime === undefined && start < min) min = Math.floor(start / 60) * 60;
-        if (endTime === undefined && end > max) max = Math.ceil(end / 60) * 60;
-      }
-      for (const m of marks) {
-        const t = hhmmToMinutes(m.time);
-        if (startTime === undefined && t < min) min = Math.floor(t / 60) * 60;
-        if (endTime === undefined && t + SLOT_MINUTES > max)
-          max = Math.ceil((t + SLOT_MINUTES) / 60) * 60;
-      }
-    }
-
-    const count = (max - min) / SLOT_MINUTES + (includeEndSlot ? 1 : 0);
-    return { gridStartMinutes: min, slotCount: Math.max(count, 1) };
-  }, [events, marks, startTime, endTime, includeEndSlot]);
+  const { gridStartMinutes, slotCount } = useGridTimeRange({
+    events,
+    marks,
+    startTime,
+    endTime,
+    includeEndSlot,
+  });
 
   const placedEvents = useMemo(
     () => placeEventsOnGrid(events, activeTurmas, visibleDayIndices, gridStartMinutes, slotCount),
