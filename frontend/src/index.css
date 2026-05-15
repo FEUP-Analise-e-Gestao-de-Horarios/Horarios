@@ -12,11 +12,13 @@
   }
 }
 
-/* Runs only while the parent event card (`group`) is hovered. The duration is
-   referenced directly here rather than through a Tailwind @theme animation
+/* Runs while the parent event card (`group`) is hovered or contains keyboard
+   focus, so keyboard-only users can read the clipped text too. The duration
+   is referenced directly here rather than through a Tailwind @theme animation
    token: a var() nested inside a theme token does not resolve against the
    element that sets it, so --marquee-duration would silently fall back to the
    default and the speed would scale with overflow length. */
-.group:hover .marquee {
+.group:hover .marquee,
+.group:focus-within .marquee {
   animation: marquee-scroll var(--marquee-duration, 6s) linear infinite alternate;
 }
