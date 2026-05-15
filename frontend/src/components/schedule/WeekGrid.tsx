@@ -36,7 +36,6 @@ interface WeekGridProps {
   startTime?: number;
   endTime?: number;
   onEventClick?: (event: WeekGridEvent) => void;
-  onEventDoubleClick?: (event: WeekGridEvent) => void;
   onHorizontalScroll?: () => void;
   emptyMessage?: string;
   weekdayLabels?: string[];
@@ -131,7 +130,6 @@ export default function WeekGrid({
   startTime,
   endTime,
   onEventClick,
-  onEventDoubleClick,
   onHorizontalScroll,
   emptyMessage,
   weekdayLabels,
@@ -477,7 +475,7 @@ export default function WeekGrid({
 
         {placedEvents.flatMap(({ ev, dayCol, rowStart, span, runs }) => {
           const style = styleForSubject(ev.uc);
-          const clickable = !!onEventClick || !!onEventDoubleClick;
+          const clickable = !!onEventClick;
           const isEditingEvent = editingEventId === ev.id;
           return runs.map((run) => {
             const startCol = dayCol * turmasCount + run.start + 2;
@@ -487,7 +485,6 @@ export default function WeekGrid({
                 type="button"
                 data-schedule-event=""
                 onClick={onEventClick ? () => onEventClick(ev) : undefined}
-                onDoubleClick={onEventDoubleClick ? () => onEventDoubleClick(ev) : undefined}
                 className={`group relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden ${
                   isEditingEvent
                     ? "bg-[#250902] border-[#38040e] text-white"
