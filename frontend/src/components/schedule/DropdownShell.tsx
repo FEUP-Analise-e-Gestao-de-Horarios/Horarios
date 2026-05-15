@@ -28,10 +28,14 @@ export default function DropdownShell({
   panelClassName = "",
   children,
 }: DropdownShellProps) {
-  const { wrapperRef, panelRef, openUpward, horizontalOffset } = useDropdownPosition(open);
+  const { triggerRef, panelRef, openUpward, horizontalOffset } = useDropdownPosition(open);
 
+  // triggerRef points at the wrapper, not the trigger element. The panel is
+  // absolutely positioned, so it does not contribute to the wrapper's
+  // bounding rect — measuring the wrapper gives us the trigger's rect
+  // without depending on which DOM node the caller passed in.
   return (
-    <div ref={wrapperRef} className="relative">
+    <div ref={triggerRef as React.RefObject<HTMLDivElement>} className="relative">
       {trigger}
 
       {open && (

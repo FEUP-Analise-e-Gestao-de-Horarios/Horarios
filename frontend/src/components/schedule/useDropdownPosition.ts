@@ -9,11 +9,12 @@ const OPEN_UPWARD_THRESHOLD_PX = 280;
  * clamped so the panel never overflows either viewport edge. It also decides
  * whether the panel should open upward when there isn't enough room below.
  *
- * Attach `wrapperRef` to the `relative` wrapper, `panelRef` to the panel, and
- * apply `style={{ left: horizontalOffset }}` plus the `openUpward` class.
+ * Attach `triggerRef` to the trigger element (the thing the panel should
+ * align against), `panelRef` to the panel, and apply
+ * `style={{ left: horizontalOffset }}` plus the `openUpward` class.
  */
 export function useDropdownPosition(open: boolean) {
-  const wrapperRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [openUpward, setOpenUpward] = useState(false);
   const [horizontalOffset, setHorizontalOffset] = useState(0);
@@ -22,7 +23,7 @@ export function useDropdownPosition(open: boolean) {
     if (!open) return;
 
     const updatePosition = () => {
-      const trigger = wrapperRef.current?.querySelector("button");
+      const trigger = triggerRef.current;
       const panel = panelRef.current;
       if (!trigger || !panel) return;
 
@@ -48,5 +49,5 @@ export function useDropdownPosition(open: boolean) {
     };
   }, [open]);
 
-  return { wrapperRef, panelRef, openUpward, horizontalOffset };
+  return { triggerRef, panelRef, openUpward, horizontalOffset };
 }
