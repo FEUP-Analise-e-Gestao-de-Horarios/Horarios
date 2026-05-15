@@ -369,7 +369,7 @@ export default function EditEventDrawer({
                   type="button"
                   onClick={() => dispatch({ type: "shiftTime", field: "startTime", delta: -30 })}
                   className="h-8 w-8 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white text-sm"
-                  aria-label="Diminuir hora de inicio em 30 minutos"
+                  aria-label="Diminuir hora de início em 30 minutos"
                 >
                   -
                 </button>
@@ -390,7 +390,7 @@ export default function EditEventDrawer({
                   type="button"
                   onClick={() => dispatch({ type: "shiftTime", field: "startTime", delta: 30 })}
                   className="h-8 w-8 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white text-sm"
-                  aria-label="Aumentar hora de inicio em 30 minutos"
+                  aria-label="Aumentar hora de início em 30 minutos"
                 >
                   +
                 </button>
