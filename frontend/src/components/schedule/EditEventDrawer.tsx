@@ -1,12 +1,12 @@
-import { useMemo, useReducer, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { ConflictRecord } from "@/types/project/conflicts";
 import type { WeekGridEvent } from "@/components/schedule/WeekGrid";
-import { hhmmToMinutes, minutesToTime } from "@/utils/time";
 import { WEEKDAYS, WEEKDAY_LABELS_LONG } from "@/utils/weekdays";
 import { DRAWER_DISMISS_IGNORE_SELECTOR } from "./dismissable";
 import DrawerMultiSelect from "./DrawerMultiSelect";
 import { useDismissable } from "./useDismissable";
 import { useDrawerSearch } from "./useDrawerSearch";
+import { toggleSelection, useEventDrawerForm } from "./useEventDrawerForm";
 
 type TeacherOption = {
   id: string;
@@ -33,114 +33,6 @@ interface EditEventDrawerProps {
   event?: WeekGridEvent | null;
 }
 
-const MIN_TIME_MINUTES = 8 * 60;
-const MAX_TIME_MINUTES = 19 * 60 + 30;
-
-function clampTimeMinutes(totalMinutes: number): number {
-  return Math.max(MIN_TIME_MINUTES, Math.min(MAX_TIME_MINUTES, totalMinutes));
-}
-
-function shiftTimeByMinutes(time: string, deltaMinutes: number): string {
-  const [hours, minutes] = time.split(":").map(Number);
-  if (hours === undefined || minutes === undefined || Number.isNaN(hours) || Number.isNaN(minutes))
-    return time;
-
-  const totalMinutes = clampTimeMinutes(hours * 60 + minutes + deltaMinutes);
-  return minutesToTime(totalMinutes);
-}
-
-function normalizeTimeValue(value: string, fallback: string): string {
-  const cleaned = value.trim();
-  const match = cleaned.match(/^(\d{1,2}):?(\d{2})$/);
-  if (!match) return fallback;
-
-  const hours = Number(match[1]);
-  const minutes = Number(match[2]);
-  if (Number.isNaN(hours) || Number.isNaN(minutes)) return fallback;
-  if (minutes < 0 || minutes > 59) return fallback;
-
-  const totalMinutes = clampTimeMinutes(hours * 60 + minutes);
-  return minutesToTime(totalMinutes);
-}
-
-function toggleSelection(current: string[], itemId: string): string[] {
-  return current.includes(itemId)
-    ? current.filter((selectedId) => selectedId !== itemId)
-    : [...current, itemId];
-}
-
-type FormState = {
-  selectedUcOverride: string;
-  selectedDocenteOverride: string[];
-  selectedSalaOverride: string[];
-  selectedTurmasOverride: string[];
-  selectedWeekday: string;
-  startTime: string;
-  endTime: string;
-};
-
-type TimeField = "startTime" | "endTime";
-
-type FormAction =
-  | { type: "setUc"; value: string }
-  | { type: "setWeekday"; value: string }
-  | { type: "setTime"; field: TimeField; value: string }
-  | { type: "shiftTime"; field: TimeField; delta: number }
-  | { type: "normalizeTime"; field: TimeField; raw: string }
-  | { type: "toggleDocente"; id: string }
-  | { type: "toggleSala"; id: string }
-  | { type: "setTurmas"; value: string[] };
-
-function getInitialFormState(event?: WeekGridEvent | null): FormState {
-  if (event) {
-    return {
-      selectedUcOverride: event.uc ?? "",
-      selectedDocenteOverride: event.teacherIds ?? [],
-      selectedSalaOverride: event.roomIds ?? [],
-      selectedTurmasOverride: event.classCodes ?? (event.turma ? [event.turma] : []),
-      selectedWeekday: WEEKDAY_LABELS_LONG[event.weekday],
-      startTime: minutesToTime(hhmmToMinutes(event.startTime)),
-      endTime: minutesToTime(hhmmToMinutes(event.startTime) + event.duration * 30),
-    };
-  }
-  return {
-    selectedUcOverride: "",
-    selectedDocenteOverride: [],
-    selectedSalaOverride: [],
-    selectedTurmasOverride: [],
-    selectedWeekday: WEEKDAY_LABELS_LONG.monday,
-    startTime: "10:30",
-    endTime: "12:30",
-  };
-}
-
-function formReducer(state: FormState, action: FormAction): FormState {
-  switch (action.type) {
-    case "setUc":
-      return { ...state, selectedUcOverride: action.value };
-    case "setWeekday":
-      return { ...state, selectedWeekday: action.value };
-    case "setTime":
-      return { ...state, [action.field]: action.value };
-    case "shiftTime":
-      return { ...state, [action.field]: shiftTimeByMinutes(state[action.field], action.delta) };
-    case "normalizeTime":
-      return { ...state, [action.field]: normalizeTimeValue(action.raw, state[action.field]) };
-    case "toggleDocente":
-      return {
-        ...state,
-        selectedDocenteOverride: toggleSelection(state.selectedDocenteOverride, action.id),
-      };
-    case "toggleSala":
-      return {
-        ...state,
-        selectedSalaOverride: toggleSelection(state.selectedSalaOverride, action.id),
-      };
-    case "setTurmas":
-      return { ...state, selectedTurmasOverride: action.value };
-  }
-}
-
 export default function EditEventDrawer({
   open,
   onClose,
@@ -154,7 +46,7 @@ export default function EditEventDrawer({
   preferredUc,
   event,
 }: EditEventDrawerProps) {
-  const [formState, dispatch] = useReducer(formReducer, event, getInitialFormState);
+  const [formState, dispatch] = useEventDrawerForm(event);
   const {
     selectedUcOverride,
     selectedDocenteOverride,
