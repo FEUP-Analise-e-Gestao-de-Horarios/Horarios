@@ -1,8 +1,5 @@
 import { WEEKDAYS } from "@/utils/weekdays";
 
-/** Day order used when bit-packing the day filter into the URL. */
-export const SCHEDULE_VIEW_DAYS = WEEKDAYS;
-
 export type ScheduleViewSelection = {
   degreeId: string;
   ano: string;
@@ -143,7 +140,7 @@ export function encodeScheduleView(
   const sections = [
     { values: selection.ucs, ref: orders.ucOrder },
     { values: selection.turmas, ref: orders.turmaOrder },
-    { values: selection.dias, ref: [...SCHEDULE_VIEW_DAYS] },
+    { values: selection.dias, ref: [...WEEKDAYS] },
     { values: selection.semanas, ref: orders.weekOrder },
   ];
 

@@ -15,7 +15,6 @@ import { useProjectSessions } from "@/api/hooks/project/sessions";
 import { useProjectYear, useProjectYearConflicts } from "@/api/hooks/project/year";
 import { ROUTES } from "@/routes";
 import { buildPath } from "@/utils/routes";
-import { SCHEDULE_VIEW_DAYS } from "@/utils/scheduleView";
 import {
   COURSE_GROUPS,
   formatWeekRange,
@@ -55,7 +54,7 @@ export default function SchedulePage() {
   const [turnos, setTurnos] = useState<string[]>([]);
   const [turmas, setTurmas] = useState<string[]>([]);
   const [semanas, setSemanas] = useState<string[]>([]);
-  const [dias, setDias] = useState<string[]>([...SCHEDULE_VIEW_DAYS]);
+  const [dias, setDias] = useState<string[]>([...WEEKDAYS]);
   const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
   const [isEditDrawerCollapsed, setIsEditDrawerCollapsed] = useState(false);
   const [isConflictsDrawerOpen, setIsConflictsDrawerOpen] = useState(false);
@@ -119,7 +118,7 @@ export default function SchedulePage() {
   }, [selectedYearClasses, turmas]);
 
   const weekdayFilter = useMemo(() => {
-    if (dias.length === 0 || dias.length === SCHEDULE_VIEW_DAYS.length) return [];
+    if (dias.length === 0 || dias.length === WEEKDAYS.length) return [];
     // Always request saturday so we can tell whether it has any sessions, even
     // when it is currently deselected in the day filter.
     return [...new Set([...dias, "saturday"])];
