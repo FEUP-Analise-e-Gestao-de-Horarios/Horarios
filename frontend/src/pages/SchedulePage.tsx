@@ -15,9 +15,9 @@ import { useProjectSessions } from "@/api/hooks/project/sessions";
 import { useProjectYear, useProjectYearConflicts } from "@/api/hooks/project/year";
 import { ROUTES } from "@/routes";
 import { buildPath } from "@/utils/routes";
+import { formatWeekRange } from "@/utils/date";
 import {
   COURSE_GROUPS,
-  formatWeekRange,
   getCourseGroupLabel,
   sessionToEvents,
   sortValuesByReference,
