@@ -6,39 +6,6 @@ import { WEEKDAYS, WEEKDAY_LABELS_LONG } from "@/utils/weekdays";
 import DrawerMultiSelect from "./DrawerMultiSelect";
 import { useDismissable } from "./useDismissable";
 
-function normalizeText(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-}
-
-function getConflictDay(weekday: WeekGridEvent["weekday"]): string {
-  return weekdayLabelToValue(weekday).split("-")[0] ?? "";
-}
-
-function conflictMatchesEvent(conflict: ConflictRecord, event: WeekGridEvent): boolean {
-  if (conflict.event_ids.includes(event.id)) return true;
-
-  const eventDay = normalizeText(getConflictDay(event.weekday));
-  const conflictDay = normalizeText(conflict.day);
-  if (eventDay !== conflictDay) return false;
-
-  const eventTime = minutesToTime(hhmmToMinutes(event.startTime));
-  if (conflict.time !== eventTime) return false;
-
-  const eventTurma = normalizeText(event.turma ?? event.classCodes?.[0] ?? "");
-  if (eventTurma && normalizeText(conflict.turma) !== eventTurma) return false;
-
-  const conflictText = normalizeText(conflict.event_names.join(" "));
-  const eventTokens = [event.title, event.uc, event.professor, event.sala, event.turma]
-    .filter((token): token is string => Boolean(token))
-    .map(normalizeText);
-
-  if (eventTokens.length === 0) return true;
-  return eventTokens.some((token) => conflictText.includes(token));
-}
 type TeacherOption = {
   id: string;
   label: string;
@@ -204,7 +171,7 @@ export default function EditEventDrawer({
   const [salasSearch, setSalasSearch] = useState("");
   const [turmasSearch, setTurmasSearch] = useState("");
   const eventConflicts = useMemo(
-    () => (event ? conflicts.filter((conflict) => conflictMatchesEvent(conflict, event)) : []),
+    () => (event ? conflicts.filter((conflict) => conflict.event_ids.includes(event.id)) : []),
     [conflicts, event],
   );
   const [openDropdown, setOpenDropdown] = useState<"docentes" | "salas" | "turmas" | null>(null);
