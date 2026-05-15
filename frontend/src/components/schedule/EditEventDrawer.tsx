@@ -68,10 +68,6 @@ function toggleSelection(current: string[], itemId: string): string[] {
     : [...current, itemId];
 }
 
-function weekdayLabelToValue(weekday: WeekGridEvent["weekday"]): string {
-  return WEEKDAY_LABELS_LONG[weekday];
-}
-
 type FormState = {
   selectedUcOverride: string;
   selectedDocenteOverride: string[];
@@ -101,7 +97,7 @@ function getInitialFormState(event?: WeekGridEvent | null): FormState {
       selectedDocenteOverride: event.teacherIds ?? [],
       selectedSalaOverride: event.roomIds ?? [],
       selectedTurmasOverride: event.classCodes ?? (event.turma ? [event.turma] : []),
-      selectedWeekday: weekdayLabelToValue(event.weekday),
+      selectedWeekday: WEEKDAY_LABELS_LONG[event.weekday],
       startTime: minutesToTime(hhmmToMinutes(event.startTime)),
       endTime: minutesToTime(hhmmToMinutes(event.startTime) + event.duration * 30),
     };
@@ -459,7 +455,7 @@ export default function EditEventDrawer({
               listMaxHeightClass="max-h-52"
               groups={[
                 {
-                  heading: "Docentes da turma selecionada",
+                  heading: "Docentes desta aula",
                   options: filteredSelectedClassDocentes,
                 },
                 { heading: "Todos os docentes", options: filteredOtherDocentes },
