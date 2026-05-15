@@ -35,7 +35,11 @@ type DropdownOption = {
 export default function SchedulePage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { data: project } = useProject(projectId ?? "");
+  const {
+    data: project,
+    isPending: isProjectPending,
+    isError: isProjectError,
+  } = useProject(projectId ?? "");
   const { data: degrees } = useProjectDegrees(projectId ?? "");
   const { data: teachers } = useProjectTeachers(projectId ?? "");
   const { data: rooms } = useProjectRooms(projectId ?? "");
@@ -377,6 +381,25 @@ export default function SchedulePage() {
   }, [hasSaturdaySessions]);
 
   if (!projectId) return null;
+
+  // Without this, a project that fails to load (e.g. a 404) leaves the page
+  // blank forever: the routing-guard effect only redirects a project that
+  // loaded but isn't ingestion-ready, never one whose query errored.
+  if (isProjectError) {
+    return (
+      <div className="h-screen bg-[#f0eeeb] flex items-center justify-center text-center text-gray-500 text-lg">
+        Não foi possível carregar o projeto.
+      </div>
+    );
+  }
+
+  if (isProjectPending) {
+    return (
+      <div className="h-screen bg-[#f0eeeb] flex items-center justify-center text-center text-gray-500 text-lg">
+        A carregar…
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen bg-[#f0eeeb] flex flex-col overflow-hidden">
