@@ -460,7 +460,19 @@ export default function SchedulePage() {
       />
 
       <div className="flex-1 min-h-0 overflow-hidden">
-        {canShowSchedule ? (
+        {!canShowSchedule ? (
+          <div className="h-full flex items-center justify-center text-center text-gray-500 text-lg">
+            Seleciona Curso para ver o horário
+          </div>
+        ) : sessionsQuery.isError ? (
+          <div className="h-full flex items-center justify-center text-center text-gray-500 text-lg">
+            Não foi possível carregar as aulas.
+          </div>
+        ) : sessionsQuery.isPending ? (
+          <div className="h-full flex items-center justify-center text-center text-gray-500 text-lg">
+            A carregar aulas…
+          </div>
+        ) : (
           <div className="h-full min-h-0">
             <WeekGrid
               events={scheduleEvents}
@@ -481,10 +493,6 @@ export default function SchedulePage() {
               onEventClick={(event) => openEditor(event)}
               onHorizontalScroll={() => setIsEditDrawerCollapsed(true)}
             />
-          </div>
-        ) : (
-          <div className="h-full flex items-center justify-center text-center text-gray-500 text-lg">
-            Seleciona Curso para ver o horário
           </div>
         )}
       </div>
