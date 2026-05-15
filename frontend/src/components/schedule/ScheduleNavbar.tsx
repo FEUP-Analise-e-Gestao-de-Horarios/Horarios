@@ -124,7 +124,9 @@ export default function ScheduleNavbar({
       </Link>
       <button
         type="button"
-        className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors"
+        disabled
+        title="Funcionalidade ainda não disponível"
+        className="bg-transparent text-gray-500 font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 cursor-not-allowed"
       >
         Exportar
       </button>
@@ -205,7 +207,9 @@ export default function ScheduleNavbar({
 
       <button
         type="button"
-        className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors"
+        disabled
+        title="Funcionalidade ainda não disponível"
+        className="bg-transparent text-gray-500 font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 cursor-not-allowed"
       >
         Editar Aulas em Paralelo
       </button>
@@ -214,7 +218,9 @@ export default function ScheduleNavbar({
 
       <button
         type="button"
-        className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors"
+        disabled
+        title="Funcionalidade ainda não disponível"
+        className="bg-transparent text-gray-500 font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 cursor-not-allowed"
       >
         Distribuição
       </button>
