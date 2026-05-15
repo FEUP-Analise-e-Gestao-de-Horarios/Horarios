@@ -6,24 +6,8 @@ import CursoDropdown from "./CursoDropdown";
 import MultiDropdown from "./MultiDropdown";
 import TurnoTurmaDropdown, { type TurnoTurmaGroup } from "./TurnoTurmaDropdown";
 import { styleForSubjectDark } from "./subjectColors";
+import type { CourseGroup, DropdownOption } from "./types";
 import { useDismissable } from "./useDismissable";
-
-type CourseOption = {
-  value: string;
-  label: string;
-  description?: string;
-};
-
-type DropdownOption = {
-  value: string;
-  label: string;
-  secondaryText?: string;
-};
-
-type CourseGroup = {
-  label: string;
-  options: CourseOption[];
-};
 
 interface ScheduleNavbarProps {
   projectId: string;

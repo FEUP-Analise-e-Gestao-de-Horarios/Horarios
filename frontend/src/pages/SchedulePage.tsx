@@ -25,12 +25,7 @@ import {
   type ScheduleFilters,
 } from "@/utils/scheduleEvents";
 import { WEEKDAYS, WEEKDAY_LABELS_LONG, WEEKDAY_LABELS_UPPER } from "@/utils/weekdays";
-
-type DropdownOption = {
-  value: string;
-  label: string;
-  secondaryText?: string;
-};
+import type { DropdownOption } from "@/components/schedule/types";
 
 export default function SchedulePage() {
   const { projectId } = useParams<{ projectId: string }>();
