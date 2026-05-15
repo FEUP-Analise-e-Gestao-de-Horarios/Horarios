@@ -4,6 +4,7 @@ import { hhmmToMinutes, minutesToTime } from "@/utils/time";
 import { WEEKDAYS, WEEKDAY_LABELS_SHORT } from "@/utils/weekdays";
 import { SCHEDULE_EVENT_DATA_ATTR } from "./dismissable";
 import MarqueeText from "./MarqueeText";
+import { placeEventsOnGrid } from "./scheduleGrid";
 import { styleForSubject } from "./subjectColors";
 import { useColumnResize } from "./useColumnResize";
 
@@ -64,10 +65,6 @@ const HEADER_PX = 40;
 // Width each turma column gets in the default (un-resized) flexible layout.
 const TURMA_COLUMN_DEFAULT_MIN_PX = 64;
 
-function weekdayIndex(weekday: Weekday): number {
-  return WEEKDAYS.indexOf(weekday);
-}
-
 function getTurmaHeaderStyle(shift?: number): string {
   if (shift !== undefined && shift % 2 === 0) return "bg-[#f7ddd7] border-[#e0b0a5] text-[#8C2C19]";
   return "bg-[#f9f7f4] text-[#08060d]";
@@ -107,22 +104,6 @@ function getTurmaShortLabels(turmas: string[]): Map<string, string> {
     labels.set(turma, short.length > 0 ? short : turma);
   }
   return labels;
-}
-
-// Collapses a sorted, ascending list of column indices into contiguous runs.
-// A merged event may cover non-adjacent turma columns (e.g. [0, 2]); each run
-// is rendered as its own card so a card never spans a gap.
-function toContiguousRuns(sortedIndices: number[]): { start: number; span: number }[] {
-  const runs: { start: number; span: number }[] = [];
-  for (const index of sortedIndices) {
-    const last = runs[runs.length - 1];
-    if (last && index === last.start + last.span) {
-      last.span += 1;
-    } else {
-      runs.push({ start: index, span: 1 });
-    }
-  }
-  return runs;
 }
 
 export default function WeekGrid({
@@ -219,88 +200,16 @@ export default function WeekGrid({
     return { gridStartMinutes: min, slotCount: Math.max(count, 1) };
   }, [events, marks, startTime, endTime, includeEndSlot]);
 
-  const placedEvents = useMemo(() => {
-    // The backend emits one event per (session, class code). Events that are
-    // really the same session — same day/time/duration/type and same
-    // title/teacher/room — are merged into a single card that spans every
-    // turma column it belongs to, instead of drawing N identical cards.
-    const getMergeKey = (ev: WeekGridEvent): string => {
-      return [ev.weekday, ev.startTime, ev.duration, ev.type, ev.title, ev.professor, ev.sala].join(
-        "||",
-      );
-    };
-
-    const mergeGroups = new Map<string, { events: WeekGridEvent[]; turmas: Set<string> }>();
-    for (const ev of events) {
-      if (activeTurmas.length > 0 && ev.turma && !activeTurmas.includes(ev.turma)) continue;
-      const key = getMergeKey(ev);
-      if (!mergeGroups.has(key)) {
-        mergeGroups.set(key, { events: [], turmas: new Set() });
-      }
-      const group = mergeGroups.get(key)!;
-      group.events.push(ev);
-      if (ev.turma) group.turmas.add(ev.turma);
-    }
-
-    type PlacedEvent = {
-      ev: WeekGridEvent;
-      dayCol: number;
-      rowStart: number;
-      span: number;
-      // Contiguous column runs the event occupies; usually one run.
-      runs: { start: number; span: number }[];
-    };
-
-    const result: PlacedEvent[] = [];
-    for (const { events: groupEvents, turmas } of mergeGroups.values()) {
-      if (groupEvents.length === 0) continue;
-      const ev = groupEvents[0];
-      if (!ev) continue;
-
-      const dayCol = weekdayIndex(ev.weekday);
-      if (dayCol < 0) continue;
-
-      // Filter events by visible days
-      const visibleColIdx = visibleDayIndices.indexOf(dayCol);
-      if (visibleColIdx < 0) continue; // Event is on a hidden day
-
-      const startMin = hhmmToMinutes(ev.startTime);
-      const rowStart = Math.round((startMin - gridStartMinutes) / SLOT_MINUTES);
-      if (rowStart < 0 || rowStart >= slotCount) continue;
-
-      const span = Math.min(ev.duration, slotCount - rowStart);
-
-      const turmaIndices: number[] = [];
-      for (let i = 0; i < activeTurmas.length; i++) {
-        const turma = activeTurmas[i];
-        if (turma && turmas.has(turma)) {
-          turmaIndices.push(i);
-        }
-      }
-
-      if (turmaIndices.length === 0 && activeTurmas.length > 0) {
-        turmaIndices.push(0);
-      }
-
-      if (turmaIndices.length > 0) {
-        result.push({
-          ev,
-          dayCol: visibleColIdx,
-          rowStart,
-          span,
-          runs: toContiguousRuns(turmaIndices),
-        });
-      }
-    }
-
-    return result;
-  }, [events, activeTurmas, gridStartMinutes, slotCount, visibleDayIndices]);
+  const placedEvents = useMemo(
+    () => placeEventsOnGrid(events, activeTurmas, visibleDayIndices, gridStartMinutes, slotCount),
+    [events, activeTurmas, gridStartMinutes, slotCount, visibleDayIndices],
+  );
 
   const placedMarks = useMemo(
     () =>
       marks
         .map((m) => {
-          const col = weekdayIndex(m.weekday);
+          const col = WEEKDAYS.indexOf(m.weekday);
           if (col < 0) return null;
           const visibleColIdx = visibleDayIndices.indexOf(col);
           if (visibleColIdx < 0) return null; // Mark is on a hidden day
