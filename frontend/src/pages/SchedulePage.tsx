@@ -1,20 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { useParams } from "react-router-dom";
 import type { WeekGridEvent } from "@/components/schedule/WeekGrid";
 import WeekGrid from "@/components/schedule/WeekGrid";
 import EditEventDrawer from "@/components/schedule/EditEventDrawer";
 import ConflictsDrawer from "@/components/schedule/ConflictsDrawer";
 import ScheduleNavbar from "@/components/schedule/ScheduleNavbar";
+import { useProjectAccess } from "@/components/schedule/useProjectAccess";
 import { useTurnoTurmaSync } from "@/components/schedule/useTurnoTurmaSync";
 import { useScheduleViewUrl } from "@/components/schedule/useScheduleViewUrl";
-import { useProject } from "@/api/hooks/project/project";
 import { useProjectDegree, useProjectDegrees } from "@/api/hooks/project/degree";
 import { useProjectRooms } from "@/api/hooks/project/room";
 import { useProjectTeachers } from "@/api/hooks/project/teacher";
 import { useProjectSessions } from "@/api/hooks/project/sessions";
 import { useProjectYear, useProjectYearConflicts } from "@/api/hooks/project/year";
-import { ROUTES } from "@/routes";
-import { buildPath } from "@/utils/routes";
 import { formatWeekRange } from "@/utils/date";
 import {
   COURSE_GROUPS,
@@ -28,25 +26,14 @@ import type { DropdownOption } from "@/components/schedule/types";
 
 export default function SchedulePage() {
   const { projectId } = useParams<{ projectId: string }>();
-  const navigate = useNavigate();
   const {
-    data: project,
+    project,
     isPending: isProjectPending,
     isError: isProjectError,
-  } = useProject(projectId ?? "");
+  } = useProjectAccess(projectId);
   const { data: degrees } = useProjectDegrees(projectId ?? "");
   const { data: teachers } = useProjectTeachers(projectId ?? "");
   const { data: rooms } = useProjectRooms(projectId ?? "");
-
-  useEffect(() => {
-    if (!projectId) {
-      void navigate(ROUTES.HOME, { replace: true });
-      return;
-    }
-    if (!project) return;
-    const isReady = !!project.ingestion_finished_at;
-    if (!isReady) void navigate(buildPath(ROUTES.DASHBOARD, { projectId }), { replace: true });
-  }, [project, projectId, navigate]);
 
   const [curso, setCurso] = useState("");
   const [anos, setAnos] = useState<string[]>([]);
