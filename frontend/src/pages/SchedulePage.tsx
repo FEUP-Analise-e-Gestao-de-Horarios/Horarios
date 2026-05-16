@@ -5,6 +5,7 @@ import WeekGrid from "@/components/schedule/WeekGrid";
 import EditEventDrawer from "@/components/schedule/EditEventDrawer";
 import ConflictsDrawer from "@/components/schedule/ConflictsDrawer";
 import ScheduleNavbar from "@/components/schedule/ScheduleNavbar";
+import { useEventEditor } from "@/components/schedule/useEventEditor";
 import { useProjectAccess } from "@/components/schedule/useProjectAccess";
 import { useTurnoTurmaSync } from "@/components/schedule/useTurnoTurmaSync";
 import { useScheduleViewUrl } from "@/components/schedule/useScheduleViewUrl";
@@ -42,10 +43,8 @@ export default function SchedulePage() {
   const [turmas, setTurmas] = useState<string[]>([]);
   const [semanas, setSemanas] = useState<string[]>([]);
   const [dias, setDias] = useState<string[]>([...WEEKDAYS]);
-  const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
-  const [isEditDrawerCollapsed, setIsEditDrawerCollapsed] = useState(false);
+  const eventEditor = useEventEditor();
   const [isConflictsDrawerOpen, setIsConflictsDrawerOpen] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<WeekGridEvent | null>(null);
 
   const canShowSchedule = curso !== "";
 
@@ -243,12 +242,6 @@ export default function SchedulePage() {
     setSemanas([]);
   };
 
-  const openEditor = (event: WeekGridEvent | null) => {
-    setEditingEvent(event ? { ...event } : null);
-    setIsEditDrawerCollapsed(false);
-    setIsEditDrawerOpen(true);
-  };
-
   const weekOptions = useMemo<DropdownOption[]>(() => {
     return (selectedYearWeeks ?? []).flatMap((block) => {
       if (block.weeks.length === 0) return [];
@@ -386,7 +379,7 @@ export default function SchedulePage() {
     <div className="h-screen bg-[#f0eeeb] flex flex-col overflow-hidden">
       <title>{project ? `Horário · ${project.name} · AGH` : "Horário · AGH"}</title>
       <ScheduleNavbar
-        anyDialogOpen={isEditDrawerOpen || isConflictsDrawerOpen}
+        anyDialogOpen={eventEditor.isOpen || isConflictsDrawerOpen}
         projectId={projectId}
         curso={curso}
         setCurso={handleSelectCurso}
@@ -415,21 +408,18 @@ export default function SchedulePage() {
       />
 
       <EditEventDrawer
-        key={editingEvent?.id ?? "new"}
-        open={isEditDrawerOpen}
-        collapsed={isEditDrawerCollapsed}
-        onCollapsedChange={setIsEditDrawerCollapsed}
-        onClose={() => {
-          setIsEditDrawerOpen(false);
-          setEditingEvent(null);
-        }}
+        key={eventEditor.editingEvent?.id ?? "new"}
+        open={eventEditor.isOpen}
+        collapsed={eventEditor.isCollapsed}
+        onCollapsedChange={eventEditor.setIsCollapsed}
+        onClose={eventEditor.closeEditor}
         conflicts={yearConflicts}
         ucOptions={ucOptions}
         turmaOptions={turmaOrder}
         teacherOptions={teacherOptions}
         roomOptions={roomOptions}
         preferredUc={effectiveUcs[0]}
-        event={editingEvent}
+        event={eventEditor.editingEvent}
       />
 
       <ConflictsDrawer
@@ -470,9 +460,9 @@ export default function SchedulePage() {
               slotHeightPx={31}
               showHalfHourLabels
               showHalfHourDividers
-              editingEventId={isEditDrawerOpen ? editingEvent?.id : undefined}
-              onEventClick={(event) => openEditor(event)}
-              onHorizontalScroll={() => setIsEditDrawerCollapsed(true)}
+              editingEventId={eventEditor.isOpen ? eventEditor.editingEvent?.id : undefined}
+              onEventClick={eventEditor.openEditor}
+              onHorizontalScroll={() => eventEditor.setIsCollapsed(true)}
             />
           </div>
         )}
