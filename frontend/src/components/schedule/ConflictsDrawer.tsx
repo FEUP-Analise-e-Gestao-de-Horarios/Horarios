@@ -1,4 +1,5 @@
 import type { ConflictRecord } from "@/types/project/conflicts";
+import ConflictCard from "./ConflictCard";
 
 interface ConflictsDrawerProps {
   open: boolean;
@@ -89,36 +90,7 @@ export default function ConflictsDrawer({
           ) : conflicts.length === 0 ? (
             <p className="text-white/60 text-center py-8">Sem conflitos</p>
           ) : (
-            conflicts.map((conflict) => (
-              <div
-                key={conflict.id}
-                className="border-l-4 border-white/30 bg-white/5 rounded p-3 space-y-2"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="text-sm font-semibold text-white space-y-1">
-                      {conflict.event_names.map((name, idx) => (
-                        <p key={idx} className="line-clamp-1">
-                          {name}
-                        </p>
-                      ))}
-                    </div>
-                    <p className="text-xs text-white/70 mt-1">
-                      {conflict.day} às {conflict.time} — Turma: {conflict.turma}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-1 pt-2 border-t border-white/10">
-                  {conflict.conflict_reasons.map((reason, idx) => (
-                    <p key={idx} className="text-xs text-white/80 flex items-start gap-2">
-                      <span className="text-white/60 mt-0.5">•</span>
-                      <span>{reason}</span>
-                    </p>
-                  ))}
-                </div>
-              </div>
-            ))
+            conflicts.map((conflict) => <ConflictCard key={conflict.id} conflict={conflict} />)
           )}
         </div>
       </aside>

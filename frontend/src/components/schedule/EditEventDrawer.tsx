@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import type { ConflictRecord } from "@/types/project/conflicts";
 import type { WeekGridEvent } from "@/components/schedule/WeekGrid";
 import { WEEKDAYS, WEEKDAY_LABELS_LONG } from "@/utils/weekdays";
+import ConflictCard from "./ConflictCard";
 import { DRAWER_DISMISS_IGNORE_SELECTOR } from "./dismissable";
 import DrawerMultiSelect from "./DrawerMultiSelect";
 import { useDismissable } from "./useDismissable";
@@ -433,29 +434,7 @@ export default function EditEventDrawer({
             ) : (
               <div className="space-y-2">
                 {eventConflicts.map((conflict) => (
-                  <div
-                    key={conflict.id}
-                    className="text-xs border-l-3 border-white/30 bg-white/5 rounded p-2 space-y-1.5"
-                  >
-                    <div className="text-white/90 font-semibold space-y-0.5">
-                      {conflict.event_names.map((name, idx) => (
-                        <p key={idx} className="line-clamp-1">
-                          {name}
-                        </p>
-                      ))}
-                    </div>
-                    <p className="text-white/70">
-                      {conflict.day} · {conflict.time}
-                    </p>
-                    <div className="space-y-0.5 pt-1 border-t border-white/10">
-                      {conflict.conflict_reasons.map((reason, idx) => (
-                        <p key={idx} className="text-white/80 flex items-start gap-1">
-                          <span className="text-white/60 flex-shrink-0">•</span>
-                          <span>{reason}</span>
-                        </p>
-                      ))}
-                    </div>
-                  </div>
+                  <ConflictCard key={conflict.id} conflict={conflict} variant="compact" />
                 ))}
               </div>
             )}
