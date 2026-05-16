@@ -7,6 +7,7 @@ import ConflictsDrawer from "@/components/schedule/ConflictsDrawer";
 import ScheduleNavbar from "@/components/schedule/ScheduleNavbar";
 import { useEventEditor } from "@/components/schedule/useEventEditor";
 import { useProjectAccess } from "@/components/schedule/useProjectAccess";
+import { useScheduleOptions } from "@/components/schedule/useScheduleOptions";
 import { useTurnoTurmaSync } from "@/components/schedule/useTurnoTurmaSync";
 import { useScheduleViewUrl } from "@/components/schedule/useScheduleViewUrl";
 import { useProjectDegree, useProjectDegrees } from "@/api/hooks/project/degree";
@@ -16,8 +17,6 @@ import { useProjectSessions } from "@/api/hooks/project/sessions";
 import { useProjectYear, useProjectYearConflicts } from "@/api/hooks/project/year";
 import { formatWeekRange } from "@/utils/date";
 import {
-  COURSE_GROUPS,
-  getCourseGroupLabel,
   sessionToEvents,
   sortValuesByReference,
   type ScheduleFilters,
@@ -35,6 +34,12 @@ export default function SchedulePage() {
   const { data: degrees } = useProjectDegrees(projectId ?? "");
   const { data: teachers } = useProjectTeachers(projectId ?? "");
   const { data: rooms } = useProjectRooms(projectId ?? "");
+
+  const { courseOptions, teacherOptions, roomOptions } = useScheduleOptions({
+    degrees,
+    teachers,
+    rooms,
+  });
 
   const [curso, setCurso] = useState("");
   const [anos, setAnos] = useState<string[]>([]);
@@ -178,31 +183,6 @@ export default function SchedulePage() {
     [turnoTurmaGroups],
   );
 
-  const teacherOptions = useMemo(
-    () =>
-      (teachers ?? [])
-        .slice()
-        .sort((a, b) => a.acronym.localeCompare(b.acronym))
-        .map((teacher) => ({
-          id: teacher.id,
-          label: `${teacher.acronym} - ${teacher.name}`,
-        })),
-    [teachers],
-  );
-
-  const roomOptions = useMemo(
-    () =>
-      (rooms ?? [])
-        .slice()
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((room) => ({
-          id: room.id,
-          label: room.name,
-          type: room.type ?? "",
-        })),
-    [rooms],
-  );
-
   const turmaShifts = useMemo(
     () =>
       Object.fromEntries(selectedYearClasses.map((classItem) => [classItem.code, classItem.shift])),
@@ -311,30 +291,6 @@ export default function SchedulePage() {
 
     return blockEvents;
   }, [activeWeekBlocks, effectiveTurmas, effectiveTurnos, effectiveUcs, effectiveDias]);
-
-  const courseOptions = useMemo(() => {
-    const degreeOptions = (degrees ?? [])
-      .slice()
-      .sort((a, b) => a.acronym.localeCompare(b.acronym))
-      .map((degree) => ({
-        value: degree.acronym,
-        label: degree.acronym,
-        description: degree.name,
-      }));
-
-    const groupedByLabel = new Map<string, typeof degreeOptions>();
-
-    for (const option of degreeOptions) {
-      const groupLabel = getCourseGroupLabel(option.description ?? option.label);
-      const current = groupedByLabel.get(groupLabel) ?? [];
-      groupedByLabel.set(groupLabel, [...current, option]);
-    }
-
-    return COURSE_GROUPS.map((label) => ({
-      label,
-      options: groupedByLabel.get(label) ?? [],
-    })).filter((group) => group.options.length > 0);
-  }, [degrees]);
 
   const yearOptions = useMemo<DropdownOption[]>(
     () =>
