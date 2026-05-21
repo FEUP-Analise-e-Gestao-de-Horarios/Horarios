@@ -6,10 +6,10 @@ dependencies = [
     "bleach==6.3.0",
     "bs4==0.0.2",
     "daphne==4.2.1",
-    "django==6.0.4",
+    "django==6.0.5",
     "matplotlib==3.10.9",
     "networkx==3.6.1",
-    "pydantic==2.13.3",
+    "pydantic==2.13.4",
     "readerwriterlock==1.0.9",
     "requests==2.33.1",
     "six==1.17.0",
@@ -48,6 +48,12 @@ ignore = [
     "E501",   # line too long — handled by the formatter
     "SIM108", # ternary operator — not always more readable
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# Django split-settings: dev.py / prod.py intentionally star-import from base.py
+"src/config/settings/*.py" = ["F403", "F405"]
+# Django-generated migrations: `dependencies` / `operations` are framework-defined
+"src/**/migrations/*.py" = ["RUF012"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["src"]

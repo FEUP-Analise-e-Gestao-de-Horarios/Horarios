@@ -8,8 +8,8 @@ from django.views import View
 from src.core.decorators import require_auth
 from src.core.errors import ApiError, ErrorResponse, ProjectNotFoundResponse
 from src.core.schemas import SuccessResponse
+from src.core.validation import validate_request_body
 from src.ingestion.manager import IngestionManager
-from src.parser.utils import validate_request_body
 from src.projects.models import Project
 from src.projects.services.project_db import create_project_db, delete_project_db
 from src.projects.views.schemas.project import (

@@ -3,10 +3,10 @@ from pathlib import Path
 
 # ── Paths ────────────────────────────────────────────────────────────────────
 # backend/src/config/settings/base.py → resolve each level explicitly
-SRC_DIR     = Path(__file__).resolve().parent.parent.parent   # backend/src/
-BACKEND_DIR = SRC_DIR.parent                                  # backend/
-ROOT_DIR    = BACKEND_DIR.parent                              # project root
-DB_DIR      = ROOT_DIR / "databases"
+SRC_DIR = Path(__file__).resolve().parent.parent.parent  # backend/src/
+BACKEND_DIR = SRC_DIR.parent  # backend/
+ROOT_DIR = BACKEND_DIR.parent  # project root
+DB_DIR = ROOT_DIR / "databases"
 PROJECTS_DB_PATH = DB_DIR / "projects"
 
 
@@ -29,11 +29,7 @@ INSTALLED_APPS = [
     "src.core",
     "src.users",
     "src.login",
-    "src.getHorariosFromDB",
     "src.projects",
-    "src.parser",
-    "src.FeupScheduleEditor",
-    "src.FeupScheduleEditor.templatetags.my_filters",
 ]
 
 MIDDLEWARE = [
@@ -107,8 +103,8 @@ STATICFILES_DIRS = [SRC_DIR / "static"]
 
 
 # ── Email ─────────────────────────────────────────────────────────────────────
-EMAIL_HOST          = os.environ.get("EMAIL_HOST", "smtp.gmail.com")
-EMAIL_HOST_USER     = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
-EMAIL_PORT          = int(os.environ.get("EMAIL_PORT", "587"))
-EMAIL_USE_TLS       = os.environ.get("EMAIL_USE_TLS", "True") == "True"
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True") == "True"

@@ -9,17 +9,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - uses: astral-sh/setup-uv@v7
-      - run: uvx pre-commit run ruff --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
+      - run: uvx pre-commit run ruff --all-files
 
   backend-format:
     name: "Format"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - uses: astral-sh/setup-uv@v7
-      - run: uvx pre-commit run ruff-format --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
+      - run: uvx pre-commit run ruff-format --all-files
