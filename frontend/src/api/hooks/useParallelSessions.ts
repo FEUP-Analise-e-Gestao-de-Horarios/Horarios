@@ -65,6 +65,7 @@ export interface UseParallelSessionsReturn {
 
   loadingCandidates: boolean;
   candidatesError: string | null;
+  parallelCandidates: ParallelCandidate[];
   filteredCandidates: ParallelCandidate[];
   candidatesBySubject: Map<string, DisplayCandidate[]>;
   groupsBySubject: Map<string, EnrichedGroup[]>;
@@ -629,6 +630,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     yearsWithCandidates,
     loadingCandidates,
     candidatesError,
+    parallelCandidates,
     filteredCandidates,
     candidatesBySubject,
     groupsBySubject,

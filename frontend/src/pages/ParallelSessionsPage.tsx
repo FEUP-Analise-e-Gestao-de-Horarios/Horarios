@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { useParallelSessions } from "@/api/hooks/useParallelSessions";
 import type { DisplayCandidate } from "@/types/parallelSessions";
 
@@ -65,6 +66,63 @@ function CandidatesLoadingSkeleton() {
       {[1, 2, 3].map((i) => (
         <div key={i} className="h-12 rounded-xl bg-[#e8e8e8] animate-pulse" />
       ))}
+    </div>
+  );
+}
+
+function OverflowFadeScroll({
+  children,
+  className,
+  duration = 1.4,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  duration?: number;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [overflow, setOverflow] = useState(0);
+  const [hovered, setHovered] = useState(false);
+
+  useEffect(() => {
+    const measure = () => {
+      if (!containerRef.current || !innerRef.current) return;
+      setOverflow(Math.max(0, innerRef.current.scrollWidth - containerRef.current.clientWidth));
+    };
+    measure();
+    const obs = new ResizeObserver(measure);
+    if (containerRef.current) obs.observe(containerRef.current);
+    if (innerRef.current) obs.observe(innerRef.current);
+    return () => obs.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      className={`relative overflow-hidden w-full ${className ?? ""}`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <div
+        ref={innerRef}
+        className="flex items-center gap-1 w-max"
+        style={{
+          transform: hovered && overflow > 0 ? `translateX(-${overflow}px)` : "translateX(0)",
+          transition: `transform ${duration}s linear`,
+        }}
+      >
+        {children}
+      </div>
+      {overflow > 0 && (
+        <div
+          className="absolute right-0 top-0 bottom-0 w-12 pointer-events-none"
+          style={{
+            background: "linear-gradient(to left, white, transparent)",
+            opacity: hovered ? 0 : 1,
+            transition: "opacity 0.3s ease",
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -142,7 +200,7 @@ export default function ParallelClassesPage() {
         <td className="px-3 py-3 align-top font-bold text-[#333] tabular-nums whitespace-nowrap">
           {candidate.session_start_time != null ? formatTime(candidate.session_start_time) : "—"}
         </td>
-        <td className="px-4 py-3">
+        <td className="px-4 py-3 overflow-hidden">
           <div className="flex flex-col gap-1.5">
             {sessions.map((session) => {
               const checked = pendingSelection.has(session.original_block_id);
@@ -150,27 +208,24 @@ export default function ParallelClassesPage() {
               const typeStyle = typeLabel
                 ? (SESSION_TYPE_CONFIG[typeLabel] ?? SESSION_TYPE_DEFAULT)
                 : null;
-              const pills = (
-                <div className="flex items-center gap-1">
-                  {typeLabel && typeStyle && (
-                    <span
-                      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${typeStyle.bg} ${typeStyle.text}`}
-                    >
-                      {typeLabel}
-                    </span>
-                  )}
-                  {session.class_codes.map((code: string) => (
-                    <span
-                      key={`${session.original_block_id}-${code}`}
-                      className={`rounded px-2 py-0.5 text-[12px] font-semibold transition-colors ${
-                        checked ? "bg-[#ffc107] text-[#222]" : "bg-[#f0f0f0] text-[#666]"
-                      }`}
-                    >
-                      {code}
-                    </span>
-                  ))}
-                </div>
-              );
+              const typeSpan =
+                typeLabel && typeStyle ? (
+                  <span
+                    className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded ${typeStyle.bg} ${typeStyle.text}`}
+                  >
+                    {typeLabel}
+                  </span>
+                ) : null;
+              const codePills = session.class_codes.map((code: string) => (
+                <span
+                  key={`${session.original_block_id}-${code}`}
+                  className={`rounded px-2 py-0.5 text-[12px] font-semibold transition-colors ${
+                    checked ? "bg-[#ffc107] text-[#222]" : "bg-[#f0f0f0] text-[#666]"
+                  }`}
+                >
+                  {code}
+                </span>
+              ));
               return sessions.length > 1 ? (
                 <label
                   key={session.original_block_id}
@@ -182,10 +237,18 @@ export default function ParallelClassesPage() {
                     onChange={() => handleSessionPendingToggle(session.original_block_id)}
                     className="w-3.5 h-3.5 accent-[#ffc107] cursor-pointer shrink-0"
                   />
-                  {pills}
+                  <div className="flex items-center gap-1 flex-1 min-w-0">
+                    {typeSpan}
+                    <OverflowFadeScroll className="flex-1 min-w-0" duration={0.5}>
+                      {codePills}
+                    </OverflowFadeScroll>
+                  </div>
                 </label>
               ) : (
-                <div key={session.original_block_id}>{pills}</div>
+                <div key={session.original_block_id} className="flex items-center gap-1">
+                  {typeSpan}
+                  <OverflowFadeScroll className="flex-1 min-w-0">{codePills}</OverflowFadeScroll>
+                </div>
               );
             })}
             {sessions.length > 1 && (
@@ -327,7 +390,9 @@ export default function ParallelClassesPage() {
           <div className="h-full max-w-6xl mx-auto px-6 pt-6 flex gap-6">
             {/* Left column: Por selecionar */}
             <div className="flex-1 min-w-0 flex flex-col min-h-0">
-              <h2 className="font-bold text-[#333] text-base mb-3 shrink-0">Por selecionar</h2>
+              <div className="flex items-center justify-between mb-3 shrink-0">
+                <h2 className="font-bold text-[#333] text-base">Por selecionar</h2>
+              </div>
               <div className="flex-1 overflow-y-auto pb-6 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300/60">
                 {loadingCandidates ? (
                   <CandidatesLoadingSkeleton />
@@ -363,8 +428,8 @@ export default function ParallelClassesPage() {
                             <div className="px-4 py-2.5 bg-[#fafafa] border-b border-[#e8e8e8]">
                               <p className="font-semibold text-[#222] text-sm">{subjectName}</p>
                             </div>
-                            <div className="overflow-x-auto [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300/60">
-                              <table className="min-w-full text-sm border-collapse">
+                            <div>
+                              <table className="w-full text-sm border-collapse table-fixed">
                                 <thead>
                                   <tr className="bg-white border-b border-[#e8e8e8]">
                                     <th className="text-left px-3 py-2 text-[11px] font-bold tracking-widest uppercase text-[#999] w-[52px]">
@@ -440,9 +505,9 @@ export default function ParallelClassesPage() {
                               return (
                                 <div
                                   key={group.id}
-                                  className="overflow-hidden rounded-xl border border-[#e8e8e8] shadow-sm bg-white"
+                                  className="overflow-hidden rounded-xl shadow-sm bg-white border border-[#e8e8e8]"
                                 >
-                                  <div className="px-3 py-1.5 bg-[#1e2028] flex items-center justify-between">
+                                  <div className="px-3 py-1.5 flex items-center justify-between bg-[#1e2028]">
                                     <div className="flex items-center gap-2">
                                       <span
                                         className={`text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded ${day.bg} ${day.text}`}
@@ -466,29 +531,31 @@ export default function ParallelClassesPage() {
                                       ×
                                     </button>
                                   </div>
-                                  <div className="px-3 py-2 flex flex-col gap-1 overflow-x-auto [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300/60">
+                                  <div className="px-3 py-2 flex flex-col gap-1">
                                     {sessions.map((meta, i) => {
                                       const typeLabel = meta.session_type ?? null;
                                       const typeStyle = typeLabel
                                         ? (SESSION_TYPE_CONFIG[typeLabel] ?? SESSION_TYPE_DEFAULT)
                                         : null;
                                       return (
-                                        <div key={i} className="flex items-center gap-1 w-max">
+                                        <div key={i} className="flex items-center gap-1">
                                           {typeLabel && typeStyle && (
                                             <span
-                                              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${typeStyle.bg} ${typeStyle.text}`}
+                                              className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded ${typeStyle.bg} ${typeStyle.text}`}
                                             >
                                               {typeLabel}
                                             </span>
                                           )}
-                                          {meta.class_codes.map((code: string) => (
-                                            <span
-                                              key={`${group.id}-${i}-${code}`}
-                                              className="rounded px-1.5 py-0.5 text-[11px] font-semibold bg-[#ffc107] text-[#222]"
-                                            >
-                                              {code}
-                                            </span>
-                                          ))}
+                                          <OverflowFadeScroll className="flex-1 min-w-0">
+                                            {meta.class_codes.map((code: string) => (
+                                              <span
+                                                key={`${group.id}-${i}-${code}`}
+                                                className="rounded px-1.5 py-0.5 text-[11px] font-semibold bg-[#ffc107] text-[#222]"
+                                              >
+                                                {code}
+                                              </span>
+                                            ))}
+                                          </OverflowFadeScroll>
                                         </div>
                                       );
                                     })}
