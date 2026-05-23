@@ -51,7 +51,17 @@ class ExportGraph:
             "room_ids": tuple(self.normalize_id(room.id) for room in db_session.rooms),
             "rooms": [room.name for room in db_session.rooms],
             "teacher_ids": tuple(self.normalize_id(teacher.id) for teacher in db_session.teachers),
-            "teachers": [teacher.number for teacher in db_session.teachers],
+            "teachers": tuple(
+                {"number": teacher.number, "name": teacher.name, "acronym": teacher.acronym}
+                for teacher in db_session.teachers
+            ),
+            "subjects": tuple(
+                {
+                    "name": session_class_subject.subject.name,
+                    "code": session_class_subject.subject.code,
+                }
+                for session_class_subject in db_session.session_class_subjects
+            ),
             "class_ids": tuple(
                 sorted(
                     {
