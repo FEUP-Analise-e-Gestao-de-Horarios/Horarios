@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { queryKeys } from "@/api/queryKeys";
 import type { Project } from "@/types/project";
+import type { ApiResponse } from "@/types/api";
 import type {
   ClassDetail,
   DegreeDetail,
@@ -17,6 +18,7 @@ import type {
   TeacherStats,
   YearDetail,
 } from "@/types/dashboard";
+import type { ProjectExportPayload } from "@/types/exporter";
 
 const POLL_INTERVAL = 2000;
 
@@ -42,6 +44,21 @@ export function useProjectStats(projectId: string, refetchInterval: number | fal
     queryFn: () => api.getData<ProjectStats>(`/api/projects/${projectId}/stats`),
     enabled: !!projectId,
     refetchInterval,
+  });
+}
+
+export function useProjectExport(projectId: string) {
+  return useQuery({
+    queryKey: queryKeys.projects.export(projectId),
+    queryFn: async (): Promise<ProjectExportPayload> => {
+      const response = await api.post<ApiResponse<ProjectExportPayload>>(
+        `/api/projects/${projectId}/export`,
+        {},
+      );
+      return response.data;
+    },
+    enabled: !!projectId,
+    staleTime: 0,
   });
 }
 

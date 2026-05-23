@@ -18,6 +18,10 @@ export interface ExportAddedRemovedRecords<T = ExportJsonValue> {
   removed: T[];
 }
 
+export interface ExportSessionRecord {
+  id: string;
+}
+
 export interface ExportRoomRelationChange {
   room_id: string;
   room: string;
@@ -58,24 +62,16 @@ export interface ExportSessionSnapshot {
   duration: number;
   weekday: Weekday;
   week: string;
-  rooms: ExportRoomSnapshot[];
+  rooms: string[];
   teachers: ExportTeacherSnapshot[];
-  classes: ExportClassSnapshot[];
+  classes: string[];
   subjects: ExportSubjectsSnapshot[];
-}
-
-export interface ExportRoomSnapshot {
-  name: string;
 }
 
 export interface ExportTeacherSnapshot {
   number: number;
   name: string;
   acronym: string;
-}
-
-export interface ExportClassSnapshot {
-  code: string;
 }
 
 export interface ExportSubjectsSnapshot {
@@ -96,6 +92,36 @@ export interface ExportModificationStep {
 
 export type ExportModificationSteps = ExportModificationStep[];
 
-export interface ExportModificationStepsPayload {
+export interface ExportConflictBase {
+  week: string;
+  weekday: Weekday;
+  start_time: number;
+  duration: number;
+  collisions: number;
+  session_ids: string[];
+}
+
+export interface ExportRoomConflict extends ExportConflictBase {
+  room_id: string;
+  room_name: string;
+}
+
+export interface ExportTeacherConflict extends ExportConflictBase {
+  teacher_id: string;
+  teacher_number: number;
+  teacher_acronym: string;
+  teacher_name: string;
+}
+
+export interface ExportClassConflict extends ExportConflictBase {
+  class_id: string;
+  class_code: string;
+}
+
+export interface ProjectExportPayload {
+  added_removed_sessions: ExportAddedRemovedRecords<ExportSessionRecord>;
+  rooms_conflicts: ExportRoomConflict[];
+  teacher_conflicts: ExportTeacherConflict[];
+  classes_conflicts: ExportClassConflict[];
   modification_steps: ExportModificationSteps;
 }

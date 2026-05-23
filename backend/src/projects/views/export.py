@@ -58,7 +58,6 @@ class ProjectExportView(View):
             alias = session_dao.attach_db(initial_db(project_id))
             data: dict[str, Any] = {}
             modifications = session_dao.get_changes_only(alias)
-            data.update({"modified_sessions": modifications})
             data.update(
                 {"added_removed_sessions": session_dao.get_added_removed_records(alias)},
             )
