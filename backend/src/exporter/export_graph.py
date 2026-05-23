@@ -58,6 +58,7 @@ class ExportGraph:
             "subjects": tuple(
                 {
                     "name": session_class_subject.subject.name,
+                    "acronym": session_class_subject.subject.acronym,
                     "code": session_class_subject.subject.code,
                 }
                 for session_class_subject in db_session.session_class_subjects

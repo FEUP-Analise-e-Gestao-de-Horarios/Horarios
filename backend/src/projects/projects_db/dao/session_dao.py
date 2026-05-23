@@ -570,11 +570,23 @@ class SessionDAO(BaseDAO[Session]):
         }
 
     @staticmethod
-    def _get_related_labels(dao: BaseDAO[Any], ids: set[Any]) -> dict[str, str]:
+    def _normalize_related_key(value: Any) -> str:
+        return str(value).replace("-", "")
+
+    @classmethod
+    def _get_related_records(
+        cls,
+        dao: BaseDAO[Any],
+        ids: set[Any],
+        serializer,
+    ) -> dict[str, dict[str, Any]]:
         if not ids:
             return {}
 
-        return {str(model.id).replace("-", ""): str(model) for model in dao.get_multiple(list(ids))}
+        return {
+            cls._normalize_related_key(model.id): serializer(model)
+            for model in dao.get_multiple(list(ids))
+        }
 
     def _merge_named_relation_changes(
         self,
@@ -583,10 +595,9 @@ class SessionDAO(BaseDAO[Session]):
         common_session_ids: set[str],
         *,
         field_name: str,
-        relation_name: str,
         foreign_key_name: str,
         relation_changes: AddedRemovedRecords,
-        labels_by_id: dict[str, str],
+        records_by_id: dict[str, dict[str, Any]],
     ) -> None:
         for change_type, rows in relation_changes.items():
             for row in rows:
@@ -605,13 +616,14 @@ class SessionDAO(BaseDAO[Session]):
 
                 relation_bucket = cast(AddedRemovedRecords, session_changes[field_name])
                 relation_id = row[foreign_key_name]
+                relation_data = records_by_id.get(
+                    self._normalize_related_key(relation_id),
+                    {},
+                )
                 relation_bucket[change_type].append(
                     {
                         foreign_key_name: relation_id,
-                        relation_name: labels_by_id.get(
-                            str(relation_id),
-                            str(relation_id),
-                        ),
+                        **relation_data,
                     },
                 )
 
@@ -632,10 +644,18 @@ class SessionDAO(BaseDAO[Session]):
             session_key_lookup,
             common_session_ids,
             field_name="rooms",
-            relation_name="room",
             foreign_key_name="room_id",
             relation_changes=room_changes,
-            labels_by_id=self._get_related_labels(RoomDAO(self.session), room_ids),
+            records_by_id=self._get_related_records(
+                RoomDAO(self.session),
+                room_ids,
+                lambda room: {
+                    "room_name": room.name,
+                    "room_type": room.type,
+                    "room_size": room.size,
+                    "room_seats": room.seats,
+                },
+            ),
         )
 
         teacher_changes = BaseDAO.get_added_removed_records(
@@ -650,12 +670,16 @@ class SessionDAO(BaseDAO[Session]):
             session_key_lookup,
             common_session_ids,
             field_name="teachers",
-            relation_name="teacher",
             foreign_key_name="teacher_id",
             relation_changes=teacher_changes,
-            labels_by_id=self._get_related_labels(
+            records_by_id=self._get_related_records(
                 TeacherDAO(self.session),
                 teacher_ids,
+                lambda teacher: {
+                    "teacher_number": teacher.number,
+                    "teacher_acronym": teacher.acronym,
+                    "teacher_name": teacher.name,
+                },
             ),
         )
 
@@ -667,8 +691,24 @@ class SessionDAO(BaseDAO[Session]):
         )
         class_ids = {row["class_id"] for rows in class_subject_changes.values() for row in rows}
         subject_ids = {row["subject_id"] for rows in class_subject_changes.values() for row in rows}
-        class_labels = self._get_related_labels(ClassDAO(self.session), class_ids)
-        subject_labels = self._get_related_labels(SubjectDAO(self.session), subject_ids)
+        class_records = self._get_related_records(
+            ClassDAO(self.session),
+            class_ids,
+            lambda class_: {
+                "class_code": class_.code,
+                "class_shift": class_.shift,
+            },
+        )
+        subject_records = self._get_related_records(
+            SubjectDAO(self.session),
+            subject_ids,
+            lambda subject: {
+                "subject_number": subject.number,
+                "subject_code": subject.code,
+                "subject_acronym": subject.acronym,
+                "subject_name": subject.name,
+            },
+        )
 
         # Keep class/subject pairs together so a subject swap for one class is not
         # misreported as an unrelated class change.
@@ -696,9 +736,15 @@ class SessionDAO(BaseDAO[Session]):
                 relation_bucket[change_type].append(
                     {
                         "class_id": class_id,
-                        "class": class_labels.get(str(class_id), str(class_id)),
+                        **class_records.get(
+                            self._normalize_related_key(class_id),
+                            {},
+                        ),
                         "subject_id": subject_id,
-                        "subject": subject_labels.get(str(subject_id), str(subject_id)),
+                        **subject_records.get(
+                            self._normalize_related_key(subject_id),
+                            {},
+                        ),
                     },
                 )
 

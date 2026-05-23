@@ -1,4 +1,6 @@
+import { useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { AlertTriangle, ArrowLeftRight, CalendarClock, RefreshCw, Shuffle } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { useProject, useProjectExport } from "@/api/hooks/useDashboard";
@@ -26,10 +28,51 @@ const WEEKDAY_LABELS: Record<Weekday, string> = {
   saturday: "Sábado",
 };
 
+const FIELD_LABELS: Record<string, string> = {
+  start_time: "Hora",
+  duration: "Duração",
+  weekday: "Dia",
+  week: "Semana",
+  type: "Tipo",
+  original_block_id: "Bloco original",
+  rooms: "Salas",
+  teachers: "Docentes",
+  class_subjects: "Turmas",
+  room_id: "ID da sala",
+  room_name: "Sala",
+  room_type: "Tipo de sala",
+  room_size: "Dimensão",
+  room_seats: "Lugares",
+  teacher_id: "ID do docente",
+  teacher_number: "Número",
+  teacher_acronym: "Sigla",
+  teacher_name: "Docente",
+  class_id: "ID da turma",
+  class_code: "Turma",
+  class_shift: "Turno",
+  subject_id: "ID da UC",
+  subject_number: "Número da UC",
+  subject_code: "Código da UC",
+  subject_acronym: "Sigla",
+  subject_name: "UC",
+  acronym: "Sigla",
+  name: "Nome",
+  code: "Código",
+};
+
+const HIDDEN_DETAIL_KEYS = new Set([
+  "id",
+  "room_id",
+  "teacher_id",
+  "class_id",
+  "subject_id",
+  "original_block_id",
+]);
+
 function formatTime(value: number): string {
   const hours = Math.floor(value / 100);
   const minutes = value % 100;
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}h`;
 }
 
 function formatDuration(slots: number): string {
@@ -48,6 +91,31 @@ function formatJsonValue(value: unknown): string {
   return JSON.stringify(value);
 }
 
+function cleanLegacyModelLabel(value: string): string {
+  const subjectMatch = value.match(/^Subject\('([^']+)'\s+-\s+'([^']+)'\)$/);
+  if (subjectMatch) return subjectMatch[2] ?? value;
+
+  const teacherMatch = value.match(/^Teacher\('([^']+)'\s+-\s+'([^']+)'\)$/);
+  if (teacherMatch) return teacherMatch[1] ?? value;
+
+  const roomMatch = value.match(/^Room\('([^']+)'\)$/);
+  if (roomMatch) return roomMatch[1] ?? value;
+
+  const classMatch = value.match(/^Class\(code='([^']+)'/);
+  if (classMatch) return classMatch[1] ?? value;
+
+  return value;
+}
+
+function formatFieldValue(field: string, value: unknown): string {
+  if (field === "start_time" && typeof value === "number") return formatTime(value);
+  if (field === "duration" && typeof value === "number") return formatDuration(value);
+  if (field === "weekday" && typeof value === "string" && value in WEEKDAY_LABELS) {
+    return WEEKDAY_LABELS[value as Weekday];
+  }
+  return formatJsonValue(value);
+}
+
 function isColumnChange(change: ExportFieldModification): change is { old: unknown; new: unknown } {
   return typeof change === "object" && change !== null && "old" in change && "new" in change;
 }
@@ -59,16 +127,264 @@ function isRelationChange(change: ExportFieldModification): change is {
   return typeof change === "object" && change !== null && "added" in change && "removed" in change;
 }
 
-function relationLabel(item: unknown): string {
-  if (typeof item !== "object" || item === null) return formatJsonValue(item);
+function fieldLabel(name: string): string {
+  return FIELD_LABELS[name] ?? name.replaceAll("_", " ");
+}
+
+function preferredRecordLabel(record: Record<string, ExportJsonValue>): string {
+  if (record.class_code && (record.subject_acronym || record.subject_name || record.subject_code)) {
+    return `${formatJsonValue(record.class_code)} · ${formatJsonValue(
+      record.subject_acronym ?? record.subject_name ?? record.subject_code,
+    )}`;
+  }
+
+  const preferred =
+    record.acronym ??
+    record.subject_acronym ??
+    record.teacher_acronym ??
+    record.name ??
+    record.teacher_name ??
+    record.room_name ??
+    record.room ??
+    record.teacher ??
+    record.subject ??
+    record.class ??
+    record.class_code ??
+    record.code;
+
+  return cleanLegacyModelLabel(formatJsonValue(preferred ?? record));
+}
+
+function recordDetails(record: Record<string, ExportJsonValue>): string {
+  return Object.entries(record)
+    .filter(([key, value]) => !HIDDEN_DETAIL_KEYS.has(key) && value !== null && value !== undefined)
+    .map(([key, value]) => `${fieldLabel(key)}: ${cleanLegacyModelLabel(formatJsonValue(value))}`)
+    .join("\n");
+}
+
+function tooltipAddsInformation(label: string, content?: string): boolean {
+  if (!content) return false;
+  if (
+    content.includes("{") ||
+    content.includes("}") ||
+    content.includes("[") ||
+    content.includes("]")
+  ) {
+    return false;
+  }
+
+  const visible = cleanLegacyModelLabel(label).trim();
+  const lines = content
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (!lines.length) return false;
+  return lines.some((line) => {
+    const [, ...rest] = line.split(": ");
+    const value = cleanLegacyModelLabel(rest.join(": ") || line).trim();
+    return value && value !== visible;
+  });
+}
+
+function StyledTooltip({ content, children }: { content?: string; children: ReactNode }) {
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+
+  if (!content) return children;
+
+  function showTooltip(target: EventTarget | null) {
+    if (!(target instanceof HTMLElement)) return;
+    const rect = target.getBoundingClientRect();
+    setPosition({ x: rect.left + rect.width / 2, y: rect.top });
+  }
+
+  const lines = content.split("\n").filter(Boolean);
+
+  return (
+    <span
+      className="inline-flex max-w-full"
+      onMouseEnter={(event) => showTooltip(event.currentTarget)}
+      onMouseLeave={() => setPosition(null)}
+      onFocus={(event) => showTooltip(event.currentTarget)}
+      onBlur={() => setPosition(null)}
+    >
+      {children}
+      {position &&
+        createPortal(
+          <div
+            role="tooltip"
+            className="pointer-events-none fixed z-50 max-w-xs -translate-x-1/2 -translate-y-full rounded-md border border-[#2f3037] bg-[#1e2028] px-3 py-2 text-left text-xs leading-5 text-white shadow-[0_10px_30px_rgba(0,0,0,0.25)]"
+            style={{ left: position.x, top: position.y - 8 }}
+          >
+            {lines.map((line, index) => {
+              const [label, ...rest] = line.split(": ");
+              const value = rest.join(": ");
+
+              return (
+                <div key={`${line}-${index}`} className="grid grid-cols-[auto_1fr] gap-x-2">
+                  {value ? (
+                    <>
+                      <span className="font-semibold text-[#f1c9bc]">{label}:</span>
+                      <span className="break-words text-white">{value}</span>
+                    </>
+                  ) : (
+                    <span className="col-span-2 break-words text-white">{line}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>,
+          document.body,
+        )}
+    </span>
+  );
+}
+
+function relationRecord(item: unknown): { label: string; title?: string } {
+  if (typeof item !== "object" || item === null) {
+    const label = cleanLegacyModelLabel(formatJsonValue(item));
+    return { label };
+  }
   const record = item as Record<string, ExportJsonValue>;
-  return formatJsonValue(record.room ?? record.teacher ?? record.class ?? record.subject ?? item);
+  const label = preferredRecordLabel(record);
+  const title = recordDetails(record);
+  return { label, title: tooltipAddsInformation(label, title) ? title : undefined };
+}
+
+function EntityChip({ item }: { item: unknown }) {
+  const relation = relationRecord(item);
+
+  return (
+    <StyledTooltip content={relation.title}>
+      <span className="inline-flex max-w-full items-center rounded border border-[#d8d3cf] bg-white px-2 py-0.5 text-xs font-medium text-[#08060d]">
+        <span className="truncate">{relation.label}</span>
+      </span>
+    </StyledTooltip>
+  );
+}
+
+function uniqueByLabel<T>(items: T[], getLabel: (item: T) => string): T[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const label = getLabel(item);
+    if (seen.has(label)) return false;
+    seen.add(label);
+    return true;
+  });
+}
+
+function AttributeGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <span className="inline-flex min-w-0 flex-wrap items-center gap-1">
+      <span className="text-xs font-semibold uppercase tracking-wide text-[#08060d]">{label}:</span>
+      {children}
+    </span>
+  );
+}
+
+function TextValue({ label, value }: { label: string; value: string }) {
+  return (
+    <AttributeGroup label={label}>
+      <span className="text-sm text-[#6b6375]">{value}</span>
+    </AttributeGroup>
+  );
+}
+
+function relationChangeLabel(label: string, changeType: "added" | "removed"): string {
+  const labels: Record<string, Record<"added" | "removed", string>> = {
+    Turmas: { added: "Turmas adicionadas", removed: "Turmas removidas" },
+    Salas: { added: "Salas adicionadas", removed: "Salas removidas" },
+    Docentes: { added: "Docentes adicionados", removed: "Docentes removidos" },
+  };
+
+  return (
+    labels[label]?.[changeType] ??
+    `${label} ${changeType === "added" ? "adicionados" : "removidos"}`
+  );
 }
 
 function sessionTitle(session: ExportSessionSnapshot): string {
-  const subjects = session.subjects.map((subject) => subject.code || subject.name).join(", ");
-  const classes = session.classes.join(", ");
-  return [subjects, classes].filter(Boolean).join(" · ") || session.id;
+  const time = `${WEEKDAY_LABELS[session.weekday]} ${formatTime(session.start_time)}`;
+  const classes = uniqueByLabel(session.classes, (classCode) => classCode).join(", ");
+  return [classes, time].filter(Boolean).join(" · ") || time || "Sessão";
+}
+
+function normalizeId(value: string): string {
+  return value.replaceAll("-", "");
+}
+
+function anchorId(sessionId: string): string {
+  return `change-${normalizeId(sessionId)}`;
+}
+
+function shortId(value: string): string {
+  return value.length > 12 ? `${value.slice(0, 8)}…` : value;
+}
+
+interface DependencyTarget {
+  anchor: string;
+  label: string;
+}
+
+type DependencyLookup = Record<string, DependencyTarget>;
+
+function buildDependencyLookup(steps: ExportModificationStep[]): DependencyLookup {
+  const lookup: DependencyLookup = {};
+
+  for (const step of steps) {
+    for (const [sessionId, item] of Object.entries(step.sessions)) {
+      lookup[normalizeId(sessionId)] = {
+        anchor: anchorId(sessionId),
+        label: `${sessionTitle(item.session)} · ${WEEKDAY_LABELS[item.session.weekday]} ${formatTime(
+          item.session.start_time,
+        )}`,
+      };
+    }
+  }
+
+  return lookup;
+}
+
+function DependencyLinks({
+  dependencies,
+  lookup,
+  onDependencyClick,
+}: {
+  dependencies: string[];
+  lookup: DependencyLookup;
+  onDependencyClick: (anchor: string) => void;
+}) {
+  if (!dependencies.length) return null;
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+      <span className="font-semibold uppercase tracking-wide text-[#08060d]">Dependências:</span>
+      {dependencies.map((dependency) => {
+        const target = lookup[normalizeId(String(dependency))];
+        if (!target) {
+          return (
+            <span
+              key={dependency}
+              className="rounded border border-[#e5e4e7] bg-[#f9f7f4] px-2 py-0.5 text-[#6b6375]"
+            >
+              {shortId(String(dependency))}
+            </span>
+          );
+        }
+
+        return (
+          <a
+            key={dependency}
+            href={`#${target.anchor}`}
+            onClick={() => onDependencyClick(target.anchor)}
+            className="rounded border border-[#d8d3cf] bg-white px-2 py-0.5 font-medium text-[#8c2d19] hover:border-[#8c2d19] hover:bg-[#fff7f4]"
+          >
+            {target.label}
+          </a>
+        );
+      })}
+    </div>
+  );
 }
 
 function StatCard({
@@ -129,36 +445,28 @@ function ConflictRows<T extends ExportConflictBase>({
   if (!rows.length) return <EmptyState>Sem conflitos.</EmptyState>;
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-[#e5e4e7] text-left text-xs font-semibold uppercase tracking-wider text-[#08060d]">
-            <th className="px-4 py-2.5">Recurso</th>
-            <th className="px-4 py-2.5">Semana</th>
-            <th className="px-4 py-2.5">Dia</th>
-            <th className="px-4 py-2.5 text-right">Hora</th>
-            <th className="px-4 py-2.5 text-right">Duração</th>
-            <th className="px-4 py-2.5 text-right">Sessões</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, index) => (
-            <tr
-              key={`${getName(row)}-${row.week}-${row.weekday}-${row.start_time}-${index}`}
-              className="border-b border-[#e5e4e7] last:border-0"
-            >
-              <td className="px-4 py-3 font-medium text-[#08060d]">{getName(row)}</td>
-              <td className="px-4 py-3 text-[#6b6375]">{row.week}</td>
-              <td className="px-4 py-3 text-[#6b6375]">{WEEKDAY_LABELS[row.weekday]}</td>
-              <td className="px-4 py-3 text-right text-[#6b6375]">{formatTime(row.start_time)}</td>
-              <td className="px-4 py-3 text-right text-[#6b6375]">
-                {formatDuration(row.duration)}
-              </td>
-              <td className="px-4 py-3 text-right text-[#6b6375]">{row.session_ids.length}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="divide-y divide-[#e5e4e7]">
+      {rows.map((row, index) => (
+        <div
+          key={`${getName(row)}-${row.week}-${row.weekday}-${row.start_time}-${index}`}
+          className="px-4 py-3"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="min-w-0 break-words text-sm font-semibold text-[#08060d]">
+              {getName(row)}
+            </span>
+            <span className="rounded border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">
+              {row.session_ids.length} sessões
+            </span>
+          </div>
+          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[#6b6375]">
+            <span>{row.week}</span>
+            <span>{WEEKDAY_LABELS[row.weekday]}</span>
+            <span>{formatTime(row.start_time)}</span>
+            <span>{formatDuration(row.duration)}</span>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -199,25 +507,51 @@ function AddedRemovedSessions({ data }: { data: ProjectExportPayload["added_remo
 
 function ModificationChange({ name, change }: { name: string; change: ExportFieldModification }) {
   if (isColumnChange(change)) {
+    const oldValue = formatFieldValue(name, change.old);
+    const newValue = formatFieldValue(name, change.new);
+
     return (
       <div className="grid gap-2 rounded-md border border-[#e5e4e7] bg-[#f9f7f4] p-3 sm:grid-cols-[140px_1fr]">
-        <div className="text-xs font-bold uppercase tracking-wider text-[#08060d]">{name}</div>
+        <div className="text-xs font-bold uppercase tracking-wider text-[#08060d]">
+          {fieldLabel(name)}
+        </div>
         <div className="min-w-0 text-sm text-[#6b6375]">
-          <span className="line-through">{formatJsonValue(change.old)}</span>
+          <span className="line-through">{oldValue}</span>
           <span className="mx-2 text-[#08060d]">→</span>
-          <span className="font-medium text-[#08060d]">{formatJsonValue(change.new)}</span>
+          <span className="font-medium text-[#08060d]">{newValue}</span>
         </div>
       </div>
     );
   }
 
   if (isRelationChange(change)) {
+    const label = fieldLabel(name);
     return (
       <div className="grid gap-2 rounded-md border border-[#e5e4e7] bg-[#f9f7f4] p-3 sm:grid-cols-[140px_1fr]">
-        <div className="text-xs font-bold uppercase tracking-wider text-[#08060d]">{name}</div>
-        <div className="space-y-1 text-sm text-[#6b6375]">
-          {!!change.added.length && <p>+ {change.added.map(relationLabel).join(", ")}</p>}
-          {!!change.removed.length && <p>- {change.removed.map(relationLabel).join(", ")}</p>}
+        <div className="text-xs font-bold uppercase tracking-wider text-[#08060d]">{label}</div>
+        <div className="space-y-2 text-sm text-[#6b6375]">
+          {!!change.added.length && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs font-bold text-green-700">+</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-[#08060d]">
+                {relationChangeLabel(label, "added")}:
+              </span>
+              {change.added.map((item, index) => (
+                <EntityChip key={index} item={item} />
+              ))}
+            </div>
+          )}
+          {!!change.removed.length && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs font-bold text-red-700">-</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-[#08060d]">
+                {relationChangeLabel(label, "removed")}:
+              </span>
+              {change.removed.map((item, index) => (
+                <EntityChip key={index} item={item} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -227,21 +561,63 @@ function ModificationChange({ name, change }: { name: string; change: ExportFiel
 }
 
 function SessionSummary({ session }: { session: ExportSessionSnapshot }) {
+  const subjects = uniqueByLabel(session.subjects, (subject) => relationRecord(subject).label);
+  const classes = uniqueByLabel(session.classes, (classCode) => classCode);
+  const rooms = uniqueByLabel(session.rooms, (room) => room);
+  const teachers = uniqueByLabel(session.teachers, (teacher) => relationRecord(teacher).label);
+
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[#6b6375]">
       <span className="font-semibold text-[#08060d]">{sessionTitle(session)}</span>
-      <span>{WEEKDAY_LABELS[session.weekday]}</span>
-      <span>{formatTime(session.start_time)}</span>
-      <span>{formatDuration(session.duration)}</span>
-      {!!session.rooms.length && <span>{session.rooms.join(", ")}</span>}
-      {!!session.teachers.length && (
-        <span>{session.teachers.map((teacher) => teacher.acronym || teacher.name).join(", ")}</span>
+      {!!subjects.length && (
+        <AttributeGroup label="UCs">
+          {subjects.map((subject) => (
+            <EntityChip key={`${subject.code}-${subject.name}`} item={subject} />
+          ))}
+        </AttributeGroup>
+      )}
+      {!!classes.length && (
+        <AttributeGroup label="Turmas">
+          {classes.map((classCode) => (
+            <EntityChip key={classCode} item={classCode} />
+          ))}
+        </AttributeGroup>
+      )}
+      <TextValue label="Dia" value={WEEKDAY_LABELS[session.weekday]} />
+      <TextValue label="Hora" value={formatTime(session.start_time)} />
+      <TextValue label="Duração" value={formatDuration(session.duration)} />
+      <TextValue label="Semana" value={session.week} />
+      {!!rooms.length && (
+        <AttributeGroup label="Salas">
+          {rooms.map((room) => (
+            <EntityChip key={room} item={room} />
+          ))}
+        </AttributeGroup>
+      )}
+      {!!teachers.length && (
+        <AttributeGroup label="Docentes">
+          {teachers.map((teacher) => (
+            <EntityChip key={`${teacher.number}-${teacher.acronym}`} item={teacher} />
+          ))}
+        </AttributeGroup>
       )}
     </div>
   );
 }
 
-function ModificationStepCard({ step, index }: { step: ExportModificationStep; index: number }) {
+function ModificationStepCard({
+  step,
+  index,
+  dependencyLookup,
+  highlightedAnchor,
+  onDependencyClick,
+}: {
+  step: ExportModificationStep;
+  index: number;
+  dependencyLookup: DependencyLookup;
+  highlightedAnchor: string | null;
+  onDependencyClick: (anchor: string) => void;
+}) {
   const entries = Object.entries(step.sessions);
   const Icon = step.type === "exchange" ? Shuffle : ArrowLeftRight;
 
@@ -258,13 +634,21 @@ function ModificationStepCard({ step, index }: { step: ExportModificationStep; i
       </div>
       <div className="divide-y divide-[#e5e4e7]">
         {entries.map(([sessionId, item]) => (
-          <div key={sessionId} className="p-4">
+          <div
+            key={sessionId}
+            id={anchorId(sessionId)}
+            className={`scroll-mt-4 p-4 transition-colors duration-300 ${
+              highlightedAnchor === anchorId(sessionId)
+                ? "bg-amber-50 ring-2 ring-inset ring-amber-300"
+                : "bg-white"
+            }`}
+          >
             <SessionSummary session={item.session} />
-            {!!item.dependencies.length && (
-              <p className="mt-2 text-xs text-[#6b6375]">
-                Dependências: {item.dependencies.map(String).join(", ")}
-              </p>
-            )}
+            <DependencyLinks
+              dependencies={item.dependencies}
+              lookup={dependencyLookup}
+              onDependencyClick={onDependencyClick}
+            />
             <div className="mt-3 grid gap-2">
               {Object.entries(item.modifications).map(([name, change]) =>
                 change ? <ModificationChange key={name} name={name} change={change} /> : null,
@@ -278,6 +662,25 @@ function ModificationStepCard({ step, index }: { step: ExportModificationStep; i
 }
 
 function ExportResults({ data }: { data: ProjectExportPayload }) {
+  const [highlightedAnchor, setHighlightedAnchor] = useState<string | null>(null);
+  const highlightTimeoutRef = useRef<number | null>(null);
+  const dependencyLookup = useMemo(
+    () => buildDependencyLookup(data.modification_steps),
+    [data.modification_steps],
+  );
+  function handleDependencyClick(anchor: string) {
+    setHighlightedAnchor(anchor);
+
+    if (highlightTimeoutRef.current !== null) {
+      window.clearTimeout(highlightTimeoutRef.current);
+    }
+
+    highlightTimeoutRef.current = window.setTimeout(() => {
+      setHighlightedAnchor(null);
+      highlightTimeoutRef.current = null;
+    }, 2400);
+  }
+
   const totalConflicts =
     data.rooms_conflicts.length + data.teacher_conflicts.length + data.classes_conflicts.length;
   const changedSessions = data.modification_steps.reduce(
@@ -299,8 +702,12 @@ function ExportResults({ data }: { data: ProjectExportPayload }) {
         />
       </div>
 
-      <Section title="Conflitos">
-        <div className="grid gap-5 p-5 xl:grid-cols-3">
+      <details className="bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+        <summary className="flex cursor-pointer items-center justify-between gap-4 px-5 py-3 text-sm font-bold uppercase tracking-wider text-[#08060d]">
+          <span>Conflitos</span>
+          <span className="text-xs text-[#6b6375]">{totalConflicts}</span>
+        </summary>
+        <div className="grid gap-5 border-t border-[#e5e4e7] p-5 xl:grid-cols-3">
           <div className="rounded-lg border border-[#e5e4e7] overflow-hidden">
             <div className="border-b border-[#e5e4e7] px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#08060d]">
               Salas · {data.rooms_conflicts.length}
@@ -329,7 +736,7 @@ function ExportResults({ data }: { data: ProjectExportPayload }) {
             />
           </div>
         </div>
-      </Section>
+      </details>
 
       <Section title="Sessões">
         <AddedRemovedSessions data={data.added_removed_sessions} />
@@ -339,7 +746,14 @@ function ExportResults({ data }: { data: ProjectExportPayload }) {
         {data.modification_steps.length ? (
           <div className="grid gap-4 p-5">
             {data.modification_steps.map((step, index) => (
-              <ModificationStepCard key={index} step={step} index={index} />
+              <ModificationStepCard
+                key={index}
+                step={step}
+                index={index}
+                dependencyLookup={dependencyLookup}
+                highlightedAnchor={highlightedAnchor}
+                onDependencyClick={handleDependencyClick}
+              />
             ))}
           </div>
         ) : (

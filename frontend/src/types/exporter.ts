@@ -24,19 +24,28 @@ export interface ExportSessionRecord {
 
 export interface ExportRoomRelationChange {
   room_id: string;
-  room: string;
+  room_name?: string;
+  room_type?: string | null;
+  room_size?: string | null;
+  room_seats?: string | null;
 }
 
 export interface ExportTeacherRelationChange {
   teacher_id: string;
-  teacher: string;
+  teacher_number?: number;
+  teacher_acronym?: string;
+  teacher_name?: string;
 }
 
 export interface ExportClassSubjectRelationChange {
   class_id: string;
-  class: string;
+  class_code?: string;
+  class_shift?: number;
   subject_id: string;
-  subject: string;
+  subject_number?: number;
+  subject_code?: string;
+  subject_acronym?: string;
+  subject_name?: string;
 }
 
 export type ExportFieldModification =
@@ -76,6 +85,7 @@ export interface ExportTeacherSnapshot {
 
 export interface ExportSubjectsSnapshot {
   name: string;
+  acronym?: string;
   code: string;
 }
 
