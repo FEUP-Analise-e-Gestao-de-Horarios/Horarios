@@ -4,9 +4,9 @@ from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
+from src.projects.projects_db.dao.parallel_block_candidate_dao import _candidate_blocks_table
 from src.projects.projects_db.models.class_ import Class
 from src.projects.projects_db.models.degree import Degree
-from src.projects.projects_db.models.parallel_block_candidate import ParallelBlockCandidate
 from src.projects.projects_db.models.session import Session as SessionModel
 from src.projects.projects_db.models.session_class_subject import SessionClassSubject
 from src.projects.projects_db.models.subject import Subject
@@ -149,15 +149,22 @@ class DegreeDAO(BaseDAO[Degree]):
 
     def get_all_with_parallel_block_candidates(self) -> list[Degree]:
         """Return all degrees that have at least one parallel block candidate."""
+        candidate_blocks = _candidate_blocks_table()
+
+        candidate_block_ids_subq = (
+            select(candidate_blocks.c.original_block_id).select_from(candidate_blocks).subquery()
+        )
+
         stmt = (
             select(Degree)
             .join(Year, Year.degree_id == Degree.id)
             .join(Subject, Subject.year_id == Year.id)
             .join(SessionClassSubject, SessionClassSubject.subject_id == Subject.id)
             .join(SessionModel, SessionModel.id == SessionClassSubject.session_id)
-            .join(
-                ParallelBlockCandidate,
-                ParallelBlockCandidate.original_block_id == SessionModel.original_block_id,
+            .where(
+                SessionModel.original_block_id.in_(
+                    select(candidate_block_ids_subq.c.original_block_id),
+                ),
             )
             .distinct()
         )

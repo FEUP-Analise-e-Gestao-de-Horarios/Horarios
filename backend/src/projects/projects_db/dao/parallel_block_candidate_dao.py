@@ -1,5 +1,6 @@
+import uuid
 from collections import defaultdict
-from uuid import UUID
+from uuid import NAMESPACE_OID, UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session as DBSession
@@ -12,7 +13,6 @@ from src.projects.projects_db.models import (
     Subject,
     Year,
 )
-from src.projects.projects_db.models.parallel_block_candidate import ParallelBlockCandidate
 from src.projects.projects_db.schemas.parallel_candidates import (
     ParallelBlockCandidateDetailResponse,
     ParallelBlockCandidateFilters,
@@ -20,13 +20,70 @@ from src.projects.projects_db.schemas.parallel_candidates import (
 )
 
 
-class ParallelBlockCandidateDAO:
-    """Data access object for ParallelBlockCandidate records.
+def _candidate_blocks_table():
+    """Return a table that identifies all original_block_ids belonging to a parallel candidate group.
 
-    Not a ``BaseDAO`` subclass: ``ParallelBlockCandidate`` has a composite
-    primary key, and ``BaseDAO.get`` / ``delete_by_id`` assume a single-UUID
-    PK. None of the inherited helpers fit, so this DAO operates on the
-    SQLAlchemy ``Session`` directly.
+    Blocks with at least two distinct members in a group are treated as candidates.
+    """
+    session_subjects = (
+        select(
+            Session.original_block_id,
+            func.min(Session.week).over(partition_by=Session.original_block_id).label("first_week"),
+            Session.weekday,
+            Session.start_time,
+            SessionClassSubject.subject_id,
+        )
+        .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
+        .distinct()
+        .cte("session_subjects")
+    )
+
+    sized = select(
+        session_subjects.c.original_block_id,
+        session_subjects.c.first_week,
+        session_subjects.c.weekday.label("group_weekday"),
+        session_subjects.c.start_time.label("group_start_time"),
+        session_subjects.c.subject_id.label("group_subject_id"),
+        func.count()
+        .over(
+            partition_by=[
+                session_subjects.c.first_week,
+                session_subjects.c.weekday,
+                session_subjects.c.start_time,
+                session_subjects.c.subject_id,
+            ],
+        )
+        .label("group_size"),
+    ).subquery("sized")
+
+    return (
+        select(
+            sized.c.original_block_id,
+            sized.c.first_week,
+            sized.c.group_weekday,
+            sized.c.group_start_time,
+            sized.c.group_subject_id,
+        )
+        .where(sized.c.group_size > 1)
+        .cte("candidate_blocks")
+    )
+
+
+def _group_uuid(
+    first_week: object,
+    weekday: object,
+    start_time: object,
+    subject_id: object,
+) -> UUID:
+    """Deterministic UUID for a candidate group derived from its discriminating attributes."""
+    return uuid.uuid5(NAMESPACE_OID, f"{first_week}:{weekday}:{start_time}:{subject_id}")
+
+
+class ParallelBlockCandidateDAO:
+    """Data access object for detected parallel block candidates.
+
+    Parallel candidates are computed on every request.
+    Not a ``BaseDAO`` subclass: there is no persistent model to operate on.
     """
 
     def __init__(self, session: DBSession) -> None:
@@ -38,22 +95,43 @@ class ParallelBlockCandidateDAO:
 
     def get_all_groups(self) -> dict[UUID, set[UUID]]:
         """Return all candidate groups, keyed by ``candidate_group_id``."""
-        rows = self.session.scalars(
-            select(ParallelBlockCandidate).order_by(ParallelBlockCandidate.candidate_group_id),
-        ).all()
+        candidate_blocks = _candidate_blocks_table()
 
-        groups: defaultdict[UUID, set[UUID]] = defaultdict(set)
+        stmt = (
+            select(
+                candidate_blocks.c.original_block_id,
+                candidate_blocks.c.first_week,
+                candidate_blocks.c.group_weekday,
+                candidate_blocks.c.group_start_time,
+                candidate_blocks.c.group_subject_id,
+            )
+            .select_from(candidate_blocks)
+            .order_by(
+                candidate_blocks.c.first_week,
+                candidate_blocks.c.group_weekday,
+                candidate_blocks.c.group_start_time,
+                candidate_blocks.c.group_subject_id,
+                candidate_blocks.c.original_block_id,
+            )
+        )
+
+        rows = self.session.execute(stmt).all()
+
+        groups: defaultdict[tuple, set[UUID]] = defaultdict(set)
         for row in rows:
-            groups[row.candidate_group_id].add(row.original_block_id)
-        return groups
+            key = (row.first_week, row.group_weekday, row.group_start_time, row.group_subject_id)
+            groups[key].add(row.original_block_id)
+
+        return {_group_uuid(*key): block_ids for key, block_ids in groups.items()}
 
     def get_all_groups_with_info(
         self,
         filters: ParallelBlockCandidateFilters | None = None,
     ) -> list[ParallelBlockCandidateDetailResponse]:
-        """Return all candidate groups with associated info."""
-
+        """Return all candidate groups with associated session and degree info."""
         filters = filters or ParallelBlockCandidateFilters()
+
+        candidate_blocks = _candidate_blocks_table()
 
         first_session_subq = (
             select(
@@ -64,96 +142,95 @@ class ParallelBlockCandidateDAO:
             .subquery()
         )
 
-        session_subq = (
+        stmt = (
             select(
-                first_session_subq.c.original_block_id,
-                first_session_subq.c.session_id,
+                candidate_blocks.c.first_week,
+                candidate_blocks.c.group_weekday,
+                candidate_blocks.c.group_start_time,
+                candidate_blocks.c.group_subject_id,
+                candidate_blocks.c.original_block_id,
+                Subject.name.label("subject_name"),
+                Session.start_time.label("session_start_time"),
+                Session.weekday.label("session_weekday"),
+                Session.duration.label("session_duration"),
+                Session.week.label("session_week"),
+                Session.type.label("session_type"),
+                func.group_concat(Class.code).label("class_codes"),
+                Year.number.label("year"),
+                Degree.name.label("degree_id"),
+                Degree.acronym.label("degree_acronym"),
+            )
+            .select_from(candidate_blocks)
+            .join(
+                first_session_subq,
+                first_session_subq.c.original_block_id == candidate_blocks.c.original_block_id,
+            )
+            .join(Session, Session.id == first_session_subq.c.session_id)
+            .join(
+                SessionClassSubject,
+                (SessionClassSubject.session_id == first_session_subq.c.session_id)
+                & (SessionClassSubject.subject_id == candidate_blocks.c.group_subject_id),
+            )
+            .join(Subject, Subject.id == SessionClassSubject.subject_id)
+            .join(Class, Class.id == SessionClassSubject.class_id)
+            .join(Year, Year.id == Subject.year_id)
+            .join(Degree, Degree.id == Year.degree_id)
+            .group_by(
+                candidate_blocks.c.first_week,
+                candidate_blocks.c.group_weekday,
+                candidate_blocks.c.group_start_time,
+                candidate_blocks.c.group_subject_id,
+                candidate_blocks.c.original_block_id,
+                Subject.name,
                 Session.start_time,
                 Session.weekday,
                 Session.duration,
                 Session.week,
                 Session.type,
+                Year.number,
+                Degree.name,
+                Degree.acronym,
             )
-            .join(Session, Session.id == first_session_subq.c.session_id)
-            .subquery()
-        )
-
-        class_subq = (
-            select(
-                SessionClassSubject.session_id,
-                SessionClassSubject.subject_id,
-                func.group_concat(Class.code).label("class_codes"),
-            )
-            .join(Class, Class.id == SessionClassSubject.class_id)
-            .group_by(SessionClassSubject.session_id, SessionClassSubject.subject_id)
-            .subquery()
-        )
-
-        stmt = (
-            select(
-                ParallelBlockCandidate.candidate_group_id,
-                ParallelBlockCandidate.original_block_id,
-                Subject.name.label("subject_name"),
-                session_subq.c.start_time.label("session_start_time"),
-                session_subq.c.weekday.label("session_weekday"),
-                session_subq.c.duration.label("session_duration"),
-                session_subq.c.week.label("session_week"),
-                session_subq.c.type.label("session_type"),
-                class_subq.c.class_codes.label("class_codes"),
-                Year.number.label("year"),
-                Degree.name.label("degree_id"),
-                Degree.acronym.label("degree_acronym"),
-            )
-            .join(
-                session_subq,
-                session_subq.c.original_block_id == ParallelBlockCandidate.original_block_id,
-            )
-            .join(
-                SessionClassSubject,
-                SessionClassSubject.session_id == session_subq.c.session_id,
-            )
-            .join(Subject, Subject.id == SessionClassSubject.subject_id)
-            .join(
-                Year,
-                Year.id == Subject.year_id,
-            )
-            .join(
-                class_subq,
-                (class_subq.c.session_id == session_subq.c.session_id)
-                & (class_subq.c.subject_id == Subject.id),
-            )
-            .join(
-                Degree,
-                Degree.id == Year.degree_id,
+            .order_by(
+                candidate_blocks.c.first_week,
+                candidate_blocks.c.group_weekday,
+                candidate_blocks.c.group_start_time,
+                candidate_blocks.c.group_subject_id,
+                candidate_blocks.c.original_block_id,
             )
         )
 
         if filters.year_id:
             stmt = stmt.where(Year.id == filters.year_id)
-
         if filters.degree_id:
             stmt = stmt.where(Degree.id == filters.degree_id)
-
         if filters.subject_id:
             stmt = stmt.where(Subject.id == filters.subject_id)
 
-        stmt = stmt.order_by(ParallelBlockCandidate.candidate_group_id)
-
         rows = self.session.execute(stmt).all()
 
-        merged: dict[UUID, ParallelBlockCandidateDetailResponse] = {}
+        merged: dict[tuple, ParallelBlockCandidateDetailResponse] = {}
         for row in rows:
-            session = ParallelBlockCandidateSession(
+            group_key = (
+                row.first_week,
+                row.group_weekday,
+                row.group_start_time,
+                row.group_subject_id,
+            )
+            candidate_group_id = _group_uuid(*group_key)
+
+            session_entry = ParallelBlockCandidateSession(
                 original_block_id=row.original_block_id,
-                class_codes=[c.strip() for c in row.class_codes.split(",")]
+                class_codes=[c.strip() for c in row.class_codes.split(",") if c.strip()]
                 if row.class_codes
                 else [],
                 session_type=row.session_type,
             )
-            if row.candidate_group_id not in merged:
-                merged[row.candidate_group_id] = ParallelBlockCandidateDetailResponse(
-                    candidate_group_id=row.candidate_group_id,
-                    sessions=[session],
+
+            if group_key not in merged:
+                merged[group_key] = ParallelBlockCandidateDetailResponse(
+                    candidate_group_id=candidate_group_id,
+                    sessions=[session_entry],
                     subject_name=row.subject_name,
                     session_start_time=row.session_start_time,
                     session_weekday=row.session_weekday,
@@ -164,10 +241,8 @@ class ParallelBlockCandidateDAO:
                     degree_acronym=row.degree_acronym,
                 )
             else:
-                existing_ids = {
-                    s.original_block_id for s in merged[row.candidate_group_id].sessions
-                }
+                existing_ids = {s.original_block_id for s in merged[group_key].sessions}
                 if row.original_block_id not in existing_ids:
-                    merged[row.candidate_group_id].sessions.append(session)
+                    merged[group_key].sessions.append(session_entry)
 
         return list(merged.values())
