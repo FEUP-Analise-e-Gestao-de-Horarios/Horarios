@@ -178,7 +178,7 @@ export default function ParallelClassesPage() {
     };
     return (
       <tr
-        key={candidate.id}
+        key={candidate.candidate_group_id}
         className={`bg-white hover:bg-[#fffdf5] transition-colors ${rowIdx > 0 ? "border-t border-[#f0f0f0]" : ""}`}
       >
         <td className="px-3 py-3 align-top">

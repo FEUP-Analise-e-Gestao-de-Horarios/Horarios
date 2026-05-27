@@ -1,6 +1,7 @@
 import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/api/client";
+import { ApiError, type ApiRequestError } from "@/types/api";
 import { ROUTES } from "@/routes";
 import {
   DAY_ORDER,
@@ -18,6 +19,14 @@ import {
 
 // TODO: replace with degrees derived from the logged-in teacher's assignments
 const PRIORITY_DEGREE_ACRONYMS = ["L.EIC", "M.EIC", "M.IA"];
+
+function parallelSaveErrorMessage(err: unknown): string {
+  const code = err instanceof Error && "code" in err ? (err as ApiRequestError).code : undefined;
+  if (code === ApiError.PARALLEL_GROUPS_NOT_CANDIDATES) {
+    return "As turmas selecionadas não são candidatas a paralelas.";
+  }
+  return err instanceof Error ? err.message : "Erro ao guardar";
+}
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -369,7 +378,6 @@ export function useParallelSessions(): UseParallelSessionsReturn {
       const displayWeeks = candidates.map((c) => c.session_week ?? "").filter(Boolean);
       result.push({
         ...rep,
-        id: rep.id ?? "",
         showWeek,
         displayWeeks,
         equivalentCandidates: absorbed,
@@ -583,7 +591,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     } catch (err) {
       setSaveStatus({
         type: "error",
-        message: err instanceof Error ? err.message : "Erro ao guardar",
+        message: parallelSaveErrorMessage(err),
       });
     } finally {
       setSaving(false);
@@ -607,7 +615,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
       setShowUnsavedModal(false);
       setSaveStatus({
         type: "error",
-        message: err instanceof Error ? err.message : "Erro ao guardar",
+        message: parallelSaveErrorMessage(err),
       });
     } finally {
       setSaving(false);

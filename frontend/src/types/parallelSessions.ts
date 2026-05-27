@@ -14,21 +14,20 @@ export interface DegreeOption {
 export interface ParallelCandidateSession {
   original_block_id: UUID;
   class_codes: string[];
-  session_type?: string;
+  session_type: string;
 }
 
 export interface ParallelCandidate {
-  id: UUID;
-  candidate_group_id?: UUID;
-  subject_name?: string;
-  session_start_time?: number;
-  session_weekday?: string;
-  session_duration?: number;
-  session_week?: string;
-  sessions?: ParallelCandidateSession[];
-  year?: number;
-  degree_id?: string;
-  degree_acronym?: string;
+  candidate_group_id: UUID;
+  subject_name: string;
+  session_start_time: number;
+  session_weekday: string;
+  session_duration: number;
+  session_week: string;
+  sessions: ParallelCandidateSession[];
+  year: number;
+  degree_id: string;
+  degree_acronym: string;
 }
 
 export interface SuccessResponse<T> {
