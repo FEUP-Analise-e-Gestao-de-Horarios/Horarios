@@ -80,6 +80,7 @@ export interface UseParallelSessionsReturn {
   groupsBySubject: Map<string, EnrichedGroup[]>;
 
   groups: LocalGroup[];
+  savedGroupIds: Set<string>;
   pendingSelection: Set<UUID>;
 
   saving: boolean;
@@ -434,11 +435,12 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     return map;
   }, [groups, blockMetaMap]);
 
+  const savedGroupIds = useMemo(() => new Set(savedSnapshot.map((g) => g.id)), [savedSnapshot]);
+
   const isDirty = useMemo(() => {
     if (groups.length !== savedSnapshot.length) return true;
-    const snapshotIds = new Set(savedSnapshot.map((g) => g.id));
-    return groups.some((g) => !snapshotIds.has(g.id));
-  }, [groups, savedSnapshot]);
+    return groups.some((g) => !savedGroupIds.has(g.id));
+  }, [groups, savedSnapshot, savedGroupIds]);
 
   const backRoute = ROUTES.SCHEDULE.replace(":projectId", projectId ?? "");
 
@@ -643,6 +645,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     candidatesBySubject,
     groupsBySubject,
     groups,
+    savedGroupIds,
     pendingSelection,
     saving,
     saveStatus,

@@ -146,6 +146,7 @@ export default function ParallelClassesPage() {
     filteredCandidates,
     candidatesBySubject,
     groupsBySubject,
+    savedGroupIds,
     pendingSelection,
     saving,
     saveStatus,
@@ -514,7 +515,9 @@ export default function ParallelClassesPage() {
                                     key={group.id}
                                     className="overflow-hidden rounded-xl shadow-sm bg-white border border-[#e8e8e8]"
                                   >
-                                    <div className="px-3 py-1.5 flex items-center justify-between bg-[#1e2028]">
+                                    <div
+                                      className={`px-3 py-1.5 flex items-center justify-between ${savedGroupIds.has(group.id) ? "bg-[#1e2028]" : "bg-emerald-200"}`}
+                                    >
                                       <div className="flex items-center gap-2">
                                         <span
                                           className={`text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded ${day.bg} ${day.text}`}
@@ -522,11 +525,15 @@ export default function ParallelClassesPage() {
                                           {day.short}
                                         </span>
                                         {session_week && (
-                                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-600 text-gray-300 tabular-nums whitespace-nowrap">
+                                          <span
+                                            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded tabular-nums whitespace-nowrap ${savedGroupIds.has(group.id) ? "bg-gray-600 text-gray-300" : "bg-emerald-300 text-emerald-900"}`}
+                                          >
                                             {formatWeekDate(session_week)}
                                           </span>
                                         )}
-                                        <span className="text-[11px] font-bold text-gray-300 tabular-nums">
+                                        <span
+                                          className={`text-[11px] font-bold tabular-nums ${savedGroupIds.has(group.id) ? "text-gray-300" : "text-emerald-900"}`}
+                                        >
                                           {formatTime(start_time)}
                                         </span>
                                       </div>
