@@ -99,6 +99,7 @@ export interface UseParallelSessionsReturn {
   handleCreateGroup: (blockIds: UUID[], candidate: DisplayCandidate) => void;
   handleRemoveGroup: (groupId: string) => void;
   handleBack: () => void;
+  handleNavigateHome: () => void;
   handleSave: () => Promise<void>;
   handleSaveAndExit: () => Promise<void>;
   handleExitWithoutSaving: () => void;
@@ -154,6 +155,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
   } | null>(null);
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
+  const pendingRoute = useRef<string>("");
 
   const projectIdNum = useMemo(() => Number(projectId), [projectId]);
 
@@ -509,10 +511,20 @@ export function useParallelSessions(): UseParallelSessionsReturn {
   };
 
   const handleBack = () => {
+    pendingRoute.current = backRoute;
     if (isDirty) {
       setShowUnsavedModal(true);
     } else {
       void navigate(backRoute);
+    }
+  };
+
+  const handleNavigateHome = () => {
+    pendingRoute.current = ROUTES.HOME;
+    if (isDirty) {
+      setShowUnsavedModal(true);
+    } else {
+      void navigate(ROUTES.HOME);
     }
   };
 
@@ -550,7 +562,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
   };
 
   const handleExitWithoutSaving = () => {
-    void navigate(backRoute);
+    void navigate(pendingRoute.current || backRoute);
   };
 
   const handleReset = () => {
@@ -612,7 +624,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
         savedGroupsByDegree.current[degId] = draft;
         delete draftGroupsByDegree.current[degId];
       }
-      void navigate(backRoute);
+      void navigate(pendingRoute.current || backRoute);
     } catch (err) {
       setShowUnsavedModal(false);
       setSaveStatus({
@@ -661,6 +673,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     handleCreateGroup,
     handleRemoveGroup,
     handleBack,
+    handleNavigateHome,
     handleSave,
     handleSaveAndExit,
     handleExitWithoutSaving,

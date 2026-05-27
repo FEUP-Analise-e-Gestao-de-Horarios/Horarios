@@ -161,6 +161,7 @@ export default function ParallelClassesPage() {
     handleCreateGroup,
     handleRemoveGroup,
     handleBack,
+    handleNavigateHome,
     handleSave,
     handleSaveAndExit,
     handleExitWithoutSaving,
@@ -289,10 +290,16 @@ export default function ParallelClassesPage() {
     <div className="h-screen flex flex-col bg-[#f0eeeb]">
       <header className="shrink-0 sticky top-0 z-50 px-6 py-3 bg-[#1e2028] flex items-center gap-2 w-full flex-wrap border-b border-gray-700">
         <button
-          onClick={handleBack}
+          onClick={handleNavigateHome}
           className="bg-[#8c2d19] text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap hover:bg-[#a33520] transition-colors cursor-pointer"
         >
-          ← Voltar
+          Início
+        </button>
+        <button
+          onClick={handleBack}
+          className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 transition-colors hover:border-gray-400 hover:bg-white/5 cursor-pointer"
+        >
+          Horário
         </button>
 
         <div className="w-px h-6 bg-gray-600 mx-1" />
