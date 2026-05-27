@@ -39,10 +39,10 @@ function DarkPill({ label, active, onClick }: DarkPillProps) {
   return (
     <button
       onClick={onClick}
-      className={`px-3 py-1.5 rounded-full text-sm font-semibold border cursor-pointer transition-all whitespace-nowrap ${
+      className={`px-3.5 py-2 rounded text-sm font-semibold border cursor-pointer transition-colors whitespace-nowrap ${
         active
-          ? "bg-[#ffc107] border-[#b8860b] text-[#222]"
-          : "bg-transparent border-gray-600 text-gray-300 hover:border-gray-400 hover:bg-white/5"
+          ? "bg-[#8c2d19] border-[#8c2d19] text-white"
+          : "bg-transparent border-gray-600 text-white hover:border-gray-400 hover:bg-white/5"
       }`}
     >
       {label}
@@ -54,7 +54,7 @@ function HeaderPillSkeleton() {
   return (
     <>
       {[1, 2, 3].map((i) => (
-        <div key={i} className="h-8 w-16 rounded-full bg-gray-700 animate-pulse" />
+        <div key={i} className="h-9 w-16 rounded bg-gray-700 animate-pulse" />
       ))}
     </>
   );
@@ -325,7 +325,7 @@ export default function ParallelClassesPage() {
             {otherDegrees.length > 0 && (
               <button
                 onClick={() => setShowAllDegrees((prev) => !prev)}
-                className="px-3 py-1.5 rounded-full text-sm font-semibold border cursor-pointer transition-all whitespace-nowrap bg-transparent border-gray-600 text-gray-300 hover:border-gray-400 hover:bg-white/5"
+                className="px-3.5 py-2 rounded text-sm font-semibold border cursor-pointer transition-colors whitespace-nowrap bg-transparent border-gray-600 text-white hover:border-gray-400 hover:bg-white/5"
               >
                 {showAllDegrees ? "Menos ▲" : `+${otherDegrees.length} ▼`}
               </button>
@@ -374,7 +374,7 @@ export default function ParallelClassesPage() {
           <button
             onClick={() => void handleSave()}
             disabled={saving}
-            className="bg-[#ffc107] text-[#222] font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap hover:bg-[#e6ad06] transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {saving ? "A guardar..." : "Guardar"}
           </button>
@@ -610,7 +610,7 @@ export default function ParallelClassesPage() {
               <button
                 onClick={() => void handleSaveAndExit()}
                 disabled={saving}
-                className="bg-[#ffc107] text-[#222] font-semibold px-4 py-2 rounded-lg text-sm hover:bg-[#e6ad06] transition-colors disabled:opacity-50 cursor-pointer"
+                className="bg-[#8c2d19] text-white font-semibold px-4 py-2 rounded-lg text-sm hover:bg-[#a33520] transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {saving ? "A guardar..." : "Guardar e sair"}
               </button>
