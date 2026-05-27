@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParallelSessions } from "@/api/hooks/useParallelSessions";
 import type { DisplayCandidate } from "@/types/parallelSessions";
+import { DAY_ORDER } from "@/types/parallelSessions";
 
 const DAY_CONFIG: Record<string, { short: string; bg: string; text: string }> = {
   monday: { short: "SEG", bg: "bg-blue-500", text: "text-white" },
@@ -496,73 +497,79 @@ export default function ParallelClassesPage() {
                             </p>
                           </div>
                           <div className="flex flex-col gap-2 p-2">
-                            {items.map(({ group, weekday, start_time, session_week, sessions }) => {
-                              const day = DAY_CONFIG[weekday] ?? {
-                                short: "?",
-                                bg: "bg-gray-400",
-                                text: "text-white",
-                              };
-                              return (
-                                <div
-                                  key={group.id}
-                                  className="overflow-hidden rounded-xl shadow-sm bg-white border border-[#e8e8e8]"
-                                >
-                                  <div className="px-3 py-1.5 flex items-center justify-between bg-[#1e2028]">
-                                    <div className="flex items-center gap-2">
-                                      <span
-                                        className={`text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded ${day.bg} ${day.text}`}
-                                      >
-                                        {day.short}
-                                      </span>
-                                      {session_week && (
-                                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-600 text-gray-300 tabular-nums whitespace-nowrap">
-                                          {formatWeekDate(session_week)}
+                            {[...items]
+                              .sort(
+                                (a, b) =>
+                                  (DAY_ORDER[a.weekday] ?? 99) - (DAY_ORDER[b.weekday] ?? 99) ||
+                                  a.start_time - b.start_time,
+                              )
+                              .map(({ group, weekday, start_time, session_week, sessions }) => {
+                                const day = DAY_CONFIG[weekday] ?? {
+                                  short: "?",
+                                  bg: "bg-gray-400",
+                                  text: "text-white",
+                                };
+                                return (
+                                  <div
+                                    key={group.id}
+                                    className="overflow-hidden rounded-xl shadow-sm bg-white border border-[#e8e8e8]"
+                                  >
+                                    <div className="px-3 py-1.5 flex items-center justify-between bg-[#1e2028]">
+                                      <div className="flex items-center gap-2">
+                                        <span
+                                          className={`text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded ${day.bg} ${day.text}`}
+                                        >
+                                          {day.short}
                                         </span>
-                                      )}
-                                      <span className="text-[11px] font-bold text-gray-300 tabular-nums">
-                                        {formatTime(start_time)}
-                                      </span>
+                                        {session_week && (
+                                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-600 text-gray-300 tabular-nums whitespace-nowrap">
+                                            {formatWeekDate(session_week)}
+                                          </span>
+                                        )}
+                                        <span className="text-[11px] font-bold text-gray-300 tabular-nums">
+                                          {formatTime(start_time)}
+                                        </span>
+                                      </div>
+                                      <button
+                                        onClick={() => handleRemoveGroup(group.id)}
+                                        className="flex items-center justify-center w-5 h-5 rounded bg-red-600 hover:bg-red-500 transition-colors text-white text-xs font-bold leading-none cursor-pointer"
+                                        title="Remover grupo"
+                                      >
+                                        ×
+                                      </button>
                                     </div>
-                                    <button
-                                      onClick={() => handleRemoveGroup(group.id)}
-                                      className="flex items-center justify-center w-5 h-5 rounded bg-red-600 hover:bg-red-500 transition-colors text-white text-xs font-bold leading-none cursor-pointer"
-                                      title="Remover grupo"
-                                    >
-                                      ×
-                                    </button>
-                                  </div>
-                                  <div className="px-3 py-2 flex flex-col gap-1">
-                                    {sessions.map((meta, i) => {
-                                      const typeLabel = meta.session_type ?? null;
-                                      const typeStyle = typeLabel
-                                        ? (SESSION_TYPE_CONFIG[typeLabel] ?? SESSION_TYPE_DEFAULT)
-                                        : null;
-                                      return (
-                                        <div key={i} className="flex items-center gap-1">
-                                          {typeLabel && typeStyle && (
-                                            <span
-                                              className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded ${typeStyle.bg} ${typeStyle.text}`}
-                                            >
-                                              {typeLabel}
-                                            </span>
-                                          )}
-                                          <OverflowFadeScroll className="flex-1 min-w-0">
-                                            {meta.class_codes.map((code: string) => (
+                                    <div className="px-3 py-2 flex flex-col gap-1">
+                                      {sessions.map((meta, i) => {
+                                        const typeLabel = meta.session_type ?? null;
+                                        const typeStyle = typeLabel
+                                          ? (SESSION_TYPE_CONFIG[typeLabel] ?? SESSION_TYPE_DEFAULT)
+                                          : null;
+                                        return (
+                                          <div key={i} className="flex items-center gap-1">
+                                            {typeLabel && typeStyle && (
                                               <span
-                                                key={`${group.id}-${i}-${code}`}
-                                                className="rounded px-1.5 py-0.5 text-[11px] font-semibold bg-[#ffc107] text-[#222]"
+                                                className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded ${typeStyle.bg} ${typeStyle.text}`}
                                               >
-                                                {code}
+                                                {typeLabel}
                                               </span>
-                                            ))}
-                                          </OverflowFadeScroll>
-                                        </div>
-                                      );
-                                    })}
+                                            )}
+                                            <OverflowFadeScroll className="flex-1 min-w-0">
+                                              {meta.class_codes.map((code: string) => (
+                                                <span
+                                                  key={`${group.id}-${i}-${code}`}
+                                                  className="rounded px-1.5 py-0.5 text-[11px] font-semibold bg-[#ffc107] text-[#222]"
+                                                >
+                                                  {code}
+                                                </span>
+                                              ))}
+                                            </OverflowFadeScroll>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
                                   </div>
-                                </div>
-                              );
-                            })}
+                                );
+                              })}
                           </div>
                         </div>
                       ))}
