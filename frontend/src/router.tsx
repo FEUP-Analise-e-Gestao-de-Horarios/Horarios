@@ -32,5 +32,5 @@ export const router = createBrowserRouter([
   { path: ROUTES.ROOM_DETAIL, element: <RoomDetailPage />, loader: requireAuth },
   { path: ROUTES.SUBJECT_DETAIL, element: <SubjectDetailPage />, loader: requireAuth },
   { path: ROUTES.CLASS_DETAIL, element: <ClassDetailPage />, loader: requireAuth },
-  { path: ROUTES.PARALLEL_CLASSES, element: <ParallelClassesPage />, loader: requireAuth },
+  { path: ROUTES.PARALLEL_SESSIONS, element: <ParallelClassesPage />, loader: requireAuth },
 ]);

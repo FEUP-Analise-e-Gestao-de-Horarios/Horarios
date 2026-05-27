@@ -386,7 +386,7 @@ export default function ParallelClassesPage() {
       <div className="flex-1 overflow-hidden">
         {!selectedDegree ? (
           <p className="text-sm text-[#aaa] text-center mt-16">
-            Seleciona um curso para ver as sessões em paralelo.
+            Seleciona um curso para ver as aulas em paralelo.
           </p>
         ) : (
           <div className="h-full max-w-6xl mx-auto px-6 pt-6 flex gap-6">
@@ -401,10 +401,10 @@ export default function ParallelClassesPage() {
                 ) : candidatesError ? (
                   <p className="text-sm text-red-600">{candidatesError}</p>
                 ) : !filteredCandidates.length ? (
-                  <p className="text-sm text-[#aaa]">Sem sessões em paralelo.</p>
+                  <p className="text-sm text-[#aaa]">Sem aulas em paralelo.</p>
                 ) : candidatesBySubject.size === 0 ? (
                   <p className="text-xs text-[#aaa] text-center py-8">
-                    Todas as sessões foram atribuídas a grupos.
+                    Todas as aulas foram atribuídas a grupos.
                   </p>
                 ) : (
                   <div className="flex flex-col gap-4">

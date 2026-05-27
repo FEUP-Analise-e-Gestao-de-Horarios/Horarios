@@ -10,5 +10,5 @@ export const ROUTES = {
   ROOM_DETAIL: "/projects/:projectId/dashboard/rooms/:roomId",
   SUBJECT_DETAIL: "/projects/:projectId/dashboard/subjects/:subjectId",
   CLASS_DETAIL: "/projects/:projectId/dashboard/classes/:classId",
-  PARALLEL_CLASSES: "/projects/:projectId/parallel-classes",
+  PARALLEL_SESSIONS: "/projects/:projectId/parallel-sessions",
 } as const;
