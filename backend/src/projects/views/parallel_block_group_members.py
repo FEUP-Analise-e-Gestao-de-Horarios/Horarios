@@ -8,6 +8,7 @@ from src.core.errors import (
 )
 from src.core.schemas import SuccessResponse
 from src.core.validation import validate_request_body
+from src.projects.projects_db.dao.parallel_block_candidate_dao import ParallelBlockCandidateDAO
 from src.projects.projects_db.dao.parallel_block_group_dao import ParallelBlockGroupDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
@@ -45,6 +46,25 @@ class ProjectParallelBlockGroupMembersView(View):
         assert validated is not None
 
         with get_project_session(general_db(project_id)) as db_session:
+            block_to_group = {
+                block_id: group_id
+                for group_id, block_ids in ParallelBlockCandidateDAO(db_session)
+                .get_all_groups()
+                .items()
+                for block_id in block_ids
+            }
+
+            for entry in validated.groups:
+                if len(entry.classes) < 2:
+                    continue
+                candidate_groups = {block_to_group.get(block_id) for block_id in entry.classes}
+                if None in candidate_groups or len(candidate_groups) > 1:
+                    return ErrorResponse(
+                        status=400,
+                        code=ApiError.PARALLEL_GROUPS_NOT_CANDIDATES,
+                        message="Some classes are not parallel candidates.",
+                    )
+
             dao = ParallelBlockGroupDAO(db_session)
             dao.clear_all()
 

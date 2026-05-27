@@ -23,6 +23,9 @@ class ApiError(StrEnum):
     AUTH_INVALID_OLD_PASSWORD = "auth.invalid_old_password"
     AUTH_PASSWORD_POLICY_VIOLATION = "auth.password_policy_violation"
 
+    # Parallel groups
+    PARALLEL_GROUPS_NOT_CANDIDATES = "projects.parallel_groups.not_candidates"
+
     # Generic
     INVALID_JSON = "generic.invalid_json"
     INVALID_BODY = "generic.invalid_body"
