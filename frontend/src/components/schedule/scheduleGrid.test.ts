@@ -130,11 +130,15 @@ describe("placeEventsOnGrid", () => {
     expect(placed[0]?.span).toBe(SLOT_COUNT - placed[0]!.rowStart);
   });
 
-  it("pins to the first turma column when an event's turma isn't in activeTurmas but no filter is active", () => {
+  it("drops events when there are no turma columns to place them in", () => {
     const ev = event({ id: "no-turma", turma: undefined });
-    const placed = placeEventsOnGrid([ev], [], ALL_DAYS, GRID_START_MIN, SLOT_COUNT);
-    // When activeTurmas is empty we still draw events: the placed card has no
-    // runs because there are no turma columns, so it gets filtered out.
-    expect(placed).toEqual([]);
+    expect(placeEventsOnGrid([ev], [], ALL_DAYS, GRID_START_MIN, SLOT_COUNT)).toEqual([]);
+  });
+
+  it("pins to the first turma column when an event has no turma but a filter is active", () => {
+    const ev = event({ id: "no-turma", turma: undefined });
+    const placed = placeEventsOnGrid([ev], ["1A", "1B"], ALL_DAYS, GRID_START_MIN, SLOT_COUNT);
+    expect(placed).toHaveLength(1);
+    expect(placed[0]?.runs).toEqual([{ start: 0, span: 1 }]);
   });
 });
