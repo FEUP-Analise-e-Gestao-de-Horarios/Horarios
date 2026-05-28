@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { ConflictRecord } from "@/types/project/conflicts";
+import type { Weekday } from "@/types/project/weekday";
 import type { WeekGridEvent } from "@/components/schedule/WeekGrid";
 import { hhmmToMinutes, minutesToTime } from "@/utils/time";
 import { WEEKDAYS, WEEKDAY_LABELS_LONG } from "@/utils/weekdays";
@@ -14,8 +15,8 @@ function normalizeText(value: string): string {
     .trim();
 }
 
-function getConflictDay(weekday: WeekGridEvent["weekday"]): string {
-  return weekdayLabelToValue(weekday).split("-")[0] ?? "";
+function getConflictDay(weekday: Weekday): string {
+  return WEEKDAY_LABELS_LONG[weekday].split("-")[0] ?? "";
 }
 
 function conflictMatchesEvent(conflict: ConflictRecord, event: WeekGridEvent): boolean {
@@ -66,18 +67,25 @@ interface EditEventDrawerProps {
 
 const MIN_TIME_MINUTES = 8 * 60;
 const MAX_TIME_MINUTES = 19 * 60 + 30;
+// Smallest gap between start and end. Mirrors the 30-minute slot grid the
+// schedule is drawn against; an event can't be shorter than one slot.
+const MIN_DURATION_MINUTES = 30;
 
 function clampTimeMinutes(totalMinutes: number): number {
   return Math.max(MIN_TIME_MINUTES, Math.min(MAX_TIME_MINUTES, totalMinutes));
 }
 
-function shiftTimeByMinutes(time: string, deltaMinutes: number): string {
+function timeToMinutes(time: string): number | null {
   const [hours, minutes] = time.split(":").map(Number);
   if (hours === undefined || minutes === undefined || Number.isNaN(hours) || Number.isNaN(minutes))
-    return time;
+    return null;
+  return hours * 60 + minutes;
+}
 
-  const totalMinutes = clampTimeMinutes(hours * 60 + minutes + deltaMinutes);
-  return minutesToTime(totalMinutes);
+function shiftTimeByMinutes(time: string, deltaMinutes: number): string {
+  const totalMinutes = timeToMinutes(time);
+  if (totalMinutes === null) return time;
+  return minutesToTime(clampTimeMinutes(totalMinutes + deltaMinutes));
 }
 
 function normalizeTimeValue(value: string, fallback: string): string {
@@ -94,14 +102,30 @@ function normalizeTimeValue(value: string, fallback: string): string {
   return minutesToTime(totalMinutes);
 }
 
+/**
+ * Adjusts `state` so `endTime` is at least one slot after `startTime`. Both
+ * inputs are independently editable, but the form-state invariant is that
+ * the start always precedes the end by at least one slot. The pinned field
+ * stays put; the other is nudged into range.
+ */
+function enforceTimeOrdering(state: FormState, pinned: TimeField): FormState {
+  const startMin = timeToMinutes(state.startTime);
+  const endMin = timeToMinutes(state.endTime);
+  if (startMin === null || endMin === null) return state;
+  if (endMin - startMin >= MIN_DURATION_MINUTES) return state;
+
+  if (pinned === "startTime") {
+    const nextEnd = clampTimeMinutes(startMin + MIN_DURATION_MINUTES);
+    return { ...state, endTime: minutesToTime(nextEnd) };
+  }
+  const nextStart = clampTimeMinutes(endMin - MIN_DURATION_MINUTES);
+  return { ...state, startTime: minutesToTime(nextStart) };
+}
+
 function toggleSelection(current: string[], itemId: string): string[] {
   return current.includes(itemId)
     ? current.filter((selectedId) => selectedId !== itemId)
     : [...current, itemId];
-}
-
-function weekdayLabelToValue(weekday: WeekGridEvent["weekday"]): string {
-  return WEEKDAY_LABELS_LONG[weekday];
 }
 
 type FormState = {
@@ -109,7 +133,7 @@ type FormState = {
   selectedDocenteOverride: string[];
   selectedSalaOverride: string[];
   selectedTurmasOverride: string[];
-  selectedWeekday: string;
+  selectedWeekday: Weekday;
   startTime: string;
   endTime: string;
 };
@@ -119,7 +143,7 @@ type TimeField = "startTime" | "endTime";
 type FormAction =
   | { type: "reset"; event: WeekGridEvent | null | undefined }
   | { type: "setUc"; value: string }
-  | { type: "setWeekday"; value: string }
+  | { type: "setWeekday"; value: Weekday }
   | { type: "setTime"; field: TimeField; value: string }
   | { type: "shiftTime"; field: TimeField; delta: number }
   | { type: "normalizeTime"; field: TimeField; raw: string }
@@ -134,7 +158,7 @@ function getInitialFormState(event?: WeekGridEvent | null): FormState {
       selectedDocenteOverride: event.teacherIds ?? [],
       selectedSalaOverride: event.roomIds ?? [],
       selectedTurmasOverride: event.classCodes ?? (event.turma ? [event.turma] : []),
-      selectedWeekday: weekdayLabelToValue(event.weekday),
+      selectedWeekday: event.weekday,
       startTime: minutesToTime(hhmmToMinutes(event.startTime)),
       endTime: minutesToTime(hhmmToMinutes(event.startTime) + event.duration * 30),
     };
@@ -144,7 +168,7 @@ function getInitialFormState(event?: WeekGridEvent | null): FormState {
     selectedDocenteOverride: [],
     selectedSalaOverride: [],
     selectedTurmasOverride: [],
-    selectedWeekday: WEEKDAY_LABELS_LONG.monday,
+    selectedWeekday: "monday",
     startTime: "10:30",
     endTime: "12:30",
   };
@@ -159,11 +183,19 @@ function formReducer(state: FormState, action: FormAction): FormState {
     case "setWeekday":
       return { ...state, selectedWeekday: action.value };
     case "setTime":
+      // Free-text edits skip the ordering invariant — the user is mid-type;
+      // ordering is enforced on blur via `normalizeTime`.
       return { ...state, [action.field]: action.value };
     case "shiftTime":
-      return { ...state, [action.field]: shiftTimeByMinutes(state[action.field], action.delta) };
+      return enforceTimeOrdering(
+        { ...state, [action.field]: shiftTimeByMinutes(state[action.field], action.delta) },
+        action.field,
+      );
     case "normalizeTime":
-      return { ...state, [action.field]: normalizeTimeValue(action.raw, state[action.field]) };
+      return enforceTimeOrdering(
+        { ...state, [action.field]: normalizeTimeValue(action.raw, state[action.field]) },
+        action.field,
+      );
     case "toggleDocente":
       return {
         ...state,
@@ -479,11 +511,13 @@ export default function EditEventDrawer({
               <span className="mb-1.5 block text-white/90">Dia</span>
               <select
                 value={selectedWeekday}
-                onChange={(event) => dispatch({ type: "setWeekday", value: event.target.value })}
+                onChange={(event) =>
+                  dispatch({ type: "setWeekday", value: event.target.value as Weekday })
+                }
                 className="w-full bg-[#2a303a] border border-white/20 rounded px-2 py-1.5 text-sm"
               >
                 {WEEKDAYS.map((weekday) => (
-                  <option key={weekday} value={WEEKDAY_LABELS_LONG[weekday]}>
+                  <option key={weekday} value={weekday}>
                     {WEEKDAY_LABELS_LONG[weekday]}
                   </option>
                 ))}
