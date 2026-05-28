@@ -463,7 +463,22 @@ export default function SchedulePage() {
       />
 
       <div className="flex-1 min-h-0 overflow-hidden">
-        {canShowSchedule ? (
+        {!canShowSchedule ? (
+          <div className="h-full flex items-center justify-center text-center text-gray-500 text-lg">
+            Seleciona Curso para ver o horário
+          </div>
+        ) : sessionsQuery.isError ? (
+          <div className="h-full flex items-center justify-center text-center text-gray-500 text-lg">
+            Não foi possível carregar as sessões.
+          </div>
+        ) : selectedYearWeeks === undefined ? (
+          // First-time load: degree resolved but sessions haven't arrived yet.
+          // Background refetches on filter change keep the prior grid mounted
+          // so users don't see the schedule flash to a spinner.
+          <div className="h-full flex items-center justify-center text-center text-gray-500 text-lg">
+            A carregar sessões…
+          </div>
+        ) : (
           <div className="h-full min-h-0">
             <WeekGrid
               events={scheduleEvents}
@@ -484,10 +499,6 @@ export default function SchedulePage() {
               onEventClick={(event) => openEditor(event)}
               onHorizontalScroll={() => setIsEditDrawerCollapsed(true)}
             />
-          </div>
-        ) : (
-          <div className="h-full flex items-center justify-center text-center text-gray-500 text-lg">
-            Seleciona Curso para ver o horário
           </div>
         )}
       </div>
