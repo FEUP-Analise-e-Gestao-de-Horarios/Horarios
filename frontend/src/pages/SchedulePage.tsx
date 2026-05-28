@@ -125,9 +125,7 @@ export default function SchedulePage() {
 
   const weekdayFilter = useMemo(() => {
     if (dias.length === 0 || dias.length === SCHEDULE_VIEW_DAYS.length) return [];
-    // Always request saturday so we can tell whether it has any sessions, even
-    // when it is currently deselected in the day filter.
-    return [...new Set([...dias, "saturday"])];
+    return dias;
   }, [dias]);
 
   const sessionsQuery = useProjectSessions(projectId ?? "", {
@@ -138,12 +136,23 @@ export default function SchedulePage() {
   });
   const selectedYearWeeks = sessionsQuery.data;
 
+  // Saturday-availability is keyed only on the year, so it stays cached
+  // across UC/turma/day filter changes. Previously the main `sessionsQuery`
+  // smuggled saturday into every request to probe for it, which re-ran the
+  // probe on every filter change.
+  const saturdayProbeQuery = useProjectSessions(projectId ?? "", {
+    yearId: selectedYear?.id ?? "",
+    subjectIds: [],
+    classIds: [],
+    weekdays: ["saturday"],
+  });
+
   const hasSaturdaySessions = useMemo(
     () =>
-      (selectedYearWeeks ?? []).some((block) =>
+      (saturdayProbeQuery.data ?? []).some((block) =>
         block.sessions.some((session) => session.weekday === "saturday"),
       ),
-    [selectedYearWeeks],
+    [saturdayProbeQuery.data],
   );
 
   // Saturday is only shown when the selected year actually has sessions on it.
