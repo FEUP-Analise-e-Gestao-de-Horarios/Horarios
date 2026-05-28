@@ -263,7 +263,10 @@ export default function SchedulePage() {
   };
 
   const openEditor = (event: WeekGridEvent | null) => {
-    setEditingEvent(event ? { ...event } : null);
+    // Deep-clone so the drawer's in-flight edits can't reach back into the
+    // canonical event arrays (`body`, `classCodes`, `teacherIds`, …) that the
+    // grid keeps rendering from.
+    setEditingEvent(event ? structuredClone(event) : null);
     setIsEditDrawerCollapsed(false);
     setIsEditDrawerOpen(true);
   };
