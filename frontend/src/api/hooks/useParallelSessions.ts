@@ -1,8 +1,10 @@
 import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { ApiError, type ApiRequestError } from "@/types/api";
 import { ROUTES } from "@/routes";
+import { queryKeys } from "@/api/queryKeys";
 import {
   DAY_ORDER,
   type BlockMeta,
@@ -103,6 +105,7 @@ export interface UseParallelSessionsReturn {
 export function useParallelSessions(): UseParallelSessionsReturn {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const draftGroupsByDegree = useRef<Record<string, LocalGroup[]>>({});
   const savedGroupsByDegree = useRef<Record<string, LocalGroup[]>>({});
   const allGroupsFromServer = useRef<LocalGroup[]>([]);
@@ -169,6 +172,9 @@ export function useParallelSessions(): UseParallelSessionsReturn {
         if (restoredState?.degreeId) {
           const saved = fetchedDegrees.find((d) => d.id === restoredState.degreeId);
           if (saved) setSelectedDegree(saved);
+        } else {
+          const leic = fetchedDegrees.find((d) => d.acronym.toUpperCase() === "L.EIC");
+          if (leic) setSelectedDegree(leic);
         }
       })
       .catch((err: unknown) => {
@@ -570,6 +576,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     setSaveStatus(null);
     try {
       await performSave();
+      void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
       const saved = [...groups];
       setSavedSnapshot(saved);
       if (selectedDegree) {
@@ -595,6 +602,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     setSaveStatus(null);
     try {
       await performSave();
+      void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
       if (selectedDegree) {
         savedGroupsByDegree.current[selectedDegree.id] = [...groups];
       }
