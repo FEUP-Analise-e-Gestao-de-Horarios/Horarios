@@ -62,7 +62,7 @@ class ProjectParallelBlockGroupMembersView(View):
                 if None in candidate_groups or len(candidate_groups) > 1:
                     return ErrorResponse(
                         status=400,
-                        code=ApiError.PARALLEL_GROUPS_NOT_CANDIDATES,
+                        code=ApiError.PARALLEL_GROUPS_INVALID_CANDIDATES,
                         message="Some classes are not parallel candidates.",
                     )
 

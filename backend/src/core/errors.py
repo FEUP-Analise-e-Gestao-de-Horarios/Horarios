@@ -24,7 +24,7 @@ class ApiError(StrEnum):
     AUTH_PASSWORD_POLICY_VIOLATION = "auth.password_policy_violation"
 
     # Parallel groups
-    PARALLEL_GROUPS_NOT_CANDIDATES = "projects.parallel_groups.not_candidates"
+    PARALLEL_GROUPS_INVALID_CANDIDATES = "projects.parallel_groups.invalid_candidates"
 
     # Generic
     INVALID_JSON = "generic.invalid_json"
