@@ -1,5 +1,6 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ConflictRecord } from "@/types/project/conflicts";
+import type { Weekday } from "@/types/project/weekday";
 import type { WeekGridEvent } from "@/components/schedule/WeekGrid";
 import { WEEKDAYS, WEEKDAY_LABELS_LONG } from "@/utils/weekdays";
 import ConflictCard from "./ConflictCard";
@@ -61,6 +62,17 @@ export default function EditEventDrawer({
   const docentesSearch = useDrawerSearch();
   const salasSearch = useDrawerSearch();
   const turmasSearch = useDrawerSearch();
+
+  // The form is seeded lazily from `event` on mount; re-seed whenever the
+  // parent swaps in a different event (or any of its time-shape fields
+  // change) so the inputs don't get stuck displaying the previous event.
+  const lastEventRef = useRef(event);
+  useEffect(() => {
+    if (lastEventRef.current !== event) {
+      lastEventRef.current = event;
+      dispatch({ type: "reset", event });
+    }
+  }, [event, dispatch]);
   const eventConflicts = useMemo(
     () => (event ? conflicts.filter((conflict) => conflict.event_ids.includes(event.id)) : []),
     [conflicts, event],
@@ -119,16 +131,6 @@ export default function EditEventDrawer({
     [preferredRoomTypes, roomOptions],
   );
 
-  const orderedDocentes = useMemo(
-    () => [...selectedClassDocentes, ...otherDocentes],
-    [otherDocentes, selectedClassDocentes],
-  );
-
-  const orderedSalas = useMemo(
-    () => [...preferredSalas, ...otherSalas],
-    [otherSalas, preferredSalas],
-  );
-
   const docenteMatches = docentesSearch.matches;
   const salaMatches = salasSearch.matches;
   const turmaMatches = turmasSearch.matches;
@@ -158,17 +160,21 @@ export default function EditEventDrawer({
     [turmaOptions, turmaMatches],
   );
 
-  const effectiveSelectedDocente = useMemo(() => {
-    const valid = selectedDocenteOverride.filter((id) => teacherOptions.some((d) => d.id === id));
-    if (valid.length > 0) return valid;
-    if (selectedClassDocentes.length > 0) return [selectedClassDocentes[0]!.id];
-    return orderedDocentes.slice(0, 1).map((docente) => docente.id);
-  }, [orderedDocentes, selectedClassDocentes, selectedDocenteOverride, teacherOptions]);
+  // The "effective" selections are simply the user's overrides, narrowed to
+  // ids that still exist in the option list. Previously they fell back to a
+  // default (the first ordered docente/sala, or every visible turma) when the
+  // override was empty, which made it impossible to deselect down to nothing
+  // and caused the turma selection to flip to "all visible" the moment the
+  // user typed in the search box.
+  const effectiveSelectedDocente = useMemo(
+    () => selectedDocenteOverride.filter((id) => teacherOptions.some((d) => d.id === id)),
+    [selectedDocenteOverride, teacherOptions],
+  );
 
-  const effectiveSelectedSala = useMemo(() => {
-    const valid = selectedSalaOverride.filter((id) => roomOptions.some((room) => room.id === id));
-    return valid.length > 0 ? valid : orderedSalas.slice(0, 1).map((room) => room.id);
-  }, [orderedSalas, roomOptions, selectedSalaOverride]);
+  const effectiveSelectedSala = useMemo(
+    () => selectedSalaOverride.filter((id) => roomOptions.some((room) => room.id === id)),
+    [roomOptions, selectedSalaOverride],
+  );
 
   const selectedDocenteLabel = useMemo(() => {
     if (effectiveSelectedDocente.length === 0) return "Selecionar...";
@@ -184,7 +190,7 @@ export default function EditEventDrawer({
     if (effectiveSelectedSala.length === 0) return "Selecionar...";
     const labels = effectiveSelectedSala
       .map((id) => roomOptions.find((room) => room.id === id))
-      .filter((room): room is (typeof orderedSalas)[number] => Boolean(room));
+      .filter((room): room is RoomOption => Boolean(room));
     if (labels.length === 0) return "Selecionar...";
     const first = labels[0];
     if (!first) return "Selecionar...";
@@ -192,17 +198,23 @@ export default function EditEventDrawer({
     return labels.length === 1 ? firstLabel : `${firstLabel} (+${labels.length - 1})`;
   }, [effectiveSelectedSala, roomOptions]);
 
-  const effectiveSelectedTurmas = useMemo(() => {
-    const valid = selectedTurmasOverride.filter((id) => filteredTurmas.includes(id));
-    return valid.length > 0 ? valid : [...filteredTurmas];
-  }, [filteredTurmas, selectedTurmasOverride]);
+  // Validate against the full turma list, not the search-filtered one — the
+  // search box should only narrow what's *displayed* in the dropdown, never
+  // drop selections the user already made.
+  const effectiveSelectedTurmas = useMemo(
+    () => selectedTurmasOverride.filter((id) => turmaOptions.includes(id)),
+    [selectedTurmasOverride, turmaOptions],
+  );
 
   if (!open) return null;
 
   return (
     <aside
       ref={asideRef}
-      role="dialog"
+      // The drawer is intentionally non-modal: the grid behind it stays
+      // interactive so the user can click another event to retarget the
+      // drawer. `<aside>`'s implicit role="complementary" carries the
+      // "non-modal side panel" meaning more accurately than role="dialog".
       aria-labelledby="edit-event-drawer-title"
       className={[
         "fixed left-0 top-[15vh] h-[70vh] w-[min(92vw,420px)] z-40 transition-transform duration-200",
@@ -252,8 +264,14 @@ export default function EditEventDrawer({
           </label>
 
           <div className="flex items-end gap-2">
-            <label className="block text-sm flex-1 min-w-0">
-              <span className="mb-1.5 block text-white/90">Hora Início</span>
+            {/* `<label>` would wrap three interactive controls (the `-`/`+`
+                buttons and the `<input>`); native label-click would focus the
+                first button instead of the input. Use a `<span>` + an explicit
+                `aria-labelledby` on the input so the association is correct. */}
+            <div className="block text-sm flex-1 min-w-0">
+              <span id="edit-event-start-time-label" className="mb-1.5 block text-white/90">
+                Hora Início
+              </span>
               <div className="flex items-center gap-1">
                 <button
                   type="button"
@@ -268,6 +286,7 @@ export default function EditEventDrawer({
                   inputMode="numeric"
                   placeholder="HH:MM"
                   value={startTime}
+                  aria-labelledby="edit-event-start-time-label"
                   onChange={(event) =>
                     dispatch({ type: "setTime", field: "startTime", value: event.target.value })
                   }
@@ -285,9 +304,11 @@ export default function EditEventDrawer({
                   +
                 </button>
               </div>
-            </label>
-            <label className="block text-sm flex-1 min-w-0">
-              <span className="mb-1.5 block text-white/90">Hora Fim</span>
+            </div>
+            <div className="block text-sm flex-1 min-w-0">
+              <span id="edit-event-end-time-label" className="mb-1.5 block text-white/90">
+                Hora Fim
+              </span>
               <div className="flex items-center gap-1">
                 <button
                   type="button"
@@ -302,6 +323,7 @@ export default function EditEventDrawer({
                   inputMode="numeric"
                   placeholder="HH:MM"
                   value={endTime}
+                  aria-labelledby="edit-event-end-time-label"
                   onChange={(event) =>
                     dispatch({ type: "setTime", field: "endTime", value: event.target.value })
                   }
@@ -319,17 +341,19 @@ export default function EditEventDrawer({
                   +
                 </button>
               </div>
-            </label>
+            </div>
             <div className="border-l border-white/20 h-10 ml-1 mr-0.5" />
             <label className="block text-sm flex-1 min-w-0">
               <span className="mb-1.5 block text-white/90">Dia</span>
               <select
                 value={selectedWeekday}
-                onChange={(event) => dispatch({ type: "setWeekday", value: event.target.value })}
+                onChange={(event) =>
+                  dispatch({ type: "setWeekday", value: event.target.value as Weekday })
+                }
                 className="w-full bg-[#2a303a] border border-white/20 rounded px-2 py-1.5 text-sm"
               >
                 {WEEKDAYS.map((weekday) => (
-                  <option key={weekday} value={WEEKDAY_LABELS_LONG[weekday]}>
+                  <option key={weekday} value={weekday}>
                     {WEEKDAY_LABELS_LONG[weekday]}
                   </option>
                 ))}

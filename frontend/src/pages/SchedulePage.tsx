@@ -95,10 +95,7 @@ export default function SchedulePage() {
       turmas.length === 0
         ? []
         : classes.filter((classItem) => turmas.includes(classItem.code)).map((c) => c.id);
-    const weekdays =
-      dias.length === 0 || dias.length === WEEKDAYS.length
-        ? []
-        : [...new Set([...dias, "saturday"])];
+    const weekdays = dias.length === 0 || dias.length === WEEKDAYS.length ? [] : dias;
     return { subjectIds, classIds, weekdays };
   }, [dias, selectedYearDetail, turmas, ucs]);
 
@@ -106,6 +103,24 @@ export default function SchedulePage() {
     yearId: selectedYear?.id ?? "",
     ...sessionApiFilters,
   });
+
+  // Saturday-availability is keyed only on the year, so it stays cached
+  // across UC/turma/day filter changes. Probing it via the main sessions
+  // query would re-run the probe on every filter change.
+  const saturdayProbeQuery = useProjectSessions(projectId ?? "", {
+    yearId: selectedYear?.id ?? "",
+    subjectIds: [],
+    classIds: [],
+    weekdays: ["saturday"],
+  });
+
+  const hasSaturdaySessions = useMemo(
+    () =>
+      (saturdayProbeQuery.data ?? []).some((block) =>
+        block.sessions.some((session) => session.weekday === "saturday"),
+      ),
+    [saturdayProbeQuery.data],
+  );
 
   // --- derived filter view ---------------------------------------------
   const filters = useScheduleFilters({
@@ -119,6 +134,7 @@ export default function SchedulePage() {
     selectedDegree,
     selectedYearDetail,
     selectedYearWeeks: sessionsQuery.data,
+    hasSaturdaySessions,
   });
 
   // --- cascade ops ------------------------------------------------------
@@ -248,11 +264,14 @@ export default function SchedulePage() {
           </div>
         ) : sessionsQuery.isError ? (
           <div className="h-full flex items-center justify-center text-center text-gray-500 text-lg">
-            Não foi possível carregar as aulas.
+            Não foi possível carregar as sessões.
           </div>
-        ) : sessionsQuery.isPending ? (
+        ) : sessionsQuery.data === undefined ? (
+          // First-time load: degree resolved but sessions haven't arrived yet.
+          // Background refetches on filter change keep the prior grid mounted
+          // so users don't see the schedule flash to a spinner.
           <div className="h-full flex items-center justify-center text-center text-gray-500 text-lg">
-            A carregar aulas…
+            A carregar sessões…
           </div>
         ) : (
           <div className="h-full min-h-0">

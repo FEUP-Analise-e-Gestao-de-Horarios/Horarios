@@ -5,7 +5,7 @@ import { WEEKDAYS, WEEKDAY_LABELS_SHORT } from "@/utils/weekdays";
 import ScheduleEventCard from "./ScheduleEventCard";
 import { placeEventsOnGrid } from "./scheduleGrid";
 import { styleForSubject } from "./subjectColors";
-import { useColumnResize } from "./useColumnResize";
+import { TURMA_COLUMN_MAX_PX, TURMA_COLUMN_MIN_PX, useColumnResize } from "./useColumnResize";
 import { useGridTimeRange } from "./useGridTimeRange";
 
 export interface WeekGridEvent {
@@ -62,6 +62,8 @@ const MIN_SLOT_PX = 16;
 const HEADER_PX = 40;
 // Width each turma column gets in the default (un-resized) flexible layout.
 const TURMA_COLUMN_DEFAULT_MIN_PX = 64;
+// Pixels of horizontal scroll change required to count as a user gesture.
+const HORIZONTAL_SCROLL_THRESHOLD_PX = 8;
 
 function getTurmaHeaderStyle(shift?: number): string {
   if (shift !== undefined && shift % 2 === 0) return "bg-[#f7ddd7] border-[#e0b0a5] text-[#8C2C19]";
@@ -217,7 +219,11 @@ export default function WeekGrid({
       className="bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)] overflow-x-auto overflow-y-auto h-full"
       onScroll={(e) => {
         const { scrollLeft } = e.currentTarget;
-        if (scrollLeft !== lastScrollLeftRef.current) {
+        // Threshold filters out the small programmatic adjustments
+        // `useColumnResize` makes to scrollLeft when a column changes width,
+        // so resizing a column doesn't accidentally collapse an open drawer.
+        // Real horizontal scroll gestures easily clear this threshold.
+        if (Math.abs(scrollLeft - lastScrollLeftRef.current) > HORIZONTAL_SCROLL_THRESHOLD_PX) {
           lastScrollLeftRef.current = scrollLeft;
           onHorizontalScroll?.();
         }
@@ -282,16 +288,33 @@ export default function WeekGrid({
                   >
                     <span className="inline @min-[32px]:hidden">{shortLabel}</span>
                     <span className="hidden @min-[32px]:inline">{turma}</span>
-                    <button
-                      type="button"
-                      aria-label="Redimensionar colunas"
+                    {/* Window-splitter pattern: `role="separator"` with
+                        `aria-orientation` and a focusable tabindex is the
+                        standard ARIA widget for a column resize grip
+                        (https://www.w3.org/WAI/ARIA/apg/patterns/windowsplitter/).
+                        jsx-a11y conservatively treats separator as
+                        non-interactive, so the rules are disabled here. */}
+                    {/* eslint-disable jsx-a11y/no-noninteractive-tabindex, jsx-a11y/no-noninteractive-element-interactions */}
+                    <div
+                      role="separator"
+                      tabIndex={0}
+                      aria-orientation="vertical"
+                      aria-label={`Redimensionar coluna ${turma}`}
+                      aria-valuemin={TURMA_COLUMN_MIN_PX}
+                      aria-valuemax={TURMA_COLUMN_MAX_PX}
+                      aria-valuenow={
+                        dragState?.colIndex === columnIndex
+                          ? dragState.width
+                          : (columnWidthPx ?? undefined)
+                      }
                       onMouseDown={(event) => handleResizeStart(columnIndex, event)}
                       onKeyDown={(event) => handleResizeKeyDown(columnIndex, event)}
-                      className={`absolute top-0 right-0 z-10 h-full w-2 cursor-col-resize border-0 bg-transparent p-0 hover:bg-[#8C2C19]/40 focus:bg-[#8C2C19]/60 focus:outline-none ${
+                      className={`absolute top-0 right-0 z-10 h-full w-2 cursor-col-resize hover:bg-[#8C2C19]/40 focus-visible:bg-[#8C2C19]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/80 ${
                         dragState?.colIndex === columnIndex ? "bg-[#8C2C19]/60" : ""
                       }`}
                       title="Arrasta para redimensionar as colunas"
                     />
+                    {/* eslint-enable jsx-a11y/no-noninteractive-tabindex, jsx-a11y/no-noninteractive-element-interactions */}
                   </div>
                 );
               }),

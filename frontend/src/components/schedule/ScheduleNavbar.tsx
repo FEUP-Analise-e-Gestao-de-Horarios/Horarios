@@ -69,7 +69,7 @@ export default function ScheduleNavbar({
   const [openDropdown, setOpenDropdown] = useState<DropdownId | null>(null);
   const navRef = useRef<HTMLElement>(null);
 
-  useDismissable(navRef, () => setOpenDropdown(null));
+  useDismissable(navRef, () => setOpenDropdown(null), { escape: true });
 
   // Collapse any open filter dropdown when a drawer/dialog takes over. This
   // replaces a `key` remount of the whole navbar from the parent, which threw

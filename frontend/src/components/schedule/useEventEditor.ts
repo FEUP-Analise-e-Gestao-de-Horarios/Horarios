@@ -4,8 +4,9 @@ import type { WeekGridEvent } from "./WeekGrid";
 /**
  * State for the edit-event drawer: which event is currently being edited,
  * whether the drawer is open, and whether it's collapsed against the left
- * edge. `openEditor` clones the event so the drawer can edit a local copy
- * without mutating the WeekGrid's source data.
+ * edge. `openEditor` deep-clones the event so the drawer's in-flight edits
+ * can't reach back into the canonical event arrays (`body`, `classCodes`,
+ * `teacherIds`, …) that the grid keeps rendering from.
  */
 export function useEventEditor() {
   const [editingEvent, setEditingEvent] = useState<WeekGridEvent | null>(null);
@@ -13,7 +14,7 @@ export function useEventEditor() {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const openEditor = (event: WeekGridEvent | null) => {
-    setEditingEvent(event ? { ...event } : null);
+    setEditingEvent(event ? structuredClone(event) : null);
     setIsCollapsed(false);
     setIsOpen(true);
   };

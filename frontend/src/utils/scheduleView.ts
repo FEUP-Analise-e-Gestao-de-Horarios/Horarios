@@ -47,12 +47,19 @@ function packSections(sections: { values: string[]; ref: string[] }[]): Uint8Arr
   if (totalBits === 0) return new Uint8Array();
   const bytes = new Uint8Array(Math.ceil(totalBits / 8));
 
+  // Encoding convention:
+  //   - empty selection (`values.length === 0`)  → all bits zero, decoded as
+  //     "no filter active";
+  //   - any other selection (including an explicit pick of every reference
+  //     value) → bit per selected value.
+  //
+  // The previous version also encoded `[]` as all-bits-set, which was
+  // indistinguishable from an explicit pick of all reference values once
+  // round-tripped, so the explicit selection was silently collapsed to
+  // "no filter" on the consumer side.
   let offset = 0;
   for (const section of sections) {
-    const isAll = section.values.length === 0 || section.values.length === section.ref.length;
-    if (isAll) {
-      for (let i = 0; i < section.ref.length; i++) setBit(bytes, offset + i);
-    } else {
+    if (section.values.length > 0) {
       const selected = new Set(section.values);
       section.ref.forEach((value, index) => {
         if (selected.has(value)) setBit(bytes, offset + index);
@@ -65,7 +72,9 @@ function packSections(sections: { values: string[]; ref: string[] }[]): Uint8Arr
 }
 
 export type UnpackedSection = {
+  /** Reference values whose bit was set. Empty means "no filter active". */
   values: string[];
+  /** True iff *every* reference value's bit was set (explicit pick of all). */
   isAll: boolean;
 };
 
@@ -87,7 +96,10 @@ export function unpackSections(
         allSet = false;
       }
     }
-    result.push({ values, isAll: allSet });
+    // `allSet` is meaningful only when at least one bit fired; an all-zeros
+    // section means "no filter active", which is not the same as "explicit
+    // pick of every reference value".
+    result.push({ values, isAll: allSet && values.length > 0 });
     offset += section.ref.length;
   }
   return result;
@@ -121,11 +133,6 @@ function base64UrlToBytes(text: string): Uint8Array {
   return bytes;
 }
 
-function isAllSelected(values: string[], ref: string[]): boolean {
-  if (ref.length === 0) return true;
-  return values.length === 0 || values.length === ref.length;
-}
-
 export function encodeScheduleView(
   selection: ScheduleViewSelection,
   orders: ScheduleViewOrders,
@@ -137,15 +144,25 @@ export function encodeScheduleView(
   const segments: string[] = [key];
   if (selection.ano) segments.push(selection.ano);
 
+  // The dias filter is initialised as "every weekday selected" — the user can
+  // toggle individual days off but the UI starts fully checked. That state is
+  // observationally identical to "no day filter active", so collapse it to an
+  // empty selection here so the canonical default URL stays compact.
+  const normalizedDias = selection.dias.length === WEEKDAYS.length ? [] : selection.dias;
+
   const sections = [
     { values: selection.ucs, ref: orders.ucOrder },
     { values: selection.turmas, ref: orders.turmaOrder },
-    { values: selection.dias, ref: [...WEEKDAYS] },
+    { values: normalizedDias, ref: [...WEEKDAYS] },
     { values: selection.semanas, ref: orders.weekOrder },
   ];
 
-  const everythingAll = sections.every((section) => isAllSelected(section.values, section.ref));
-  if (!everythingAll && selection.ano) {
+  // Skip the bytes segment only when every section is unfiltered (empty
+  // selection). An explicit pick of every reference value, by contrast, is
+  // preserved through the bit pattern so the consumer can round-trip it
+  // distinctly from "no filter".
+  const everythingDefault = sections.every((section) => section.values.length === 0);
+  if (!everythingDefault && selection.ano) {
     const bytes = packSections(sections);
     segments.push(bytesToBase64Url(bytes));
   }

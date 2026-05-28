@@ -1,7 +1,25 @@
+import { hhmmToMinutes, minutesToTime } from "@/utils/time";
+import { WEEKDAY_LABELS_LONG } from "@/utils/weekdays";
 import type { WeekGridEvent } from "./WeekGrid";
 import { SCHEDULE_EVENT_DATA_ATTR } from "./dismissable";
 import MarqueeText from "./MarqueeText";
 import type { SubjectStyle } from "./subjectColors";
+
+const SLOT_MINUTES = 30;
+
+function getEventAriaLabel(ev: WeekGridEvent): string {
+  const startMin = hhmmToMinutes(ev.startTime);
+  const endMin = startMin + ev.duration * SLOT_MINUTES;
+  const timeRange = `${minutesToTime(startMin)} a ${minutesToTime(endMin)}`;
+  const parts = [
+    ev.title || ev.uc || ev.type || "Evento",
+    `${WEEKDAY_LABELS_LONG[ev.weekday]}, ${timeRange}`,
+  ];
+  if (ev.turma) parts.push(`turma ${ev.turma}`);
+  if (ev.professor) parts.push(`docente ${ev.professor}`);
+  if (ev.sala) parts.push(`sala ${ev.sala}`);
+  return parts.join(" — ");
+}
 
 interface ScheduleEventCardProps {
   ev: WeekGridEvent;
@@ -45,7 +63,9 @@ export default function ScheduleEventCard({
       type="button"
       {...{ [SCHEDULE_EVENT_DATA_ATTR]: "" }}
       onClick={onClick ? () => onClick(ev) : undefined}
-      className={`group relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden ${
+      aria-label={getEventAriaLabel(ev)}
+      aria-current={isEditing ? "true" : undefined}
+      className={`group relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/80 focus-visible:z-10 ${
         isEditing
           ? "bg-[#250902] border-[#38040e] text-white"
           : `${style.bg} ${style.border} ${style.text}`

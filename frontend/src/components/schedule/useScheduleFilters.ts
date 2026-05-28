@@ -34,6 +34,13 @@ interface UseScheduleFiltersParams {
   selectedYearDetail: YearDetail | undefined;
   /** sessionsQuery.data — undefined while the sessions query is loading. */
   selectedYearWeeks: WeekBlockResponse[] | undefined;
+  /**
+   * Whether the selected year has any Saturday sessions, supplied by the
+   * dedicated probe query in the page so it stays cached across filter
+   * changes (otherwise the main sessions query would have to smuggle
+   * saturday into every request to probe for it).
+   */
+  hasSaturdaySessions: boolean;
 }
 
 /**
@@ -55,6 +62,7 @@ export function useScheduleFilters({
   selectedDegree,
   selectedYearDetail,
   selectedYearWeeks,
+  hasSaturdaySessions,
 }: UseScheduleFiltersParams) {
   // --- selectedDegree-derived references --------------------------------
   const selectedDegreeYearValues = useMemo(
@@ -128,14 +136,6 @@ export function useScheduleFilters({
   );
 
   // --- sessions-derived references --------------------------------------
-  const hasSaturdaySessions = useMemo(
-    () =>
-      (selectedYearWeeks ?? []).some((block) =>
-        block.sessions.some((session) => session.weekday === "saturday"),
-      ),
-    [selectedYearWeeks],
-  );
-
   const weekOptions = useMemo<DropdownOption[]>(
     () =>
       (selectedYearWeeks ?? []).flatMap((block) => {
@@ -204,9 +204,7 @@ export function useScheduleFilters({
 
   const weekdayFilter = useMemo(() => {
     if (dias.length === 0 || dias.length === WEEKDAYS.length) return [];
-    // Always request saturday so we can tell whether it has any sessions, even
-    // when it is currently deselected in the day filter.
-    return [...new Set([...dias, "saturday"])];
+    return dias;
   }, [dias]);
 
   // --- schedule events --------------------------------------------------

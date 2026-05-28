@@ -158,10 +158,12 @@ describe("encode/parse round-trip", () => {
     expect(sections?.[3]).toEqual({ values: ["w1", "w3"], isAll: false });
   });
 
-  it("marks every section isAll when nothing is filtered", () => {
-    // No bytes are encoded for an all-default selection — the encoder skips
-    // the bytes segment entirely. Encode something with one custom section
-    // to force bytes, then verify the others come back as isAll.
+  it("decodes unfiltered sections as empty with isAll=false", () => {
+    // Encode a UC filter so bytes are emitted; the other sections are at
+    // their defaults and should come back as `{ values: [], isAll: false }`
+    // rather than the old "all-bits-set, isAll: true" collapse, so the
+    // consumer can tell "no filter active" apart from "explicit pick of
+    // every reference value".
     const sections = roundTrip({
       degreeId: "deg-aaaa",
       ano: "1",
@@ -170,8 +172,38 @@ describe("encode/parse round-trip", () => {
       dias: [],
       semanas: [],
     });
-    expect(sections?.[1]?.isAll).toBe(true);
-    expect(sections?.[2]?.isAll).toBe(true);
-    expect(sections?.[3]?.isAll).toBe(true);
+    expect(sections?.[1]).toEqual({ values: [], isAll: false });
+    expect(sections?.[2]).toEqual({ values: [], isAll: false });
+    expect(sections?.[3]).toEqual({ values: [], isAll: false });
+  });
+
+  it("preserves an explicit pick of every reference value as isAll", () => {
+    const sections = roundTrip({
+      degreeId: "deg-aaaa",
+      ano: "1",
+      ucs: ["UC1", "UC2", "UC3", "UC4", "UC5"],
+      turmas: [],
+      dias: [],
+      semanas: [],
+    });
+    expect(sections?.[0]).toEqual({
+      values: ["UC1", "UC2", "UC3", "UC4", "UC5"],
+      isAll: true,
+    });
+  });
+
+  it("collapses the all-weekdays dias state to 'no filter' in the URL", () => {
+    const encoded = encodeScheduleView(
+      {
+        degreeId: "deg-aaaa",
+        ano: "1",
+        ucs: [],
+        turmas: [],
+        dias: [...WEEKDAYS],
+        semanas: [],
+      },
+      orders,
+    );
+    expect(encoded.split(":").length).toBe(2);
   });
 });

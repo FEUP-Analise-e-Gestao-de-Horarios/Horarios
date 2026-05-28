@@ -76,9 +76,24 @@ export function useScheduleViewUrl({
   setSemanas,
 }: UseScheduleViewUrlParams): { isHydrated: boolean } {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [initialView] = useState<string | null>(() => searchParams.get("view"));
+  const currentViewParam = searchParams.get("view");
+  const [initialView, setInitialView] = useState<string | null>(() => currentViewParam);
   const hydrationPhaseRef = useRef(0);
   const [isHydrated, setIsHydrated] = useState(false);
+  // Tracks the last `view` string this hook wrote. If `currentViewParam`
+  // drifts from it (back/forward navigation, an external `setSearchParams`,
+  // a copy-pasted URL), we know it was not our own write and re-hydrate.
+  const lastSerializedViewRef = useRef<string>("");
+
+  useEffect(() => {
+    const current = currentViewParam ?? "";
+    if (current === lastSerializedViewRef.current) return;
+    // External change: reset hydration and re-decode from the new URL.
+    lastSerializedViewRef.current = current;
+    setInitialView(currentViewParam);
+    hydrationPhaseRef.current = 0;
+    setIsHydrated(false);
+  }, [currentViewParam]);
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect */
@@ -131,9 +146,14 @@ export function useScheduleViewUrl({
       const ucsSection = sections[0];
       const turmasSection = sections[1];
       const diasSection = sections[2];
-      if (ucsSection && !ucsSection.isAll) setUcs(ucsSection.values);
-      if (turmasSection) {
-        const decodedTurmas = turmasSection.isAll ? [] : turmasSection.values;
+      // Each section's `values` is the explicit selection; an empty section
+      // means "no filter" and leaves state at its initialised default. The
+      // old encoder collapsed `[]` and `[every]` into a single all-bits-set
+      // pattern, so the consumer had to special-case `isAll` — that's no
+      // longer needed.
+      if (ucsSection && ucsSection.values.length > 0) setUcs(ucsSection.values);
+      if (turmasSection && turmasSection.values.length > 0) {
+        const decodedTurmas = turmasSection.values;
         setTurmas(decodedTurmas);
         const shifts = new Set<string>();
         for (const classItem of selectedYearClasses) {
@@ -141,9 +161,7 @@ export function useScheduleViewUrl({
         }
         setTurnos(sortValuesByReference([...shifts], turnoOrder));
       }
-      if (diasSection) {
-        setDias(diasSection.isAll ? [...WEEKDAYS] : diasSection.values);
-      }
+      if (diasSection && diasSection.values.length > 0) setDias(diasSection.values);
       hydrationPhaseRef.current = 2;
     }
 
@@ -157,7 +175,7 @@ export function useScheduleViewUrl({
           { ref: allWeekValues },
         ]);
         const semanasSection = sections[3];
-        if (semanasSection && !semanasSection.isAll) setSemanas(semanasSection.values);
+        if (semanasSection && semanasSection.values.length > 0) setSemanas(semanasSection.values);
       }
       hydrationPhaseRef.current = 3;
       setIsHydrated(true);
@@ -191,8 +209,13 @@ export function useScheduleViewUrl({
       { ucOrder: ucOptions, turmaOrder, weekOrder: allWeekValues },
     );
 
-    const currentView = searchParams.get("view") ?? "";
-    if (newView === currentView) return;
+    // Compare against what *we* last wrote, not against `searchParams`. Using
+    // `searchParams` as the source of truth would (a) add a re-run on every
+    // `setSearchParams` call (loop risk if encoding ever became
+    // non-idempotent), and (b) wedge `lastSerializedViewRef` out of sync
+    // with the URL on external nav.
+    if (newView === lastSerializedViewRef.current) return;
+    lastSerializedViewRef.current = newView;
 
     setSearchParams(
       (prev) => {
@@ -214,7 +237,6 @@ export function useScheduleViewUrl({
     ucOptions,
     turmaOrder,
     allWeekValues,
-    searchParams,
     setSearchParams,
   ]);
 

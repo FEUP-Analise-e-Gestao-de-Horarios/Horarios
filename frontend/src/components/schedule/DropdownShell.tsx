@@ -15,6 +15,14 @@ interface DropdownShellProps {
   panelClassName?: string;
   /** Panel contents. */
   children: ReactNode;
+  /** DOM id assigned to the panel. Pair with the trigger's aria-controls. */
+  panelId?: string;
+  /** ARIA role for the panel container. Defaults to "listbox". */
+  panelRole?: "listbox" | "menu" | "dialog";
+  /** Only meaningful with role="listbox". */
+  panelAriaMultiSelectable?: boolean;
+  /** Used as aria-label or aria-labelledby on the panel. */
+  panelAriaLabelledBy?: string;
 }
 
 /**
@@ -27,6 +35,10 @@ export default function DropdownShell({
   trigger,
   panelClassName = "",
   children,
+  panelId,
+  panelRole = "listbox",
+  panelAriaMultiSelectable,
+  panelAriaLabelledBy,
 }: DropdownShellProps) {
   const { triggerRef, panelRef, openUpward, horizontalOffset } = useDropdownPosition(open);
 
@@ -41,6 +53,10 @@ export default function DropdownShell({
       {open && (
         <div
           ref={panelRef}
+          id={panelId}
+          role={panelRole}
+          aria-multiselectable={panelAriaMultiSelectable}
+          aria-labelledby={panelAriaLabelledBy}
           className={[
             DROPDOWN_PANEL_BASE,
             panelClassName,

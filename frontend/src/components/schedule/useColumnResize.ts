@@ -7,8 +7,8 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 
-const TURMA_COLUMN_MIN_PX = 32;
-const TURMA_COLUMN_MAX_PX = 320;
+export const TURMA_COLUMN_MIN_PX = 32;
+export const TURMA_COLUMN_MAX_PX = 320;
 
 export type ColumnDragState = {
   colIndex: number;
@@ -50,7 +50,7 @@ export function useColumnResize() {
   // on-screen position once every column adopts the new width.
   const scrollAdjustRef = useRef(0);
 
-  const handleResizeStart = (columnIndex: number, event: ReactMouseEvent<HTMLButtonElement>) => {
+  const handleResizeStart = (columnIndex: number, event: ReactMouseEvent<HTMLElement>) => {
     event.preventDefault();
     event.stopPropagation();
     const cell = event.currentTarget.parentElement;
@@ -65,10 +65,7 @@ export function useColumnResize() {
     setDragState({ colIndex: columnIndex, width: startWidth, othersWidth: startWidth });
   };
 
-  const handleResizeKeyDown = (
-    columnIndex: number,
-    event: ReactKeyboardEvent<HTMLButtonElement>,
-  ) => {
+  const handleResizeKeyDown = (columnIndex: number, event: ReactKeyboardEvent<HTMLElement>) => {
     const direction = event.key === "ArrowLeft" ? -1 : event.key === "ArrowRight" ? 1 : 0;
     if (direction === 0) return;
     event.preventDefault();
