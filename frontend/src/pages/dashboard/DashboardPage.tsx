@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { useProject, useProjectStats } from "@/api/hooks/useDashboard";
+import { useProject, useProjectStats } from "@/api/hooks/project/project";
 import { queryKeys } from "@/api/queryKeys";
 import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
 import ProjectHeader from "@/components/dashboard/ProjectHeader";

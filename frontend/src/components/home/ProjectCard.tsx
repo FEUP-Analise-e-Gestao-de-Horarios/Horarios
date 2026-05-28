@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import { useRenameProject, useDeleteProject } from "@/api/hooks/useProjects";
 import { ApiError } from "@/types/api";
-import type { Project } from "@/types/project";
+import type { Project } from "@/types/project/project";
 import { Pencil, Trash2, Check, X, Loader2 } from "lucide-react";
 
 interface ProjectCardProps {
