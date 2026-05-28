@@ -1,9 +1,9 @@
 import { useLogout } from "@/api/hooks/useAuth";
 import { ROUTES } from "@/routes";
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
-export default function Navbar() {
+export default function HomeNavbar() {
   const navigate = useNavigate();
   const logout = useLogout();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -38,15 +38,13 @@ export default function Navbar() {
 
         {dropdownOpen && (
           <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-[0_4px_12px_rgba(0,0,0,0.15)] overflow-hidden z-50">
-            <button
-              onClick={() => {
-                setDropdownOpen(false);
-                void navigate(ROUTES.CHANGE_PASSWORD);
-              }}
-              className="w-full text-left px-4 py-2.5 text-sm text-[#08060d] bg-transparent border-none cursor-pointer hover:bg-[#f0eeeb] transition-colors"
+            <Link
+              to={ROUTES.CHANGE_PASSWORD}
+              onClick={() => setDropdownOpen(false)}
+              className="block w-full text-left px-4 py-2.5 text-sm text-[#08060d] hover:bg-[#f0eeeb] transition-colors"
             >
               Mudar palavra-passe
-            </button>
+            </Link>
             <div className="h-[0.5px] bg-[#e5e4e7]" />
             <button
               onClick={() => {
