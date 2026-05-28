@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import type { ConflictRecord } from "@/types/project/conflicts";
 
 interface ConflictsDrawerProps {
@@ -15,27 +16,48 @@ export default function ConflictsDrawer({
   isLoading = false,
   onRefresh,
 }: ConflictsDrawerProps) {
+  const asideRef = useRef<HTMLElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    // Save the focused element so we can restore focus when the drawer
+    // closes, and move focus into the dialog now that it's visible.
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+    asideRef.current?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previousFocusRef.current?.focus();
+    };
+  }, [open, onClose]);
+
   return (
     <div
+      // `inert` excludes the subtree from the focus and accessibility trees
+      // while the drawer is closed, so the close button etc. don't sit inside
+      // an `aria-hidden` ancestor with focusable descendants (an axe
+      // violation) and aren't reachable via Tab when the drawer is hidden.
+      inert={!open}
       className={[
         "fixed inset-0 z-50 transition-opacity",
         open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
       ].join(" ")}
-      aria-hidden={!open}
     >
-      <button
-        type="button"
-        onClick={onClose}
-        className="absolute inset-0 bg-black/45"
-        aria-label="Fechar painel de conflitos"
-      />
+      <div aria-hidden="true" onClick={onClose} className="absolute inset-0 bg-black/45" />
 
       <aside
+        ref={asideRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="conflicts-drawer-title"
+        tabIndex={-1}
         className={[
-          "absolute right-0 top-0 h-full w-[min(92vw,500px)] bg-[#1d2128] text-white border-l border-white/15 shadow-[-8px_0_24px_rgba(0,0,0,0.45)] transition-transform overflow-y-auto",
+          "absolute right-0 top-0 h-full w-[min(92vw,500px)] bg-[#1d2128] text-white border-l border-white/15 shadow-[-8px_0_24px_rgba(0,0,0,0.45)] transition-transform overflow-y-auto focus:outline-none",
           open ? "translate-x-0" : "translate-x-full",
         ].join(" ")}
       >
