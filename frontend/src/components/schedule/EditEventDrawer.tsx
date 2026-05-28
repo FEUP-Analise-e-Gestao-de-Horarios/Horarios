@@ -388,7 +388,10 @@ export default function EditEventDrawer({
   return (
     <aside
       ref={asideRef}
-      role="dialog"
+      // The drawer is intentionally non-modal: the grid behind it stays
+      // interactive so the user can click another event to retarget the
+      // drawer. `<aside>`'s implicit role="complementary" carries the
+      // "non-modal side panel" meaning more accurately than role="dialog".
       aria-labelledby="edit-event-drawer-title"
       className={[
         "fixed left-0 top-[15vh] h-[70vh] w-[min(92vw,420px)] z-40 transition-transform duration-200",
@@ -438,14 +441,20 @@ export default function EditEventDrawer({
           </label>
 
           <div className="flex items-end gap-2">
-            <label className="block text-sm flex-1 min-w-0">
-              <span className="mb-1.5 block text-white/90">Hora Início</span>
+            {/* `<label>` would wrap three interactive controls (the `-`/`+`
+                buttons and the `<input>`); native label-click would focus the
+                first button instead of the input. Use a `<span>` + an explicit
+                `aria-labelledby` on the input so the association is correct. */}
+            <div className="block text-sm flex-1 min-w-0">
+              <span id="edit-event-start-time-label" className="mb-1.5 block text-white/90">
+                Hora Início
+              </span>
               <div className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={() => dispatch({ type: "shiftTime", field: "startTime", delta: -30 })}
                   className="h-8 w-8 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white text-sm"
-                  aria-label="Diminuir hora de inicio em 30 minutos"
+                  aria-label="Diminuir hora de início em 30 minutos"
                 >
                   -
                 </button>
@@ -454,6 +463,7 @@ export default function EditEventDrawer({
                   inputMode="numeric"
                   placeholder="HH:MM"
                   value={startTime}
+                  aria-labelledby="edit-event-start-time-label"
                   onChange={(event) =>
                     dispatch({ type: "setTime", field: "startTime", value: event.target.value })
                   }
@@ -466,14 +476,16 @@ export default function EditEventDrawer({
                   type="button"
                   onClick={() => dispatch({ type: "shiftTime", field: "startTime", delta: 30 })}
                   className="h-8 w-8 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white text-sm"
-                  aria-label="Aumentar hora de inicio em 30 minutos"
+                  aria-label="Aumentar hora de início em 30 minutos"
                 >
                   +
                 </button>
               </div>
-            </label>
-            <label className="block text-sm flex-1 min-w-0">
-              <span className="mb-1.5 block text-white/90">Hora Fim</span>
+            </div>
+            <div className="block text-sm flex-1 min-w-0">
+              <span id="edit-event-end-time-label" className="mb-1.5 block text-white/90">
+                Hora Fim
+              </span>
               <div className="flex items-center gap-1">
                 <button
                   type="button"
@@ -488,6 +500,7 @@ export default function EditEventDrawer({
                   inputMode="numeric"
                   placeholder="HH:MM"
                   value={endTime}
+                  aria-labelledby="edit-event-end-time-label"
                   onChange={(event) =>
                     dispatch({ type: "setTime", field: "endTime", value: event.target.value })
                   }
@@ -505,7 +518,7 @@ export default function EditEventDrawer({
                   +
                 </button>
               </div>
-            </label>
+            </div>
             <div className="border-l border-white/20 h-10 ml-1 mr-0.5" />
             <label className="block text-sm flex-1 min-w-0">
               <span className="mb-1.5 block text-white/90">Dia</span>
