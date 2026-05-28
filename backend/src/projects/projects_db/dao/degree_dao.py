@@ -1,11 +1,11 @@
 from sqlalchemy import distinct, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session as DBSession
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.dao.queries.parallel_block_candidates import candidate_blocks_cte
 from src.projects.projects_db.models.class_ import Class
 from src.projects.projects_db.models.degree import Degree
-from src.projects.projects_db.models.session import Session as SessionModel
+from src.projects.projects_db.models.session import Session
 from src.projects.projects_db.models.session_class_subject import SessionClassSubject
 from src.projects.projects_db.models.subject import Subject
 from src.projects.projects_db.models.year import Year
@@ -15,7 +15,7 @@ from src.projects.projects_db.schemas.degree import DegreeStats
 class DegreeDAO(BaseDAO[Degree]):
     """Data access object for Degree records."""
 
-    def __init__(self, session: Session, *, flush_on_create: bool = True) -> None:
+    def __init__(self, session: DBSession, *, flush_on_create: bool = True) -> None:
         super().__init__(Degree, session, flush_on_create=flush_on_create)
 
     # -------------------------------------------------------------------
@@ -104,9 +104,9 @@ class DegreeDAO(BaseDAO[Degree]):
             .join(Year, Year.degree_id == Degree.id)
             .join(Subject, Subject.year_id == Year.id)
             .join(SessionClassSubject, SessionClassSubject.subject_id == Subject.id)
-            .join(SessionModel, SessionModel.id == SessionClassSubject.session_id)
+            .join(Session, Session.id == SessionClassSubject.session_id)
             .where(
-                SessionModel.original_block_id.in_(
+                Session.original_block_id.in_(
                     select(candidate_block_ids_subq.c.original_block_id),
                 ),
             )
