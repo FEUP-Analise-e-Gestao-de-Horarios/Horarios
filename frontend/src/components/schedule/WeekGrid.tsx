@@ -1,7 +1,7 @@
 import { useMemo, useRef } from "react";
 import type { Weekday } from "@/types/project/weekday";
 import { hhmmToMinutes, minutesToTime } from "@/utils/time";
-import { WEEKDAYS, WEEKDAY_LABELS_SHORT } from "@/utils/weekdays";
+import { WEEKDAYS, WEEKDAY_LABELS_LONG, WEEKDAY_LABELS_SHORT } from "@/utils/weekdays";
 import MarqueeText from "./MarqueeText";
 import { styleForSubject } from "./subjectColors";
 import { useColumnResize } from "./useColumnResize";
@@ -73,6 +73,20 @@ function weekdayIndex(weekday: Weekday): number {
 function getTurmaHeaderStyle(shift?: number): string {
   if (shift !== undefined && shift % 2 === 0) return "bg-[#f7ddd7] border-[#e0b0a5] text-[#8C2C19]";
   return "bg-[#f9f7f4] text-[#08060d]";
+}
+
+function getEventAriaLabel(ev: WeekGridEvent): string {
+  const startMin = hhmmToMinutes(ev.startTime);
+  const endMin = startMin + ev.duration * SLOT_MINUTES;
+  const timeRange = `${minutesToTime(startMin)} a ${minutesToTime(endMin)}`;
+  const parts = [
+    ev.title || ev.uc || ev.type || "Evento",
+    `${WEEKDAY_LABELS_LONG[ev.weekday]}, ${timeRange}`,
+  ];
+  if (ev.turma) parts.push(`turma ${ev.turma}`);
+  if (ev.professor) parts.push(`docente ${ev.professor}`);
+  if (ev.sala) parts.push(`sala ${ev.sala}`);
+  return parts.join(" — ");
 }
 
 // Maps each turma code to a shortened label with the prefix/suffix shared by
@@ -485,6 +499,7 @@ export default function WeekGrid({
           const style = styleForSubject(ev.uc);
           const clickable = !!onEventClick || !!onEventDoubleClick;
           const isEditingEvent = editingEventId === ev.id;
+          const ariaLabel = getEventAriaLabel(ev);
           return runs.map((run) => {
             const startCol = dayCol * turmasCount + run.start + 2;
             return (
@@ -494,7 +509,9 @@ export default function WeekGrid({
                 data-schedule-event=""
                 onClick={onEventClick ? () => onEventClick(ev) : undefined}
                 onDoubleClick={onEventDoubleClick ? () => onEventDoubleClick(ev) : undefined}
-                className={`group relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden ${
+                aria-label={ariaLabel}
+                aria-current={isEditingEvent ? "true" : undefined}
+                className={`group relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/80 focus-visible:z-10 ${
                   isEditingEvent
                     ? "bg-[#250902] border-[#38040e] text-white"
                     : `${style.bg} ${style.border} ${style.text}`
