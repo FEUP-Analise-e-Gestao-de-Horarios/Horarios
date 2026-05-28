@@ -7,7 +7,10 @@ export function formatDateLabel(value: string): string {
   return `${day}-${month}-${year}`;
 }
 
-/** Human label for a contiguous block of week start dates (DD-MM-YYYY). */
+/**
+ * Human label for a contiguous block of week start dates. Each entry is an
+ * ISO-ish `YYYY-MM-DD` string; the returned label uses `DD-MM-YYYY`.
+ */
 export function formatWeekRange(weeks: string[]): string {
   if (weeks.length === 0) return "";
   const firstWeek = formatDateLabel(weeks.at(0) ?? "");
