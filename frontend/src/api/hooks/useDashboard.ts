@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { queryKeys } from "@/api/queryKeys";
@@ -48,18 +49,29 @@ export function useProjectStats(projectId: string, refetchInterval: number | fal
 }
 
 export function useProjectExport(projectId: string) {
-  return useQuery({
+  const recalculateExportGraph = useRef(false);
+  const query = useQuery({
     queryKey: queryKeys.projects.export(projectId),
     queryFn: async (): Promise<ProjectExportPayload> => {
+      const shouldRecalculate = recalculateExportGraph.current;
+      recalculateExportGraph.current = false;
       const response = await api.post<ApiResponse<ProjectExportPayload>>(
         `/api/projects/${projectId}/export`,
-        {},
+        { recalculate_export_graph: shouldRecalculate },
       );
       return response.data;
     },
     enabled: !!projectId,
     staleTime: 0,
   });
+
+  return {
+    ...query,
+    recalculateExportGraph: () => {
+      recalculateExportGraph.current = true;
+      return query.refetch();
+    },
+  };
 }
 
 export function useProjectDegrees(projectId: string, refetchInterval: number | false = false) {

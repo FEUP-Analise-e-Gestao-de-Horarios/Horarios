@@ -1,3 +1,5 @@
+import itertools
+from datetime import date, timedelta
 from typing import Any
 
 import networkx as nx
@@ -13,7 +15,7 @@ from src.exporter.export_graph_types import (
 from src.projects.projects_db.dao.base_dao import ChangedRecords
 from src.projects.projects_db.dao.session_dao import SessionDAO
 from src.projects.projects_db.models.session import Session
-from src.projects.projects_db.paths import general_db
+from src.projects.projects_db.paths import general_db, initial_db
 from src.projects.projects_db.registry import get_session
 
 
@@ -40,6 +42,14 @@ class ExportGraph:
                 self.sessions_by_id[db_session.id] = session_data
                 self.sessions_by_change_key[self.normalize_id(db_session.id)] = session_data
 
+        with get_session(initial_db(project_id)) as session:
+            session_dao = SessionDAO(session)
+            self.initial_sessions = {}
+
+            for db_session in session_dao.get_all():
+                session_data = self.serialize_session(db_session)
+                self.initial_sessions[self.normalize_id(db_session.id)] = session_data
+
     def serialize_session(self, db_session: Session) -> dict[str, Any]:
         """Return session data used by the exporter and its resource graphs."""
         return {
@@ -48,6 +58,7 @@ class ExportGraph:
             "duration": db_session.duration,
             "weekday": db_session.weekday,
             "week": db_session.week,
+            "original_block_id": db_session.original_block_id,
             "room_ids": tuple(self.normalize_id(room.id) for room in db_session.rooms),
             "rooms": [room.name for room in db_session.rooms],
             "teacher_ids": tuple(self.normalize_id(teacher.id) for teacher in db_session.teachers),
@@ -384,34 +395,190 @@ class ExportGraph:
             for component in self.topological_sort_by_classes(condensed_graph)
         ]
 
-    def build_modification_steps(
-        self,
-    ) -> list[dict[str, Any]]:
-        """Return export-ready modification steps with dependencies and session data."""
+    def get_graph_ordered_modifications(self) -> list[tuple[Any, str]]:
+        """Return changed sessions in graph order with their export step type."""
         if self.dependency_graph is None:
             self.build_graph()
 
-        assert self.dependency_graph is not None
+        ordered_modifications: list[tuple[Any, str]] = []
+        for dependency_group in self.order_change_groups_using_graph():
+            step_type = "exchange" if len(dependency_group) > 1 else "move"
+            ordered_modifications.extend((session_id, step_type) for session_id in dependency_group)
 
-        dependencies = self.get_dependencies()
-        return [
-            {
-                "type": "exchange" if len(group) > 1 else "move",
-                "sessions": {
-                    str(session_id): {
-                        "modifications": self.changes[session_id],
-                        "dependencies": dependencies[session_id],
-                        "session": self.get_public_session_data(session_id),
-                    }
-                    for session_id in group
+        return ordered_modifications
+
+    def build_modification_steps(
+        self,
+        ordered_modifications: list[tuple[Any, str]] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Return export-ready modification steps with dependencies and session data."""
+        use_graph = ordered_modifications is None
+        if ordered_modifications is None:
+            ordered_modifications = self.get_graph_ordered_modifications()
+
+        dependencies = self.get_dependencies() if use_graph else self.get_empty_dependencies()
+        change_key_by_session_id = {
+            self.normalize_id(session_id): session_id for session_id in self.changes
+        }
+        grouped_steps: dict[tuple[str, str], dict[str, Any]] = {}
+
+        for raw_session_id, step_type in ordered_modifications:
+            session_id = change_key_by_session_id.get(self.normalize_id(raw_session_id))
+            if session_id is None:
+                continue
+
+            key = self.get_session_group_key(session_id)
+            step = grouped_steps.setdefault(
+                key,
+                {
+                    "type": step_type,
+                    "session_ids": [],
                 },
-            }
-            for group in self.order_change_groups_using_graph()
+            )
+            if step_type == "exchange":
+                step["type"] = "exchange"
+
+            step["session_ids"].append(session_id)
+
+        return [
+            self.build_modification_step(
+                step["session_ids"],
+                step["type"],
+                dependencies,
+            )
+            for step in grouped_steps.values()
         ]
+
+    def get_empty_dependencies(self) -> dict[Any, list[Any]]:
+        """Return an empty dependency mapping for table-ordered export steps."""
+        return {session_id: [] for session_id in self.changes}
+
+    def get_session_group_key(self, session_id: Any) -> tuple[str, str]:
+        """Return the recurring-block key used to group export changes."""
+        session_data = self.get_public_session_data(session_id)
+        block_id = session_data.get("original_block_id", session_id)
+        changes_key = str(self.jsonable(self.groupable_changes(self.changes[session_id])))
+        return (self.normalize_id(block_id), changes_key)
+
+    def build_modification_step(
+        self,
+        session_ids: list[Any],
+        step_type: str,
+        dependencies: dict[Any, list[Any]],
+    ) -> dict[str, Any]:
+        """Build one export step from already grouped changed sessions."""
+        return {
+            "type": step_type,
+            **self.build_session_group(session_ids, dependencies),
+        }
+
+    def build_session_group(
+        self,
+        session_ids: list[Any],
+        dependencies: dict[Any, list[Any]],
+    ) -> dict[str, Any]:
+        """Return one frontend-ready recurring-block modification group."""
+        sorted_session_ids = self.sort_session_ids_by_week(session_ids)
+        representative_id = sorted_session_ids[0]
+        representative_session = self.get_public_session_data(representative_id)
+        weeks = [
+            self.get_public_session_data(session_id)["week"] for session_id in sorted_session_ids
+        ]
+
+        return {
+            "original_block_id": representative_session.get("original_block_id", representative_id),
+            "session_ids": [str(session_id) for session_id in sorted_session_ids],
+            "weeks": weeks,
+            "week_range": self.build_week_range(weeks),
+            "modifications": self.build_group_modifications(sorted_session_ids),
+            "dependencies": sorted(
+                {
+                    dependency
+                    for session_id in sorted_session_ids
+                    for dependency in dependencies[session_id]
+                    if dependency not in sorted_session_ids
+                },
+                key=str,
+            ),
+            "session": representative_session,
+        }
+
+    def sort_session_ids_by_week(self, session_ids: list[Any]) -> list[Any]:
+        """Sort session ids by their public week and then by id."""
+        return sorted(
+            session_ids,
+            key=lambda session_id: (
+                self.get_public_session_data(session_id).get("week"),
+                str(session_id),
+            ),
+        )
+
+    def build_group_modifications(self, session_ids: list[Any]) -> dict[str, Any]:
+        """Return modifications shared by a displayed recurring-block group."""
+        if len(session_ids) <= 1:
+            return self.changes[session_ids[0]]
+
+        # The individual sessions in a recurring block necessarily differ by
+        # week. The frontend displays that as a grouped week range, so keeping a
+        # representative week row here would make the block look split again.
+        return self.groupable_changes(self.changes[session_ids[0]])
+
+    @staticmethod
+    def groupable_changes(changes: dict[str, Any]) -> dict[str, Any]:
+        """Return changes that can be compared/rendered across recurring weeks."""
+        return {field: change for field, change in changes.items() if field != "week"}
+
+    @staticmethod
+    def build_week_range(weeks: list[Any]) -> dict[str, Any]:
+        """Return whether a sorted list of weeks can be displayed as a range."""
+        unique_weeks = sorted(
+            {
+                parsed_week
+                for week in weeks
+                if (parsed_week := ExportGraph.parse_week_date(week)) is not None
+            },
+        )
+        if not unique_weeks:
+            return {"start": None, "end": None, "contiguous": False}
+
+        contiguous = all(
+            current - previous == timedelta(days=7)
+            for previous, current in itertools.pairwise(unique_weeks)
+        )
+
+        return {
+            "start": unique_weeks[0].isoformat(),
+            "end": unique_weeks[-1].isoformat(),
+            "contiguous": contiguous,
+        }
+
+    @staticmethod
+    def parse_week_date(value: Any) -> date | None:
+        """Parse a week value produced either before or after JSON serialization."""
+        if isinstance(value, date):
+            return value
+        if isinstance(value, str):
+            try:
+                return date.fromisoformat(value)
+            except ValueError:
+                return None
+        return None
+
+    @classmethod
+    def jsonable(cls, value: Any) -> Any:
+        """Convert nested values to stable JSON-like values for comparisons."""
+        if isinstance(value, dict):
+            return {
+                str(key): cls.jsonable(item)
+                for key, item in sorted(value.items(), key=lambda pair: str(pair[0]))
+            }
+        if isinstance(value, (list, tuple)):
+            return [cls.jsonable(item) for item in value]
+        return str(value) if not isinstance(value, (str, int, float, bool, type(None))) else value
 
     def get_public_session_data(self, session_id: Any) -> dict[str, Any]:
         """Return session data without graph-only resource id fields."""
-        session_data = dict(self.sessions_by_change_key[self.normalize_id(session_id)])
+        session_data = dict(self.initial_sessions[self.normalize_id(session_id)])
 
         for field in ("room_ids", "teacher_ids", "class_ids"):
             session_data.pop(field, None)

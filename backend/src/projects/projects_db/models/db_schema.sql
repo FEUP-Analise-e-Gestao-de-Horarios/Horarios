@@ -151,3 +151,20 @@ CREATE TABLE parallel_block_group_members (
     PRIMARY KEY (parallel_block_group_id, original_block_id),
     UNIQUE (original_block_id)
 );
+
+
+-----------------------------------------------------------
+-- Exporter
+-----------------------------------------------------------
+
+CREATE TABLE modified_sessions (
+    modification_number  INT PRIMARY KEY,
+    session_id           UUID NOT NULL UNIQUE REFERENCES sessions(id) ON DELETE CASCADE,
+    step_type            TEXT NOT NULL,
+    step_key             TEXT NOT NULL,
+    step_payload         TEXT NOT NULL
+);
+
+CREATE INDEX ix_modified_sessions_session_id ON modified_sessions(session_id);
+CREATE INDEX ix_modified_sessions_modification_number
+    ON modified_sessions(modification_number);

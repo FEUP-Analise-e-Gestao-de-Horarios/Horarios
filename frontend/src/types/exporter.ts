@@ -67,6 +67,7 @@ export interface ExportSessionModifications {
 
 export interface ExportSessionSnapshot {
   id: string;
+  original_block_id?: string;
   start_time: number;
   duration: number;
   weekday: Weekday;
@@ -89,15 +90,21 @@ export interface ExportSubjectsSnapshot {
   code: string;
 }
 
-export interface ExportModificationSession {
-  modifications: ExportSessionModifications;
-  dependencies: string[];
-  session: ExportSessionSnapshot;
+export interface ExportWeekRange {
+  start: string | null;
+  end: string | null;
+  contiguous: boolean;
 }
 
 export interface ExportModificationStep {
   type: ExportModificationStepType;
-  sessions: Record<string, ExportModificationSession>;
+  original_block_id: string;
+  session_ids: string[];
+  weeks: string[];
+  week_range: ExportWeekRange;
+  modifications: ExportSessionModifications;
+  dependencies: string[];
+  session: ExportSessionSnapshot;
 }
 
 export type ExportModificationSteps = ExportModificationStep[];

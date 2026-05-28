@@ -1,3 +1,4 @@
+import json
 from time import time
 from typing import Any
 
@@ -9,11 +10,12 @@ from src.core.schemas import SuccessResponse
 from src.exporter.export_graph import ExportGraph
 from src.projects.models import Project
 from src.projects.projects_db.dao.class_dao import ClassDAO
+from src.projects.projects_db.dao.modified_session_dao import ModifiedSessionDAO
 from src.projects.projects_db.dao.room_dao import RoomDAO
 from src.projects.projects_db.dao.session_dao import SessionDAO
 from src.projects.projects_db.dao.teacher_dao import TeacherDAO
 from src.projects.projects_db.paths import general_db, initial_db
-from src.projects.projects_db.registry import get_session
+from src.projects.projects_db.registry import get_session, init_engine
 
 
 class ProjectExportView(View):
@@ -30,6 +32,14 @@ class ProjectExportView(View):
             Project.objects.get(pk=project_id)
         except Project.DoesNotExist:
             return ProjectNotFoundResponse()
+
+        try:
+            payload = json.loads(request.body or b"{}")
+        except json.JSONDecodeError:
+            payload = {}
+        if not isinstance(payload, dict):
+            payload = {}
+        recalculate_export_graph = bool(payload.get("recalculate_export_graph"))
 
         # -- Compute differences and conflicts ---------------------------------
         # with Comparator(project_id) as comp:
@@ -48,29 +58,48 @@ class ProjectExportView(View):
         #         ).model_dump(),
         #     )
 
+        init_engine(general_db(project_id))
+
         with get_session(general_db(project_id)) as session:
             session_dao = SessionDAO(session)
+            modified_session_dao = ModifiedSessionDAO(session)
             rooms_dao = RoomDAO(session)
             teachers_dao = TeacherDAO(session)
             class_dao = ClassDAO(session)
+            cached_modification_steps = (
+                []
+                if recalculate_export_graph
+                else modified_session_dao.get_cached_modification_steps()
+            )
 
             start_time = time()
             alias = session_dao.attach_db(initial_db(project_id))
             data: dict[str, Any] = {}
-            modifications = session_dao.get_changes_only(alias)
+            cache_updated = False
             data.update(
                 {"added_removed_sessions": session_dao.get_added_removed_records(alias)},
             )
             data.update({"rooms_conflicts": rooms_dao.get_conflicting_slots()})
             data.update({"teacher_conflicts": teachers_dao.get_conflicting_slots()})
             data.update({"classes_conflicts": class_dao.get_conflicting_slots()})
+
+            if cached_modification_steps:
+                modification_steps = cached_modification_steps
+            else:
+                modifications = session_dao.get_changes_only(alias)
+                export_graph = ExportGraph(modifications, project_id)
+                modification_steps = export_graph.build_modification_steps()
+                modified_session_dao.replace_modification_steps(modification_steps)
+                cache_updated = True
+
             session_dao.detach_db(alias)
+            if cache_updated:
+                session.commit()
             end_time = time()
-            export_graph = ExportGraph(modifications, project_id)
-            export_graph.build_graph()
+
             data.update(
                 {
-                    "modification_steps": export_graph.build_modification_steps(),
+                    "modification_steps": modification_steps,
                 },
             )
 

@@ -282,12 +282,31 @@ function AttributeGroup({ label, children }: { label: string; children: ReactNod
   );
 }
 
+function SummaryLine({ children }: { children: ReactNode }) {
+  return <div className="flex min-w-0 flex-wrap items-center gap-1.5">{children}</div>;
+}
+
 function TextValue({ label, value }: { label: string; value: string }) {
   return (
     <AttributeGroup label={label}>
       <span className="text-sm text-[#6b6375]">{value}</span>
     </AttributeGroup>
   );
+}
+
+function formatWeekLabel(step: ExportModificationStep): string {
+  const { weeks, week_range: weekRange } = step;
+  if (
+    weekRange.contiguous &&
+    weekRange.start &&
+    weekRange.end &&
+    weekRange.start !== weekRange.end
+  ) {
+    return `${weekRange.start} a ${weekRange.end}`;
+  }
+
+  const uniqueWeeks = Array.from(new Set(weeks));
+  return uniqueWeeks.join(", ") || step.session.week;
 }
 
 function relationChangeLabel(label: string, changeType: "added" | "removed"): string {
@@ -304,9 +323,11 @@ function relationChangeLabel(label: string, changeType: "added" | "removed"): st
 }
 
 function sessionTitle(session: ExportSessionSnapshot): string {
-  const time = `${WEEKDAY_LABELS[session.weekday]} ${formatTime(session.start_time)}`;
+  const subjects = uniqueByLabel(session.subjects, (subject) => relationRecord(subject).label)
+    .map((subject) => relationRecord(subject).label)
+    .join(", ");
   const classes = uniqueByLabel(session.classes, (classCode) => classCode).join(", ");
-  return [classes, time].filter(Boolean).join(" · ") || time || "Sessão";
+  return [subjects, classes].filter(Boolean).join(" · ") || "Sessão";
 }
 
 function normalizeId(value: string): string {
@@ -324,21 +345,23 @@ function shortId(value: string): string {
 interface DependencyTarget {
   anchor: string;
   label: string;
+  order: number;
 }
 
 type DependencyLookup = Record<string, DependencyTarget>;
 
 function buildDependencyLookup(steps: ExportModificationStep[]): DependencyLookup {
   const lookup: DependencyLookup = {};
+  let order = 0;
 
   for (const step of steps) {
-    for (const [sessionId, item] of Object.entries(step.sessions)) {
+    for (const sessionId of step.session_ids) {
       lookup[normalizeId(sessionId)] = {
         anchor: anchorId(sessionId),
-        label: `${sessionTitle(item.session)} · ${WEEKDAY_LABELS[item.session.weekday]} ${formatTime(
-          item.session.start_time,
-        )}`,
+        label: `${sessionTitle(step.session)} · ${WEEKDAY_LABELS[step.session.weekday]} ${formatTime(step.session.start_time)}`,
+        order,
       };
+      order += 1;
     }
   }
 
@@ -348,18 +371,25 @@ function buildDependencyLookup(steps: ExportModificationStep[]): DependencyLooku
 function DependencyLinks({
   dependencies,
   lookup,
+  currentOrder,
   onDependencyClick,
 }: {
   dependencies: string[];
   lookup: DependencyLookup;
+  currentOrder: number;
   onDependencyClick: (anchor: string) => void;
 }) {
-  if (!dependencies.length) return null;
+  const flaggedDependencies = dependencies.filter((dependency) => {
+    const target = lookup[normalizeId(String(dependency))];
+    return target ? target.order > currentOrder : false;
+  });
+
+  if (!flaggedDependencies.length) return null;
 
   return (
     <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
       <span className="font-semibold uppercase tracking-wide text-[#08060d]">Dependências:</span>
-      {dependencies.map((dependency) => {
+      {flaggedDependencies.map((dependency) => {
         const target = lookup[normalizeId(String(dependency))];
         if (!target) {
           return (
@@ -560,47 +590,59 @@ function ModificationChange({ name, change }: { name: string; change: ExportFiel
   return null;
 }
 
-function SessionSummary({ session }: { session: ExportSessionSnapshot }) {
+function SessionSummary({
+  session,
+  weekLabel,
+}: {
+  session: ExportSessionSnapshot;
+  weekLabel: string;
+}) {
   const subjects = uniqueByLabel(session.subjects, (subject) => relationRecord(subject).label);
   const classes = uniqueByLabel(session.classes, (classCode) => classCode);
   const rooms = uniqueByLabel(session.rooms, (room) => room);
   const teachers = uniqueByLabel(session.teachers, (teacher) => relationRecord(teacher).label);
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[#6b6375]">
-      <span className="font-semibold text-[#08060d]">{sessionTitle(session)}</span>
-      {!!subjects.length && (
-        <AttributeGroup label="UCs">
-          {subjects.map((subject) => (
-            <EntityChip key={`${subject.code}-${subject.name}`} item={subject} />
-          ))}
-        </AttributeGroup>
-      )}
-      {!!classes.length && (
-        <AttributeGroup label="Turmas">
-          {classes.map((classCode) => (
-            <EntityChip key={classCode} item={classCode} />
-          ))}
-        </AttributeGroup>
-      )}
-      <TextValue label="Dia" value={WEEKDAY_LABELS[session.weekday]} />
-      <TextValue label="Hora" value={formatTime(session.start_time)} />
-      <TextValue label="Duração" value={formatDuration(session.duration)} />
-      <TextValue label="Semana" value={session.week} />
-      {!!rooms.length && (
-        <AttributeGroup label="Salas">
-          {rooms.map((room) => (
-            <EntityChip key={room} item={room} />
-          ))}
-        </AttributeGroup>
-      )}
-      {!!teachers.length && (
-        <AttributeGroup label="Docentes">
-          {teachers.map((teacher) => (
-            <EntityChip key={`${teacher.number}-${teacher.acronym}`} item={teacher} />
-          ))}
-        </AttributeGroup>
-      )}
+    <div className="space-y-1.5 text-sm text-[#6b6375]">
+      <SummaryLine>
+        <span className="font-semibold text-[#08060d]">{sessionTitle(session)}</span>
+      </SummaryLine>
+      <SummaryLine>
+        <TextValue label="Dia" value={WEEKDAY_LABELS[session.weekday]} />
+        <TextValue label="Hora" value={formatTime(session.start_time)} />
+        <TextValue label="Duração" value={formatDuration(session.duration)} />
+        <TextValue label="Semana" value={weekLabel} />
+      </SummaryLine>
+      <SummaryLine>
+        {!!subjects.length && (
+          <AttributeGroup label="UCs">
+            {subjects.map((subject) => (
+              <EntityChip key={`${subject.code}-${subject.name}`} item={subject} />
+            ))}
+          </AttributeGroup>
+        )}
+        {!!classes.length && (
+          <AttributeGroup label="Turmas">
+            {classes.map((classCode) => (
+              <EntityChip key={classCode} item={classCode} />
+            ))}
+          </AttributeGroup>
+        )}
+        {!!rooms.length && (
+          <AttributeGroup label="Salas">
+            {rooms.map((room) => (
+              <EntityChip key={room} item={room} />
+            ))}
+          </AttributeGroup>
+        )}
+        {!!teachers.length && (
+          <AttributeGroup label="Docentes">
+            {teachers.map((teacher) => (
+              <EntityChip key={`${teacher.number}-${teacher.acronym}`} item={teacher} />
+            ))}
+          </AttributeGroup>
+        )}
+      </SummaryLine>
     </div>
   );
 }
@@ -611,14 +653,15 @@ function ModificationStepCard({
   dependencyLookup,
   highlightedAnchor,
   onDependencyClick,
+  getSessionOrder,
 }: {
   step: ExportModificationStep;
   index: number;
   dependencyLookup: DependencyLookup;
   highlightedAnchor: string | null;
   onDependencyClick: (anchor: string) => void;
+  getSessionOrder: (sessionId: string) => number;
 }) {
-  const entries = Object.entries(step.sessions);
   const Icon = step.type === "exchange" ? Shuffle : ArrowLeftRight;
 
   return (
@@ -626,36 +669,36 @@ function ModificationStepCard({
       <div className="flex items-center justify-between gap-3 border-b border-[#e5e4e7] bg-[#f9f7f4] px-4 py-3">
         <div className="flex items-center gap-2">
           <Icon size={16} className="text-[#8c2d19]" />
-          <h3 className="text-sm font-bold text-[#08060d]">
+          <h3 className="text-md font-bold text-[#08060d]">
             Passo {index + 1} · {step.type === "exchange" ? "Troca" : "Mover"}
           </h3>
         </div>
-        <span className="text-xs font-semibold text-[#6b6375]">{entries.length} sessões</span>
+        <span className="text-xs font-semibold text-[#6b6375]">1 alteração</span>
       </div>
       <div className="divide-y divide-[#e5e4e7]">
-        {entries.map(([sessionId, item]) => (
-          <div
-            key={sessionId}
-            id={anchorId(sessionId)}
-            className={`scroll-mt-4 p-4 transition-colors duration-300 ${
-              highlightedAnchor === anchorId(sessionId)
-                ? "bg-amber-50 ring-2 ring-inset ring-amber-300"
-                : "bg-white"
-            }`}
-          >
-            <SessionSummary session={item.session} />
-            <DependencyLinks
-              dependencies={item.dependencies}
-              lookup={dependencyLookup}
-              onDependencyClick={onDependencyClick}
-            />
-            <div className="mt-3 grid gap-2">
-              {Object.entries(item.modifications).map(([name, change]) =>
-                change ? <ModificationChange key={name} name={name} change={change} /> : null,
-              )}
-            </div>
+        <div
+          className={`scroll-mt-4 p-4 transition-colors duration-300 ${
+            step.session_ids.some((sessionId) => highlightedAnchor === anchorId(sessionId))
+              ? "bg-amber-50 ring-2 ring-inset ring-amber-300"
+              : "bg-white"
+          }`}
+        >
+          {step.session_ids.map((sessionId) => (
+            <span key={sessionId} id={anchorId(sessionId)} className="block scroll-mt-4" />
+          ))}
+          <SessionSummary session={step.session} weekLabel={formatWeekLabel(step)} />
+          <DependencyLinks
+            dependencies={step.dependencies}
+            lookup={dependencyLookup}
+            currentOrder={Math.min(...step.session_ids.map(getSessionOrder))}
+            onDependencyClick={onDependencyClick}
+          />
+          <div className="mt-3 grid gap-2">
+            {Object.entries(step.modifications).map(([name, change]) =>
+              change ? <ModificationChange key={name} name={name} change={change} /> : null,
+            )}
           </div>
-        ))}
+        </div>
       </div>
     </article>
   );
@@ -668,6 +711,10 @@ function ExportResults({ data }: { data: ProjectExportPayload }) {
     () => buildDependencyLookup(data.modification_steps),
     [data.modification_steps],
   );
+  function getSessionOrder(sessionId: string) {
+    return dependencyLookup[normalizeId(sessionId)]?.order ?? Number.MAX_SAFE_INTEGER;
+  }
+
   function handleDependencyClick(anchor: string) {
     setHighlightedAnchor(anchor);
 
@@ -683,16 +730,13 @@ function ExportResults({ data }: { data: ProjectExportPayload }) {
 
   const totalConflicts =
     data.rooms_conflicts.length + data.teacher_conflicts.length + data.classes_conflicts.length;
-  const changedSessions = data.modification_steps.reduce(
-    (total, step) => total + Object.keys(step.sessions).length,
-    0,
-  );
+  const changedBlocks = data.modification_steps.length;
 
   return (
     <div className="space-y-5">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="Passos" value={data.modification_steps.length} />
-        <StatCard label="Sessões alteradas" value={changedSessions} />
+        <StatCard label="Alterações" value={changedBlocks} />
         <StatCard label="Adicionadas" value={data.added_removed_sessions.added.length} />
         <StatCard label="Removidas" value={data.added_removed_sessions.removed.length} />
         <StatCard
@@ -753,6 +797,7 @@ function ExportResults({ data }: { data: ProjectExportPayload }) {
                 dependencyLookup={dependencyLookup}
                 highlightedAnchor={highlightedAnchor}
                 onDependencyClick={handleDependencyClick}
+                getSessionOrder={getSessionOrder}
               />
             ))}
           </div>
@@ -787,7 +832,7 @@ export default function ExporterPage() {
             title="Exportação"
             action={
               <button
-                onClick={() => void exportResult.refetch()}
+                onClick={() => void exportResult.recalculateExportGraph()}
                 disabled={exportResult.isFetching}
                 className="inline-flex items-center gap-2 rounded bg-[#8c2d19] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#a33520] disabled:cursor-not-allowed disabled:opacity-60"
               >
