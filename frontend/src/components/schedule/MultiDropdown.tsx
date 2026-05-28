@@ -1,3 +1,4 @@
+import { useId } from "react";
 import DropdownShell from "./DropdownShell";
 import type { SubjectStyle } from "./subjectColors";
 
@@ -53,6 +54,7 @@ export default function MultiDropdown({
 }: MultiDropdownProps) {
   const isEmpty = required && selected.length === 0;
   const isOpen = open && !disabled;
+  const panelId = useId();
   const panelClassName = fitContent
     ? PANEL_CLASS_FIT_CONTENT
     : compact
@@ -92,15 +94,22 @@ export default function MultiDropdown({
     <DropdownShell
       open={isOpen}
       panelClassName={panelClassName}
+      panelId={panelId}
+      panelAriaMultiSelectable={!singleSelect}
       trigger={
         <button
           type="button"
+          aria-haspopup="listbox"
+          aria-expanded={isOpen}
+          aria-controls={panelId}
+          aria-disabled={disabled || undefined}
+          aria-label={`${label}: ${triggerLabel}`}
           onClick={(e) => {
             e.stopPropagation();
             if (!disabled) onToggle();
           }}
           className={[
-            "bg-[#1e2028] rounded px-3.5 py-2 text-sm whitespace-nowrap text-left border transition-colors",
+            "bg-[#1e2028] rounded px-3.5 py-2 text-sm whitespace-nowrap text-left border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60",
             disabled
               ? "text-gray-500 cursor-not-allowed border-gray-600"
               : isEmpty
@@ -120,12 +129,14 @@ export default function MultiDropdown({
             <button
               key={opt.value}
               type="button"
+              role="option"
+              aria-selected={isSelected}
               onClick={(e) => {
                 e.stopPropagation();
                 toggle(opt.value);
               }}
               className={[
-                "w-full rounded px-2 py-1 text-[13px] cursor-pointer text-left border hover:bg-white/5 transition-colors",
+                "w-full rounded px-2 py-1 text-[13px] cursor-pointer text-left border hover:bg-white/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60",
                 isSelected
                   ? optionStyle
                     ? `${optionStyle.bg} ${optionStyle.border} ${optionStyle.text}`
