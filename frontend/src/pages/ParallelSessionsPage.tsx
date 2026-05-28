@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useParallelSessions } from "@/api/hooks/useParallelSessions";
 import type { DisplayCandidate } from "@/types/parallelSessions";
 import { DAY_ORDER } from "@/types/parallelSessions";
+import DegreeDropdown from "@/components/schedule/DegreeDropdown";
+import MultiDropdown from "@/components/schedule/MultiDropdown";
 
 const DAY_CONFIG: Record<string, { short: string; bg: string; text: string }> = {
   monday: { short: "SEG", bg: "bg-blue-500", text: "text-white" },
@@ -28,37 +30,6 @@ function formatWeekDate(dateStr: string): string {
 function formatTime(t: number): string {
   const s = String(t).padStart(4, "0");
   return `${s.slice(0, 2)}:${s.slice(2)}`;
-}
-
-interface DarkPillProps {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}
-
-function DarkPill({ label, active, onClick }: DarkPillProps) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-3.5 py-2 rounded text-sm font-semibold border cursor-pointer transition-colors whitespace-nowrap ${
-        active
-          ? "bg-[#8c2d19] border-[#8c2d19] text-white"
-          : "bg-transparent border-gray-600 text-white hover:border-gray-400 hover:bg-white/5"
-      }`}
-    >
-      {label}
-    </button>
-  );
-}
-
-function HeaderPillSkeleton() {
-  return (
-    <>
-      {[1, 2, 3].map((i) => (
-        <div key={i} className="h-9 w-16 rounded bg-gray-700 animate-pulse" />
-      ))}
-    </>
-  );
 }
 
 function CandidatesLoadingSkeleton() {
@@ -129,14 +100,24 @@ function OverflowFadeScroll({
 }
 
 export default function ParallelClassesPage() {
+  const [openDropdown, setOpenDropdown] = useState<"degree" | "year" | null>(null);
+  const headerRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
+        setOpenDropdown(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const {
+    degrees,
     loadingDegrees,
     degreesError,
     selectedDegree,
-    showAllDegrees,
-    setShowAllDegrees,
-    priorityDegrees,
-    otherDegrees,
     loadingYears,
     yearsError,
     selectedYearIds,
@@ -304,65 +285,43 @@ export default function ParallelClassesPage() {
 
         <div className="w-px h-6 bg-gray-600 mx-1" />
 
-        <span className="text-[11px] font-bold tracking-widest uppercase text-gray-400 whitespace-nowrap">
-          Curso
-        </span>
-
-        {loadingDegrees ? (
-          <HeaderPillSkeleton />
-        ) : degreesError ? (
+        {degreesError ? (
           <span className="text-xs text-red-400">{degreesError}</span>
         ) : (
-          <>
-            {priorityDegrees.map((d) => (
-              <DarkPill
-                key={d.id}
-                label={d.acronym}
-                active={selectedDegree?.id === d.id}
-                onClick={() => handleDegreeClick(d)}
-              />
-            ))}
-            {showAllDegrees &&
-              otherDegrees.map((d) => (
-                <DarkPill
-                  key={d.id}
-                  label={d.acronym}
-                  active={selectedDegree?.id === d.id}
-                  onClick={() => handleDegreeClick(d)}
-                />
-              ))}
-            {otherDegrees.length > 0 && (
-              <button
-                onClick={() => setShowAllDegrees((prev) => !prev)}
-                className="px-3.5 py-2 rounded text-sm font-semibold border cursor-pointer transition-colors whitespace-nowrap bg-transparent border-gray-600 text-white hover:border-gray-400 hover:bg-white/5"
-              >
-                {showAllDegrees ? "Menos ▲" : `+${otherDegrees.length} ▼`}
-              </button>
-            )}
-          </>
+          <DegreeDropdown
+            degrees={degrees}
+            selected={selectedDegree}
+            onSelect={handleDegreeClick}
+            open={openDropdown === "degree"}
+            onToggle={() => setOpenDropdown((prev) => (prev === "degree" ? null : "degree"))}
+            loading={loadingDegrees}
+          />
         )}
 
-        {selectedDegree && (
-          <>
-            <div className="w-px h-6 bg-gray-600 mx-1" />
-            <span className="text-[11px] font-bold tracking-widests uppercase text-gray-400 whitespace-nowrap">
-              Ano
-            </span>
-            {loadingYears ? (
-              <HeaderPillSkeleton />
-            ) : yearsError ? (
-              <span className="text-xs text-red-400">{yearsError}</span>
-            ) : (
-              yearsWithCandidates.map((y) => (
-                <DarkPill
-                  key={y.id}
-                  label={`${y.number}º Ano`}
-                  active={selectedYearIds.has(y.id)}
-                  onClick={() => handleYearToggle(y.id)}
-                />
-              ))
-            )}
-          </>
+        {yearsError ? (
+          <span className="text-xs text-red-400">{yearsError}</span>
+        ) : (
+          <MultiDropdown
+            label="Ano"
+            options={yearsWithCandidates.map((y) => `${y.number}º Ano`)}
+            selected={yearsWithCandidates
+              .filter((y) => selectedYearIds.has(y.id))
+              .map((y) => `${y.number}º Ano`)}
+            onSelect={(newLabels) => {
+              const newIds = new Set(
+                yearsWithCandidates
+                  .filter((y) => newLabels.includes(`${y.number}º Ano`))
+                  .map((y) => y.id),
+              );
+              for (const y of yearsWithCandidates) {
+                if (selectedYearIds.has(y.id) !== newIds.has(y.id)) handleYearToggle(y.id);
+              }
+            }}
+            open={openDropdown === "year"}
+            onToggle={() => setOpenDropdown((prev) => (prev === "year" ? null : "year"))}
+            disabled={!selectedDegree || loadingYears}
+            showLabel
+          />
         )}
 
         <div className="ml-auto flex items-center gap-2">

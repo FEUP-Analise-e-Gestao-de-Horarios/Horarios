@@ -17,9 +17,6 @@ import {
   type YearOption,
 } from "@/types/parallelSessions";
 
-// TODO: replace with degrees derived from the logged-in teacher's assignments
-const PRIORITY_DEGREE_ACRONYMS = ["L.EIC", "M.EIC", "M.IA"];
-
 function parallelSaveErrorMessage(err: unknown): string {
   const code = err instanceof Error && "code" in err ? (err as ApiRequestError).code : undefined;
   if (code === ApiError.PARALLEL_GROUPS_NOT_CANDIDATES) {
@@ -61,10 +58,6 @@ export interface UseParallelSessionsReturn {
   loadingDegrees: boolean;
   degreesError: string | null;
   selectedDegree: DegreeOption | null;
-  showAllDegrees: boolean;
-  setShowAllDegrees: Dispatch<SetStateAction<boolean>>;
-  priorityDegrees: DegreeOption[];
-  otherDegrees: DegreeOption[];
 
   years: YearOption[];
   loadingYears: boolean;
@@ -133,7 +126,6 @@ export function useParallelSessions(): UseParallelSessionsReturn {
   const [degreesError, setDegreesError] = useState<string | null>(null);
 
   const [selectedDegree, setSelectedDegree] = useState<DegreeOption | null>(null);
-  const [showAllDegrees, setShowAllDegrees] = useState(false);
 
   const [years, setYears] = useState<YearOption[]>([]);
   const [loadingYears, setLoadingYears] = useState(false);
@@ -284,20 +276,6 @@ export function useParallelSessions(): UseParallelSessionsReturn {
       cancelled = true;
     };
   }, [projectId, projectIdNum, selectedDegree]);
-
-  const priorityDegrees = useMemo(
-    () =>
-      PRIORITY_DEGREE_ACRONYMS.flatMap((acronym) => {
-        const match = degrees.find((d) => d.acronym === acronym);
-        return match ? [match] : [];
-      }),
-    [degrees],
-  );
-
-  const otherDegrees = useMemo(
-    () => degrees.filter((d) => !PRIORITY_DEGREE_ACRONYMS.includes(d.acronym)),
-    [degrees],
-  );
 
   const yearsWithCandidates = useMemo(() => {
     const numbersWithData = new Set(
@@ -641,10 +619,6 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     loadingDegrees,
     degreesError,
     selectedDegree,
-    showAllDegrees,
-    setShowAllDegrees,
-    priorityDegrees,
-    otherDegrees,
     years,
     loadingYears,
     yearsError,
