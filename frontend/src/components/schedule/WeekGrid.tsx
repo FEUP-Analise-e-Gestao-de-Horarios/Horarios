@@ -63,6 +63,8 @@ const MIN_SLOT_PX = 16;
 const HEADER_PX = 40;
 // Width each turma column gets in the default (un-resized) flexible layout.
 const TURMA_COLUMN_DEFAULT_MIN_PX = 64;
+// Pixels of horizontal scroll change required to count as a user gesture.
+const HORIZONTAL_SCROLL_THRESHOLD_PX = 8;
 
 function weekdayIndex(weekday: Weekday): number {
   return WEEKDAYS.indexOf(weekday);
@@ -326,7 +328,11 @@ export default function WeekGrid({
       className="bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)] overflow-x-auto overflow-y-auto h-full"
       onScroll={(e) => {
         const { scrollLeft } = e.currentTarget;
-        if (scrollLeft !== lastScrollLeftRef.current) {
+        // Threshold filters out the small programmatic adjustments
+        // `useColumnResize` makes to scrollLeft when a column changes width,
+        // so resizing a column doesn't accidentally collapse an open drawer.
+        // Real horizontal scroll gestures easily clear this threshold.
+        if (Math.abs(scrollLeft - lastScrollLeftRef.current) > HORIZONTAL_SCROLL_THRESHOLD_PX) {
           lastScrollLeftRef.current = scrollLeft;
           onHorizontalScroll?.();
         }
