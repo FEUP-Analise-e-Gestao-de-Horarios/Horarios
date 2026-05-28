@@ -92,8 +92,13 @@ export default function ProjectCard({ project }: ProjectCardProps) {
     !project.ingestion_failed_at;
 
   function handleCardClick() {
-    if (isReady) void navigate(`/projects/${project.id}`);
-    else if (isProcessing) void navigate(`/projects/${project.id}/dashboard`);
+    if (isReady) {
+      if (!project.has_selected_parallel_sessions) {
+        void navigate(`/projects/${project.id}/parallel-sessions`);
+      } else {
+        void navigate(`/projects/${project.id}`);
+      }
+    } else if (isProcessing) void navigate(`/projects/${project.id}/dashboard`);
   }
 
   useEffect(() => {
