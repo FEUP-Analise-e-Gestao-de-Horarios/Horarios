@@ -146,9 +146,14 @@ export function useScheduleViewUrl({
       const ucsSection = sections[0];
       const turmasSection = sections[1];
       const diasSection = sections[2];
-      if (ucsSection && !ucsSection.isAll) setUcs(ucsSection.values);
-      if (turmasSection) {
-        const decodedTurmas = turmasSection.isAll ? [] : turmasSection.values;
+      // Each section's `values` is the explicit selection; an empty section
+      // means "no filter" and leaves state at its initialised default. The
+      // old encoder collapsed `[]` and `[every]` into a single all-bits-set
+      // pattern, so the consumer had to special-case `isAll` — that's no
+      // longer needed.
+      if (ucsSection && ucsSection.values.length > 0) setUcs(ucsSection.values);
+      if (turmasSection && turmasSection.values.length > 0) {
+        const decodedTurmas = turmasSection.values;
         setTurmas(decodedTurmas);
         const shifts = new Set<string>();
         for (const classItem of selectedYearClasses) {
@@ -156,9 +161,7 @@ export function useScheduleViewUrl({
         }
         setTurnos(sortValuesByReference([...shifts], turnoOrder));
       }
-      if (diasSection) {
-        setDias(diasSection.isAll ? [...SCHEDULE_VIEW_DAYS] : diasSection.values);
-      }
+      if (diasSection && diasSection.values.length > 0) setDias(diasSection.values);
       hydrationPhaseRef.current = 2;
     }
 
@@ -172,7 +175,7 @@ export function useScheduleViewUrl({
           { ref: allWeekValues },
         ]);
         const semanasSection = sections[3];
-        if (semanasSection && !semanasSection.isAll) setSemanas(semanasSection.values);
+        if (semanasSection && semanasSection.values.length > 0) setSemanas(semanasSection.values);
       }
       hydrationPhaseRef.current = 3;
       setIsHydrated(true);
