@@ -16,7 +16,12 @@
    referenced directly here rather than through a Tailwind @theme animation
    token: a var() nested inside a theme token does not resolve against the
    element that sets it, so --marquee-duration would silently fall back to the
-   default and the speed would scale with overflow length. */
-.group:hover .marquee {
-  animation: marquee-scroll var(--marquee-duration, 6s) linear infinite alternate;
+   default and the speed would scale with overflow length.
+
+   The animation is opt-in via `prefers-reduced-motion: no-preference` so
+   users who request reduced motion don't get the continuous translateX. */
+@media (prefers-reduced-motion: no-preference) {
+  .group:hover .marquee {
+    animation: marquee-scroll var(--marquee-duration, 6s) linear infinite alternate;
+  }
 }
