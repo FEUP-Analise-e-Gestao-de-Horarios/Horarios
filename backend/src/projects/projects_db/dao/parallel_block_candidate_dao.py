@@ -5,6 +5,7 @@ from uuid import NAMESPACE_OID, UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session as DBSession
 
+from src.projects.projects_db.dao.queries.parallel_block_candidates import candidate_blocks_cte
 from src.projects.projects_db.models import (
     Class,
     Degree,
@@ -18,55 +19,6 @@ from src.projects.projects_db.schemas.parallel_candidates import (
     ParallelBlockCandidateFilters,
     ParallelBlockCandidateSession,
 )
-
-
-def _candidate_blocks_table():
-    """Return a table that identifies all original_block_ids belonging to a parallel candidate group.
-
-    Blocks with at least two distinct members in a group are treated as candidates.
-    """
-    session_subjects = (
-        select(
-            Session.original_block_id,
-            func.min(Session.week).over(partition_by=Session.original_block_id).label("first_week"),
-            Session.weekday,
-            Session.start_time,
-            SessionClassSubject.subject_id,
-        )
-        .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
-        .distinct()
-        .cte("session_subjects")
-    )
-
-    sized = select(
-        session_subjects.c.original_block_id,
-        session_subjects.c.first_week,
-        session_subjects.c.weekday.label("group_weekday"),
-        session_subjects.c.start_time.label("group_start_time"),
-        session_subjects.c.subject_id.label("group_subject_id"),
-        func.count()
-        .over(
-            partition_by=[
-                session_subjects.c.first_week,
-                session_subjects.c.weekday,
-                session_subjects.c.start_time,
-                session_subjects.c.subject_id,
-            ],
-        )
-        .label("group_size"),
-    ).subquery("sized")
-
-    return (
-        select(
-            sized.c.original_block_id,
-            sized.c.first_week,
-            sized.c.group_weekday,
-            sized.c.group_start_time,
-            sized.c.group_subject_id,
-        )
-        .where(sized.c.group_size > 1)
-        .cte("candidate_blocks")
-    )
 
 
 def _group_uuid(
@@ -95,7 +47,7 @@ class ParallelBlockCandidateDAO:
 
     def get_all_groups(self) -> dict[UUID, set[UUID]]:
         """Return all candidate groups, keyed by ``candidate_group_id``."""
-        candidate_blocks = _candidate_blocks_table()
+        candidate_blocks = candidate_blocks_cte()
 
         stmt = (
             select(
@@ -131,7 +83,7 @@ class ParallelBlockCandidateDAO:
         """Return all candidate groups with associated session and degree info."""
         filters = filters or ParallelBlockCandidateFilters()
 
-        candidate_blocks = _candidate_blocks_table()
+        candidate_blocks = candidate_blocks_cte()
 
         first_session_subq = (
             select(

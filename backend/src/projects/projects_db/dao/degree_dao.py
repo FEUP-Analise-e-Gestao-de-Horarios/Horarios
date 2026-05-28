@@ -2,7 +2,7 @@ from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
-from src.projects.projects_db.dao.parallel_block_candidate_dao import _candidate_blocks_table
+from src.projects.projects_db.dao.queries.parallel_block_candidates import candidate_blocks_cte
 from src.projects.projects_db.models.class_ import Class
 from src.projects.projects_db.models.degree import Degree
 from src.projects.projects_db.models.session import Session as SessionModel
@@ -93,7 +93,7 @@ class DegreeDAO(BaseDAO[Degree]):
 
     def get_all_with_parallel_block_candidates(self) -> list[Degree]:
         """Return all degrees that have at least one parallel block candidate."""
-        candidate_blocks = _candidate_blocks_table()
+        candidate_blocks = candidate_blocks_cte()
 
         candidate_block_ids_subq = (
             select(candidate_blocks.c.original_block_id).select_from(candidate_blocks).subquery()
