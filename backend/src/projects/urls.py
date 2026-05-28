@@ -1,6 +1,7 @@
 from django.urls import include, path
 
 from src.projects.views.classes import ProjectClassesView, ProjectClassView
+from src.projects.views.conflicts import ProjectConflictsView
 from src.projects.views.degrees import ProjectDegreesView, ProjectDegreeView
 from src.projects.views.project import ProjectsView, ProjectView
 from src.projects.views.rooms import ProjectRoomsView, ProjectRoomView
@@ -49,6 +50,7 @@ session_patterns = [
 project_patterns = [
     path("", ProjectView.as_view()),
     path("/stats", ProjectStatsView.as_view()),
+    path("/conflicts", ProjectConflictsView.as_view()),
     path("/rooms/", include(room_patterns)),
     path("/teachers/", include(teacher_patterns)),
     path("/degrees/", include(degree_patterns)),

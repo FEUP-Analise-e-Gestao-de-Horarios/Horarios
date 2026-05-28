@@ -61,6 +61,21 @@ class SessionDAO(BaseDAO[Session]):
     # -- Get Sessions
     # -------------------------------------------------------------------
 
+    def get_all(self, includes: Iterable[Include] = ()) -> list[Session]:
+        """Return every session in the project database.
+
+        Args:
+            includes: Relationships to eager-load on each returned Session.
+
+        Returns:
+            List of all Session instances, in an unspecified order.
+        """
+        return list(
+            self.session.scalars(
+                select(Session).options(*self._load_options(includes)),
+            ).all(),
+        )
+
     def get_by_teacher(
         self,
         teacher_id: UUID,
