@@ -90,11 +90,19 @@ export default function SchedulePage() {
     const subjectIds =
       ucs.length === 0
         ? []
-        : subjects.filter((subject) => ucs.includes(subject.name)).map((subject) => subject.id);
+        : (() => {
+            const names = new Set(ucs);
+            return subjects
+              .filter((subject) => names.has(subject.name))
+              .map((subject) => subject.id);
+          })();
     const classIds =
       turmas.length === 0
         ? []
-        : classes.filter((classItem) => turmas.includes(classItem.code)).map((c) => c.id);
+        : (() => {
+            const codes = new Set(turmas);
+            return classes.filter((classItem) => codes.has(classItem.code)).map((c) => c.id);
+          })();
     const weekdays = dias.length === 0 || dias.length === WEEKDAYS.length ? [] : dias;
     return { subjectIds, classIds, weekdays };
   }, [dias, selectedYearDetail, turmas, ucs]);
