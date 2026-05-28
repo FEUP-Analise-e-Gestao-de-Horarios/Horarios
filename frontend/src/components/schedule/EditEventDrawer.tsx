@@ -1,4 +1,4 @@
-import { useMemo, useReducer, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { ConflictRecord } from "@/types/project/conflicts";
 import type { WeekGridEvent } from "@/components/schedule/WeekGrid";
 import { hhmmToMinutes, minutesToTime } from "@/utils/time";
@@ -117,6 +117,7 @@ type FormState = {
 type TimeField = "startTime" | "endTime";
 
 type FormAction =
+  | { type: "reset"; event: WeekGridEvent | null | undefined }
   | { type: "setUc"; value: string }
   | { type: "setWeekday"; value: string }
   | { type: "setTime"; field: TimeField; value: string }
@@ -151,6 +152,8 @@ function getInitialFormState(event?: WeekGridEvent | null): FormState {
 
 function formReducer(state: FormState, action: FormAction): FormState {
   switch (action.type) {
+    case "reset":
+      return getInitialFormState(action.event);
     case "setUc":
       return { ...state, selectedUcOverride: action.value };
     case "setWeekday":
@@ -199,6 +202,17 @@ export default function EditEventDrawer({
     startTime,
     endTime,
   } = formState;
+
+  // The form is seeded lazily from `event` on mount; re-seed whenever the
+  // parent swaps in a different event (or any of its time-shape fields
+  // change) so the inputs don't get stuck displaying the previous event.
+  const lastEventRef = useRef(event);
+  useEffect(() => {
+    if (lastEventRef.current !== event) {
+      lastEventRef.current = event;
+      dispatch({ type: "reset", event });
+    }
+  }, [event]);
 
   const [docentesSearch, setDocentesSearch] = useState("");
   const [salasSearch, setSalasSearch] = useState("");
