@@ -76,9 +76,24 @@ export function useScheduleViewUrl({
   setSemanas,
 }: UseScheduleViewUrlParams): { isHydrated: boolean } {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [initialView] = useState<string | null>(() => searchParams.get("view"));
+  const currentViewParam = searchParams.get("view");
+  const [initialView, setInitialView] = useState<string | null>(() => currentViewParam);
   const hydrationPhaseRef = useRef(0);
   const [isHydrated, setIsHydrated] = useState(false);
+  // Tracks the last `view` string this hook wrote. If `currentViewParam`
+  // drifts from it (back/forward navigation, an external `setSearchParams`,
+  // a copy-pasted URL), we know it was not our own write and re-hydrate.
+  const lastSerializedViewRef = useRef<string>("");
+
+  useEffect(() => {
+    const current = currentViewParam ?? "";
+    if (current === lastSerializedViewRef.current) return;
+    // External change: reset hydration and re-decode from the new URL.
+    lastSerializedViewRef.current = current;
+    setInitialView(currentViewParam);
+    hydrationPhaseRef.current = 0;
+    setIsHydrated(false);
+  }, [currentViewParam]);
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect */
@@ -191,8 +206,13 @@ export function useScheduleViewUrl({
       { ucOrder: ucOptions, turmaOrder, weekOrder: allWeekValues },
     );
 
-    const currentView = searchParams.get("view") ?? "";
-    if (newView === currentView) return;
+    // Compare against what *we* last wrote, not against `searchParams`. Using
+    // `searchParams` as the source of truth would (a) add a re-run on every
+    // `setSearchParams` call (loop risk if encoding ever became
+    // non-idempotent), and (b) wedge `lastSerializedViewRef` out of sync
+    // with the URL on external nav.
+    if (newView === lastSerializedViewRef.current) return;
+    lastSerializedViewRef.current = newView;
 
     setSearchParams(
       (prev) => {
@@ -214,7 +234,6 @@ export function useScheduleViewUrl({
     ucOptions,
     turmaOrder,
     allWeekValues,
-    searchParams,
     setSearchParams,
   ]);
 
