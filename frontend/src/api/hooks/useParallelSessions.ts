@@ -540,7 +540,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
       .filter((g) => g.classes.length >= 2);
     await api.post(`/api/projects/${projectIdNum}/parallel-groups`, { groups: payload });
     sessionStorage.setItem(
-      `parallelClasses-${projectId ?? ""}`,
+      `parallelClasses-${projectId}`,
       JSON.stringify({ degreeId: selectedDegree?.id, yearIds: [...selectedYearIds] }),
     );
   };
