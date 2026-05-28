@@ -275,16 +275,6 @@ export default function EditEventDrawer({
     [preferredRoomTypes, roomOptions],
   );
 
-  const orderedDocentes = useMemo(
-    () => [...selectedClassDocentes, ...otherDocentes],
-    [otherDocentes, selectedClassDocentes],
-  );
-
-  const orderedSalas = useMemo(
-    () => [...preferredSalas, ...otherSalas],
-    [otherSalas, preferredSalas],
-  );
-
   const filteredSelectedClassDocentes = useMemo(() => {
     const query = docentesSearch.toLowerCase().trim();
     if (!query) return selectedClassDocentes;
@@ -315,17 +305,21 @@ export default function EditEventDrawer({
     return turmaOptions.filter((turma) => turma.toLowerCase().includes(query));
   }, [turmaOptions, turmasSearch]);
 
-  const effectiveSelectedDocente = useMemo(() => {
-    const valid = selectedDocenteOverride.filter((id) => teacherOptions.some((d) => d.id === id));
-    if (valid.length > 0) return valid;
-    if (selectedClassDocentes.length > 0) return [selectedClassDocentes[0]!.id];
-    return orderedDocentes.slice(0, 1).map((docente) => docente.id);
-  }, [orderedDocentes, selectedClassDocentes, selectedDocenteOverride, teacherOptions]);
+  // The "effective" selections are simply the user's overrides, narrowed to
+  // ids that still exist in the option list. Previously they fell back to a
+  // default (the first ordered docente/sala, or every visible turma) when the
+  // override was empty, which made it impossible to deselect down to nothing
+  // and caused the turma selection to flip to "all visible" the moment the
+  // user typed in the search box.
+  const effectiveSelectedDocente = useMemo(
+    () => selectedDocenteOverride.filter((id) => teacherOptions.some((d) => d.id === id)),
+    [selectedDocenteOverride, teacherOptions],
+  );
 
-  const effectiveSelectedSala = useMemo(() => {
-    const valid = selectedSalaOverride.filter((id) => roomOptions.some((room) => room.id === id));
-    return valid.length > 0 ? valid : orderedSalas.slice(0, 1).map((room) => room.id);
-  }, [orderedSalas, roomOptions, selectedSalaOverride]);
+  const effectiveSelectedSala = useMemo(
+    () => selectedSalaOverride.filter((id) => roomOptions.some((room) => room.id === id)),
+    [roomOptions, selectedSalaOverride],
+  );
 
   const selectedDocenteLabel = useMemo(() => {
     if (effectiveSelectedDocente.length === 0) return "Selecionar...";
@@ -341,7 +335,7 @@ export default function EditEventDrawer({
     if (effectiveSelectedSala.length === 0) return "Selecionar...";
     const labels = effectiveSelectedSala
       .map((id) => roomOptions.find((room) => room.id === id))
-      .filter((room): room is (typeof orderedSalas)[number] => Boolean(room));
+      .filter((room): room is RoomOption => Boolean(room));
     if (labels.length === 0) return "Selecionar...";
     const first = labels[0];
     if (!first) return "Selecionar...";
@@ -349,10 +343,13 @@ export default function EditEventDrawer({
     return labels.length === 1 ? firstLabel : `${firstLabel} (+${labels.length - 1})`;
   }, [effectiveSelectedSala, roomOptions]);
 
-  const effectiveSelectedTurmas = useMemo(() => {
-    const valid = selectedTurmasOverride.filter((id) => filteredTurmas.includes(id));
-    return valid.length > 0 ? valid : [...filteredTurmas];
-  }, [filteredTurmas, selectedTurmasOverride]);
+  // Validate against the full turma list, not the search-filtered one — the
+  // search box should only narrow what's *displayed* in the dropdown, never
+  // drop selections the user already made.
+  const effectiveSelectedTurmas = useMemo(
+    () => selectedTurmasOverride.filter((id) => turmaOptions.includes(id)),
+    [selectedTurmasOverride, turmaOptions],
+  );
 
   if (!open) return null;
 
