@@ -8,6 +8,7 @@ from src.core.errors import (
 )
 from src.core.schemas import SuccessResponse
 from src.core.validation import validate_request_body
+from src.projects.models import Project
 from src.projects.projects_db.dao.parallel_block_candidate_dao import ParallelBlockCandidateDAO
 from src.projects.projects_db.dao.parallel_block_group_dao import ParallelBlockGroupDAO
 from src.projects.projects_db.paths import general_db
@@ -83,6 +84,8 @@ class ProjectParallelBlockGroupMembersView(View):
                 )
 
             db_session.commit()
+
+            Project.objects.filter(pk=project_id).update(has_selected_parallel_sessions=True)
 
             return JsonResponse(
                 SuccessResponse(
