@@ -17,7 +17,7 @@ import type {
   ExportTeacherConflict,
   ProjectExportPayload,
 } from "@/types/exporter";
-import type { Weekday } from "@/types/dashboard";
+import type { Weekday } from "@/types/project/weekday";
 
 const WEEKDAY_LABELS: Record<Weekday, string> = {
   monday: "Segunda",

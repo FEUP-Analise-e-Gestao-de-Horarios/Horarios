@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { queryKeys } from "@/api/queryKeys";
 import { ApiError } from "@/types/api";
-import type { Project, ProjectsListPayload } from "@/types/project";
+import type { Project, ProjectsListPayload } from "@/types/project/project";
 import type { ApiRequestError } from "@/types/api";
 
 async function fetchProjects(): Promise<Project[]> {

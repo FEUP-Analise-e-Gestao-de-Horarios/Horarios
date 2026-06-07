@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { X } from "lucide-react";
 import { ROUTES } from "@/routes";
-import type { SessionResponse } from "@/types/dashboard";
+import type { SessionResponse } from "@/types/project/sessions";
 import { buildPath } from "@/utils/routes";
 
 const WEEKDAY_LABELS: Record<string, string> = {

@@ -1,4 +1,4 @@
-import type { WeekBlockResponse } from "@/types/dashboard";
+import type { WeekBlockResponse } from "@/types/project/sessions";
 
 export function formatShortDate(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);

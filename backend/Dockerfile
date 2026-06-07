@@ -10,6 +10,7 @@ RUN uv sync --frozen --no-editable --no-install-project
 
 RUN mkdir -p /workspace/databases/projects
 RUN chown -R appuser /workspace/databases
+RUN chown -R appuser /workspace/backend
 
 COPY . .
 

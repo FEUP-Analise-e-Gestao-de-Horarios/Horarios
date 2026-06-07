@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { Weekday } from "@/types/dashboard";
+import type { Weekday } from "@/types/project/weekday";
 
 export interface WeekGridEvent {
   id: string;

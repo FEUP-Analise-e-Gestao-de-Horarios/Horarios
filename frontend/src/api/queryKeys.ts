@@ -1,3 +1,10 @@
+export interface SessionsQueryFilters {
+  yearId: string;
+  subjectIds: string[];
+  classIds: string[];
+  weekdays: string[];
+}
+
 export const queryKeys = {
   projects: {
     all: ["projects"] as const,
@@ -13,5 +20,15 @@ export const queryKeys = {
     subject: (id: string, subjectId: string) => ["projects", id, "subjects", subjectId] as const,
     class: (id: string, classId: string) => ["projects", id, "classes", classId] as const,
     export: (id: string) => ["projects", id, "export"] as const,
+    sessions: (id: string, filters: SessionsQueryFilters) =>
+      [
+        "projects",
+        id,
+        "sessions",
+        filters.yearId,
+        [...filters.subjectIds].sort(),
+        [...filters.classIds].sort(),
+        [...filters.weekdays].sort(),
+      ] as const,
   },
 } as const;

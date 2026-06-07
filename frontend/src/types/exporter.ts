@@ -1,4 +1,4 @@
-import type { Weekday } from "@/types/dashboard";
+import type { Weekday } from "@/types/project/weekday";
 
 export type ExportModificationStepType = "move" | "exchange";
 
