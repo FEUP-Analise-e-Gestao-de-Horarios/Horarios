@@ -39,6 +39,6 @@ repos:
       - id: frontend-test
         name: frontend test (vitest)
         language: system
-        entry: bash -c 'cd frontend && npm test --silent'
+        entry: scripts/run-frontend-hook.sh test
         pass_filenames: false
         files: ^frontend/

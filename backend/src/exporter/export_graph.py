@@ -402,10 +402,34 @@ class ExportGraph:
 
         ordered_modifications: list[tuple[Any, str]] = []
         for dependency_group in self.order_change_groups_using_graph():
-            step_type = "exchange" if len(dependency_group) > 1 else "move"
+            step_type = "exchange" if self.is_exact_time_exchange(dependency_group) else "move"
             ordered_modifications.extend((session_id, step_type) for session_id in dependency_group)
 
         return ordered_modifications
+
+    def is_exact_time_exchange(self, dependency_group: list[Any]) -> bool:
+        """Return whether a dependency cycle is an exact time-slot exchange."""
+        if len(dependency_group) < 2:
+            return False
+
+        old_placements = []
+        new_placements = []
+
+        for session_id in dependency_group:
+            session_data = self.sessions_by_change_key.get(self.normalize_id(session_id))
+            if session_data is None:
+                return False
+
+            movement = self.build_time_movement(session_data, self.changes[session_id])
+            old_placements.append(self.time_placement_key(movement.old))
+            new_placements.append(self.time_placement_key(movement.new))
+
+        return sorted(old_placements) == sorted(new_placements)
+
+    @staticmethod
+    def time_placement_key(placement: TimePlacement) -> tuple[tuple[int, ...], str, str]:
+        """Return a comparable key for one session's occupied time slots."""
+        return (placement.time_slots, str(placement.weekday), str(placement.week))
 
     def build_modification_steps(
         self,
@@ -484,12 +508,15 @@ class ExportGraph:
         weeks = [
             self.get_public_session_data(session_id)["week"] for session_id in sorted_session_ids
         ]
+        original_block_id = representative_session.get("original_block_id", representative_id)
+        all_block_weeks = self.get_original_block_weeks(original_block_id)
 
         return {
-            "original_block_id": representative_session.get("original_block_id", representative_id),
+            "original_block_id": original_block_id,
             "session_ids": [str(session_id) for session_id in sorted_session_ids],
             "weeks": weeks,
             "week_range": self.build_week_range(weeks),
+            "applies_to_all_weeks": set(map(str, weeks)) == set(map(str, all_block_weeks)),
             "modifications": self.build_group_modifications(sorted_session_ids),
             "dependencies": sorted(
                 {
@@ -502,6 +529,18 @@ class ExportGraph:
             ),
             "session": representative_session,
         }
+
+    def get_original_block_weeks(self, original_block_id: Any) -> list[Any]:
+        """Return every week represented by one recurring original block."""
+        normalized_block_id = self.normalize_id(original_block_id)
+        weeks = [
+            session_data["week"]
+            for session_data in self.initial_sessions.values()
+            if self.normalize_id(session_data.get("original_block_id", session_data["id"]))
+            == normalized_block_id
+        ]
+
+        return weeks or [self.initial_sessions[normalized_block_id]["week"]]
 
     def sort_session_ids_by_week(self, session_ids: list[Any]) -> list[Any]:
         """Sort session ids by their public week and then by id."""

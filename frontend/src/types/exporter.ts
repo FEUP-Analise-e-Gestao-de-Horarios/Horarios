@@ -102,6 +102,7 @@ export interface ExportModificationStep {
   session_ids: string[];
   weeks: string[];
   week_range: ExportWeekRange;
+  applies_to_all_weeks?: boolean;
   modifications: ExportSessionModifications;
   dependencies: string[];
   session: ExportSessionSnapshot;
