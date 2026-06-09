@@ -73,6 +73,13 @@ export default function EditEventDrawer({
       dispatch({ type: "reset", event });
     }
   }, [event, dispatch]);
+  // Matches conflicts to this event purely by id. This assumes the backend
+  // emits `event_ids` using the same scheme the grid builds in
+  // `sessionToEvents`: `${session.id}-${classItem.code}` for class-expanded
+  // sessions, or a bare `session.id` for sessions with no classes. If the
+  // backend ever emits bare session ids for class-expanded sessions, the
+  // expanded events won't match here. Note also that merged grid cards render
+  // from `groupEvents[0]`, so a visible card only carries one turma's id.
   const eventConflicts = useMemo(
     () => (event ? conflicts.filter((conflict) => conflict.event_ids.includes(event.id)) : []),
     [conflicts, event],
