@@ -13,6 +13,30 @@ import { WEEKDAYS, WEEKDAY_LABELS_LONG } from "@/utils/weekdays";
 import type { TurnoTurmaGroup } from "./TurnoTurmaDropdown";
 import type { DropdownOption } from "./types";
 
+/**
+ * Resolves the selected ano values from the raw `anos` state and the year
+ * values the active degree actually offers. When nothing valid is selected it
+ * falls back to the degree's first year. Exported so the page can derive the
+ * year *before* calling this hook (it needs the value to wire up the
+ * year-detail query) without re-implementing the rule and risking drift.
+ */
+export function deriveEffectiveAnos(curso: string, anos: string[], yearValues: string[]): string[] {
+  if (!curso) return [];
+  if (yearValues.length === 0) return anos;
+  const filtered = anos.filter((ano) => yearValues.includes(ano));
+  const firstYear = yearValues[0];
+  return filtered.length > 0 ? filtered : firstYear ? [firstYear] : [];
+}
+
+/** The single ano value that drives the selected-year query. */
+export function pickSelectedYearNumber(
+  curso: string,
+  anos: string[],
+  yearValues: string[],
+): string {
+  return deriveEffectiveAnos(curso, anos, yearValues)[0] ?? "";
+}
+
 interface UseScheduleFiltersParams {
   /** Whether the user has actually picked a curso yet. */
   curso: string;
@@ -70,13 +94,10 @@ export function useScheduleFilters({
     [selectedDegree],
   );
 
-  const effectiveAnos = useMemo(() => {
-    if (!curso) return [];
-    if (selectedDegreeYearValues.length === 0) return anos;
-    const filtered = anos.filter((ano) => selectedDegreeYearValues.includes(ano));
-    const firstYear = selectedDegreeYearValues[0];
-    return filtered.length > 0 ? filtered : firstYear ? [firstYear] : [];
-  }, [anos, curso, selectedDegreeYearValues]);
+  const effectiveAnos = useMemo(
+    () => deriveEffectiveAnos(curso, anos, selectedDegreeYearValues),
+    [anos, curso, selectedDegreeYearValues],
+  );
 
   const selectedYearNumber = effectiveAnos[0] ?? "";
 

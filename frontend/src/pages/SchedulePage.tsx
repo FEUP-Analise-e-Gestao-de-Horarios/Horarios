@@ -6,7 +6,10 @@ import ConflictsDrawer from "@/components/schedule/ConflictsDrawer";
 import ScheduleNavbar from "@/components/schedule/ScheduleNavbar";
 import { useEventEditor } from "@/components/schedule/useEventEditor";
 import { useProjectAccess } from "@/components/schedule/useProjectAccess";
-import { useScheduleFilters } from "@/components/schedule/useScheduleFilters";
+import {
+  pickSelectedYearNumber,
+  useScheduleFilters,
+} from "@/components/schedule/useScheduleFilters";
 import { useScheduleOptions } from "@/components/schedule/useScheduleOptions";
 import { useScheduleViewUrl } from "@/components/schedule/useScheduleViewUrl";
 import { useTurnoTurmaSync } from "@/components/schedule/useTurnoTurmaSync";
@@ -16,18 +19,6 @@ import { useProjectTeachers } from "@/api/hooks/project/teacher";
 import { useProjectSessions } from "@/api/hooks/project/sessions";
 import { useProjectYear, useProjectYearConflicts } from "@/api/hooks/project/year";
 import { WEEKDAYS, WEEKDAY_LABELS_UPPER } from "@/utils/weekdays";
-
-/**
- * Picks the ano value that will drive the selected-year query. Mirrors
- * useScheduleFilters' `selectedYearNumber` derivation - the page needs this
- * value BEFORE calling the filters hook so it can wire up useProjectYear.
- */
-function deriveSelectedYearNumber(curso: string, anos: string[], yearValues: string[]): string {
-  if (!curso) return "";
-  if (yearValues.length === 0) return anos[0] ?? "";
-  const matching = anos.find((ano) => yearValues.includes(ano));
-  return matching ?? yearValues[0] ?? "";
-}
 
 export default function SchedulePage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -71,7 +62,7 @@ export default function SchedulePage() {
     () => selectedDegree?.years.map((year) => String(year.number)) ?? [],
     [selectedDegree],
   );
-  const selectedYearNumber = deriveSelectedYearNumber(curso, anos, yearValues);
+  const selectedYearNumber = pickSelectedYearNumber(curso, anos, yearValues);
   const selectedYear = useMemo(
     () => selectedDegree?.years.find((year) => String(year.number) === selectedYearNumber) ?? null,
     [selectedDegree, selectedYearNumber],
