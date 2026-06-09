@@ -38,11 +38,15 @@ export function toContiguousRuns(sortedIndices: number[]): ContiguousRun[] {
 
 /**
  * Merges events that belong to the same underlying session (same day/time/
- * duration/type/title/teacher/room) into a single card spanning every turma
- * column they cover, and places each card on the grid.
+ * duration/type/title/teacher/room) AND cover the same set of classes into a
+ * single card spanning every turma column they cover, and places each card on
+ * the grid.
  *
- * The backend emits one event per (session, class code), so without this the
- * grid would draw N identical overlapping cards for a single session.
+ * The backend emits one event per (session, class code) but stamps each with
+ * the session's full class list, so without merging the grid would draw N
+ * identical overlapping cards for one session. Including that class set in the
+ * key keeps two sessions that merely share the other fields — but cover
+ * different classes (e.g. {B,C} vs {B,C,D}) — as distinct blocks.
  */
 export function placeEventsOnGrid(
   events: WeekGridEvent[],
@@ -51,8 +55,19 @@ export function placeEventsOnGrid(
   gridStartMinutes: number,
   slotCount: number,
 ): PlacedEvent[] {
-  const getMergeKey = (ev: WeekGridEvent): string =>
-    [ev.weekday, ev.startTime, ev.duration, ev.type, ev.title, ev.professor, ev.sala].join("||");
+  const getMergeKey = (ev: WeekGridEvent): string => {
+    const classes = ev.classCodes ? [...ev.classCodes].sort().join(",") : "";
+    return [
+      ev.weekday,
+      ev.startTime,
+      ev.duration,
+      ev.type,
+      ev.title,
+      ev.professor,
+      ev.sala,
+      classes,
+    ].join("||");
+  };
 
   const mergeGroups = new Map<string, { events: WeekGridEvent[]; turmas: Set<string> }>();
   for (const ev of events) {
