@@ -87,6 +87,45 @@ describe("placeEventsOnGrid", () => {
     ]);
   });
 
+  it("merges events that share the same class set into one card", () => {
+    const events: WeekGridEvent[] = [
+      event({ id: "s1-1A", turma: "1A", classCodes: ["1A", "1B"] }),
+      event({ id: "s1-1B", turma: "1B", classCodes: ["1A", "1B"] }),
+    ];
+    const placed = placeEventsOnGrid(events, ["1A", "1B"], ALL_DAYS, GRID_START_MIN, SLOT_COUNT);
+    expect(placed).toHaveLength(1);
+    expect(placed[0]?.runs).toEqual([{ start: 0, span: 2 }]);
+  });
+
+  it("does not merge sessions that cover different class sets", () => {
+    // Same day/time/type/title/teacher/room, but one session covers {1A,1B}
+    // and the other {1A,1B,1C}; class membership keeps them as distinct blocks.
+    const events: WeekGridEvent[] = [
+      event({ id: "sX-1A", turma: "1A", classCodes: ["1A", "1B"] }),
+      event({ id: "sX-1B", turma: "1B", classCodes: ["1A", "1B"] }),
+      event({ id: "sY-1A", turma: "1A", classCodes: ["1A", "1B", "1C"] }),
+      event({ id: "sY-1B", turma: "1B", classCodes: ["1A", "1B", "1C"] }),
+      event({ id: "sY-1C", turma: "1C", classCodes: ["1A", "1B", "1C"] }),
+    ];
+    const placed = placeEventsOnGrid(
+      events,
+      ["1A", "1B", "1C"],
+      ALL_DAYS,
+      GRID_START_MIN,
+      SLOT_COUNT,
+    );
+    expect(placed).toHaveLength(2);
+  });
+
+  it("treats class sets as unordered when keying", () => {
+    const events: WeekGridEvent[] = [
+      event({ id: "s1-1A", turma: "1A", classCodes: ["1A", "1B"] }),
+      event({ id: "s1-1B", turma: "1B", classCodes: ["1B", "1A"] }),
+    ];
+    const placed = placeEventsOnGrid(events, ["1A", "1B"], ALL_DAYS, GRID_START_MIN, SLOT_COUNT);
+    expect(placed).toHaveLength(1);
+  });
+
   it("does not merge events that differ on a merge-key field", () => {
     const events: WeekGridEvent[] = [
       event({ id: "s1-1A", turma: "1A", professor: "AL" }),
