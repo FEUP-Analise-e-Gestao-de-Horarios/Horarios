@@ -1,6 +1,7 @@
 from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import cast
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -157,6 +158,63 @@ class ConflictResourceDAO:
 
         return conflicts
 
+    @staticmethod
+    def _group_recurring_conflicts(
+        conflicts: Sequence[dict[str, object]],
+        identity_columns: Sequence[ConflictResourceColumn],
+    ) -> list[dict[str, object]]:
+        grouped: dict[tuple[object, ...], dict[str, object]] = {}
+
+        for conflict in conflicts:
+            key = (
+                *(conflict[column.alias] for column in identity_columns),
+                conflict["weekday"],
+                conflict["start_time"],
+                conflict["duration"],
+            )
+            existing = grouped.get(key)
+            session_ids = list(cast("Sequence[object]", conflict["session_ids"]))
+
+            if existing is None:
+                grouped[key] = {
+                    **conflict,
+                    "weeks": [conflict["week"]],
+                    "session_ids": session_ids,
+                    "collisions": len(session_ids),
+                }
+                continue
+
+            cast("list[object]", existing["weeks"]).append(conflict["week"])
+            cast("list[object]", existing["session_ids"]).extend(session_ids)
+            existing["collisions"] = max(int(existing["collisions"]), len(session_ids))
+
+        result = []
+        for conflict in grouped.values():
+            weeks = sorted(set(cast("Sequence[object]", conflict["weeks"])), key=str)
+            session_ids = sorted(
+                set(cast("Sequence[object]", conflict["session_ids"])),
+                key=str,
+            )
+            result.append(
+                {
+                    **conflict,
+                    "week": weeks[0],
+                    "weeks": weeks,
+                    "session_ids": session_ids,
+                },
+            )
+
+        return sorted(
+            result,
+            key=lambda conflict: (
+                *(str(conflict[column.alias]) for column in identity_columns),
+                conflict["week"],
+                str(conflict["weekday"]),
+                int(conflict["start_time"]),
+                int(conflict["duration"]),
+            ),
+        )
+
     def get_conflicting_slots(
         self,
         spec: ConflictResourceSpec,
@@ -187,4 +245,5 @@ class ConflictResourceDAO:
 
         rows = self.session.execute(stmt).all()
 
-        return self._cluster_overlaps(rows, identity_columns)
+        conflicts = self._cluster_overlaps(rows, identity_columns)
+        return self._group_recurring_conflicts(conflicts, identity_columns)

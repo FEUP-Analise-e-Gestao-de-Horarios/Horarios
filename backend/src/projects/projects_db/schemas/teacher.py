@@ -25,6 +25,7 @@ class TeacherConflict(dict):
     teacher_name: str
 
     week: datetime.date
+    weeks: list[datetime.date]
     weekday: WeekDay
     start_time: int
     duration: int

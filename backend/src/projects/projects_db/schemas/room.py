@@ -23,6 +23,7 @@ class RoomConflict(dict):
     room_name: str
 
     week: datetime.date
+    weeks: list[datetime.date]
     weekday: WeekDay
     start_time: int
     duration: int

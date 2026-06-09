@@ -1,7 +1,8 @@
-import { AlertTriangle, CalendarClock, RefreshCw } from "lucide-react";
+import { AlertTriangle, CalendarClock, Download, RefreshCw } from "lucide-react";
 import type { ProjectExportPayload } from "@/types/exporter";
 import ExportResults from "@/components/exporter/ExportResults";
 import { EmptyState, ExportSection } from "@/components/exporter/ExportSection";
+import { downloadPlainTextExport } from "@/utils/exportPlainText";
 
 interface ExportStatusSectionProps {
   data?: ProjectExportPayload;
@@ -25,16 +26,28 @@ export default function ExportStatusSection({
       title={projectName ? `Exportação · ${projectName}` : "Exportação"}
       collapsible={false}
       action={
-        <button
-          onClick={() => {
-            onRecalculate();
-          }}
-          disabled={isFetching}
-          className="inline-flex items-center gap-2 rounded bg-[#8c2d19] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#a33520] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <RefreshCw size={14} className={isFetching ? "animate-spin" : ""} />
-          Recalcular
-        </button>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {data && !isFetching && !isLoading ? (
+            <button
+              type="button"
+              onClick={() => downloadPlainTextExport(data)}
+              className="inline-flex items-center gap-2 rounded border border-[#d8d3cf] bg-white px-3.5 py-2 text-sm font-semibold text-[#08060d] transition-colors hover:border-[#bdb5ae] hover:bg-[#f9f7f4]"
+            >
+              <Download size={14} />
+              Exportar texto
+            </button>
+          ) : null}
+          <button
+            onClick={() => {
+              onRecalculate();
+            }}
+            disabled={isFetching}
+            className="inline-flex items-center gap-2 rounded bg-[#8c2d19] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#a33520] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <RefreshCw size={14} className={isFetching ? "animate-spin" : ""} />
+            Recalcular
+          </button>
+        </div>
       }
     >
       {isLoading || isFetching ? (

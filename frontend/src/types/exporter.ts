@@ -112,6 +112,7 @@ export type ExportModificationSteps = ExportModificationStep[];
 
 export interface ExportConflictBase {
   week: string;
+  weeks?: string[];
   weekday: Weekday;
   start_time: number;
   duration: number;

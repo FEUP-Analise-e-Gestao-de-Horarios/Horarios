@@ -21,6 +21,7 @@ class ClassConflict(dict):
     class_code: str
 
     week: datetime.date
+    weeks: list[datetime.date]
     weekday: WeekDay
     start_time: int
     duration: int

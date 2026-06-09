@@ -80,6 +80,12 @@ function formatDuration(slots: number): string {
   return rest ? `${hours}h${String(rest).padStart(2, "0")}` : `${hours}h`;
 }
 
+function formatConflictWeeks(row: ExportConflictBase): string {
+  const weeks = row.weeks?.length ? [...new Set(row.weeks)] : [row.week];
+  if (weeks.length === 1) return weeks[0] ?? row.week;
+  return `${weeks[0]} a ${weeks[weeks.length - 1]} · ${weeks.length} semanas`;
+}
+
 function formatJsonValue(value: unknown): string {
   if (value === null || value === undefined) return "—";
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
@@ -540,9 +546,11 @@ function StatCard({
         : "text-[#08060d] bg-white border-[#e5e4e7]";
 
   return (
-    <div className={`rounded-lg border p-3 shadow-[0_2px_8px_rgba(0,0,0,0.04)] ${toneClasses}`}>
-      <p className="text-xs font-semibold uppercase tracking-wider opacity-75">{label}</p>
-      <p className="mt-1 text-2xl font-bold">{value}</p>
+    <div
+      className={`rounded-lg border px-3 py-2 shadow-[0_2px_8px_rgba(0,0,0,0.04)] ${toneClasses}`}
+    >
+      <p className="text-[11px] font-semibold uppercase tracking-wider opacity-75">{label}</p>
+      <p className="text-xl font-bold leading-tight">{value}</p>
     </div>
   );
 }
@@ -572,7 +580,7 @@ function ConflictRows<T extends ExportConflictBase>({
             </span>
           </div>
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[#6b6375]">
-            <span>{row.week}</span>
+            <span>{formatConflictWeeks(row)}</span>
             <span>{WEEKDAY_LABELS[row.weekday]}</span>
             <span>{formatTime(row.start_time)}</span>
             <span>{formatDuration(row.duration)}</span>
@@ -782,17 +790,19 @@ function ChangeDetails({
   return (
     <div
       className={`relative scroll-mt-4 overflow-hidden px-2 py-1 transition-colors duration-500 ease-out ${
-        hasUnsolvedConflict
-          ? "bg-red-100/90"
-          : isHighlighted
-            ? "bg-amber-50 ring-2 ring-inset ring-amber-300"
-            : "bg-white"
-      }`}
+        hasUnsolvedConflict ? "bg-red-100/90" : isHighlighted ? "bg-amber-50" : "bg-white"
+      } ${isHighlighted ? "ring-2 ring-inset ring-amber-400" : ""}`}
     >
       {hasUnsolvedConflict && (
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-0 animate-pulse bg-red-300/80"
+          className="pointer-events-none absolute inset-0 z-0 animate-pulse bg-red-300/70"
+        />
+      )}
+      {isHighlighted && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-0 animate-pulse bg-amber-300/60"
         />
       )}
       <div className="relative z-10">
