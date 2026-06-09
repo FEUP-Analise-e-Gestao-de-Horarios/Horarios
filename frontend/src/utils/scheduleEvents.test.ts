@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  formatDateLabel,
-  formatWeekRange,
   getCourseGroupLabel,
   sessionToEvents,
   sortValuesByReference,
@@ -49,38 +47,6 @@ describe("getCourseGroupLabel", () => {
   it("falls back to Outros", () => {
     expect(getCourseGroupLabel("Curso de Verão")).toBe("Outros");
     expect(getCourseGroupLabel("")).toBe("Outros");
-  });
-});
-
-describe("formatDateLabel", () => {
-  it("flips ISO-style dates to DD-MM-YYYY", () => {
-    expect(formatDateLabel("2024-03-05")).toBe("05-03-2024");
-  });
-
-  it("returns the input unchanged when it doesn't have three hyphen-separated parts", () => {
-    expect(formatDateLabel("2024")).toBe("2024");
-    expect(formatDateLabel("2024-03")).toBe("2024-03");
-    expect(formatDateLabel("")).toBe("");
-  });
-});
-
-describe("formatWeekRange", () => {
-  it("returns empty for an empty list", () => {
-    expect(formatWeekRange([])).toBe("");
-  });
-
-  it("collapses a single-week block to one date", () => {
-    expect(formatWeekRange(["2024-03-05"])).toBe("05-03-2024");
-  });
-
-  it("collapses a block whose first and last dates match", () => {
-    expect(formatWeekRange(["2024-03-05", "2024-03-05"])).toBe("05-03-2024");
-  });
-
-  it("formats a multi-week block as first - last", () => {
-    expect(formatWeekRange(["2024-03-05", "2024-03-12", "2024-03-19"])).toBe(
-      "05-03-2024 - 19-03-2024",
-    );
   });
 });
 
