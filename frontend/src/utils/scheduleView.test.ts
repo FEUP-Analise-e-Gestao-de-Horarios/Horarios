@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  SCHEDULE_VIEW_DAYS,
   degreeKey,
   encodeScheduleView,
   parseScheduleView,
@@ -8,6 +7,7 @@ import {
   type ScheduleViewSelection,
   type ScheduleViewOrders,
 } from "./scheduleView";
+import { WEEKDAYS } from "./weekdays";
 
 describe("degreeKey", () => {
   it("keeps only alphanumerics and lowercases the last 4", () => {
@@ -105,7 +105,7 @@ describe("encode/parse round-trip", () => {
     return unpackSections(parsed.bytes, [
       { ref: orders.ucOrder },
       { ref: orders.turmaOrder },
-      { ref: [...SCHEDULE_VIEW_DAYS] },
+      { ref: [...WEEKDAYS] },
       { ref: orders.weekOrder },
     ]);
   }
@@ -199,7 +199,7 @@ describe("encode/parse round-trip", () => {
         ano: "1",
         ucs: [],
         turmas: [],
-        dias: [...SCHEDULE_VIEW_DAYS],
+        dias: [...WEEKDAYS],
         semanas: [],
       },
       orders,

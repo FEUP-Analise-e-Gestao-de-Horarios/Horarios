@@ -36,21 +36,6 @@ export function getCourseGroupLabel(name: string): CourseGroupLabel {
   return "Outros";
 }
 
-/** Reformats an ISO-ish `YYYY-MM-DD` string as `DD-MM-YYYY`. */
-export function formatDateLabel(value: string): string {
-  const [year, month, day] = value.split("-");
-  if (!year || !month || !day) return value;
-  return `${day}-${month}-${year}`;
-}
-
-/** Human label for a contiguous block of week start dates. */
-export function formatWeekRange(weeks: string[]): string {
-  if (weeks.length === 0) return "";
-  const firstWeek = formatDateLabel(weeks.at(0) ?? "");
-  const lastWeek = formatDateLabel(weeks.at(-1) ?? "");
-  return firstWeek === lastWeek ? firstWeek : `${firstWeek} - ${lastWeek}`;
-}
-
 /** Fields shared by every WeekGridEvent derived from a given session. */
 function buildBaseEvent(session: SessionResponse): Omit<WeekGridEvent, "id" | "turma"> {
   const primarySubject = session.subjects[0];
