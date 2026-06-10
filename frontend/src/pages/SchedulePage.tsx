@@ -282,6 +282,8 @@ export default function SchedulePage() {
               weekdayLabels={WEEKDAYS.map((weekday) => WEEKDAY_LABELS_UPPER[weekday])}
               turmaShifts={filters.turmaShifts}
               selectedTurmas={filters.effectiveTurmas}
+              selectedWeeks={filters.selectedWeeks}
+              weekNumbers={filters.weekNumbers}
               selectedDays={filters.effectiveDias}
               includeEndSlot
               headerHeightPx={22}

@@ -37,7 +37,10 @@ export function getCourseGroupLabel(name: string): CourseGroupLabel {
 }
 
 /** Fields shared by every WeekGridEvent derived from a given session. */
-function buildBaseEvent(session: SessionResponse): Omit<WeekGridEvent, "id" | "turma"> {
+function buildBaseEvent(
+  session: SessionResponse,
+  blockWeeks: string[],
+): Omit<WeekGridEvent, "id" | "turma"> {
   const primarySubject = session.subjects[0];
   const title = session.subjects.map((subject) => subject.acronym).join(", ") || session.type;
   const body = [
@@ -53,6 +56,7 @@ function buildBaseEvent(session: SessionResponse): Omit<WeekGridEvent, "id" | "t
     body,
     type: session.type,
     classCodes: session.classes.map((classItem) => classItem.code),
+    weeks: blockWeeks,
     uc: primarySubject?.name ?? primarySubject?.acronym ?? session.type,
     professor: session.teachers[0]?.acronym,
     sala: session.rooms[0]?.name,
@@ -66,11 +70,14 @@ function buildBaseEvent(session: SessionResponse): Omit<WeekGridEvent, "id" | "t
  * Flattens a backend session into the WeekGridEvent(s) that pass `filters`.
  * A session with classes expands to one event per matching class code; a
  * session with no classes yields a single event (and is hidden entirely once
- * any turma/turno filter is active).
+ * any turma/turno filter is active). `blockWeeks` is the week list of the
+ * containing week-block, stamped onto every event so the grid can tell which
+ * weeks the session covers.
  */
 export function sessionToEvents(
   session: SessionResponse,
   filters: ScheduleFilters,
+  blockWeeks: string[] = [],
 ): WeekGridEvent[] {
   const { ucs, turnos, turmas, dias } = filters;
 
@@ -81,7 +88,7 @@ export function sessionToEvents(
     return [];
   }
 
-  const base = buildBaseEvent(session);
+  const base = buildBaseEvent(session, blockWeeks);
 
   if (session.classes.length === 0) {
     if (turmas.size > 0 || turnos.size > 0) return [];

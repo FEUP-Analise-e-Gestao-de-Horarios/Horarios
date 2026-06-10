@@ -18,6 +18,8 @@ export interface WeekGridEvent {
   type?: string;
   turma?: string;
   classCodes?: string[];
+  /** Weeks (as ISO date strings) the source week-block covers. */
+  weeks?: string[];
   uc?: string;
   professor?: string;
   sala?: string;
@@ -44,6 +46,10 @@ interface WeekGridProps {
   primaryHeaderLeftLabel?: string;
   secondaryHeaderLeftLabel?: string;
   selectedTurmas?: string[];
+  /** Union of the weeks the user has selected; drives the partial-weeks badge. */
+  selectedWeeks?: string[];
+  /** Maps each week (ISO date) to its 1-based ordinal, for the week-range label. */
+  weekNumbers?: Map<string, number>;
   turmaShifts?: Record<string, number>;
   slotHeightPx?: number;
   showHalfHourLabels?: boolean;
@@ -118,6 +124,8 @@ export default function WeekGrid({
   primaryHeaderLeftLabel,
   secondaryHeaderLeftLabel,
   selectedTurmas = [],
+  selectedWeeks = [],
+  weekNumbers,
   turmaShifts = {},
   slotHeightPx,
   showHalfHourLabels = false,
@@ -186,8 +194,25 @@ export default function WeekGrid({
   });
 
   const placedEvents = useMemo(
-    () => placeEventsOnGrid(events, activeTurmas, visibleDayIndices, gridStartMinutes, slotCount),
-    [events, activeTurmas, gridStartMinutes, slotCount, visibleDayIndices],
+    () =>
+      placeEventsOnGrid(
+        events,
+        activeTurmas,
+        visibleDayIndices,
+        gridStartMinutes,
+        slotCount,
+        selectedWeeks,
+        weekNumbers,
+      ),
+    [
+      events,
+      activeTurmas,
+      gridStartMinutes,
+      slotCount,
+      visibleDayIndices,
+      selectedWeeks,
+      weekNumbers,
+    ],
   );
 
   const placedMarks = useMemo(
@@ -389,7 +414,7 @@ export default function WeekGrid({
           );
         })}
 
-        {placedEvents.flatMap(({ ev, dayCol, rowStart, span, runs }) => {
+        {placedEvents.flatMap(({ ev, dayCol, rowStart, span, runs, weekRangeLabel }) => {
           const style = styleForSubject(ev.uc);
           const isEditingEvent = editingEventId === ev.id;
           return runs.map((run) => (
@@ -402,6 +427,7 @@ export default function WeekGrid({
               rowSpan={span}
               style={style}
               isEditing={isEditingEvent}
+              weekRangeLabel={weekRangeLabel}
               onClick={onEventClick}
             />
           ));
