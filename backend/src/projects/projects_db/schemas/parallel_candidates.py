@@ -21,7 +21,8 @@ class ParallelBlockCandidateDetailResponse(BaseModel):
     session_duration: int
     session_week: date
     year: int
-    degree_id: str
+    degree_id: UUID
+    degree_name: str
     degree_acronym: str
 
     model_config = ConfigDict(from_attributes=True)

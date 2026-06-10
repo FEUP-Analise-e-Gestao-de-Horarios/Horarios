@@ -109,7 +109,8 @@ class ParallelBlockCandidateDAO:
                 Session.type.label("session_type"),
                 func.group_concat(Class.code).label("class_codes"),
                 Year.number.label("year"),
-                Degree.name.label("degree_id"),
+                Degree.id.label("degree_id"),
+                Degree.name.label("degree_name"),
                 Degree.acronym.label("degree_acronym"),
             )
             .select_from(candidate_blocks)
@@ -140,6 +141,7 @@ class ParallelBlockCandidateDAO:
                 Session.week,
                 Session.type,
                 Year.number,
+                Degree.id,
                 Degree.name,
                 Degree.acronym,
             )
@@ -190,6 +192,7 @@ class ParallelBlockCandidateDAO:
                     session_week=row.session_week,
                     year=row.year,
                     degree_id=row.degree_id,
+                    degree_name=row.degree_name,
                     degree_acronym=row.degree_acronym,
                 )
             else:

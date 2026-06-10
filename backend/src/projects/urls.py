@@ -1,11 +1,7 @@
 from django.urls import include, path
 
 from src.projects.views.classes import ProjectClassesView, ProjectClassView
-from src.projects.views.degrees import (
-    ProjectDegreesView,
-    ProjectDegreesWithParallelCandidatesView,
-    ProjectDegreeView,
-)
+from src.projects.views.degrees import ProjectDegreesView, ProjectDegreeView
 from src.projects.views.parallel_block_candidates import ProjectParallelBlockCandidateView
 from src.projects.views.parallel_block_group_members import ProjectParallelBlockGroupMembersView
 from src.projects.views.project import ProjectsView, ProjectView
@@ -31,7 +27,6 @@ teacher_patterns = [
 degree_patterns = [
     path("", ProjectDegreesView.as_view()),
     path("<uuid:degree_id>", ProjectDegreeView.as_view()),
-    path("with-parallel-candidates/", ProjectDegreesWithParallelCandidatesView.as_view()),
 ]
 
 year_patterns = [
