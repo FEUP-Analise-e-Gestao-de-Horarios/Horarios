@@ -1,26 +1,16 @@
 import { useId } from "react";
 import DropdownShell from "./DropdownShell";
+import type { CourseGroup } from "./types";
 
 const CURSO_PANEL_CLASS =
   "w-[min(calc(100vw-1rem),48rem)] max-h-[min(60vh,24rem)] overflow-x-hidden overflow-y-auto";
-
-type CursoOption = {
-  value: string;
-  label: string;
-  description?: string;
-};
-
-type CursoGroup = {
-  label: string;
-  options: CursoOption[];
-};
 
 interface CursoDropdownProps {
   value: string;
   onSelect: (curso: string) => void;
   open: boolean;
   onToggle: () => void;
-  options: CursoGroup[];
+  options: CourseGroup[];
 }
 
 export default function CursoDropdown({
