@@ -37,7 +37,7 @@ def candidate_blocks_cte() -> CTE:
             ],
         )
         .label("group_size"),
-    ).subquery("sized")
+    ).cte("sized")
 
     return (
         select(
