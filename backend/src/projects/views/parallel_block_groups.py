@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views import View
 
@@ -5,6 +7,7 @@ from src.core.decorators import require_auth, require_project
 from src.core.errors import (
     ApiError,
     ErrorResponse,
+    ParallelGroupNotFoundResponse,
 )
 from src.core.schemas import SuccessResponse
 from src.core.validation import validate_request_body
@@ -16,7 +19,7 @@ from src.projects.projects_db.registry import get_session as get_project_session
 from src.projects.views.schemas.parallel_block_group_members import SaveParallelGroupMembersRequest
 
 
-class ProjectParallelBlockGroupMembersView(View):
+class ProjectParallelBlockGroupsView(View):
     """API endpoint: fetch and save confirmed parallel block groups."""
 
     @require_auth
@@ -93,3 +96,60 @@ class ProjectParallelBlockGroupMembersView(View):
                     data=assigned,
                 ).model_dump(),
             )
+
+
+class ProjectParallelBlockGroupView(View):
+    """API endpoint: delete a confirmed parallel block group."""
+
+    @require_auth
+    @require_project
+    def delete(self, request: HttpRequest, project_id: int, group_id: UUID) -> HttpResponse:
+
+        with get_project_session(general_db(project_id)) as db_session:
+            dao = ParallelBlockGroupDAO(db_session)
+            if not dao.delete_group(group_id):
+                return ParallelGroupNotFoundResponse()
+
+            db_session.commit()
+
+        return JsonResponse(
+            SuccessResponse(
+                message="Parallel group deleted successfully",
+                data=None,
+            ).model_dump(),
+        )
+
+
+class ProjectParallelBlockGroupMemberView(View):
+    """API endpoint: remove a single block from a confirmed parallel block group."""
+
+    @require_auth
+    @require_project
+    def delete(
+        self,
+        request: HttpRequest,
+        project_id: int,
+        group_id: UUID,
+        block_id: UUID,
+    ) -> HttpResponse:
+
+        with get_project_session(general_db(project_id)) as db_session:
+            dao = ParallelBlockGroupDAO(db_session)
+            if not dao.remove_member(group_id, block_id):
+                return ParallelGroupNotFoundResponse(
+                    message="Block does not belong to this parallel group.",
+                )
+
+            # A parallel group needs at least two blocks; dissolve it if only
+            # one remains.
+            if len(dao.get_blocks(group_id)) < 2:
+                dao.delete_group(group_id)
+
+            db_session.commit()
+
+        return JsonResponse(
+            SuccessResponse(
+                message="Parallel group member removed successfully",
+                data=None,
+            ).model_dump(),
+        )

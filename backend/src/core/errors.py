@@ -25,6 +25,7 @@ class ApiError(StrEnum):
 
     # Parallel groups
     PARALLEL_GROUPS_INVALID_CANDIDATES = "projects.parallel_groups.invalid_candidates"
+    PARALLEL_GROUPS_NOT_FOUND = "projects.parallel_groups.not_found"
 
     # Generic
     INVALID_JSON = "generic.invalid_json"
@@ -95,5 +96,13 @@ def ClassNotFoundResponse(message: str = "Class not found.") -> JsonResponse:
     return ErrorResponse(
         status=404,
         code=ApiError.PROJECTS_CLASSES_NOT_FOUND,
+        message=message,
+    )
+
+
+def ParallelGroupNotFoundResponse(message: str = "Parallel group not found.") -> JsonResponse:
+    return ErrorResponse(
+        status=404,
+        code=ApiError.PARALLEL_GROUPS_NOT_FOUND,
         message=message,
     )

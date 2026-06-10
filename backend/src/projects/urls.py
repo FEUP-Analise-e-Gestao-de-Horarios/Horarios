@@ -3,7 +3,11 @@ from django.urls import include, path
 from src.projects.views.classes import ProjectClassesView, ProjectClassView
 from src.projects.views.degrees import ProjectDegreesView, ProjectDegreeView
 from src.projects.views.parallel_block_candidates import ProjectParallelBlockCandidateView
-from src.projects.views.parallel_block_group_members import ProjectParallelBlockGroupMembersView
+from src.projects.views.parallel_block_groups import (
+    ProjectParallelBlockGroupMemberView,
+    ProjectParallelBlockGroupsView,
+    ProjectParallelBlockGroupView,
+)
 from src.projects.views.project import ProjectsView, ProjectView
 from src.projects.views.rooms import ProjectRoomsView, ProjectRoomView
 from src.projects.views.sessions import ProjectSessionsView
@@ -48,18 +52,28 @@ session_patterns = [
     path("", ProjectSessionsView.as_view()),
 ]
 
+parallel_block_group_patterns = [
+    path("", ProjectParallelBlockGroupsView.as_view()),
+    path("<uuid:group_id>", ProjectParallelBlockGroupView.as_view()),
+    path("<uuid:group_id>/<uuid:block_id>", ProjectParallelBlockGroupMemberView.as_view()),
+]
+
+parallel_block_patterns = [
+    path("candidates", ProjectParallelBlockCandidateView.as_view()),
+    path("groups/", include(parallel_block_group_patterns)),
+]
+
 project_patterns = [
     path("", ProjectView.as_view()),
     path("/stats", ProjectStatsView.as_view()),
     path("/rooms/", include(room_patterns)),
     path("/teachers/", include(teacher_patterns)),
     path("/degrees/", include(degree_patterns)),
-    path("/parallel-candidates", ProjectParallelBlockCandidateView.as_view()),
-    path("/parallel-groups", ProjectParallelBlockGroupMembersView.as_view()),
     path("/years/", include(year_patterns)),
     path("/subjects/", include(subject_patterns)),
     path("/classes/", include(class_patterns)),
     path("/sessions/", include(session_patterns)),
+    path("/parallel-blocks/", include(parallel_block_patterns)),
 ]
 
 urlpatterns = [
