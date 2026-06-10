@@ -5,8 +5,8 @@ from django.views import View
 
 from src.core.decorators import require_auth, require_project
 from src.core.errors import (
-    ApiError,
-    ErrorResponse,
+    InvalidBodyResponse,
+    ParallelGroupInvalidCandidatesResponse,
     ParallelGroupNotFoundResponse,
 )
 from src.core.schemas import SuccessResponse
@@ -63,11 +63,7 @@ class ProjectParallelBlockGroupsView(View):
                     continue
                 candidate_groups = {block_to_group.get(block_id) for block_id in entry.classes}
                 if None in candidate_groups or len(candidate_groups) > 1:
-                    return ErrorResponse(
-                        status=400,
-                        code=ApiError.PARALLEL_GROUPS_INVALID_CANDIDATES,
-                        message="Some classes are not parallel candidates.",
-                    )
+                    return ParallelGroupInvalidCandidatesResponse()
 
             dao = ParallelBlockGroupDAO(db_session)
             dao.clear_all()
@@ -80,11 +76,7 @@ class ProjectParallelBlockGroupsView(View):
                     dao.create(entry.classes)
                     assigned += 1
             except ValueError as exc:
-                return ErrorResponse(
-                    status=400,
-                    code=ApiError.INVALID_BODY,
-                    message=str(exc),
-                )
+                return InvalidBodyResponse(str(exc))
 
             db_session.commit()
 
