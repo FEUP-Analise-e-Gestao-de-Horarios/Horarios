@@ -4,7 +4,7 @@ version = "0.1.0"
 requires-python = ">=3.14"
 dependencies = [
     "beautifulsoup4==4.14.3",
-    "daphne==4.2.1",
+    "daphne==4.2.2",
     "django==6.0.6",
     "pydantic==2.13.4",
     "requests==2.34.2",
