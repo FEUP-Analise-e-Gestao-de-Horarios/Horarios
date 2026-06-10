@@ -16,7 +16,45 @@ export type PlacedEvent = {
   span: number;
   /** Contiguous column runs the event occupies; usually one run. */
   runs: ContiguousRun[];
+  /**
+   * True when the session occurs in only some of the selected weeks — i.e. the
+   * weeks it covers are a strict subset of `selectedWeeks`. Always false when
+   * `selectedWeeks` is empty or the events carry no week data.
+   */
+  isPartialWeeks: boolean;
+  /**
+   * Compact week range the card renders (e.g. "1-7", "1-3, 5-7"). Empty unless
+   * the session is partial and `weekNumbers` maps its weeks to ordinals.
+   */
+  weekRangeLabel: string;
 };
+
+/**
+ * Renders a sorted, deduplicated list of week ordinals as a compact range
+ * string: [1,2,3,4,5,6,7] -> "1-7", [1,2,3,5,6,7] -> "1-3, 5-7", [3] -> "3".
+ */
+export function formatWeekRanges(numbers: number[]): string {
+  const sorted = [...new Set(numbers)].sort((a, b) => a - b);
+  const parts: string[] = [];
+  let start: number | null = null;
+  let prev: number | null = null;
+  for (const n of sorted) {
+    if (start === null || prev === null) {
+      start = n;
+      prev = n;
+    } else if (n === prev + 1) {
+      prev = n;
+    } else {
+      parts.push(start === prev ? `${start}` : `${start}-${prev}`);
+      start = n;
+      prev = n;
+    }
+  }
+  if (start !== null && prev !== null) {
+    parts.push(start === prev ? `${start}` : `${start}-${prev}`);
+  }
+  return parts.join(", ");
+}
 
 /**
  * Collapses a sorted, ascending list of column indices into contiguous runs.
@@ -38,11 +76,15 @@ export function toContiguousRuns(sortedIndices: number[]): ContiguousRun[] {
 
 /**
  * Merges events that belong to the same underlying session (same day/time/
- * duration/type/title/teacher/room) into a single card spanning every turma
- * column they cover, and places each card on the grid.
+ * duration/type/title/teacher/room) AND cover the same set of classes into a
+ * single card spanning every turma column they cover, and places each card on
+ * the grid.
  *
- * The backend emits one event per (session, class code), so without this the
- * grid would draw N identical overlapping cards for a single session.
+ * The backend emits one event per (session, class code) but stamps each with
+ * the session's full class list, so without merging the grid would draw N
+ * identical overlapping cards for one session. Including that class set in the
+ * key keeps two sessions that merely share the other fields — but cover
+ * different classes (e.g. {B,C} vs {B,C,D}) — as distinct blocks.
  */
 export function placeEventsOnGrid(
   events: WeekGridEvent[],
@@ -50,27 +92,62 @@ export function placeEventsOnGrid(
   visibleDayIndices: number[],
   gridStartMinutes: number,
   slotCount: number,
+  selectedWeeks: string[] = [],
+  weekNumbers: Map<string, number> = new Map(),
 ): PlacedEvent[] {
-  const getMergeKey = (ev: WeekGridEvent): string =>
-    [ev.weekday, ev.startTime, ev.duration, ev.type, ev.title, ev.professor, ev.sala].join("||");
+  const selectedWeekSet = new Set(selectedWeeks);
+  const getMergeKey = (ev: WeekGridEvent): string => {
+    const classes = ev.classCodes ? [...ev.classCodes].sort().join(",") : "";
+    return [
+      ev.weekday,
+      ev.startTime,
+      ev.duration,
+      ev.type,
+      ev.title,
+      ev.professor,
+      ev.sala,
+      classes,
+    ].join("||");
+  };
 
-  const mergeGroups = new Map<string, { events: WeekGridEvent[]; turmas: Set<string> }>();
+  const mergeGroups = new Map<
+    string,
+    { events: WeekGridEvent[]; turmas: Set<string>; weeks: Set<string> }
+  >();
   for (const ev of events) {
     if (activeTurmas.length > 0 && ev.turma && !activeTurmas.includes(ev.turma)) continue;
     const key = getMergeKey(ev);
     let group = mergeGroups.get(key);
     if (!group) {
-      group = { events: [], turmas: new Set() };
+      group = { events: [], turmas: new Set(), weeks: new Set() };
       mergeGroups.set(key, group);
     }
     group.events.push(ev);
     if (ev.turma) group.turmas.add(ev.turma);
+    for (const week of ev.weeks ?? []) group.weeks.add(week);
   }
 
   const result: PlacedEvent[] = [];
-  for (const { events: groupEvents, turmas } of mergeGroups.values()) {
+  for (const { events: groupEvents, turmas, weeks } of mergeGroups.values()) {
     const ev = groupEvents[0];
     if (!ev) continue;
+
+    // Partial when the session's weeks don't cover every selected week. Skipped
+    // when no weeks were selected or the events carry no week data.
+    const isPartialWeeks =
+      selectedWeekSet.size > 0 &&
+      weeks.size > 0 &&
+      [...selectedWeekSet].some((week) => !weeks.has(week));
+
+    // Only partial sessions carry a range; a full-span session would just
+    // repeat the whole selection on every card.
+    const weekRangeLabel = isPartialWeeks
+      ? formatWeekRanges(
+          [...weeks]
+            .map((week) => weekNumbers.get(week))
+            .filter((n): n is number => n !== undefined),
+        )
+      : "";
 
     const dayCol = WEEKDAYS.indexOf(ev.weekday);
     if (dayCol < 0) continue;
@@ -103,6 +180,8 @@ export function placeEventsOnGrid(
         rowStart,
         span,
         runs: toContiguousRuns(turmaIndices),
+        isPartialWeeks,
+        weekRangeLabel,
       });
     }
   }
