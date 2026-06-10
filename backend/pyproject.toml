@@ -3,7 +3,7 @@ name = "horarios-backend"
 version = "0.1.0"
 requires-python = ">=3.14"
 dependencies = [
-    "bs4==0.0.2",
+    "beautifulsoup4==4.14.3",
     "daphne==4.2.1",
     "django==6.0.6",
     "pydantic==2.13.4",
