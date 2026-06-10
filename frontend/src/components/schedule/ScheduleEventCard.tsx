@@ -33,6 +33,11 @@ interface ScheduleEventCardProps {
   rowSpan: number;
   style: SubjectStyle;
   isEditing: boolean;
+  /**
+   * Compact week range (e.g. "1-7") shown at the bottom when the session runs
+   * in only some of the selected weeks. Empty for sessions spanning them all.
+   */
+  weekRangeLabel?: string;
   onClick?: (event: WeekGridEvent) => void;
 }
 
@@ -55,15 +60,19 @@ export default function ScheduleEventCard({
   rowSpan,
   style,
   isEditing,
+  weekRangeLabel = "",
   onClick,
 }: ScheduleEventCardProps) {
   const clickable = !!onClick;
+  const ariaLabel = weekRangeLabel
+    ? `${getEventAriaLabel(ev)} — semanas ${weekRangeLabel}`
+    : getEventAriaLabel(ev);
   return (
     <button
       type="button"
       {...{ [SCHEDULE_EVENT_DATA_ATTR]: "" }}
       onClick={onClick ? () => onClick(ev) : undefined}
-      aria-label={getEventAriaLabel(ev)}
+      aria-label={ariaLabel}
       aria-current={isEditing ? "true" : undefined}
       className={`group relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/80 focus-visible:z-10 ${
         isEditing
@@ -93,6 +102,18 @@ export default function ScheduleEventCard({
           </MarqueeText>
         ))}
       </div>
+      {weekRangeLabel && (
+        // Week range pinned to the bottom-right marks a session that only runs
+        // in some of the selected weeks. Sits outside the masked content div so
+        // the bottom fade doesn't clip it; currentColor tracks the card text.
+        <span
+          aria-hidden="true"
+          title={`Semanas ${weekRangeLabel}`}
+          className="pointer-events-none absolute bottom-0 right-0 z-10 px-1 text-[9px] font-semibold leading-tight tabular-nums opacity-80"
+        >
+          {weekRangeLabel}
+        </span>
+      )}
     </button>
   );
 }

@@ -10,6 +10,7 @@ import {
   type ScheduleFilters,
 } from "@/utils/scheduleEvents";
 import { WEEKDAYS, WEEKDAY_LABELS_LONG } from "@/utils/weekdays";
+import { formatWeekRanges } from "./scheduleGrid";
 import type { TurnoTurmaGroup } from "./TurnoTurmaDropdown";
 import type { DropdownOption } from "./types";
 
@@ -157,19 +158,41 @@ export function useScheduleFilters({
   );
 
   // --- sessions-derived references --------------------------------------
+  // 1-based ordinal of every week across the whole year, in chronological
+  // order (ISO date strings sort chronologically). Lets the grid label a
+  // partial session with its semester week range (e.g. "1-7"), and prefixes
+  // each week-selector option with its week number(s).
+  const weekNumbers = useMemo(() => {
+    const sorted = [...new Set((selectedYearWeeks ?? []).flatMap((block) => block.weeks))].sort();
+    return new Map(sorted.map((week, index) => [week, index + 1]));
+  }, [selectedYearWeeks]);
+
   const weekOptions = useMemo<DropdownOption[]>(
     () =>
       (selectedYearWeeks ?? []).flatMap((block) => {
         if (block.weeks.length === 0) return [];
+        const numbers = formatWeekRanges(
+          block.weeks
+            .map((week) => weekNumbers.get(week))
+            .filter((n): n is number => n !== undefined),
+        );
+        const dateRange = formatWeekRange(block.weeks);
+        const weekWord = block.weeks.length === 1 ? "Semana" : "Semanas";
         return [
           {
             value: block.weeks.join("|"),
-            label: formatWeekRange(block.weeks),
-            secondaryText: block.weeks.length === 1 ? undefined : `${block.weeks.length} semanas`,
+            // Week number(s) lead; the date range drops to the secondary line.
+            // "Semanas 3-4" already conveys the count, so no "N semanas" suffix.
+            label: numbers ? `${weekWord} ${numbers}` : dateRange,
+            secondaryText: numbers
+              ? dateRange
+              : block.weeks.length === 1
+                ? undefined
+                : `${block.weeks.length} semanas`,
           },
         ];
       }),
-    [selectedYearWeeks],
+    [selectedYearWeeks, weekNumbers],
   );
 
   const allWeekValues = useMemo(() => weekOptions.map((option) => option.value), [weekOptions]);
@@ -245,9 +268,17 @@ export function useScheduleFilters({
       dias: new Set(effectiveDias),
     };
     return activeWeekBlocks.flatMap((block) =>
-      block.sessions.flatMap((session) => sessionToEvents(session, filters)),
+      block.sessions.flatMap((session) => sessionToEvents(session, filters, block.weeks)),
     );
   }, [activeWeekBlocks, effectiveDias, effectiveTurmas, effectiveTurnos, effectiveUcs]);
+
+  // Union of every week across the active blocks: the full set of weeks the
+  // user is currently viewing. A rendered session whose weeks are a strict
+  // subset of this only runs in part of the selection.
+  const selectedWeeks = useMemo(
+    () => [...new Set(activeWeekBlocks.flatMap((block) => block.weeks))],
+    [activeWeekBlocks],
+  );
 
   // --- secondary dropdown options ---------------------------------------
   const yearOptions = useMemo<DropdownOption[]>(
@@ -295,5 +326,7 @@ export function useScheduleFilters({
     weekdayFilter,
     // schedule output
     scheduleEvents,
+    selectedWeeks,
+    weekNumbers,
   };
 }
