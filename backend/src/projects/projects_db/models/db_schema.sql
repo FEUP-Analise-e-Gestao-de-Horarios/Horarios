@@ -134,6 +134,49 @@ CREATE TABLE sessions_classes_subject (
 
 
 -----------------------------------------------------------
+-- Conflicts
+-----------------------------------------------------------
+
+CREATE TABLE tags (
+    tag_id  UUID PRIMARY KEY,
+    name    TEXT UNIQUE NOT NULL
+);
+
+CREATE TABLE conflicts (
+    conflict_id  UUID PRIMARY KEY,
+    tag_id       UUID NOT NULL REFERENCES tags(tag_id)
+);
+
+CREATE TABLE conflict_sessions (
+    conflict_id  UUID NOT NULL REFERENCES conflicts(conflict_id),
+    session_id   UUID NOT NULL REFERENCES sessions(id),
+
+    PRIMARY KEY (conflict_id, session_id)
+);
+
+CREATE TABLE conflict_rooms (
+    conflict_id  UUID NOT NULL REFERENCES conflicts(conflict_id),
+    room_id      UUID NOT NULL REFERENCES rooms(id),
+
+    PRIMARY KEY (conflict_id, room_id)
+);
+
+CREATE TABLE conflict_teachers (
+    conflict_id  UUID NOT NULL REFERENCES conflicts(conflict_id),
+    teacher_id   UUID NOT NULL REFERENCES teachers(id),
+
+    PRIMARY KEY (conflict_id, teacher_id)
+);
+
+CREATE TABLE conflict_classes (
+    conflict_id  UUID NOT NULL REFERENCES conflicts(conflict_id),
+    class_id     UUID NOT NULL REFERENCES classes(id),
+
+    PRIMARY KEY (conflict_id, class_id)
+);
+
+
+-----------------------------------------------------------
 -- Parallel blocks
 -----------------------------------------------------------
 
