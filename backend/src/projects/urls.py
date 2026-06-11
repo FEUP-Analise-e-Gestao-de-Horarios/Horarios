@@ -2,8 +2,8 @@ from django.urls import include, path
 
 from src.projects.views.classes import ProjectClassesView, ProjectClassView
 from src.projects.views.degrees import ProjectDegreesView, ProjectDegreeView
-from src.projects.views.parallel_block_candidates import ProjectParallelBlockCandidateView
-from src.projects.views.parallel_block_groups import (
+from src.projects.views.parallel_blocks import (
+    ProjectParallelBlockCandidateView,
     ProjectParallelBlockGroupMemberView,
     ProjectParallelBlockGroupsView,
     ProjectParallelBlockGroupView,
