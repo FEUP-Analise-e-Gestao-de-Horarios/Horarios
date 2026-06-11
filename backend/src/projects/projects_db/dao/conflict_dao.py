@@ -46,7 +46,7 @@ class ConflictDAO:
             self.session.execute(
                 delete(Conflict).where(Conflict.conflict_id == conflict_id),
             )
-            self.session.flush()
+            self.session.commit()
             return
 
         tag_obj = self._tags.get_or_create(tag)
@@ -61,4 +61,4 @@ class ConflictDAO:
             )
         else:
             self.session.add(Conflict(conflict_id=conflict_id, tag_id=tag_obj.tag_id))
-        self.session.flush()
+        self.session.commit()

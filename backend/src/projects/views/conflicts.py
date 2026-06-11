@@ -52,7 +52,6 @@ class ProjectConflictView(View):
 
         with get_project_session(general_db(project_id)) as db_session:
             ConflictDAO(db_session).update_tag(conflict_id, body.tag)
-            db_session.commit()
 
             return JsonResponse(
                 SuccessResponse(
