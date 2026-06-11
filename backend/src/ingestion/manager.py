@@ -18,6 +18,11 @@ from src.projects.models import Project
 from src.projects.projects_db.dao import (
     ClassDAO,
     ClassRedBlockDAO,
+    ConflictClassDAO,
+    ConflictDAO,
+    ConflictRoomDAO,
+    ConflictSessionDAO,
+    ConflictTeacherDAO,
     DegreeDAO,
     RoomDAO,
     RoomRedBlockDAO,
@@ -41,6 +46,7 @@ from src.projects.projects_db.models import Teacher as TeacherModel
 from src.projects.projects_db.models._secondary_tables import session_rooms, session_teachers
 from src.projects.projects_db.paths import general_db, initial_db
 from src.projects.projects_db.registry import get_session
+from src.projects.services.conflict_detection import _compute_conflict_rows
 
 
 class IngestionManager:
@@ -119,6 +125,7 @@ class IngestionManager:
             # which groups sessions by original_block_id.
             self._assign_block_ids()
             self._detect_parallel_block_candidates()
+            self._ingest_conflicts()
 
             # -- Snapshot general_db into init_db ----------------------------------
             # Force a WAL checkpoint so every committed row lands in the main DB
@@ -393,7 +400,7 @@ class IngestionManager:
                             )
 
         # -- Bulk insert and commit -------------------------------------------
-        self._bulk_insert_session_data(
+        self._create_many_session_data(
             pending_sessions,
             pending_session_teachers,
             pending_session_rooms,
@@ -507,6 +514,30 @@ class IngestionManager:
         ]
         if candidate_rows:
             self.db_session.execute(insert(ParallelBlockCandidate), candidate_rows)
+
+        self.db_session.commit()
+
+    def _ingest_conflicts(self) -> None:
+        """Detect conflicts across all sessions and persist them to the conflict tables."""
+        sessions = SessionDAO(self.db_session).get_all(includes=list(SessionDAO.Include))
+        data = _compute_conflict_rows(sessions)
+
+        conflict_dao = ConflictDAO(self.db_session)
+        conflict_session_dao = ConflictSessionDAO(self.db_session)
+        conflict_teacher_dao = ConflictTeacherDAO(self.db_session)
+        conflict_room_dao = ConflictRoomDAO(self.db_session)
+        conflict_class_dao = ConflictClassDAO(self.db_session)
+
+        if data.conflict_rows:
+            conflict_dao.create_many_tagged(data.conflict_rows, "pre-existing")
+        if data.session_rows:
+            conflict_session_dao.create_many(data.session_rows)
+        if data.teacher_rows:
+            conflict_teacher_dao.create_many(data.teacher_rows)
+        if data.room_rows:
+            conflict_room_dao.create_many(data.room_rows)
+        if data.class_rows:
+            conflict_class_dao.create_many(data.class_rows)
 
         self.db_session.commit()
 
@@ -747,7 +778,7 @@ class IngestionManager:
         )
         return teacher_ids, class_ids, room_ids
 
-    def _bulk_insert_session_data(
+    def _create_many_session_data(
         self,
         pending_sessions: list[dict],
         pending_session_teachers: list[dict],
