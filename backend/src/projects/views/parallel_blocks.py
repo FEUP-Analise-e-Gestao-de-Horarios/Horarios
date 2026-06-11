@@ -10,7 +10,7 @@ from src.core.errors import (
     ParallelGroupNotFoundResponse,
 )
 from src.core.schemas import SuccessResponse
-from src.core.validation import validate_request_body
+from src.core.validation import validate_query_params, validate_request_body
 from src.projects.models import Project
 from src.projects.projects_db.dao.parallel_block_candidate_dao import ParallelBlockCandidateDAO
 from src.projects.projects_db.dao.parallel_block_group_dao import ParallelBlockGroupDAO
@@ -27,19 +27,9 @@ class ProjectParallelBlockCandidateView(View):
     @require_project
     def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
 
-        year_id = request.GET.get("year_id")
-        degree_id = request.GET.get("degree_id")
-        subject_id = request.GET.get("subject_id")
-        class_id = request.GET.get("class_id")
-        start_time = request.GET.get("start_time")
-
-        filters = ParallelBlockCandidateFilters(
-            year_id=UUID(year_id) if year_id else None,
-            degree_id=UUID(degree_id) if degree_id else None,
-            subject_id=UUID(subject_id) if subject_id else None,
-            class_id=UUID(class_id) if class_id else None,
-            start_time=start_time or None,
-        )
+        filters, err = validate_query_params(ParallelBlockCandidateFilters, request.GET)
+        if err is not None:
+            return err
 
         with get_project_session(general_db(project_id)) as db_session:
             parallel_block_candidate_dao = ParallelBlockCandidateDAO(db_session)
