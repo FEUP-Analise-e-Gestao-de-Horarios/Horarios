@@ -17,7 +17,8 @@ import { useProjectDegree, useProjectDegrees } from "@/api/hooks/project/degree"
 import { useProjectRooms } from "@/api/hooks/project/room";
 import { useProjectTeachers } from "@/api/hooks/project/teacher";
 import { useProjectSessions } from "@/api/hooks/project/sessions";
-import { useProjectYear, useProjectYearConflicts } from "@/api/hooks/project/year";
+import { useProjectConflicts } from "@/api/hooks/project/conflicts";
+import { useProjectYear } from "@/api/hooks/project/year";
 import { WEEKDAYS, WEEKDAY_LABELS_UPPER } from "@/utils/weekdays";
 
 export default function SchedulePage() {
@@ -69,7 +70,9 @@ export default function SchedulePage() {
   );
 
   const { data: selectedYearDetail } = useProjectYear(projectId ?? "", selectedYear?.id ?? "");
-  const yearConflictsQuery = useProjectYearConflicts(projectId ?? "", selectedYear?.id ?? "");
+  const yearConflictsQuery = useProjectConflicts(projectId ?? "", "year", {
+    yearId: selectedYear?.id ?? "",
+  });
   const yearConflicts = yearConflictsQuery.data ?? [];
 
   // Sessions query needs subject/class/weekday ids derived from the year
