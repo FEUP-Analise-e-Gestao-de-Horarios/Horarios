@@ -73,15 +73,12 @@ export default function EditEventDrawer({
       dispatch({ type: "reset", event });
     }
   }, [event, dispatch]);
-  // Matches conflicts to this event purely by id. This assumes the backend
-  // emits `event_ids` using the same scheme the grid builds in
-  // `sessionToEvents`: `${session.id}-${classItem.code}` for class-expanded
-  // sessions, or a bare `session.id` for sessions with no classes. If the
-  // backend ever emits bare session ids for class-expanded sessions, the
-  // expanded events won't match here. Note also that merged grid cards render
-  // from `groupEvents[0]`, so a visible card only carries one turma's id.
+  // Conflicts reference bare session ids (contract C2), so matching on
+  // `sessionId` works for every event expanded from the session regardless of
+  // which turma's card the user clicked.
   const eventConflicts = useMemo(
-    () => (event ? conflicts.filter((conflict) => conflict.event_ids.includes(event.id)) : []),
+    () =>
+      event ? conflicts.filter((conflict) => conflict.event_ids.includes(event.sessionId)) : [],
     [conflicts, event],
   );
   const [openDropdown, setOpenDropdown] = useState<"docentes" | "salas" | "turmas" | null>(null);
@@ -104,17 +101,18 @@ export default function EditEventDrawer({
   }, [preferredUc, selectedUcOverride, ucOptions]);
 
   const preferredRoomTypes = useMemo(() => {
-    if (!event?.roomIds || event.roomIds.length === 0) return new Set<string>();
+    if (!event?.rooms || event.rooms.length === 0) return new Set<string>();
+    const eventRoomIds = new Set(event.rooms.map((room) => room.id));
     const roomTypes = roomOptions
-      .filter((room) => event.roomIds?.includes(room.id))
+      .filter((room) => eventRoomIds.has(room.id))
       .map((room) => room.type)
       .filter((type) => type.length > 0);
     return new Set(roomTypes);
   }, [event, roomOptions]);
 
   const selectedEventTeacherIds = useMemo(
-    () => new Set(event?.teacherIds ?? []),
-    [event?.teacherIds],
+    () => new Set((event?.teachers ?? []).map((teacher) => teacher.id)),
+    [event?.teachers],
   );
 
   const selectedClassDocentes = useMemo(

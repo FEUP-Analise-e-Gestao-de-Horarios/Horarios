@@ -170,4 +170,13 @@ describe("sessionToEvents", () => {
     const events = sessionToEvents(makeSession(), NO_FILTERS);
     expect(events[0]?.body).toEqual(["AL", "B003"]);
   });
+
+  it("stamps the session id and structured teachers/rooms on every event", () => {
+    const events = sessionToEvents(makeSession(), NO_FILTERS);
+    for (const ev of events) {
+      expect(ev.sessionId).toBe("s1");
+      expect(ev.teachers).toEqual([{ id: "t1", acronym: "AL", name: "Ada Lovelace" }]);
+      expect(ev.rooms).toEqual([{ id: "r1", name: "B003" }]);
+    }
+  });
 });

@@ -10,6 +10,12 @@ import { useGridTimeRange } from "./useGridTimeRange";
 
 export interface WeekGridEvent {
   id: string;
+  /**
+   * Backend session id, shared by every event expanded from the same session
+   * (`id` is `${sessionId}-${turma}` for class-expanded events). Conflict
+   * records and session mutations key on this, never on `id`.
+   */
+  sessionId: string;
   weekday: Weekday;
   startTime: number;
   duration: number;
@@ -23,8 +29,8 @@ export interface WeekGridEvent {
   uc?: string;
   professor?: string;
   sala?: string;
-  teacherIds?: string[];
-  roomIds?: string[];
+  teachers?: { id: string; acronym: string; name: string }[];
+  rooms?: { id: string; name: string }[];
   subjectNames?: string[];
 }
 

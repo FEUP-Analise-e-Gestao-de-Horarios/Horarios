@@ -89,8 +89,8 @@ export function getInitialEventDrawerFormState(event?: WeekGridEvent | null): Ev
   if (event) {
     return {
       selectedUcOverride: event.uc ?? "",
-      selectedDocenteOverride: event.teacherIds ?? [],
-      selectedSalaOverride: event.roomIds ?? [],
+      selectedDocenteOverride: (event.teachers ?? []).map((teacher) => teacher.id),
+      selectedSalaOverride: (event.rooms ?? []).map((room) => room.id),
       selectedTurmasOverride: event.classCodes ?? (event.turma ? [event.turma] : []),
       selectedWeekday: event.weekday,
       startTime: minutesToTime(hhmmToMinutes(event.startTime)),
