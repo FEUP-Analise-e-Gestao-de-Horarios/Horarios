@@ -4,7 +4,7 @@ import { hhmmToMinutes, minutesToTime } from "@/utils/time";
 import { WEEKDAYS, WEEKDAY_LABELS_SHORT } from "@/utils/weekdays";
 import ScheduleEventCard from "./ScheduleEventCard";
 import {
-  computeColumnOccupancy,
+  assignLaneSegments,
   computeColumnWidths,
   computeRowHeights,
   computeRowOccupancy,
@@ -272,12 +272,19 @@ export default function WeekGrid({
     [compactEmpty, placedEvents, placedMarks, slotCount],
   );
 
-  const colOccupied = useMemo(
-    () =>
-      compactEmpty
-        ? computeColumnOccupancy(placedEvents, turmaColumnCount, turmasCount)
-        : new Array<boolean>(turmaColumnCount).fill(true),
-    [compactEmpty, placedEvents, turmaColumnCount, turmasCount],
+  // Lane assignment (#24): events that overlap within a column render
+  // side-by-side; each card splits into segments only where its per-column
+  // lane situation changes, staying one wide block otherwise.
+  const { laned: lanedEvents, colLaneCount: rawColLaneCount } = useMemo(
+    () => assignLaneSegments(placedEvents, turmasCount, turmaColumnCount),
+    [placedEvents, turmasCount, turmaColumnCount],
+  );
+
+  // When not compacting (placement mode), empty columns stay full instead of
+  // collapsing — but occupied columns still widen for their lanes.
+  const colLaneCount = useMemo(
+    () => (compactEmpty ? rawColLaneCount : rawColLaneCount.map((lanes) => Math.max(lanes, 1))),
+    [compactEmpty, rawColLaneCount],
   );
 
   // Width a fully-empty day collapses to: enough to show its (longest) day
@@ -292,16 +299,15 @@ export default function WeekGrid({
     hasSecondaryHeader ? ` ${headerPx}px` : ""
   } ${computeRowHeights(rowOccupied, fullRowTrack, COMPACT_ROW_PX).join(" ")}`;
 
-  const fullColTrack =
-    columnWidthPx != null ? `${columnWidthPx}px` : `minmax(${TURMA_COLUMN_DEFAULT_MIN_PX}px, 1fr)`;
   const gridTemplateColumns = dragState
     ? `${TIME_COL_PX}px ${Array.from({ length: turmaColumnCount }, (_, columnIndex) =>
         columnIndex === dragState.colIndex ? `${dragState.width}px` : `${dragState.othersWidth}px`,
       ).join(" ")}`
     : `${TIME_COL_PX}px ${computeColumnWidths(
-        colOccupied,
+        colLaneCount,
         turmasCount,
-        fullColTrack,
+        columnWidthPx ?? null,
+        TURMA_COLUMN_DEFAULT_MIN_PX,
         TURMA_COLUMN_MIN_PX,
         emptyDayTotalPx,
       ).join(" ")}`;
@@ -486,17 +492,19 @@ export default function WeekGrid({
           );
         })}
 
-        {placedEvents.flatMap(({ ev, dayCol, rowStart, span, runs, weekRangeLabel }) => {
+        {lanedEvents.flatMap(({ ev, dayCol, rowStart, span, segments, weekRangeLabel }) => {
           const style = styleForSubject(subjectPalette, ev.uc, ev.type);
           const isEditingEvent = editingEventId === ev.id;
-          return runs.map((run) => (
+          return segments.map((seg) => (
             <ScheduleEventCard
-              key={`e-${ev.id}-${run.start}`}
+              key={`e-${ev.id}-${seg.start}`}
               ev={ev}
-              startCol={dayCol * turmasCount + run.start + 2}
+              startCol={dayCol * turmasCount + seg.start + 2}
               startRow={rowStart + headerRows + 1}
-              colSpan={run.span}
+              colSpan={seg.span}
               rowSpan={span}
+              lane={seg.lane}
+              laneCount={seg.laneCount}
               style={style}
               isEditing={isEditingEvent}
               weekRangeLabel={weekRangeLabel}

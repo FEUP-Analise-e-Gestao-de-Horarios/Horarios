@@ -93,54 +93,166 @@ export function computeRowHeights(
 }
 
 /**
- * Marks which of the `columnCount` turma columns carry an event. A column's
- * global index is `dayCol * turmasCount + turmaIndex`; a run covers every
- * column in `[start, start + span)`. Empty columns can then be narrowed (#14).
+ * One renderable card of an event: a contiguous span of turma columns sharing
+ * the same lane situation. `start`/`span` are turma-column indices within the
+ * day (like a run); `lane`/`laneCount` drive the side-by-side slice (#24).
  */
-export function computeColumnOccupancy(
-  placed: PlacedEvent[],
-  columnCount: number,
-  turmasCount: number,
-): boolean[] {
-  const occupied = new Array<boolean>(columnCount).fill(false);
-  for (const { dayCol, runs } of placed) {
-    const base = dayCol * turmasCount;
-    for (const run of runs) {
-      for (let i = run.start; i < run.start + run.span; i += 1) {
-        const col = base + i;
-        if (col >= 0 && col < columnCount) occupied[col] = true;
-      }
-    }
+export type LaneSegment = { start: number; span: number; lane: number; laneCount: number };
+
+/** A placed event split into its renderable lane segments. */
+export type LanedEvent = PlacedEvent & { segments: LaneSegment[] };
+
+/** Global column indices a placed event occupies (`dayCol*turmas + run cols`). */
+function eventColumns(p: PlacedEvent, turmasCount: number): number[] {
+  const base = p.dayCol * turmasCount;
+  const cols: number[] = [];
+  for (const run of p.runs) {
+    for (let i = run.start; i < run.start + run.span; i += 1) cols.push(base + i);
   }
-  return occupied;
+  return cols;
 }
 
 /**
- * CSS grid-column tracks for the turma columns, with two levels of compaction
- * (#14/#16):
- *  - a turma column with an event keeps `fullTrack`;
- *  - an empty column inside a day that *has* events shrinks to `minColPx` (the
- *    smallest a column can be resized to);
- *  - a day with NO events at all collapses to roughly its day-label width
- *    (`emptyDayTotalPx`), split across its columns — narrower than n·minColPx.
+ * Side-by-side lanes computed PER COLUMN (#24): within each turma column,
+ * events that overlap in time get distinct lanes; a column's `laneCount` is its
+ * deepest overlap. An event then keeps full width wherever it is alone and
+ * only narrows in the specific columns it collides in — so a class shared
+ * across turmas stays one wide block unless something overlaps it, and the
+ * breaks between segments are exactly where #20 draws connecting arcs.
+ *
+ * Returns each event with its render `segments` (contiguous columns sharing a
+ * lane/laneCount are merged) plus per-column `colLaneCount` for sizing.
+ */
+export function assignLaneSegments(
+  placed: PlacedEvent[],
+  turmasCount: number,
+  columnCount: number,
+): { laned: LanedEvent[]; colLaneCount: number[] } {
+  const perColumn: { index: number; rowStart: number; span: number }[][] = Array.from(
+    { length: columnCount },
+    () => [],
+  );
+  placed.forEach((p, index) => {
+    for (const col of eventColumns(p, turmasCount)) {
+      if (col >= 0 && col < columnCount) {
+        perColumn[col]!.push({ index, rowStart: p.rowStart, span: p.span });
+      }
+    }
+  });
+
+  const laneOf = new Map<string, number>(); // `${eventIndex}:${col}` -> lane
+  // Per (event,col) the size of the *local* overlap cluster, so an event with
+  // no conflict at its own time fills the column even if the column is widened
+  // elsewhere (#24). The column width uses the column-wide max separately.
+  const laneCountOf = new Map<string, number>();
+  const colLaneCount = new Array<number>(columnCount).fill(0);
+  for (let col = 0; col < columnCount; col += 1) {
+    const list = perColumn[col]!;
+    if (list.length === 0) continue;
+    list.sort(
+      (a, b) =>
+        a.rowStart - b.rowStart ||
+        b.span - a.span ||
+        placed[a.index]!.ev.id.localeCompare(placed[b.index]!.ev.id),
+    );
+    // Walk the column splitting it into clusters of transitively-overlapping
+    // events; each cluster gets its own lane count.
+    let cluster: { index: number; rowStart: number; span: number; lane: number }[] = [];
+    let clusterEnd = -Infinity;
+    const flush = () => {
+      if (cluster.length === 0) return;
+      const laneCount = Math.max(...cluster.map((c) => c.lane)) + 1;
+      for (const c of cluster) {
+        laneOf.set(`${c.index}:${col}`, c.lane);
+        laneCountOf.set(`${c.index}:${col}`, laneCount);
+      }
+      colLaneCount[col] = Math.max(colLaneCount[col]!, laneCount);
+      cluster = [];
+      clusterEnd = -Infinity;
+    };
+    for (const item of list) {
+      if (item.rowStart >= clusterEnd) flush();
+      const used = new Set<number>();
+      for (const c of cluster) if (c.rowStart + c.span > item.rowStart) used.add(c.lane);
+      let lane = 0;
+      while (used.has(lane)) lane += 1;
+      cluster.push({ ...item, lane });
+      clusterEnd = Math.max(clusterEnd, item.rowStart + item.span);
+    }
+    flush();
+  }
+
+  const laned = placed.map((p, index) => {
+    const dayBase = p.dayCol * turmasCount;
+    const cols = eventColumns(p, turmasCount)
+      .filter((c) => c >= 0 && c < columnCount)
+      .sort((a, b) => a - b);
+    const segments: LaneSegment[] = [];
+    let current: LaneSegment | null = null;
+    let prevCol = -2;
+    for (const col of cols) {
+      const lane = laneOf.get(`${index}:${col}`) ?? 0;
+      const laneCount = laneCountOf.get(`${index}:${col}`) ?? 1;
+      // Merge adjacent columns into one wide card only when full width; a
+      // laned (fractional) column must be its own card, otherwise a half-width
+      // card spanning two doubled columns would fill one column entirely
+      // instead of sitting side-by-side within each (PI ToDo #24).
+      if (
+        current &&
+        laneCount === 1 &&
+        current.laneCount === 1 &&
+        col === prevCol + 1 &&
+        current.lane === lane
+      ) {
+        current.span += 1;
+      } else {
+        if (current) segments.push(current);
+        current = { start: col - dayBase, span: 1, lane, laneCount };
+      }
+      prevCol = col;
+    }
+    if (current) segments.push(current);
+    return { ...p, segments };
+  });
+
+  return { laned, colLaneCount };
+}
+
+/**
+ * CSS grid-column tracks for the turma columns (#14/#16/#24). Per column lane
+ * count `L`:
+ *  - `L === 0` (empty) inside a day that has events → `minColPx` floor;
+ *  - a day with no events at all → its columns share the day-label width;
+ *  - otherwise the column is `L`× the base width so `L` side-by-side events
+ *    each keep the base (single-event) width.
+ * `resizedColPx` is the user-set width (or null for the flexible default).
  */
 export function computeColumnWidths(
-  colOccupied: boolean[],
+  colLaneCount: number[],
   turmasCount: number,
-  fullTrack: string,
+  resizedColPx: number | null,
+  defaultColPx: number,
   minColPx: number,
   emptyDayTotalPx: number,
 ): string[] {
   const turmas = Math.max(turmasCount, 1);
   const emptyDayColPx = emptyDayTotalPx / turmas;
-  const dayCount = Math.ceil(colOccupied.length / turmas);
+  const dayCount = Math.ceil(colLaneCount.length / turmas);
   const tracks: string[] = [];
   for (let day = 0; day < dayCount; day += 1) {
     const base = day * turmas;
-    const dayHasEvents = colOccupied.slice(base, base + turmas).some(Boolean);
+    const dayHasEvents = colLaneCount.slice(base, base + turmas).some((l) => l > 0);
     for (let t = 0; t < turmas; t += 1) {
-      if (!dayHasEvents) tracks.push(`${emptyDayColPx}px`);
-      else tracks.push(colOccupied[base + t] ? fullTrack : `${minColPx}px`);
+      const lanes = colLaneCount[base + t] ?? 0;
+      if (!dayHasEvents) {
+        tracks.push(`${emptyDayColPx}px`);
+      } else if (lanes === 0) {
+        tracks.push(`${minColPx}px`);
+      } else if (resizedColPx != null) {
+        tracks.push(`${resizedColPx * lanes}px`);
+      } else {
+        tracks.push(`minmax(${defaultColPx * lanes}px, ${lanes}fr)`);
+      }
     }
   }
   return tracks;

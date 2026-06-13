@@ -31,6 +31,10 @@ interface ScheduleEventCardProps {
   colSpan: number;
   /** Row span (in 30-min slots). */
   rowSpan: number;
+  /** Lane index when this event shares a column with overlapping events (#24). */
+  lane?: number;
+  /** Total lanes in this event's cluster; >1 means render side-by-side. */
+  laneCount?: number;
   style: SubjectStyle;
   isEditing: boolean;
   /**
@@ -58,6 +62,8 @@ export default function ScheduleEventCard({
   startRow,
   colSpan,
   rowSpan,
+  lane = 0,
+  laneCount = 1,
   style,
   isEditing,
   weekRangeLabel = "",
@@ -80,6 +86,15 @@ export default function ScheduleEventCard({
       style={{
         gridColumn: `${startCol} / span ${colSpan}`,
         gridRow: `${startRow} / span ${rowSpan}`,
+        // Side-by-side lanes: take a 1/laneCount slice of the (widened) column,
+        // offset by the lane index (#24). laneCount 1 → full width.
+        ...(laneCount > 1
+          ? {
+              justifySelf: "start",
+              width: `calc(100% / ${laneCount})`,
+              marginLeft: `calc(100% * ${lane} / ${laneCount})`,
+            }
+          : null),
         backgroundColor: style.background,
         color: style.text,
         // Editing keeps the subject's own colours and signals selection with a
