@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { WeekGridEvent } from "./WeekGrid";
-import { formatWeekRanges, placeEventsOnGrid, toContiguousRuns } from "./scheduleGrid";
+import {
+  computeColumnOccupancy,
+  computeColumnWidths,
+  computeRowHeights,
+  computeRowOccupancy,
+  formatWeekRanges,
+  placeEventsOnGrid,
+  toContiguousRuns,
+  type PlacedEvent,
+} from "./scheduleGrid";
 
 const ALL_DAYS = [0, 1, 2, 3, 4, 5];
 // 08:00, half-hour slots, 19 slots covers up to 17:30.
@@ -282,5 +291,94 @@ describe("placeEventsOnGrid", () => {
     const placed = placeEventsOnGrid([ev], ["1A", "1B"], ALL_DAYS, GRID_START_MIN, SLOT_COUNT);
     expect(placed).toHaveLength(1);
     expect(placed[0]?.runs).toEqual([{ start: 0, span: 1 }]);
+  });
+});
+
+function placed(overrides: Partial<PlacedEvent>): PlacedEvent {
+  return {
+    ev: event({ id: "p" }),
+    dayCol: 0,
+    rowStart: 0,
+    span: 1,
+    runs: [{ start: 0, span: 1 }],
+    isPartialWeeks: false,
+    weekRangeLabel: "",
+    ...overrides,
+  };
+}
+
+describe("computeRowOccupancy", () => {
+  it("marks the rows an event spans", () => {
+    const occ = computeRowOccupancy([placed({ rowStart: 2, span: 3 })], [], 8);
+    expect(occ).toEqual([false, false, true, true, true, false, false, false]);
+  });
+
+  it("marks mark-only rows too", () => {
+    const occ = computeRowOccupancy([], [1, 4], 6);
+    expect(occ).toEqual([false, true, false, false, true, false]);
+  });
+
+  it("clamps spans that run past the grid", () => {
+    const occ = computeRowOccupancy([placed({ rowStart: 1, span: 10 })], [], 3);
+    expect(occ).toEqual([false, true, true]);
+  });
+});
+
+describe("computeRowHeights", () => {
+  it("keeps occupied rows stretchable and collapses empty ones", () => {
+    expect(computeRowHeights([true, false, true], "minmax(30px, 1fr)", 16)).toEqual([
+      "minmax(30px, 1fr)",
+      "16px",
+      "minmax(30px, 1fr)",
+    ]);
+  });
+});
+
+describe("computeColumnOccupancy", () => {
+  it("marks columns covered by an event's runs within its day", () => {
+    // 2 turmas/day; event on day 1 (cols 2-3) covering turma index 1 -> col 3.
+    const occ = computeColumnOccupancy(
+      [placed({ dayCol: 1, runs: [{ start: 1, span: 1 }] })],
+      4,
+      2,
+    );
+    expect(occ).toEqual([false, false, false, true]);
+  });
+
+  it("handles multi-column runs", () => {
+    const occ = computeColumnOccupancy(
+      [placed({ dayCol: 0, runs: [{ start: 0, span: 2 }] })],
+      3,
+      3,
+    );
+    expect(occ).toEqual([true, true, false]);
+  });
+});
+
+describe("computeColumnWidths", () => {
+  it("shrinks an empty turma column inside a busy day to the column minimum", () => {
+    // 2 turmas, one day; col 0 has an event, col 1 is empty.
+    expect(computeColumnWidths([true, false], 2, "minmax(64px, 1fr)", 32, 40)).toEqual([
+      "minmax(64px, 1fr)",
+      "32px",
+    ]);
+  });
+
+  it("collapses a fully empty day to its label width, split across columns", () => {
+    // 2 turmas, one fully empty day; 40px label width / 2 columns = 20px each.
+    expect(computeColumnWidths([false, false], 2, "minmax(64px, 1fr)", 32, 40)).toEqual([
+      "20px",
+      "20px",
+    ]);
+  });
+
+  it("applies the two rules per day across multiple days", () => {
+    // Day 0 busy (col0 event, col1 empty -> min); day 1 fully empty -> label.
+    expect(computeColumnWidths([true, false, false, false], 2, "F", 32, 40)).toEqual([
+      "F",
+      "32px",
+      "20px",
+      "20px",
+    ]);
   });
 });

@@ -3,7 +3,13 @@ import type { Weekday } from "@/types/project/weekday";
 import { hhmmToMinutes, minutesToTime } from "@/utils/time";
 import { WEEKDAYS, WEEKDAY_LABELS_SHORT } from "@/utils/weekdays";
 import ScheduleEventCard from "./ScheduleEventCard";
-import { placeEventsOnGrid } from "./scheduleGrid";
+import {
+  computeColumnOccupancy,
+  computeColumnWidths,
+  computeRowHeights,
+  computeRowOccupancy,
+  placeEventsOnGrid,
+} from "./scheduleGrid";
 import { styleForSubject, type SubjectPalette } from "./subjectColors";
 import { TURMA_COLUMN_MAX_PX, TURMA_COLUMN_MIN_PX, useColumnResize } from "./useColumnResize";
 import { useGridTimeRange } from "./useGridTimeRange";
@@ -67,6 +73,12 @@ interface WeekGridProps {
   selectedDays?: string[];
   /** Per-UC colours; events fall back to a neutral style when absent. */
   subjectPalette?: SubjectPalette;
+  /**
+   * Collapse rows/columns that hold no events to reduce scroll (#13/#14).
+   * Set false to keep every slot full-size — e.g. while placing an event, so
+   * empty cells stay big enough to be a drop target (Phase 5 #6).
+   */
+  compactEmpty?: boolean;
 }
 
 const WEEKDAY_LABELS = WEEKDAYS.map((day) => WEEKDAY_LABELS_SHORT[day]);
@@ -77,6 +89,12 @@ const HEADER_PX = 40;
 // Width of the sticky time-label column. '08:00' at the 12px label font is
 // ~33px; 34px hugs it tight on both sides (PI ToDo #22).
 const TIME_COL_PX = 34;
+// Height of a collapsed (event-free) time-slot row: just tall enough for the
+// hour number to stay legible with no padding above/below (PI ToDo #13).
+const COMPACT_ROW_PX = 16;
+// Font size of the day-header labels (matches the `text-[10px]` class below);
+// used to size a fully-empty day down to its label width (PI ToDo #14).
+const DAY_HEADER_FONT_PX = 10;
 // Width each turma column gets in the default (un-resized) flexible layout.
 const TURMA_COLUMN_DEFAULT_MIN_PX = 64;
 // Pixels of horizontal scroll change required to count as a user gesture.
@@ -149,6 +167,7 @@ export default function WeekGrid({
   editingEventId,
   selectedDays,
   subjectPalette,
+  compactEmpty = true,
 }: WeekGridProps) {
   const lastScrollLeftRef = useRef(0);
   const { gridRef, columnWidthPx, dragState, handleResizeStart, handleResizeKeyDown } =
@@ -190,14 +209,6 @@ export default function WeekGrid({
   const minSlotPx = slotHeightPx ?? MIN_SLOT_PX;
   const headerPx = headerHeightPx ?? HEADER_PX;
   const hourFontPx = hourLabelFontPx ?? 10;
-
-  const gridTemplateColumns = dragState
-    ? `${TIME_COL_PX}px ${Array.from({ length: turmaColumnCount }, (_, columnIndex) =>
-        columnIndex === dragState.colIndex ? `${dragState.width}px` : `${dragState.othersWidth}px`,
-      ).join(" ")}`
-    : columnWidthPx != null
-      ? `${TIME_COL_PX}px repeat(${turmaColumnCount}, ${columnWidthPx}px)`
-      : `${TIME_COL_PX}px repeat(${turmaColumnCount}, minmax(${TURMA_COLUMN_DEFAULT_MIN_PX}px, 1fr))`;
 
   const { gridStartMinutes, slotCount } = useGridTimeRange({
     events,
@@ -245,6 +256,56 @@ export default function WeekGrid({
     [marks, gridStartMinutes, slotCount, visibleDayIndices],
   );
 
+  // --- empty row/column compaction (#13/#14) ---------------------------
+  // Rows/columns with no content collapse to a thin track; occupied ones keep
+  // a stretchable minmax so the grid still fills the viewport. `compactEmpty`
+  // off (e.g. placement mode) keeps everything full-size.
+  const rowOccupied = useMemo(
+    () =>
+      compactEmpty
+        ? computeRowOccupancy(
+            placedEvents,
+            placedMarks.map((m) => m.rowStart),
+            slotCount,
+          )
+        : new Array<boolean>(slotCount).fill(true),
+    [compactEmpty, placedEvents, placedMarks, slotCount],
+  );
+
+  const colOccupied = useMemo(
+    () =>
+      compactEmpty
+        ? computeColumnOccupancy(placedEvents, turmaColumnCount, turmasCount)
+        : new Array<boolean>(turmaColumnCount).fill(true),
+    [compactEmpty, placedEvents, turmaColumnCount, turmasCount],
+  );
+
+  // Width a fully-empty day collapses to: enough to show its (longest) day
+  // label on one line, with a little padding.
+  const emptyDayTotalPx = useMemo(() => {
+    const longest = Math.max(3, ...filteredLabels.map((label) => label?.length ?? 0));
+    return Math.ceil(longest * DAY_HEADER_FONT_PX * 0.8) + 20;
+  }, [filteredLabels]);
+
+  const fullRowTrack = `minmax(${minSlotPx}px, 1fr)`;
+  const gridTemplateRows = `${headerPx}px${
+    hasSecondaryHeader ? ` ${headerPx}px` : ""
+  } ${computeRowHeights(rowOccupied, fullRowTrack, COMPACT_ROW_PX).join(" ")}`;
+
+  const fullColTrack =
+    columnWidthPx != null ? `${columnWidthPx}px` : `minmax(${TURMA_COLUMN_DEFAULT_MIN_PX}px, 1fr)`;
+  const gridTemplateColumns = dragState
+    ? `${TIME_COL_PX}px ${Array.from({ length: turmaColumnCount }, (_, columnIndex) =>
+        columnIndex === dragState.colIndex ? `${dragState.width}px` : `${dragState.othersWidth}px`,
+      ).join(" ")}`
+    : `${TIME_COL_PX}px ${computeColumnWidths(
+        colOccupied,
+        turmasCount,
+        fullColTrack,
+        TURMA_COLUMN_MIN_PX,
+        emptyDayTotalPx,
+      ).join(" ")}`;
+
   if (events.length === 0 && marks.length === 0 && emptyMessage) {
     return (
       <div className="bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)] p-6 text-center text-sm text-[#6b6375]">
@@ -271,10 +332,7 @@ export default function WeekGrid({
       <div
         className="grid h-full w-max min-w-full"
         ref={gridRef}
-        style={{
-          gridTemplateColumns,
-          gridTemplateRows: `${headerPx}px${hasSecondaryHeader ? ` ${headerPx}px` : ""} repeat(${slotCount}, minmax(${minSlotPx}px, 1fr))`,
-        }}
+        style={{ gridTemplateColumns, gridTemplateRows }}
       >
         <div
           className="sticky top-0 left-0 z-30 border-b border-r border-[#e5e4e7] bg-[#f9f7f4]"
@@ -287,7 +345,7 @@ export default function WeekGrid({
         {filteredLabels.map((label, visibleIdx) => (
           <div
             key={label}
-            className={`sticky top-0 z-20 border-b border-[#e5e4e7] bg-[#f9f7f4] px-2 py-1 text-center text-[10px] font-semibold uppercase tracking-wider text-[#08060d] ${
+            className={`sticky top-0 z-20 overflow-hidden whitespace-nowrap border-b border-[#e5e4e7] bg-[#f9f7f4] px-2 py-1 text-center text-[10px] font-semibold uppercase tracking-wider text-[#08060d] ${
               visibleIdx > 0 ? "border-l border-[#d8d5da]" : ""
             }`}
             style={{

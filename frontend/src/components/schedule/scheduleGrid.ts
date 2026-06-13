@@ -57,6 +57,96 @@ export function formatWeekRanges(numbers: number[]): string {
 }
 
 /**
+ * Marks which of the `slotCount` grid rows carry content — any placed event
+ * spanning the row, or any mark (red block) on it. Empty rows can then be
+ * collapsed to reduce vertical scroll (#13).
+ */
+export function computeRowOccupancy(
+  placed: PlacedEvent[],
+  markRowStarts: number[],
+  slotCount: number,
+): boolean[] {
+  const occupied = new Array<boolean>(slotCount).fill(false);
+  for (const { rowStart, span } of placed) {
+    for (let row = rowStart; row < rowStart + span && row < slotCount; row += 1) {
+      if (row >= 0) occupied[row] = true;
+    }
+  }
+  for (const row of markRowStarts) {
+    if (row >= 0 && row < slotCount) occupied[row] = true;
+  }
+  return occupied;
+}
+
+/**
+ * CSS grid-row track sizes: occupied rows keep `fullTrack` (a stretchable
+ * `minmax(...,1fr)` so the grid still fills the viewport), empty rows collapse
+ * to a thin `compactPx`. Pass an all-true occupancy (or use `compactEmpty`
+ * false upstream) to keep every row full — e.g. while placing an event.
+ */
+export function computeRowHeights(
+  rowOccupied: boolean[],
+  fullTrack: string,
+  compactPx: number,
+): string[] {
+  return rowOccupied.map((occupied) => (occupied ? fullTrack : `${compactPx}px`));
+}
+
+/**
+ * Marks which of the `columnCount` turma columns carry an event. A column's
+ * global index is `dayCol * turmasCount + turmaIndex`; a run covers every
+ * column in `[start, start + span)`. Empty columns can then be narrowed (#14).
+ */
+export function computeColumnOccupancy(
+  placed: PlacedEvent[],
+  columnCount: number,
+  turmasCount: number,
+): boolean[] {
+  const occupied = new Array<boolean>(columnCount).fill(false);
+  for (const { dayCol, runs } of placed) {
+    const base = dayCol * turmasCount;
+    for (const run of runs) {
+      for (let i = run.start; i < run.start + run.span; i += 1) {
+        const col = base + i;
+        if (col >= 0 && col < columnCount) occupied[col] = true;
+      }
+    }
+  }
+  return occupied;
+}
+
+/**
+ * CSS grid-column tracks for the turma columns, with two levels of compaction
+ * (#14/#16):
+ *  - a turma column with an event keeps `fullTrack`;
+ *  - an empty column inside a day that *has* events shrinks to `minColPx` (the
+ *    smallest a column can be resized to);
+ *  - a day with NO events at all collapses to roughly its day-label width
+ *    (`emptyDayTotalPx`), split across its columns — narrower than n·minColPx.
+ */
+export function computeColumnWidths(
+  colOccupied: boolean[],
+  turmasCount: number,
+  fullTrack: string,
+  minColPx: number,
+  emptyDayTotalPx: number,
+): string[] {
+  const turmas = Math.max(turmasCount, 1);
+  const emptyDayColPx = emptyDayTotalPx / turmas;
+  const dayCount = Math.ceil(colOccupied.length / turmas);
+  const tracks: string[] = [];
+  for (let day = 0; day < dayCount; day += 1) {
+    const base = day * turmas;
+    const dayHasEvents = colOccupied.slice(base, base + turmas).some(Boolean);
+    for (let t = 0; t < turmas; t += 1) {
+      if (!dayHasEvents) tracks.push(`${emptyDayColPx}px`);
+      else tracks.push(colOccupied[base + t] ? fullTrack : `${minColPx}px`);
+    }
+  }
+  return tracks;
+}
+
+/**
  * Collapses a sorted, ascending list of column indices into contiguous runs.
  * A merged event may cover non-adjacent turma columns (e.g. [0, 2]); each run
  * is rendered as its own card so a card never spans a gap.
