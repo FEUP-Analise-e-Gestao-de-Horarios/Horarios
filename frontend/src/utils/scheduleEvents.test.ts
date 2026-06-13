@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  compareCourseAcronyms,
   getCourseGroupLabel,
   sessionToEvents,
   sortValuesByReference,
@@ -38,6 +39,11 @@ describe("getCourseGroupLabel", () => {
     expect(getCourseGroupLabel("Mestrado em Engenharia")).toBe("Mestrados");
   });
 
+  it("matches Doutoramentos via doutoramento and programa doutoral", () => {
+    expect(getCourseGroupLabel("Doutoramento em Engenharia Informática")).toBe("Doutoramentos");
+    expect(getCourseGroupLabel("Programa Doutoral em Informática")).toBe("Doutoramentos");
+  });
+
   it("matches Pós-Graduações via accented and unaccented variants", () => {
     expect(getCourseGroupLabel("Pós-Graduação em X")).toBe("Pós-Graduações");
     expect(getCourseGroupLabel("Pos-graduacao em X")).toBe("Pós-Graduações");
@@ -47,6 +53,40 @@ describe("getCourseGroupLabel", () => {
   it("falls back to Outros", () => {
     expect(getCourseGroupLabel("Curso de Verão")).toBe("Outros");
     expect(getCourseGroupLabel("")).toBe("Outros");
+  });
+});
+
+describe("compareCourseAcronyms", () => {
+  it("pins the informática licenciaturas in order, matching dotted sigarra forms", () => {
+    const compare = compareCourseAcronyms("Licenciaturas");
+    expect(["CINF", "L.EIC"].sort(compare)).toEqual(["L.EIC", "CINF"]);
+  });
+
+  it("pins the mestrados in the PI ToDo order", () => {
+    const compare = compareCourseAcronyms("Mestrados");
+    expect(["MM", "MCI", "MECD", "MESW", "M.IA", "M.EIC"].sort(compare)).toEqual([
+      "M.EIC",
+      "M.IA",
+      "MESW",
+      "MECD",
+      "MCI",
+      "MM",
+    ]);
+  });
+
+  it("sorts unpinned acronyms alphabetically after the pinned ones", () => {
+    const compare = compareCourseAcronyms("Licenciaturas");
+    expect(["LZZZ", "CINF", "LAAA", "LEIC"].sort(compare)).toEqual([
+      "LEIC",
+      "CINF",
+      "LAAA",
+      "LZZZ",
+    ]);
+  });
+
+  it("is purely alphabetical for groups without a pinned order", () => {
+    const compare = compareCourseAcronyms("Outros");
+    expect(["B", "A"].sort(compare)).toEqual(["A", "B"]);
   });
 });
 

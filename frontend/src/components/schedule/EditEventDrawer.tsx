@@ -222,7 +222,9 @@ export default function EditEventDrawer({
       // "non-modal side panel" meaning more accurately than role="dialog".
       aria-labelledby="edit-event-drawer-title"
       className={[
-        "fixed left-0 top-[15vh] h-[70vh] w-[min(92vw,420px)] z-40 transition-transform duration-200",
+        // Positioned by the page: fills the schedule content area, which
+        // starts exactly where the (height-variable) navbar ends.
+        "absolute left-0 top-0 h-full w-[min(92vw,420px)] z-40 transition-transform duration-200",
         collapsed ? "-translate-x-full" : "translate-x-0",
       ].join(" ")}
     >
@@ -374,7 +376,7 @@ export default function EditEventDrawer({
               onToggle={() => setOpenDropdown((prev) => (prev === "docentes" ? null : "docentes"))}
               search={docentesSearch.query}
               onSearchChange={docentesSearch.setQuery}
-              listMaxHeightClass="max-h-52"
+              listMaxHeightClass="max-h-72"
               groups={[
                 {
                   heading: "Docentes desta aula",
@@ -395,7 +397,7 @@ export default function EditEventDrawer({
                   onToggle={() => setOpenDropdown((prev) => (prev === "salas" ? null : "salas"))}
                   search={salasSearch.query}
                   onSearchChange={salasSearch.setQuery}
-                  listMaxHeightClass="max-h-48"
+                  listMaxHeightClass="max-h-64"
                   groups={[
                     {
                       heading: "Tipologia correspondente",
@@ -425,7 +427,7 @@ export default function EditEventDrawer({
                   onToggle={() => setOpenDropdown((prev) => (prev === "turmas" ? null : "turmas"))}
                   search={turmasSearch.query}
                   onSearchChange={turmasSearch.setQuery}
-                  listMaxHeightClass="max-h-44"
+                  listMaxHeightClass="max-h-56"
                   groups={[
                     { options: filteredTurmas.map((turma) => ({ id: turma, label: turma })) },
                   ]}

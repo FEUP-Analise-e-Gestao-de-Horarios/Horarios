@@ -29,6 +29,16 @@ export function deriveEffectiveAnos(curso: string, anos: string[], yearValues: s
   return filtered.length > 0 ? filtered : firstYear ? [firstYear] : [];
 }
 
+/**
+ * Orders turno values numerically, except turno 0 — the "no fixed shift"
+ * bucket — which always sorts last (PI ToDo #25).
+ */
+export function compareTurnos(left: string, right: string): number {
+  const leftValue = Number(left) === 0 ? Number.POSITIVE_INFINITY : Number(left);
+  const rightValue = Number(right) === 0 ? Number.POSITIVE_INFINITY : Number(right);
+  return leftValue - rightValue;
+}
+
 /** The single ano value that drives the selected-year query. */
 export function pickSelectedYearNumber(
   curso: string,
@@ -132,7 +142,7 @@ export function useScheduleFilters({
   }, [selectedYearClasses]);
 
   const turnoTurmaGroups = useMemo<TurnoTurmaGroup[]>(() => {
-    const byTurno = [...classesByTurno.entries()].sort((a, b) => Number(a[0]) - Number(b[0]));
+    const byTurno = [...classesByTurno.entries()].sort((a, b) => compareTurnos(a[0], b[0]));
     return byTurno.map(([turno, classes]) => ({
       turno,
       label: `Turno ${turno}`,

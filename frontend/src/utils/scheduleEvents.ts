@@ -2,9 +2,51 @@ import type { WeekGridEvent } from "@/components/schedule/WeekGrid";
 import type { SessionResponse } from "@/types/project/sessions";
 
 /** Course group buckets, in display order. */
-export const COURSE_GROUPS = ["Licenciaturas", "Mestrados", "Pós-Graduações", "Outros"] as const;
+export const COURSE_GROUPS = [
+  "Licenciaturas",
+  "Mestrados",
+  "Doutoramentos",
+  "Pós-Graduações",
+  "Outros",
+] as const;
 
 export type CourseGroupLabel = (typeof COURSE_GROUPS)[number];
+
+/**
+ * Pinned display order of the informática degrees inside each group (PI ToDo
+ * #15). Acronyms not listed here sort alphabetically after the pinned ones —
+ * the explicit list only makes sense while the app targets DEI; scaling to
+ * the whole faculty should switch to permission-based ordering.
+ */
+export const COURSE_ACRONYM_ORDER: Partial<Record<CourseGroupLabel, string[]>> = {
+  Licenciaturas: ["LEIC", "CINF"],
+  Mestrados: ["MEIC", "MIA", "MESW", "MECD", "MCI", "MM"],
+  Doutoramentos: ["PRODEI"],
+};
+
+// The backend serves sigarra acronyms with separators ("L.EIC", "M.IA");
+// stripping non-alphanumerics lets them match the plain pinned forms.
+function normalizeAcronym(acronym: string): string {
+  return acronym.replace(/[^a-z0-9]/gi, "").toUpperCase();
+}
+
+/**
+ * Comparator for degree acronyms within a course group: pinned acronyms first
+ * in their listed order, everything else alphabetical after them. Matching is
+ * separator-insensitive, so "L.EIC" hits the pinned "LEIC".
+ */
+export function compareCourseAcronyms(
+  group: CourseGroupLabel,
+): (left: string, right: string) => number {
+  const pinned = COURSE_ACRONYM_ORDER[group] ?? [];
+  const pinnedIndex = new Map(pinned.map((acronym, index) => [normalizeAcronym(acronym), index]));
+  return (left, right) => {
+    const leftIndex = pinnedIndex.get(normalizeAcronym(left)) ?? Number.POSITIVE_INFINITY;
+    const rightIndex = pinnedIndex.get(normalizeAcronym(right)) ?? Number.POSITIVE_INFINITY;
+    if (leftIndex !== rightIndex) return leftIndex - rightIndex;
+    return left.localeCompare(right);
+  };
+}
 
 /** The active schedule filters, pre-built into sets for fast membership tests. */
 export type ScheduleFilters = {
@@ -30,6 +72,9 @@ export function getCourseGroupLabel(name: string): CourseGroupLabel {
   const normalized = name.toLowerCase();
   if (normalized.includes("licenciatura")) return "Licenciaturas";
   if (normalized.includes("mestrado")) return "Mestrados";
+  if (normalized.includes("doutoramento") || normalized.includes("programa doutoral")) {
+    return "Doutoramentos";
+  }
   if (normalized.includes("pós") || normalized.includes("pos") || normalized.includes("gradua")) {
     return "Pós-Graduações";
   }

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { COURSE_GROUPS, getCourseGroupLabel } from "@/utils/scheduleEvents";
+import { COURSE_GROUPS, compareCourseAcronyms, getCourseGroupLabel } from "@/utils/scheduleEvents";
 import type { CourseGroup, CourseOption } from "./types";
 
 type DegreeOption = { acronym: string; name: string };
@@ -20,14 +20,11 @@ interface UseScheduleOptionsParams {
  */
 export function useScheduleOptions({ degrees, teachers, rooms }: UseScheduleOptionsParams) {
   const courseOptions = useMemo<CourseGroup[]>(() => {
-    const degreeOptions: CourseOption[] = (degrees ?? [])
-      .slice()
-      .sort((a, b) => a.acronym.localeCompare(b.acronym))
-      .map((degree) => ({
-        value: degree.acronym,
-        label: degree.acronym,
-        description: degree.name,
-      }));
+    const degreeOptions: CourseOption[] = (degrees ?? []).map((degree) => ({
+      value: degree.acronym,
+      label: degree.acronym,
+      description: degree.name,
+    }));
 
     const groupedByLabel = new Map<string, CourseOption[]>();
     for (const option of degreeOptions) {
@@ -36,10 +33,17 @@ export function useScheduleOptions({ degrees, teachers, rooms }: UseScheduleOpti
       groupedByLabel.set(groupLabel, [...current, option]);
     }
 
-    return COURSE_GROUPS.map((label) => ({
-      label,
-      options: groupedByLabel.get(label) ?? [],
-    })).filter((group) => group.options.length > 0);
+    // Each group sorts on its own: pinned acronyms first (PI ToDo #15),
+    // remaining ones alphabetical.
+    return COURSE_GROUPS.map((label) => {
+      const compare = compareCourseAcronyms(label);
+      return {
+        label,
+        options: (groupedByLabel.get(label) ?? [])
+          .slice()
+          .sort((a, b) => compare(a.label, b.label)),
+      };
+    }).filter((group) => group.options.length > 0);
   }, [degrees]);
 
   const teacherOptions = useMemo(
