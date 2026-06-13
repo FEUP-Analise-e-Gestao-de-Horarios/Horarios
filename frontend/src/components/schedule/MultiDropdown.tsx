@@ -1,5 +1,5 @@
 import { useId } from "react";
-import DropdownShell from "./DropdownShell";
+import DropdownShell, { DROPDOWN_SELECTED_OPTION_CLASS } from "./DropdownShell";
 import type { SubjectStyle } from "./subjectColors";
 import type { DropdownOption } from "./types";
 
@@ -26,7 +26,7 @@ interface MultiDropdownProps {
   minSelected?: number;
   hideSelectedCountWhenDisabled?: boolean;
   // When provided, a selected option is tinted with this style instead of the
-  // default amber highlight (used to mirror the week grid's per-subject colours).
+  // default brand-red highlight (used to mirror the week grid's per-UC colours).
   getOptionStyle?: (value: string) => SubjectStyle | null;
 }
 
@@ -104,7 +104,7 @@ export default function MultiDropdown({
             if (!disabled) onToggle();
           }}
           className={[
-            "bg-[#1e2028] rounded px-3.5 py-2 text-sm whitespace-nowrap text-left border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60",
+            "bg-[#1e2028] rounded px-3.5 py-2 text-sm whitespace-nowrap text-left border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C73F24]/60",
             disabled
               ? "text-gray-500 cursor-not-allowed border-gray-600"
               : isEmpty
@@ -131,13 +131,24 @@ export default function MultiDropdown({
                 toggle(opt.value);
               }}
               className={[
-                "w-full rounded px-2 py-1 text-[13px] cursor-pointer text-left border hover:bg-white/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60",
+                "w-full rounded px-2 py-1 text-[13px] cursor-pointer text-left border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C73F24]/60",
+                // A selected UC takes its own colour (inline); every other
+                // option stays white on the dark panel.
                 isSelected
                   ? optionStyle
-                    ? `${optionStyle.bg} ${optionStyle.border} ${optionStyle.text}`
-                    : "text-amber-400 bg-amber-400/10 border-amber-500/20"
-                  : "text-white bg-transparent border-transparent",
+                    ? ""
+                    : DROPDOWN_SELECTED_OPTION_CLASS
+                  : "text-white bg-transparent border-transparent hover:bg-white/5",
               ].join(" ")}
+              style={
+                isSelected && optionStyle
+                  ? {
+                      backgroundColor: optionStyle.background,
+                      borderColor: optionStyle.border,
+                      color: optionStyle.text,
+                    }
+                  : undefined
+              }
             >
               <div className="flex flex-col">
                 <span className="font-semibold shrink-0 leading-tight">

@@ -1,5 +1,5 @@
 import { useId } from "react";
-import DropdownShell from "./DropdownShell";
+import DropdownShell, { DROPDOWN_SELECTED_OPTION_CLASS } from "./DropdownShell";
 
 const TURNO_TURMA_PANEL_CLASS =
   "w-max max-w-[min(calc(100vw-1rem),48rem)] max-h-[min(60vh,24rem)] overflow-x-hidden overflow-y-auto";
@@ -71,7 +71,7 @@ export default function TurnoTurmaDropdown({
             if (!disabled) onToggle();
           }}
           className={[
-            "bg-[#1e2028] rounded px-3.5 py-2 text-sm whitespace-nowrap text-left border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60",
+            "bg-[#1e2028] rounded px-3.5 py-2 text-sm whitespace-nowrap text-left border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C73F24]/60",
             disabled
               ? "text-gray-500 cursor-not-allowed border-gray-600"
               : "text-white border-gray-600 cursor-pointer hover:border-gray-400",
@@ -100,7 +100,7 @@ export default function TurnoTurmaDropdown({
                 <div
                   className={[
                     "px-2 py-1.5 border-b border-gray-700 flex items-center justify-between gap-2",
-                    allSelected ? "text-amber-400" : "text-gray-400",
+                    allSelected ? "text-[#E8634A]" : "text-gray-400",
                   ].join(" ")}
                 >
                   <span id={headingId} className="text-[11px] uppercase tracking-widest">
@@ -115,9 +115,9 @@ export default function TurnoTurmaDropdown({
                       handleToggleTurno(group.turno);
                     }}
                     className={[
-                      "text-[10px] px-1.5 py-0.5 rounded border cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60",
+                      "text-[10px] px-1.5 py-0.5 rounded border cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C73F24]/60",
                       allSelected
-                        ? "text-amber-400 border-amber-500/30 bg-amber-400/10 hover:bg-amber-400/20"
+                        ? `${DROPDOWN_SELECTED_OPTION_CLASS} hover:bg-[#C73F24]/30`
                         : "text-gray-300 border-gray-600 hover:border-gray-400 hover:bg-white/5",
                     ].join(" ")}
                   >
@@ -146,9 +146,9 @@ export default function TurnoTurmaDropdown({
                           handleToggleTurma(turma);
                         }}
                         className={[
-                          "rounded px-2 py-1 text-[12px] cursor-pointer text-center border transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60",
+                          "rounded px-2 py-1 text-[12px] cursor-pointer text-center border transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C73F24]/60",
                           turmaSelected
-                            ? "text-amber-400 bg-amber-400/10 border-amber-500/20"
+                            ? DROPDOWN_SELECTED_OPTION_CLASS
                             : "text-white bg-transparent border-transparent hover:bg-white/5",
                         ].join(" ")}
                       >
