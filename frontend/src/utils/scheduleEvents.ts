@@ -61,6 +61,7 @@ function buildBaseEvent(session: SessionResponse): Omit<WeekGridEvent, "id" | "t
   ].filter((item) => item.length > 0);
 
   return {
+    blockId: session.original_block_id,
     weekday: session.weekday,
     startTime: session.start_time,
     duration: session.duration,

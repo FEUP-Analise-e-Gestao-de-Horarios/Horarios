@@ -8,6 +8,7 @@ import { TURMA_COLUMN_MAX_PX, TURMA_COLUMN_MIN_PX, useColumnResize } from "./use
 
 export interface WeekGridEvent {
   id: string;
+  blockId?: string;
   weekday: Weekday;
   startTime: number;
   duration: number;
