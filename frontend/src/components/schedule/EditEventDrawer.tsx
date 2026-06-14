@@ -3,9 +3,11 @@ import type { ConflictRecord } from "@/types/project/conflicts";
 import type { Weekday } from "@/types/project/weekday";
 import type { WeekGridEvent } from "@/components/schedule/WeekGrid";
 import { hhmmToMinutes, minutesToTime } from "@/utils/time";
-import { WEEKDAYS, WEEKDAY_LABELS_LONG } from "@/utils/weekdays";
+import { WEEKDAYS, WEEKDAY_LABELS_LONG, WEEKDAY_LABELS_SHORT } from "@/utils/weekdays";
+import { usePreviewConflicts } from "@/api/hooks/project/year";
 import DrawerMultiSelect from "./DrawerMultiSelect";
 import { useDismissable } from "./useDismissable";
+import ScrollingNames from "./ScrollingNames";
 
 function normalizeText(value: string): string {
   return value
@@ -15,22 +17,15 @@ function normalizeText(value: string): string {
     .trim();
 }
 
-function getConflictDay(weekday: Weekday): string {
-  return WEEKDAY_LABELS_LONG[weekday].split("-")[0] ?? "";
-}
-
 function conflictMatchesEvent(conflict: ConflictRecord, event: WeekGridEvent): boolean {
   if (conflict.event_ids.includes(event.id)) return true;
 
-  const eventDay = normalizeText(getConflictDay(event.weekday));
-  const conflictDay = normalizeText(conflict.day);
-  if (eventDay !== conflictDay) return false;
+  if (conflict.day !== event.weekday) return false;
 
-  const eventTime = minutesToTime(hhmmToMinutes(event.startTime));
-  if (conflict.time !== eventTime) return false;
+  if (conflict.time !== event.startTime) return false;
 
   const eventTurma = normalizeText(event.turma ?? event.classCodes?.[0] ?? "");
-  if (eventTurma && normalizeText(conflict.turma) !== eventTurma) return false;
+  if (eventTurma && !conflict.turma.some((t) => normalizeText(t) === eventTurma)) return false;
 
   const conflictText = normalizeText(conflict.event_names.join(" "));
   const eventTokens = [event.title, event.uc, event.professor, event.sala, event.turma]
@@ -57,12 +52,15 @@ interface EditEventDrawerProps {
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
   conflicts: ConflictRecord[];
+  isLoading?: boolean;
   ucOptions: string[];
   turmaOptions: string[];
+  turmaIdMap?: Record<string, string>;
   teacherOptions: TeacherOption[];
   roomOptions: RoomOption[];
   preferredUc?: string;
   event?: WeekGridEvent | null;
+  projectId: string;
 }
 
 const MIN_TIME_MINUTES = 8 * 60;
@@ -211,18 +209,84 @@ function formReducer(state: FormState, action: FormAction): FormState {
   }
 }
 
+function ConflictCard({
+  conflict,
+  status,
+}: {
+  conflict: ConflictRecord;
+  status?: "new" | "solved";
+}) {
+  const accentBorder =
+    status === "new"
+      ? "border-red-500/50"
+      : status === "solved"
+        ? "border-green-500/40"
+        : "border-white/30";
+  const accentBg =
+    status === "new" ? "bg-red-500/5" : status === "solved" ? "bg-green-500/5" : "bg-white/5";
+  const bulletColor =
+    status === "new"
+      ? "text-red-400/60"
+      : status === "solved"
+        ? "text-green-400/60"
+        : "text-white/60";
+
+  return (
+    <div
+      className={[
+        "border-l-4 rounded p-3 space-y-2 transition-opacity",
+        accentBorder,
+        accentBg,
+        status === "solved" ? "opacity-75" : "",
+      ].join(" ")}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <ScrollingNames names={conflict.event_names} />
+          <p className="text-xs text-white/70 mt-1">
+            {(WEEKDAY_LABELS_SHORT as Record<string, string>)[conflict.day] ?? conflict.day} às{" "}
+            {minutesToTime(hhmmToMinutes(conflict.time))}
+            {conflict.turma.length > 0 && ` — Turma: ${conflict.turma.join(", ")}`}
+          </p>
+        </div>
+        {status === "new" && (
+          <span className="shrink-0 text-[10px] font-medium text-red-400/80 bg-red-500/10 rounded px-1.5 py-0.5">
+            Novo
+          </span>
+        )}
+        {status === "solved" && (
+          <span className="shrink-0 text-[10px] font-medium text-green-400/80 bg-green-500/10 rounded px-1.5 py-0.5">
+            Resolvido
+          </span>
+        )}
+      </div>
+      <div className="space-y-1 pt-2 border-t border-white/10">
+        {conflict.conflict_reasons.map((reason, idx) => (
+          <p key={idx} className="text-xs text-white/80 flex items-start gap-2">
+            <span className={["mt-0.5 shrink-0", bulletColor].join(" ")}>•</span>
+            <span>{reason}</span>
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function EditEventDrawer({
   open,
   onClose,
   collapsed,
   onCollapsedChange,
   conflicts,
+  isLoading = false,
   ucOptions,
   turmaOptions,
+  turmaIdMap,
   teacherOptions,
   roomOptions,
   preferredUc,
   event,
+  projectId,
 }: EditEventDrawerProps) {
   const [formState, dispatch] = useReducer(formReducer, event, getInitialFormState);
   const {
@@ -253,6 +317,30 @@ export default function EditEventDrawer({
     () => (event ? conflicts.filter((conflict) => conflictMatchesEvent(conflict, event)) : []),
     [conflicts, event],
   );
+
+  const {
+    mutate: previewConflicts,
+    data: previewData,
+    isPending: isPreviewPending,
+    reset: resetPreview,
+  } = usePreviewConflicts(projectId);
+
+  const displayConflicts = useMemo(() => {
+    if (!previewData)
+      return eventConflicts.map((c) => ({
+        conflict: c,
+        status: undefined as "new" | "solved" | undefined,
+      }));
+    const solvedIds = new Set(previewData.solved.map((c) => c.id));
+    return [
+      ...eventConflicts
+        .filter((c) => !solvedIds.has(c.id))
+        .map((c) => ({ conflict: c, status: undefined as "new" | "solved" | undefined })),
+      ...previewData.new.map((c) => ({ conflict: c, status: "new" as const })),
+      ...previewData.solved.map((c) => ({ conflict: c, status: "solved" as const })),
+    ];
+  }, [eventConflicts, previewData]);
+
   const [openDropdown, setOpenDropdown] = useState<"docentes" | "salas" | "turmas" | null>(null);
   const dropdownAreaRef = useRef<HTMLDivElement>(null);
   const asideRef = useRef<HTMLElement>(null);
@@ -353,6 +441,65 @@ export default function EditEventDrawer({
     [roomOptions, selectedSalaOverride],
   );
 
+  // Validate against the full turma list, not the search-filtered one — the
+  // search box should only narrow what's *displayed* in the dropdown, never
+  // drop selections the user already made.
+  const effectiveSelectedTurmas = useMemo(
+    () => selectedTurmasOverride.filter((id) => turmaOptions.includes(id)),
+    [selectedTurmasOverride, turmaOptions],
+  );
+
+  const effectiveSelectedClassIds = useMemo(
+    () =>
+      effectiveSelectedTurmas.flatMap((code) => {
+        const id = turmaIdMap?.[code];
+        return id ? [id] : [];
+      }),
+    [effectiveSelectedTurmas, turmaIdMap],
+  );
+
+  // Fire a debounced preview request whenever any form field that affects
+  // conflicts changes. Skip if there's no blockId (nothing to preview).
+  useEffect(() => {
+    const blockId = event?.blockId;
+    if (!blockId) return;
+
+    const startMin = timeToMinutes(startTime);
+    const endMin = timeToMinutes(endTime);
+    if (startMin === null || endMin === null || endMin <= startMin) return;
+
+    const startTimeHhmm = Math.floor(startMin / 60) * 100 + (startMin % 60);
+    const duration = Math.round((endMin - startMin) / 30);
+
+    const timer = setTimeout(() => {
+      previewConflicts({
+        original_block_id: blockId,
+        weekday: selectedWeekday,
+        start_time: startTimeHhmm,
+        duration,
+        teacher_ids: effectiveSelectedDocente,
+        room_ids: effectiveSelectedSala,
+        class_ids: effectiveSelectedClassIds,
+      });
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [
+    event?.blockId,
+    selectedWeekday,
+    startTime,
+    endTime,
+    effectiveSelectedDocente,
+    effectiveSelectedSala,
+    effectiveSelectedClassIds,
+    previewConflicts,
+  ]);
+
+  // Clear preview when the event changes.
+  useEffect(() => {
+    resetPreview();
+  }, [event?.id, resetPreview]);
+
   const selectedDocenteLabel = useMemo(() => {
     if (effectiveSelectedDocente.length === 0) return "Selecionar...";
     const labels = effectiveSelectedDocente
@@ -374,14 +521,6 @@ export default function EditEventDrawer({
     const firstLabel = first.label;
     return labels.length === 1 ? firstLabel : `${firstLabel} (+${labels.length - 1})`;
   }, [effectiveSelectedSala, roomOptions]);
-
-  // Validate against the full turma list, not the search-filtered one — the
-  // search box should only narrow what's *displayed* in the dropdown, never
-  // drop selections the user already made.
-  const effectiveSelectedTurmas = useMemo(
-    () => selectedTurmasOverride.filter((id) => turmaOptions.includes(id)),
-    [selectedTurmasOverride, turmaOptions],
-  );
 
   if (!open) return null;
 
@@ -630,34 +769,14 @@ export default function EditEventDrawer({
 
           <div className="pt-4 border-t border-white/20">
             <h3 className="text-white/90 font-semibold mb-3">Conflitos Detectados</h3>
-            {eventConflicts.length === 0 ? (
+            {isLoading || isPreviewPending ? (
+              <p className="text-white/60 text-sm">A carregar conflitos…</p>
+            ) : displayConflicts.length === 0 ? (
               <p className="text-white/60 text-sm">Sem conflitos</p>
             ) : (
               <div className="space-y-2">
-                {eventConflicts.map((conflict) => (
-                  <div
-                    key={conflict.id}
-                    className="text-xs border-l-3 border-white/30 bg-white/5 rounded p-2 space-y-1.5"
-                  >
-                    <div className="text-white/90 font-semibold space-y-0.5">
-                      {conflict.event_names.map((name, idx) => (
-                        <p key={idx} className="line-clamp-1">
-                          {name}
-                        </p>
-                      ))}
-                    </div>
-                    <p className="text-white/70">
-                      {conflict.day} · {conflict.time}
-                    </p>
-                    <div className="space-y-0.5 pt-1 border-t border-white/10">
-                      {conflict.conflict_reasons.map((reason, idx) => (
-                        <p key={idx} className="text-white/80 flex items-start gap-1">
-                          <span className="text-white/60 flex-shrink-0">•</span>
-                          <span>{reason}</span>
-                        </p>
-                      ))}
-                    </div>
-                  </div>
+                {displayConflicts.map(({ conflict, status }) => (
+                  <ConflictCard key={conflict.id} conflict={conflict} status={status} />
                 ))}
               </div>
             )}

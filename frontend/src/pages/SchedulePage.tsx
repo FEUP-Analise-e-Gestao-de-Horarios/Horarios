@@ -12,7 +12,7 @@ import { useProjectDegree, useProjectDegrees } from "@/api/hooks/project/degree"
 import { useProjectRooms } from "@/api/hooks/project/room";
 import { useProjectTeachers } from "@/api/hooks/project/teacher";
 import { useProjectSessions } from "@/api/hooks/project/sessions";
-import { useProjectYear, useProjectYearConflicts } from "@/api/hooks/project/year";
+import { useProjectYear, useProjectConflicts } from "@/api/hooks/project/year";
 import { ROUTES } from "@/routes";
 import { buildPath } from "@/utils/routes";
 import { SCHEDULE_VIEW_DAYS } from "@/utils/scheduleView";
@@ -95,7 +95,7 @@ export default function SchedulePage() {
   );
 
   const { data: selectedYearDetail } = useProjectYear(projectId ?? "", selectedYear?.id ?? "");
-  const yearConflictsQuery = useProjectYearConflicts(projectId ?? "", selectedYear?.id ?? "");
+  const yearConflictsQuery = useProjectConflicts(projectId ?? "");
   const yearConflicts = yearConflictsQuery.data ?? [];
 
   const selectedYearSubjects = useMemo(
@@ -235,6 +235,12 @@ export default function SchedulePage() {
   const turmaShifts = useMemo(
     () =>
       Object.fromEntries(selectedYearClasses.map((classItem) => [classItem.code, classItem.shift])),
+    [selectedYearClasses],
+  );
+
+  const turmaIdMap = useMemo(
+    () =>
+      Object.fromEntries(selectedYearClasses.map((classItem) => [classItem.code, classItem.id])),
     [selectedYearClasses],
   );
 
@@ -455,17 +461,21 @@ export default function SchedulePage() {
           setEditingEvent(null);
         }}
         conflicts={yearConflicts}
+        isLoading={yearConflictsQuery.isFetching}
         ucOptions={ucOptions}
         turmaOptions={turmaOrder}
+        turmaIdMap={turmaIdMap}
         teacherOptions={teacherOptions}
         roomOptions={roomOptions}
         preferredUc={effectiveUcs[0]}
         event={editingEvent}
+        projectId={projectId}
       />
 
       <ConflictsDrawer
         open={isConflictsDrawerOpen}
         onClose={() => setIsConflictsDrawerOpen(false)}
+        projectId={projectId}
         conflicts={yearConflicts}
         isLoading={yearConflictsQuery.isFetching}
         onRefresh={() => void yearConflictsQuery.refetch()}
