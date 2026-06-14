@@ -336,9 +336,14 @@ describe("computeRowHeights", () => {
 });
 
 describe("buildArcPath", () => {
-  it("draws a quadratic curve bowing up between two points", () => {
-    // |dx|=30 -> lift = max(8, 9) = 9; peak = 50-9 = 41; mid x = 25.
-    expect(buildArcPath(10, 50, 40, 50)).toBe("M 10 50 Q 25 41 40 50");
+  it("draws a shallow quadratic curve bowing up between two points", () => {
+    // |dx|=300 -> lift = min(10, 15) = 10; peak = 50-10 = 40; mid x = 160.
+    expect(buildArcPath(10, 50, 310, 50)).toBe("M 10 50 Q 160 40 310 50");
+  });
+
+  it("keeps a minimum bow so the arc clears the card tops", () => {
+    // |dx|=30 -> lift = max(6, 1.5) = 6; peak = 50-6 = 44.
+    expect(buildArcPath(10, 50, 40, 50)).toBe("M 10 50 Q 25 44 40 50");
   });
 
   it("clamps the peak so it never goes above the grid top", () => {
@@ -346,8 +351,8 @@ describe("buildArcPath", () => {
   });
 
   it("keeps the peak at or below minPeakY so the header never hides it", () => {
-    // dx=40 -> lift 12; raw peak 100-12=88, but minPeakY 90 floors it.
-    expect(buildArcPath(0, 100, 40, 100, 90)).toBe("M 0 100 Q 20 90 40 100");
+    // lift 10; raw peak 100-10=90, but minPeakY 95 floors it.
+    expect(buildArcPath(0, 100, 200, 100, 95)).toBe("M 0 100 Q 100 95 200 100");
   });
 });
 

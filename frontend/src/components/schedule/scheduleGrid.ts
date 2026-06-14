@@ -6,7 +6,9 @@ const SLOT_MINUTES = 30;
 
 /** Quadratic-bezier path linking two segment points of the same event (#20). */
 export function buildArcPath(x1: number, y1: number, x2: number, y2: number, minPeakY = 0): string {
-  const lift = Math.min(22, Math.max(8, Math.abs(x2 - x1) * 0.3));
+  // Shallow bow: enough to clear the card tops, never so tall it reaches the
+  // row/time-label above (PI ToDo #20 — the arc must not overlap other rows).
+  const lift = Math.min(10, Math.max(6, Math.abs(x2 - x1) * 0.05));
   const peakY = Math.max(minPeakY, Math.min(y1, y2) - lift);
   const midX = (x1 + x2) / 2;
   return `M ${x1} ${y1} Q ${midX} ${peakY} ${x2} ${y2}`;

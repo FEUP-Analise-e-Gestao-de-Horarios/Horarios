@@ -76,6 +76,9 @@ export default function ScheduleEventCard({
   onClick,
 }: ScheduleEventCardProps) {
   const clickable = !!onClick;
+  // A 30-min event (single slot) is too short for the stacked title/type/body
+  // lines, so pack the info into two rows: [UC, teacher] / [type, room] (#24).
+  const compact = rowSpan === 1;
   const ariaLabel = weekRangeLabel
     ? `${getEventAriaLabel(ev)} — semanas ${weekRangeLabel}`
     : getEventAriaLabel(ev);
@@ -116,17 +119,42 @@ export default function ScheduleEventCard({
         className="absolute inset-0 overflow-hidden px-1.5 py-0.5"
         style={{ maskImage: FADE_MASK, WebkitMaskImage: FADE_MASK }}
       >
-        {ev.title && <MarqueeText className="font-semibold">{ev.title}</MarqueeText>}
-        {ev.type && (
-          <MarqueeText className="text-[10px] uppercase leading-none opacity-70">
-            {ev.type}
-          </MarqueeText>
+        {compact ? (
+          <div className="flex h-full flex-col justify-center gap-px">
+            <div className="flex items-baseline gap-1">
+              {ev.title && (
+                <MarqueeText className="min-w-0 flex-1 font-semibold">{ev.title}</MarqueeText>
+              )}
+              {ev.type && (
+                <MarqueeText className="min-w-0 max-w-[55%] text-[10px] uppercase leading-none opacity-70">
+                  {ev.type}
+                </MarqueeText>
+              )}
+            </div>
+            <div className="flex items-baseline gap-1">
+              {ev.professor && (
+                <MarqueeText className="min-w-0 flex-1 opacity-80">{ev.professor}</MarqueeText>
+              )}
+              {ev.sala && (
+                <MarqueeText className="min-w-0 max-w-[55%] opacity-80">{ev.sala}</MarqueeText>
+              )}
+            </div>
+          </div>
+        ) : (
+          <>
+            {ev.title && <MarqueeText className="font-semibold">{ev.title}</MarqueeText>}
+            {ev.type && (
+              <MarqueeText className="text-[10px] uppercase leading-none opacity-70">
+                {ev.type}
+              </MarqueeText>
+            )}
+            {ev.body?.map((line, i) => (
+              <MarqueeText key={i} className="opacity-80">
+                {line}
+              </MarqueeText>
+            ))}
+          </>
         )}
-        {ev.body?.map((line, i) => (
-          <MarqueeText key={i} className="opacity-80">
-            {line}
-          </MarqueeText>
-        ))}
       </div>
       {weekRangeLabel && (
         // Week range pinned to the bottom-right marks a session that only runs
