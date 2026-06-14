@@ -35,6 +35,10 @@ interface ScheduleEventCardProps {
   lane?: number;
   /** Total lanes in this event's cluster; >1 means render side-by-side. */
   laneCount?: number;
+  /** Event id shared by this event's segments, set only when it has >1 (#20). */
+  arcGroupId?: string;
+  /** This segment's order within the event, for arc ordering (#20). */
+  arcSegIndex?: number;
   style: SubjectStyle;
   isEditing: boolean;
   /**
@@ -64,6 +68,8 @@ export default function ScheduleEventCard({
   rowSpan,
   lane = 0,
   laneCount = 1,
+  arcGroupId,
+  arcSegIndex,
   style,
   isEditing,
   weekRangeLabel = "",
@@ -77,6 +83,9 @@ export default function ScheduleEventCard({
     <button
       type="button"
       {...{ [SCHEDULE_EVENT_DATA_ATTR]: "" }}
+      data-arc-group={arcGroupId}
+      data-arc-seg={arcSegIndex}
+      data-arc-color={arcGroupId ? style.border : undefined}
       onClick={onClick ? () => onClick(ev) : undefined}
       aria-label={ariaLabel}
       aria-current={isEditing ? "true" : undefined}
@@ -86,8 +95,6 @@ export default function ScheduleEventCard({
       style={{
         gridColumn: `${startCol} / span ${colSpan}`,
         gridRow: `${startRow} / span ${rowSpan}`,
-        // Side-by-side lanes: take a 1/laneCount slice of the (widened) column,
-        // offset by the lane index (#24). laneCount 1 → full width.
         ...(laneCount > 1
           ? {
               justifySelf: "start",

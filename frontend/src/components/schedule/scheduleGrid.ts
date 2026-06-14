@@ -4,6 +4,14 @@ import type { WeekGridEvent } from "./WeekGrid";
 
 const SLOT_MINUTES = 30;
 
+/** Quadratic-bezier path linking two segment points of the same event (#20). */
+export function buildArcPath(x1: number, y1: number, x2: number, y2: number, minPeakY = 0): string {
+  const lift = Math.min(22, Math.max(8, Math.abs(x2 - x1) * 0.3));
+  const peakY = Math.max(minPeakY, Math.min(y1, y2) - lift);
+  const midX = (x1 + x2) / 2;
+  return `M ${x1} ${y1} Q ${midX} ${peakY} ${x2} ${y2}`;
+}
+
 export type ContiguousRun = { start: number; span: number };
 
 export type PlacedEvent = {
@@ -56,11 +64,7 @@ export function formatWeekRanges(numbers: number[]): string {
   return parts.join(", ");
 }
 
-/**
- * Marks which of the `slotCount` grid rows carry content — any placed event
- * spanning the row, or any mark (red block) on it. Empty rows can then be
- * collapsed to reduce vertical scroll (#13).
- */
+/** Marks rows carrying any event or mark, so empty rows can collapse (#13). */
 export function computeRowOccupancy(
   placed: PlacedEvent[],
   markRowStarts: number[],
@@ -78,12 +82,7 @@ export function computeRowOccupancy(
   return occupied;
 }
 
-/**
- * CSS grid-row track sizes: occupied rows keep `fullTrack` (a stretchable
- * `minmax(...,1fr)` so the grid still fills the viewport), empty rows collapse
- * to a thin `compactPx`. Pass an all-true occupancy (or use `compactEmpty`
- * false upstream) to keep every row full — e.g. while placing an event.
- */
+/** Grid-row tracks: occupied rows stretch (`fullTrack`), empty ones collapse. */
 export function computeRowHeights(
   rowOccupied: boolean[],
   fullTrack: string,
@@ -92,17 +91,10 @@ export function computeRowHeights(
   return rowOccupied.map((occupied) => (occupied ? fullTrack : `${compactPx}px`));
 }
 
-/**
- * One renderable card of an event: a contiguous span of turma columns sharing
- * the same lane situation. `start`/`span` are turma-column indices within the
- * day (like a run); `lane`/`laneCount` drive the side-by-side slice (#24).
- */
 export type LaneSegment = { start: number; span: number; lane: number; laneCount: number };
 
-/** A placed event split into its renderable lane segments. */
 export type LanedEvent = PlacedEvent & { segments: LaneSegment[] };
 
-/** Global column indices a placed event occupies (`dayCol*turmas + run cols`). */
 function eventColumns(p: PlacedEvent, turmasCount: number): number[] {
   const base = p.dayCol * turmasCount;
   const cols: number[] = [];
@@ -113,15 +105,10 @@ function eventColumns(p: PlacedEvent, turmasCount: number): number[] {
 }
 
 /**
- * Side-by-side lanes computed PER COLUMN (#24): within each turma column,
- * events that overlap in time get distinct lanes; a column's `laneCount` is its
- * deepest overlap. An event then keeps full width wherever it is alone and
- * only narrows in the specific columns it collides in — so a class shared
- * across turmas stays one wide block unless something overlaps it, and the
- * breaks between segments are exactly where #20 draws connecting arcs.
- *
- * Returns each event with its render `segments` (contiguous columns sharing a
- * lane/laneCount are merged) plus per-column `colLaneCount` for sizing.
+ * Side-by-side lanes per column (#24): within a column, overlapping events get
+ * distinct lanes and a per-cluster lane count, so an event stays full width
+ * where it has no conflict. Returns render `segments` and per-column
+ * `colLaneCount` for sizing.
  */
 export function assignLaneSegments(
   placed: PlacedEvent[],
@@ -140,10 +127,7 @@ export function assignLaneSegments(
     }
   });
 
-  const laneOf = new Map<string, number>(); // `${eventIndex}:${col}` -> lane
-  // Per (event,col) the size of the *local* overlap cluster, so an event with
-  // no conflict at its own time fills the column even if the column is widened
-  // elsewhere (#24). The column width uses the column-wide max separately.
+  const laneOf = new Map<string, number>();
   const laneCountOf = new Map<string, number>();
   const colLaneCount = new Array<number>(columnCount).fill(0);
   for (let col = 0; col < columnCount; col += 1) {
@@ -155,8 +139,6 @@ export function assignLaneSegments(
         b.span - a.span ||
         placed[a.index]!.ev.id.localeCompare(placed[b.index]!.ev.id),
     );
-    // Walk the column splitting it into clusters of transitively-overlapping
-    // events; each cluster gets its own lane count.
     let cluster: { index: number; rowStart: number; span: number; lane: number }[] = [];
     let clusterEnd = -Infinity;
     const flush = () => {
@@ -193,10 +175,7 @@ export function assignLaneSegments(
     for (const col of cols) {
       const lane = laneOf.get(`${index}:${col}`) ?? 0;
       const laneCount = laneCountOf.get(`${index}:${col}`) ?? 1;
-      // Merge adjacent columns into one wide card only when full width; a
-      // laned (fractional) column must be its own card, otherwise a half-width
-      // card spanning two doubled columns would fill one column entirely
-      // instead of sitting side-by-side within each (PI ToDo #24).
+      // Only full-width columns merge; laned columns stay separate cards.
       if (
         current &&
         laneCount === 1 &&
@@ -219,13 +198,8 @@ export function assignLaneSegments(
 }
 
 /**
- * CSS grid-column tracks for the turma columns (#14/#16/#24). Per column lane
- * count `L`:
- *  - `L === 0` (empty) inside a day that has events → `minColPx` floor;
- *  - a day with no events at all → its columns share the day-label width;
- *  - otherwise the column is `L`× the base width so `L` side-by-side events
- *    each keep the base (single-event) width.
- * `resizedColPx` is the user-set width (or null for the flexible default).
+ * Grid-column tracks (#14/#16/#24): empty column in a busy day → `minColPx`;
+ * fully empty day → day-label width; otherwise `L`× the base width for L lanes.
  */
 export function computeColumnWidths(
   colLaneCount: number[],

@@ -2,6 +2,7 @@ import { useMemo, useRef } from "react";
 import type { Weekday } from "@/types/project/weekday";
 import { hhmmToMinutes, minutesToTime } from "@/utils/time";
 import { WEEKDAYS, WEEKDAY_LABELS_SHORT } from "@/utils/weekdays";
+import EventArcsOverlay from "./EventArcsOverlay";
 import ScheduleEventCard from "./ScheduleEventCard";
 import {
   assignLaneSegments,
@@ -256,10 +257,7 @@ export default function WeekGrid({
     [marks, gridStartMinutes, slotCount, visibleDayIndices],
   );
 
-  // --- empty row/column compaction (#13/#14) ---------------------------
-  // Rows/columns with no content collapse to a thin track; occupied ones keep
-  // a stretchable minmax so the grid still fills the viewport. `compactEmpty`
-  // off (e.g. placement mode) keeps everything full-size.
+  // Empty row/column compaction (#13/#14); compactEmpty off keeps all full-size.
   const rowOccupied = useMemo(
     () =>
       compactEmpty
@@ -272,16 +270,11 @@ export default function WeekGrid({
     [compactEmpty, placedEvents, placedMarks, slotCount],
   );
 
-  // Lane assignment (#24): events that overlap within a column render
-  // side-by-side; each card splits into segments only where its per-column
-  // lane situation changes, staying one wide block otherwise.
   const { laned: lanedEvents, colLaneCount: rawColLaneCount } = useMemo(
     () => assignLaneSegments(placedEvents, turmasCount, turmaColumnCount),
     [placedEvents, turmasCount, turmaColumnCount],
   );
 
-  // When not compacting (placement mode), empty columns stay full instead of
-  // collapsing — but occupied columns still widen for their lanes.
   const colLaneCount = useMemo(
     () => (compactEmpty ? rawColLaneCount : rawColLaneCount.map((lanes) => Math.max(lanes, 1))),
     [compactEmpty, rawColLaneCount],
@@ -312,6 +305,10 @@ export default function WeekGrid({
         emptyDayTotalPx,
       ).join(" ")}`;
 
+  const arcSignature = `${gridTemplateColumns}|${gridTemplateRows}|${lanedEvents
+    .map((e) => `${e.ev.id}:${e.segments.length}`)
+    .join(",")}`;
+
   if (events.length === 0 && marks.length === 0 && emptyMessage) {
     return (
       <div className="bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)] p-6 text-center text-sm text-[#6b6375]">
@@ -336,7 +333,7 @@ export default function WeekGrid({
       }}
     >
       <div
-        className="grid h-full w-max min-w-full"
+        className="relative grid h-full w-max min-w-full"
         ref={gridRef}
         style={{ gridTemplateColumns, gridTemplateRows }}
       >
@@ -495,7 +492,8 @@ export default function WeekGrid({
         {lanedEvents.flatMap(({ ev, dayCol, rowStart, span, segments, weekRangeLabel }) => {
           const style = styleForSubject(subjectPalette, ev.uc, ev.type);
           const isEditingEvent = editingEventId === ev.id;
-          return segments.map((seg) => (
+          const multiSegment = segments.length > 1;
+          return segments.map((seg, segIndex) => (
             <ScheduleEventCard
               key={`e-${ev.id}-${seg.start}`}
               ev={ev}
@@ -505,6 +503,8 @@ export default function WeekGrid({
               rowSpan={span}
               lane={seg.lane}
               laneCount={seg.laneCount}
+              arcGroupId={multiSegment ? `${ev.id}-${dayCol}-${rowStart}` : undefined}
+              arcSegIndex={segIndex}
               style={style}
               isEditing={isEditingEvent}
               weekRangeLabel={weekRangeLabel}
@@ -512,6 +512,12 @@ export default function WeekGrid({
             />
           ));
         })}
+
+        <EventArcsOverlay
+          gridRef={gridRef}
+          signature={arcSignature}
+          minPeakY={headerPx * headerRows + 2}
+        />
       </div>
     </div>
   );
