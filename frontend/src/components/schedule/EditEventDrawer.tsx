@@ -324,9 +324,7 @@ export default function EditEventDrawer({
       <button
         type="button"
         onClick={() => onCollapsedChange(!collapsed)}
-        onMouseEnter={() => {
-          if (collapsed) onCollapsedChange(false);
-        }}
+        onMouseEnter={() => onCollapsedChange(!collapsed)}
         aria-label={collapsed ? "Expandir painel de edição" : "Colapsar painel de edição"}
         className="absolute left-full top-1/2 -translate-y-1/2 flex h-24 w-6 items-center justify-center rounded-r-md border border-l-0 border-white/15 bg-[#1d2128] text-lg leading-none text-white/70 shadow-[4px_0_12px_rgba(0,0,0,0.35)] hover:text-white"
       >

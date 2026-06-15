@@ -5,6 +5,7 @@ import EditEventDrawer from "@/components/schedule/EditEventDrawer";
 import ConflictsDrawer from "@/components/schedule/ConflictsDrawer";
 import DistributionModal from "@/components/schedule/DistributionModal";
 import ScheduleNavbar from "@/components/schedule/ScheduleNavbar";
+import { useEventUnavailability } from "@/components/schedule/useEventUnavailability";
 import { useEventEditor } from "@/components/schedule/useEventEditor";
 import { useProjectAccess } from "@/components/schedule/useProjectAccess";
 import {
@@ -52,6 +53,12 @@ export default function SchedulePage() {
   const eventEditor = useEventEditor();
   const [isConflictsDrawerOpen, setIsConflictsDrawerOpen] = useState(false);
   const [isDistributionOpen, setIsDistributionOpen] = useState(false);
+
+  // Where the selected event's teacher(s)/room are unavailable (#5).
+  const unavailabilityMarks = useEventUnavailability(
+    projectId ?? "",
+    eventEditor.isOpen ? eventEditor.editingEvent : null,
+  );
 
   const canShowSchedule = curso !== "";
 
@@ -296,6 +303,7 @@ export default function SchedulePage() {
           <div className="h-full min-h-0">
             <WeekGrid
               events={filters.scheduleEvents}
+              marks={unavailabilityMarks}
               emptyMessage="Sem eventos para mostrar"
               startTime={800}
               endTime={1930}
@@ -313,7 +321,7 @@ export default function SchedulePage() {
               showHalfHourDividers
               editingEventId={eventEditor.isOpen ? eventEditor.editingEvent?.id : undefined}
               subjectPalette={subjectPalette}
-              onEventClick={eventEditor.openEditor}
+              onEventClick={(event) => eventEditor.openEditor(event, true)}
               onHorizontalScroll={() => eventEditor.setIsCollapsed(true)}
             />
           </div>

@@ -1,11 +1,32 @@
+import { type ReactNode } from "react";
 import { hhmmToMinutes, minutesToTime } from "@/utils/time";
 import { WEEKDAY_LABELS_LONG } from "@/utils/weekdays";
 import type { WeekGridEvent } from "./WeekGrid";
+import { RoomAvailability, TeacherHoverNames } from "./AvailabilityTooltipContent";
 import { SCHEDULE_EVENT_DATA_ATTR } from "./dismissable";
+import HoverTooltip from "./HoverTooltip";
 import MarqueeText from "./MarqueeText";
 import { SUBJECT_SELECTION_RING, type SubjectStyle } from "./subjectColors";
 
 const SLOT_MINUTES = 30;
+
+/** A card text element, optionally wrapped in a hover tooltip (PI ToDo #4). */
+function Field({
+  tip,
+  className,
+  children,
+}: {
+  tip?: ReactNode;
+  className?: string;
+  children: ReactNode;
+}) {
+  if (!tip) return <span className={className}>{children}</span>;
+  return (
+    <HoverTooltip className={className} content={tip}>
+      {children}
+    </HoverTooltip>
+  );
+}
 
 function getEventAriaLabel(ev: WeekGridEvent): string {
   const startMin = hhmmToMinutes(ev.startTime);
@@ -82,6 +103,27 @@ export default function ScheduleEventCard({
   const ariaLabel = weekRangeLabel
     ? `${getEventAriaLabel(ev)} — semanas ${weekRangeLabel}`
     : getEventAriaLabel(ev);
+
+  // Hover tooltips (#4): full UC name(s); teacher/room availability grids.
+  // The availability bodies only mount when the tooltip opens, so they fetch
+  // on hover, not on render.
+  const ucNames = ev.subjectNames?.length ? ev.subjectNames : ev.uc ? [ev.uc] : [];
+  const ucTip =
+    ucNames.length > 0 ? (
+      <span className="block font-semibold whitespace-pre-line">{ucNames.join("\n")}</span>
+    ) : undefined;
+  const roomsTip =
+    ev.rooms && ev.rooms.length > 0 ? (
+      ev.rooms.length === 1 ? (
+        <RoomAvailability roomId={ev.rooms[0]!.id} name={ev.rooms[0]!.name} fill />
+      ) : (
+        <div className="flex gap-3">
+          {ev.rooms.map((room) => (
+            <RoomAvailability key={room.id} roomId={room.id} name={room.name} />
+          ))}
+        </div>
+      )
+    ) : undefined;
   return (
     <button
       type="button"
@@ -112,7 +154,6 @@ export default function ScheduleEventCard({
         borderColor: isEditing ? SUBJECT_SELECTION_RING : style.border,
         boxShadow: isEditing ? `inset 0 0 0 2px ${SUBJECT_SELECTION_RING}` : undefined,
       }}
-      title={ev.title}
       disabled={!clickable}
     >
       <div
@@ -123,7 +164,9 @@ export default function ScheduleEventCard({
           <div className="flex h-full flex-col justify-center gap-px">
             <div className="flex items-baseline gap-1">
               {ev.title && (
-                <MarqueeText className="min-w-0 flex-1 font-semibold">{ev.title}</MarqueeText>
+                <Field className="min-w-0 flex-1" tip={ucTip}>
+                  <MarqueeText className="font-semibold">{ev.title}</MarqueeText>
+                </Field>
               )}
               {ev.type && (
                 <MarqueeText className="min-w-0 max-w-[55%] text-[10px] uppercase leading-none opacity-70">
@@ -132,27 +175,38 @@ export default function ScheduleEventCard({
               )}
             </div>
             <div className="flex items-baseline gap-1">
-              {ev.professor && (
-                <MarqueeText className="min-w-0 flex-1 opacity-80">{ev.professor}</MarqueeText>
+              {ev.teachers && ev.teachers.length > 0 && (
+                <TeacherHoverNames teachers={ev.teachers} className="min-w-0 flex-1" />
               )}
               {ev.sala && (
-                <MarqueeText className="min-w-0 max-w-[55%] opacity-80">{ev.sala}</MarqueeText>
+                <Field className="min-w-0 max-w-[55%]" tip={roomsTip}>
+                  <MarqueeText className="opacity-80">{ev.sala}</MarqueeText>
+                </Field>
               )}
             </div>
           </div>
         ) : (
           <>
-            {ev.title && <MarqueeText className="font-semibold">{ev.title}</MarqueeText>}
+            {ev.title && (
+              <Field className="block" tip={ucTip}>
+                <MarqueeText className="font-semibold">{ev.title}</MarqueeText>
+              </Field>
+            )}
             {ev.type && (
               <MarqueeText className="text-[10px] uppercase leading-none opacity-70">
                 {ev.type}
               </MarqueeText>
             )}
-            {ev.body?.map((line, i) => (
-              <MarqueeText key={i} className="opacity-80">
-                {line}
-              </MarqueeText>
-            ))}
+            {ev.teachers && ev.teachers.length > 0 && (
+              <TeacherHoverNames teachers={ev.teachers} className="block" />
+            )}
+            {ev.rooms && ev.rooms.length > 0 && (
+              <Field className="block" tip={roomsTip}>
+                <MarqueeText className="opacity-80">
+                  {ev.rooms.map((room) => room.name).join(", ")}
+                </MarqueeText>
+              </Field>
+            )}
           </>
         )}
       </div>
