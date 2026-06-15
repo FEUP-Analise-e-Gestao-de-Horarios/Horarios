@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import WeekGrid from "@/components/schedule/WeekGrid";
 import EditEventDrawer from "@/components/schedule/EditEventDrawer";
 import ConflictsDrawer from "@/components/schedule/ConflictsDrawer";
+import DistributionModal from "@/components/schedule/DistributionModal";
 import ScheduleNavbar from "@/components/schedule/ScheduleNavbar";
 import { useEventEditor } from "@/components/schedule/useEventEditor";
 import { useProjectAccess } from "@/components/schedule/useProjectAccess";
@@ -50,6 +51,7 @@ export default function SchedulePage() {
 
   const eventEditor = useEventEditor();
   const [isConflictsDrawerOpen, setIsConflictsDrawerOpen] = useState(false);
+  const [isDistributionOpen, setIsDistributionOpen] = useState(false);
 
   const canShowSchedule = curso !== "";
 
@@ -216,7 +218,7 @@ export default function SchedulePage() {
     <div className="h-screen bg-[#f0eeeb] flex flex-col overflow-hidden">
       <title>{project ? `Horário · ${project.name} · AGH` : "Horário · AGH"}</title>
       <ScheduleNavbar
-        anyDialogOpen={eventEditor.isOpen || isConflictsDrawerOpen}
+        anyDialogOpen={eventEditor.isOpen || isConflictsDrawerOpen || isDistributionOpen}
         projectId={projectId}
         curso={curso}
         setCurso={handleSelectCurso}
@@ -243,6 +245,13 @@ export default function SchedulePage() {
           void yearConflictsQuery.refetch();
           setIsConflictsDrawerOpen(true);
         }}
+        onViewDistribution={() => setIsDistributionOpen(true)}
+      />
+
+      <DistributionModal
+        open={isDistributionOpen}
+        onClose={() => setIsDistributionOpen(false)}
+        events={filters.scheduleEvents}
       />
 
       <ConflictsDrawer

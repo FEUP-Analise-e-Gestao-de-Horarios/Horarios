@@ -201,6 +201,20 @@ describe("sessionToEvents", () => {
     expect(events[0]?.title).toBe("ALG, BD");
   });
 
+  it("de-duplicates repeated acronyms from a cross-course shared subject", () => {
+    const events = sessionToEvents(
+      makeSession({
+        subjects: [
+          makeSubject({ id: "u1", code: "VC01", acronym: "VC", name: "Visão por Computador" }),
+          makeSubject({ id: "u2", code: "VC02", acronym: "VC", name: "Visão por Computador" }),
+        ],
+      }),
+      NO_FILTERS,
+    );
+    expect(events[0]?.title).toBe("VC");
+    expect(events[0]?.subjectNames).toEqual(["Visão por Computador"]);
+  });
+
   it("falls back to the session type when there are no subjects", () => {
     const events = sessionToEvents(makeSession({ subjects: [] }), NO_FILTERS);
     expect(events[0]?.title).toBe("T");
