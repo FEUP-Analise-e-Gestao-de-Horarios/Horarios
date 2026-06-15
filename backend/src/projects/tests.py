@@ -1,8 +1,10 @@
 import datetime
+import json
 import tempfile
 import uuid
 from http import HTTPStatus
 from pathlib import Path
+from unittest.mock import patch
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -10,6 +12,7 @@ from django.test import TestCase, override_settings
 from sqlalchemy import func, select
 
 from src.projects.models import Project
+from src.projects.projects_db.dao import ExportCacheDAO
 from src.projects.projects_db.models import (
     Class,
     Degree,
@@ -24,8 +27,9 @@ from src.projects.projects_db.models._secondary_tables import (
     session_rooms,
     session_teachers,
 )
-from src.projects.projects_db.paths import general_db
+from src.projects.projects_db.paths import general_db, initial_db
 from src.projects.projects_db.registry import get_session as get_project_session
+from src.projects.projects_db.registry import init_engine
 from src.projects.projects_db.schemas.weekday import WeekDay
 from src.projects.services.project_db import create_project_db, delete_project_db
 
@@ -52,6 +56,7 @@ class SessionDeletionEndpointTests(TestCase):
             creator=self.user,
         )
         create_project_db(self.project.pk)
+        init_engine(initial_db(self.project.pk))
 
         (
             self.session_id,
@@ -133,3 +138,45 @@ class SessionDeletionEndpointTests(TestCase):
                 "message": "Session not found.",
             },
         )
+
+    def test_export_endpoint_reuses_cached_full_payload(self) -> None:
+        response = self.client.post(
+            f"/api/projects/{self.project.pk}/export",
+            data=json.dumps({"recalculate_export_graph": False}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertEqual(response.json()["message"], "Project export computed successfully")
+
+        with patch(
+            "src.projects.views.export.RoomDAO.get_conflicting_slots",
+            side_effect=AssertionError("export conflicts should have been cached"),
+        ):
+            cached_response = self.client.post(
+                f"/api/projects/{self.project.pk}/export",
+                data=json.dumps({"recalculate_export_graph": False}),
+                content_type="application/json",
+            )
+
+        self.assertEqual(cached_response.status_code, HTTPStatus.OK)
+        self.assertEqual(cached_response.json()["message"], "Project export loaded from cache")
+        self.assertEqual(cached_response.json()["data"], response.json()["data"])
+
+    def test_delete_session_endpoint_clears_export_cache(self) -> None:
+        response = self.client.post(
+            f"/api/projects/{self.project.pk}/export",
+            data=json.dumps({"recalculate_export_graph": False}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+
+        with get_project_session(general_db(self.project.pk)) as db_session:
+            self.assertIsNotNone(ExportCacheDAO(db_session).get_project_export_payload())
+
+        delete_response = self.client.delete(
+            f"/api/projects/{self.project.pk}/sessions/{self.session_id}",
+        )
+        self.assertEqual(delete_response.status_code, HTTPStatus.OK)
+
+        with get_project_session(general_db(self.project.pk)) as db_session:
+            self.assertIsNone(ExportCacheDAO(db_session).get_project_export_payload())

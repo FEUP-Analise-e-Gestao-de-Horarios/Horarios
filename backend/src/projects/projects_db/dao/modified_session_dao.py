@@ -123,3 +123,8 @@ class ModifiedSessionDAO(BaseDAO[ModifiedSession]):
                 modification_number += 1
 
         self.session.flush()
+
+    def clear_modification_steps(self) -> None:
+        """Remove cached export modification steps."""
+        self.session.execute(delete(ModifiedSession))
+        self.session.flush()

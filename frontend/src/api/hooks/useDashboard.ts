@@ -21,6 +21,7 @@ export function useProjectExport(projectId: string) {
       return response.data;
     },
     enabled: !!projectId,
+    refetchOnWindowFocus: false,
     staleTime: 0,
   });
 

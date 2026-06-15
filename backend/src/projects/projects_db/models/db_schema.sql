@@ -168,3 +168,9 @@ CREATE TABLE modified_sessions (
 CREATE INDEX ix_modified_sessions_session_id ON modified_sessions(session_id);
 CREATE INDEX ix_modified_sessions_modification_number
     ON modified_sessions(modification_number);
+
+CREATE TABLE export_cache (
+    cache_key   TEXT PRIMARY KEY,
+    payload     TEXT NOT NULL,
+    updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+);

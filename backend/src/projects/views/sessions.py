@@ -16,7 +16,14 @@ from src.core.errors import (
 from src.core.schemas import SuccessResponse
 from src.core.validation import validate_query_params
 from src.projects.models import Project
-from src.projects.projects_db.dao import ClassDAO, SessionDAO, SubjectDAO, YearDAO
+from src.projects.projects_db.dao import (
+    ClassDAO,
+    ExportCacheDAO,
+    SessionDAO,
+    SubjectDAO,
+    YearDAO,
+)
+from src.projects.projects_db.dao.modified_session_dao import ModifiedSessionDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
 from src.projects.views.schemas.sessions import SessionsQueryParams, SessionsResponse
@@ -94,7 +101,7 @@ class ProjectSessionView(View):
         self,
         request: HttpRequest,
         project_id: int,
-        session_id: str,
+        session_id: str | UUID,
     ) -> HttpResponse:
         # -- Check user auth ---------------------------------------------------
         if not request.user.is_authenticated:
@@ -108,10 +115,13 @@ class ProjectSessionView(View):
 
         # -- Delete session from project DB -----------------------------------
         with get_project_session(general_db(project_id)) as db_session:
-            deleted = SessionDAO(db_session).delete_by_id(UUID(session_id))
+            session_uuid = session_id if isinstance(session_id, UUID) else UUID(session_id)
+            deleted = SessionDAO(db_session).delete_by_id(session_uuid)
             if not deleted:
                 return SessionNotFoundResponse()
 
+            ExportCacheDAO(db_session).clear_project_export_payload()
+            ModifiedSessionDAO(db_session).clear_modification_steps()
             db_session.commit()
 
         return JsonResponse(

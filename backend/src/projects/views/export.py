@@ -10,6 +10,7 @@ from src.core.schemas import SuccessResponse
 from src.exporter.export_graph import ExportGraph
 from src.projects.models import Project
 from src.projects.projects_db.dao.class_dao import ClassDAO
+from src.projects.projects_db.dao.export_cache_dao import ExportCacheDAO
 from src.projects.projects_db.dao.modified_session_dao import ModifiedSessionDAO
 from src.projects.projects_db.dao.room_dao import RoomDAO
 from src.projects.projects_db.dao.session_dao import SessionDAO
@@ -61,6 +62,17 @@ class ProjectExportView(View):
         init_engine(general_db(project_id))
 
         with get_session(general_db(project_id)) as session:
+            export_cache_dao = ExportCacheDAO(session)
+            if not recalculate_export_graph:
+                cached_data = export_cache_dao.get_project_export_payload()
+                if cached_data is not None:
+                    return JsonResponse(
+                        SuccessResponse(
+                            message="Project export loaded from cache",
+                            data=cached_data,
+                        ).model_dump(),
+                    )
+
             session_dao = SessionDAO(session)
             modified_session_dao = ModifiedSessionDAO(session)
             rooms_dao = RoomDAO(session)
@@ -75,7 +87,6 @@ class ProjectExportView(View):
             start_time = time()
             alias = session_dao.attach_db(initial_db(project_id))
             data: dict[str, Any] = {}
-            cache_updated = False
             data.update(
                 {"added_removed_sessions": session_dao.get_added_removed_records(alias)},
             )
@@ -90,11 +101,8 @@ class ProjectExportView(View):
                 export_graph = ExportGraph(modifications, project_id)
                 modification_steps = export_graph.build_modification_steps()
                 modified_session_dao.replace_modification_steps(modification_steps)
-                cache_updated = True
 
             session_dao.detach_db(alias)
-            if cache_updated:
-                session.commit()
             end_time = time()
 
             data.update(
@@ -102,6 +110,8 @@ class ProjectExportView(View):
                     "modification_steps": modification_steps,
                 },
             )
+            export_cache_dao.replace_project_export_payload(data)
+            session.commit()
 
             print(f"time elapsed: {'%.2f' % (end_time - start_time)}")
 

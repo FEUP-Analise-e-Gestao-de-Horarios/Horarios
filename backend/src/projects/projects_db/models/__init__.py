@@ -1,6 +1,7 @@
 from .class_ import Class
 from .class_red_block import ClassRedBlock
 from .degree import Degree
+from .export_cache import ExportCache
 from .modified_session import ModifiedSession
 from .parallel_block_candidate import ParallelBlockCandidate
 from .room import Room
@@ -16,6 +17,7 @@ __all__ = [
     "Class",
     "ClassRedBlock",
     "Degree",
+    "ExportCache",
     "ModifiedSession",
     "ParallelBlockCandidate",
     "Room",
