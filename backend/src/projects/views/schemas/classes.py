@@ -1,7 +1,7 @@
 from pydantic import BaseModel, computed_field
 
 from src.core.mixins import ValidateWithExtrasMixin
-from src.projects.views.schemas.shared import ClassBase, YearBase
+from src.projects.views.schemas.shared import ClassBase, RedBlockBase, YearBase
 from src.projects.views.schemas.week_blocks import WeekBlock
 
 
@@ -23,3 +23,4 @@ class ClassStatsResponse(ClassBase):
 class ClassDetailResponse(ValidateWithExtrasMixin, ClassBase):
     year: YearBase
     blocks: list[WeekBlock]
+    red_blocks: list[RedBlockBase]

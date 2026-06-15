@@ -4,7 +4,8 @@ import { useProject } from "@/api/hooks/project/project";
 import { useProjectClass } from "@/api/hooks/project/class";
 import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
 import SessionPopup from "@/components/dashboard/SessionPopup";
-import WeekGrid, { type WeekGridEvent } from "@/components/dashboard/WeekGrid";
+import WeekGrid, { type WeekGridEvent, type WeekGridMark } from "@/components/dashboard/WeekGrid";
+import type { RedBlockBase } from "@/types/project/red_block";
 import type { SessionResponse, WeekBlockResponse } from "@/types/project/sessions";
 import { formatBlockLabel } from "@/utils/date";
 
@@ -44,6 +45,13 @@ export default function ClassDetailPage() {
     type: s.type,
   }));
 
+  const redBlocks: RedBlockBase[] = data?.red_blocks ?? [];
+  const marks: WeekGridMark[] = redBlocks.map((rb) => ({
+    id: rb.id,
+    weekday: rb.weekday,
+    time: rb.hour,
+  }));
+
   const handleEventClick = (ev: WeekGridEvent) => {
     const session = blockSessions.find((s) => s.id === ev.id);
     if (session) setSelectedSession(session);
@@ -81,6 +89,10 @@ export default function ClassDetailPage() {
                   <div>
                     <span className="font-semibold text-[#08060d]">{totalSessions}</span> aulas
                   </div>
+                  <div>
+                    <span className="font-semibold text-[#08060d]">{redBlocks.length}</span> blocos
+                    vermelhos
+                  </div>
                 </div>
               </div>
 
@@ -114,8 +126,9 @@ export default function ClassDetailPage() {
               <div className="flex-1 min-h-0">
                 <WeekGrid
                   events={events}
+                  marks={marks}
                   onEventClick={handleEventClick}
-                  emptyMessage="Sem aulas para esta turma."
+                  emptyMessage="Sem aulas nem blocos vermelhos para esta turma."
                 />
               </div>
             </>
