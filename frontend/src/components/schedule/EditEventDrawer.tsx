@@ -13,6 +13,7 @@ import { toggleSelection, useEventDrawerForm } from "./useEventDrawerForm";
 
 type TeacherOption = {
   id: string;
+  acronym: string;
   label: string;
 };
 
@@ -20,7 +21,14 @@ type RoomOption = {
   id: string;
   label: string;
   type: string;
+  seats: string | null;
 };
+
+/** Sala dropdown option: name, capacity in front, then tipologia (PI ToDo #8a). */
+function salaToOption(room: RoomOption) {
+  const capacity = room.seats ? ` (${room.seats})` : "";
+  return { id: room.id, label: `${room.label}${capacity} - ${room.type}` };
+}
 
 interface EditEventDrawerProps {
   open: boolean;
@@ -161,9 +169,15 @@ export default function EditEventDrawer({
     [otherSalas, salaMatches],
   );
 
+  // The event's own turmas float to the top of the list; everything else keeps
+  // its incoming (numeric) order since Array.sort is stable (PI ToDo #8d).
+  const eventTurmas = useMemo(() => new Set(event?.classCodes ?? []), [event?.classCodes]);
   const filteredTurmas = useMemo(
-    () => turmaOptions.filter((turma) => turmaMatches(turma)),
-    [turmaOptions, turmaMatches],
+    () =>
+      turmaOptions
+        .filter((turma) => turmaMatches(turma))
+        .sort((a, b) => Number(eventTurmas.has(b)) - Number(eventTurmas.has(a))),
+    [turmaOptions, turmaMatches, eventTurmas],
   );
 
   // The "effective" selections are simply the user's overrides, narrowed to
@@ -184,12 +198,14 @@ export default function EditEventDrawer({
 
   const selectedDocenteLabel = useMemo(() => {
     if (effectiveSelectedDocente.length === 0) return "Selecionar...";
-    const labels = effectiveSelectedDocente
-      .map((id) => teacherOptions.find((docente) => docente.id === id)?.label)
-      .filter((label): label is string => Boolean(label));
-    const first = labels[0];
+    const docentes = effectiveSelectedDocente
+      .map((id) => teacherOptions.find((docente) => docente.id === id))
+      .filter((docente): docente is TeacherOption => Boolean(docente));
+    const first = docentes[0];
     if (!first) return "Selecionar...";
-    return labels.length === 1 ? first : `${first} (+${labels.length - 1})`;
+    // One docente keeps the full "acronym - name"; multiple show every acronym
+    // so both professors are visible in the trigger (PI ToDo #8b).
+    return docentes.length === 1 ? first.label : docentes.map((d) => d.acronym).join(", ");
   }, [effectiveSelectedDocente, teacherOptions]);
 
   const selectedSalaLabel = useMemo(() => {
@@ -394,17 +410,11 @@ export default function EditEventDrawer({
                   groups={[
                     {
                       heading: "Tipologia correspondente",
-                      options: filteredPreferredSalas.map((room) => ({
-                        id: room.id,
-                        label: `${room.label} - ${room.type}`,
-                      })),
+                      options: filteredPreferredSalas.map(salaToOption),
                     },
                     {
                       heading: "Outras Salas",
-                      options: filteredOtherSalas.map((room) => ({
-                        id: room.id,
-                        label: `${room.label} - ${room.type}`,
-                      })),
+                      options: filteredOtherSalas.map(salaToOption),
                     },
                   ]}
                   selectedIds={effectiveSelectedSala}
