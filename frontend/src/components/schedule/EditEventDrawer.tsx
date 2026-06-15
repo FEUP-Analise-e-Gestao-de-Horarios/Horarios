@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ConflictRecord } from "@/types/project/conflicts";
 import type { Weekday } from "@/types/project/weekday";
 import type { WeekGridEvent } from "@/components/schedule/WeekGrid";
+import { formatDurationSlots } from "@/utils/time";
 import { WEEKDAYS, WEEKDAY_LABELS_LONG } from "@/utils/weekdays";
 import ConflictCard from "./ConflictCard";
 import { DRAWER_DISMISS_IGNORE_SELECTOR } from "./dismissable";
@@ -56,7 +57,7 @@ export default function EditEventDrawer({
     selectedTurmasOverride,
     selectedWeekday,
     startTime,
-    endTime,
+    durationSlots,
   } = formState;
 
   const docentesSearch = useDrawerSearch();
@@ -282,7 +283,7 @@ export default function EditEventDrawer({
               <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  onClick={() => dispatch({ type: "shiftTime", field: "startTime", delta: -30 })}
+                  onClick={() => dispatch({ type: "shiftStartTime", delta: -30 })}
                   className="h-8 w-8 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white text-sm"
                   aria-label="Diminuir hora de início em 30 minutos"
                 >
@@ -295,16 +296,16 @@ export default function EditEventDrawer({
                   value={startTime}
                   aria-labelledby="edit-event-start-time-label"
                   onChange={(event) =>
-                    dispatch({ type: "setTime", field: "startTime", value: event.target.value })
+                    dispatch({ type: "setStartTime", value: event.target.value })
                   }
                   onBlur={(event) =>
-                    dispatch({ type: "normalizeTime", field: "startTime", raw: event.target.value })
+                    dispatch({ type: "normalizeStartTime", raw: event.target.value })
                   }
                   className="w-14 bg-[#2a303a] border border-white/20 rounded px-1.5 py-1.5 text-white text-center text-sm"
                 />
                 <button
                   type="button"
-                  onClick={() => dispatch({ type: "shiftTime", field: "startTime", delta: 30 })}
+                  onClick={() => dispatch({ type: "shiftStartTime", delta: 30 })}
                   className="h-8 w-8 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white text-sm"
                   aria-label="Aumentar hora de início em 30 minutos"
                 >
@@ -313,37 +314,29 @@ export default function EditEventDrawer({
               </div>
             </div>
             <div className="block text-sm flex-1 min-w-0">
-              <span id="edit-event-end-time-label" className="mb-1.5 block text-white/90">
-                Hora Fim
+              <span id="edit-event-duration-label" className="mb-1.5 block text-white/90">
+                Duração
               </span>
               <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  onClick={() => dispatch({ type: "shiftTime", field: "endTime", delta: -30 })}
+                  onClick={() => dispatch({ type: "shiftDuration", delta: -1 })}
                   className="h-8 w-8 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white text-sm"
-                  aria-label="Diminuir hora de fim em 30 minutos"
+                  aria-label="Diminuir duração em 30 minutos"
                 >
                   -
                 </button>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="HH:MM"
-                  value={endTime}
-                  aria-labelledby="edit-event-end-time-label"
-                  onChange={(event) =>
-                    dispatch({ type: "setTime", field: "endTime", value: event.target.value })
-                  }
-                  onBlur={(event) =>
-                    dispatch({ type: "normalizeTime", field: "endTime", raw: event.target.value })
-                  }
-                  className="w-14 bg-[#2a303a] border border-white/20 rounded px-1.5 py-1.5 text-white text-center text-sm"
-                />
+                <span
+                  aria-labelledby="edit-event-duration-label"
+                  className="w-14 bg-[#2a303a] border border-white/20 rounded px-1.5 py-1.5 text-white text-center text-sm tabular-nums"
+                >
+                  {formatDurationSlots(durationSlots)}
+                </span>
                 <button
                   type="button"
-                  onClick={() => dispatch({ type: "shiftTime", field: "endTime", delta: 30 })}
+                  onClick={() => dispatch({ type: "shiftDuration", delta: 1 })}
                   className="h-8 w-8 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white text-sm"
-                  aria-label="Aumentar hora de fim em 30 minutos"
+                  aria-label="Aumentar duração em 30 minutos"
                 >
                   +
                 </button>
