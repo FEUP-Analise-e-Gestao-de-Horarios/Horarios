@@ -1,20 +1,31 @@
 import itertools
+from collections import defaultdict
+from collections.abc import Iterable
 from datetime import date, timedelta
 from typing import Any
+from uuid import UUID
 
 import networkx as nx
+from sqlalchemy import select
+from sqlalchemy.orm import Session as DBSession
 
 from src.exporter.export_graph_types import (
     RESOURCE_SPECS,
     Resource,
     ResourceMovement,
+    ResourceNode,
     ResourceSpec,
     TimeMovement,
     TimePlacement,
 )
 from src.projects.projects_db.dao.base_dao import ChangedRecords
-from src.projects.projects_db.dao.session_dao import SessionDAO
-from src.projects.projects_db.models.session import Session
+from src.projects.projects_db.models._secondary_tables import session_rooms, session_teachers
+from src.projects.projects_db.models.class_ import Class
+from src.projects.projects_db.models.room import Room
+from src.projects.projects_db.models.session import Session as SessionModel
+from src.projects.projects_db.models.session_class_subject import SessionClassSubject
+from src.projects.projects_db.models.subject import Subject
+from src.projects.projects_db.models.teacher import Teacher
 from src.projects.projects_db.paths import general_db, initial_db
 from src.projects.projects_db.registry import get_session
 
@@ -32,25 +43,31 @@ class ExportGraph:
         self.changes = changes
         self.dependency_graph: nx.DiGraph | None = None
 
+        session_ids = self.change_session_ids()
         with get_session(general_db(project_id)) as session:
-            session_dao = SessionDAO(session)
-            self.sessions_by_id = {}
-            self.sessions_by_change_key = {}
-
-            for db_session in session_dao.get_all():
-                session_data = self.serialize_session(db_session)
-                self.sessions_by_id[db_session.id] = session_data
-                self.sessions_by_change_key[self.normalize_id(db_session.id)] = session_data
+            self.sessions_by_id = self.load_session_snapshots_by_id(session, session_ids)
+            self.sessions_by_change_key = {
+                self.normalize_id(session_id): session_data
+                for session_id, session_data in self.sessions_by_id.items()
+            }
+            self.scoped_occupancy = self.load_scoped_occupancy(session)
 
         with get_session(initial_db(project_id)) as session:
-            session_dao = SessionDAO(session)
-            self.initial_sessions = {}
+            initial_by_id = self.load_session_snapshots_by_id(session, session_ids)
+            self.initial_sessions = {
+                self.normalize_id(session_id): session_data
+                for session_id, session_data in initial_by_id.items()
+            }
+            self.original_block_weeks = self.load_original_block_weeks(
+                session,
+                {
+                    session_data["original_block_id"]
+                    for session_data in self.initial_sessions.values()
+                    if session_data.get("original_block_id") is not None
+                },
+            )
 
-            for db_session in session_dao.get_all():
-                session_data = self.serialize_session(db_session)
-                self.initial_sessions[self.normalize_id(db_session.id)] = session_data
-
-    def serialize_session(self, db_session: Session) -> dict[str, Any]:
+    def serialize_session(self, db_session: SessionModel) -> dict[str, Any]:
         """Return session data used by the exporter and its resource graphs."""
         return {
             "id": db_session.id,
@@ -88,6 +105,197 @@ class ExportGraph:
             ],
         }
 
+    def change_session_ids(self) -> list[UUID]:
+        """Return changed session ids in database UUID form."""
+        return [self.to_uuid(session_id) for session_id in self.changes]
+
+    @classmethod
+    def load_session_snapshots_by_id(
+        cls,
+        session: DBSession,
+        session_ids: Iterable[Any],
+    ) -> dict[Any, dict[str, Any]]:
+        """Load exporter session snapshots for the given sessions using set queries."""
+        ids = list({cls.to_uuid(session_id) for session_id in session_ids})
+        if not ids:
+            return {}
+
+        rows = session.execute(
+            select(
+                SessionModel.id,
+                SessionModel.start_time,
+                SessionModel.duration,
+                SessionModel.weekday,
+                SessionModel.week,
+                SessionModel.original_block_id,
+            ).where(SessionModel.id.in_(ids)),
+        ).all()
+
+        snapshots = {
+            row.id: {
+                "id": row.id,
+                "start_time": row.start_time,
+                "duration": row.duration,
+                "weekday": row.weekday,
+                "week": row.week,
+                "original_block_id": row.original_block_id,
+                "room_ids": (),
+                "rooms": [],
+                "teacher_ids": (),
+                "teachers": (),
+                "subjects": (),
+                "class_ids": (),
+                "classes": [],
+            }
+            for row in rows
+        }
+        if not snapshots:
+            return {}
+
+        snapshot_ids = tuple(snapshots)
+        cls.attach_room_snapshots(session, snapshots, snapshot_ids)
+        cls.attach_teacher_snapshots(session, snapshots, snapshot_ids)
+        cls.attach_class_subject_snapshots(session, snapshots, snapshot_ids)
+        return snapshots
+
+    @classmethod
+    def attach_room_snapshots(
+        cls,
+        session: DBSession,
+        snapshots: dict[Any, dict[str, Any]],
+        session_ids: tuple[Any, ...],
+    ) -> None:
+        rows = session.execute(
+            select(
+                session_rooms.c.session_id,
+                Room.id,
+                Room.name,
+            )
+            .join(Room, Room.id == session_rooms.c.room_id)
+            .where(session_rooms.c.session_id.in_(session_ids))
+            .order_by(session_rooms.c.session_id, Room.name, Room.id),
+        ).all()
+
+        room_ids_by_session: dict[Any, list[str]] = defaultdict(list)
+        rooms_by_session: dict[Any, list[str]] = defaultdict(list)
+        for row in rows:
+            room_ids_by_session[row.session_id].append(cls.normalize_id(row.id))
+            rooms_by_session[row.session_id].append(row.name)
+
+        for session_id, snapshot in snapshots.items():
+            snapshot["room_ids"] = tuple(room_ids_by_session[session_id])
+            snapshot["rooms"] = rooms_by_session[session_id]
+
+    @classmethod
+    def attach_teacher_snapshots(
+        cls,
+        session: DBSession,
+        snapshots: dict[Any, dict[str, Any]],
+        session_ids: tuple[Any, ...],
+    ) -> None:
+        rows = session.execute(
+            select(
+                session_teachers.c.session_id,
+                Teacher.id,
+                Teacher.number,
+                Teacher.name,
+                Teacher.acronym,
+            )
+            .join(Teacher, Teacher.id == session_teachers.c.teacher_id)
+            .where(session_teachers.c.session_id.in_(session_ids))
+            .order_by(session_teachers.c.session_id, Teacher.number, Teacher.id),
+        ).all()
+
+        teacher_ids_by_session: dict[Any, list[str]] = defaultdict(list)
+        teachers_by_session: dict[Any, list[dict[str, Any]]] = defaultdict(list)
+        for row in rows:
+            teacher_ids_by_session[row.session_id].append(cls.normalize_id(row.id))
+            teachers_by_session[row.session_id].append(
+                {"number": row.number, "name": row.name, "acronym": row.acronym},
+            )
+
+        for session_id, snapshot in snapshots.items():
+            snapshot["teacher_ids"] = tuple(teacher_ids_by_session[session_id])
+            snapshot["teachers"] = tuple(teachers_by_session[session_id])
+
+    @classmethod
+    def attach_class_subject_snapshots(
+        cls,
+        session: DBSession,
+        snapshots: dict[Any, dict[str, Any]],
+        session_ids: tuple[Any, ...],
+    ) -> None:
+        rows = session.execute(
+            select(
+                SessionClassSubject.session_id,
+                Class.id.label("class_id"),
+                Class.code.label("class_code"),
+                Subject.name.label("subject_name"),
+                Subject.acronym.label("subject_acronym"),
+                Subject.code.label("subject_code"),
+            )
+            .join(Class, Class.id == SessionClassSubject.class_id)
+            .join(Subject, Subject.id == SessionClassSubject.subject_id)
+            .where(SessionClassSubject.session_id.in_(session_ids))
+            .order_by(
+                SessionClassSubject.session_id,
+                Class.code,
+                Subject.acronym,
+                Subject.code,
+            ),
+        ).all()
+
+        class_ids_by_session: dict[Any, set[str]] = defaultdict(set)
+        classes_by_session: dict[Any, list[str]] = defaultdict(list)
+        subjects_by_session: dict[Any, list[dict[str, Any]]] = defaultdict(list)
+        seen_classes: dict[Any, set[str]] = defaultdict(set)
+        seen_subjects: dict[Any, set[tuple[str, str | None, str]]] = defaultdict(set)
+
+        for row in rows:
+            normalized_class_id = cls.normalize_id(row.class_id)
+            class_ids_by_session[row.session_id].add(normalized_class_id)
+
+            if row.class_code not in seen_classes[row.session_id]:
+                classes_by_session[row.session_id].append(row.class_code)
+                seen_classes[row.session_id].add(row.class_code)
+
+            subject_key = (row.subject_name, row.subject_acronym, row.subject_code)
+            if subject_key not in seen_subjects[row.session_id]:
+                subjects_by_session[row.session_id].append(
+                    {
+                        "name": row.subject_name,
+                        "acronym": row.subject_acronym,
+                        "code": row.subject_code,
+                    },
+                )
+                seen_subjects[row.session_id].add(subject_key)
+
+        for session_id, snapshot in snapshots.items():
+            snapshot["class_ids"] = tuple(sorted(class_ids_by_session[session_id]))
+            snapshot["classes"] = classes_by_session[session_id]
+            snapshot["subjects"] = tuple(subjects_by_session[session_id])
+
+    @classmethod
+    def load_original_block_weeks(
+        cls,
+        session: DBSession,
+        original_block_ids: Iterable[Any],
+    ) -> dict[str, list[Any]]:
+        ids = list({cls.to_uuid(block_id) for block_id in original_block_ids})
+        if not ids:
+            return {}
+
+        rows = session.execute(
+            select(SessionModel.original_block_id, SessionModel.week)
+            .where(SessionModel.original_block_id.in_(ids))
+            .order_by(SessionModel.original_block_id, SessionModel.week),
+        ).all()
+
+        weeks_by_block: dict[str, list[Any]] = defaultdict(list)
+        for row in rows:
+            weeks_by_block[cls.normalize_id(row.original_block_id)].append(row.week)
+        return dict(weeks_by_block)
+
     @staticmethod
     def convert_to_minutes(time: int | str) -> int:
         """Convert an ``HHMM`` or ``HH:MM`` time value into minutes after midnight."""
@@ -102,6 +310,13 @@ class ExportGraph:
     def normalize_id(value) -> str:
         """Return an id string without hyphens so UUID forms can be compared."""
         return str(value).replace("-", "")
+
+    @classmethod
+    def to_uuid(cls, value: Any) -> UUID:
+        """Return an id value as a UUID accepted by SQLAlchemy UUID columns."""
+        if isinstance(value, UUID):
+            return value
+        return UUID(hex=cls.normalize_id(value))
 
     @staticmethod
     def get_time_slots(start_time: int | str, duration: int) -> tuple[int, ...]:
@@ -277,6 +492,133 @@ class ExportGraph:
             ),
             new=current_resources,
         )
+
+    def iter_needed_occupancy_nodes(self) -> dict[str, set[ResourceNode]]:
+        """Return current timetable nodes consulted by the dependency algorithm."""
+        nodes_by_graph = {spec.graph_name: set() for spec in RESOURCE_SPECS}
+
+        for session_id, changes in self.changes.items():
+            session_data = self.sessions_by_change_key.get(
+                self.normalize_id(session_id),
+            )
+            if session_data is None:
+                continue
+
+            time = self.build_time_movement(session_data, changes)
+            for spec in RESOURCE_SPECS:
+                resources = self.build_resource_movement(
+                    session_data,
+                    changes,
+                    spec,
+                )
+                if not time.changed and not resources.changed:
+                    continue
+
+                for old_resource, _new_resource in resources.pairs(time.changed):
+                    for old_time_slot in time.old.time_slots:
+                        nodes_by_graph[spec.graph_name].add(
+                            time.old.node(old_resource, old_time_slot),
+                        )
+
+        return nodes_by_graph
+
+    def load_scoped_occupancy(
+        self,
+        session: DBSession,
+    ) -> dict[str, dict[ResourceNode, list[Any]]]:
+        """Load current timetable occupancy only for dependency-relevant nodes."""
+        nodes_by_graph = self.iter_needed_occupancy_nodes()
+        return {
+            spec.graph_name: self.load_resource_occupancy(
+                session,
+                spec,
+                nodes_by_graph[spec.graph_name],
+            )
+            for spec in RESOURCE_SPECS
+        }
+
+    def load_resource_occupancy(
+        self,
+        session: DBSession,
+        spec: ResourceSpec,
+        needed_nodes: set[ResourceNode],
+    ) -> dict[ResourceNode, list[Any]]:
+        """Load current session ids occupying the requested resource/time nodes."""
+        if not needed_nodes:
+            return {}
+
+        resources = {self.to_uuid(node[0]) for node in needed_nodes}
+        weeks = {self.parse_week_date(node[3]) or node[3] for node in needed_nodes}
+        weekdays = {node[2] for node in needed_nodes}
+
+        resource_column = self.resource_column_for_spec(spec)
+        stmt = (
+            select(
+                resource_column.label("resource_id"),
+                SessionModel.id.label("session_id"),
+                SessionModel.week,
+                SessionModel.weekday,
+                SessionModel.start_time,
+                SessionModel.duration,
+            )
+            .select_from(self.resource_table_for_spec(spec))
+            .join(SessionModel, SessionModel.id == self.resource_session_column_for_spec(spec))
+            .where(
+                resource_column.in_(resources),
+                SessionModel.week.in_(weeks),
+                SessionModel.weekday.in_(weekdays),
+            )
+            .order_by(
+                resource_column,
+                SessionModel.week,
+                SessionModel.weekday,
+                SessionModel.start_time,
+            )
+        )
+
+        occupancy: dict[ResourceNode, list[Any]] = {node: [] for node in needed_nodes}
+        for row in session.execute(stmt).all():
+            placement = TimePlacement(
+                time_slots=self.get_time_slots(row.start_time, row.duration),
+                weekday=row.weekday,
+                week=row.week,
+            )
+            for time_slot in placement.time_slots:
+                node = placement.node(self.normalize_id(row.resource_id), time_slot)
+                if node in occupancy:
+                    occupancy[node].append(row.session_id)
+
+        return occupancy
+
+    @staticmethod
+    def resource_table_for_spec(spec: ResourceSpec):
+        if spec.graph_name == "rooms":
+            return session_rooms
+        if spec.graph_name == "teachers":
+            return session_teachers
+        if spec.graph_name == "classes":
+            return SessionClassSubject
+        raise ValueError(f"Unknown resource graph: {spec.graph_name}")
+
+    @staticmethod
+    def resource_column_for_spec(spec: ResourceSpec):
+        if spec.graph_name == "rooms":
+            return session_rooms.c.room_id
+        if spec.graph_name == "teachers":
+            return session_teachers.c.teacher_id
+        if spec.graph_name == "classes":
+            return SessionClassSubject.class_id
+        raise ValueError(f"Unknown resource graph: {spec.graph_name}")
+
+    @staticmethod
+    def resource_session_column_for_spec(spec: ResourceSpec):
+        if spec.graph_name == "rooms":
+            return session_rooms.c.session_id
+        if spec.graph_name == "teachers":
+            return session_teachers.c.session_id
+        if spec.graph_name == "classes":
+            return SessionClassSubject.session_id
+        raise ValueError(f"Unknown resource graph: {spec.graph_name}")
 
     def connect_nodes_according_to_changes(self, graphs: dict[str, nx.DiGraph]):
         """Create movement edges for changed session times or resources.
@@ -533,6 +875,12 @@ class ExportGraph:
     def get_original_block_weeks(self, original_block_id: Any) -> list[Any]:
         """Return every week represented by one recurring original block."""
         normalized_block_id = self.normalize_id(original_block_id)
+        if (
+            hasattr(self, "original_block_weeks")
+            and normalized_block_id in self.original_block_weeks
+        ):
+            return self.original_block_weeks[normalized_block_id]
+
         weeks = [
             session_data["week"]
             for session_data in self.initial_sessions.values()
@@ -711,16 +1059,10 @@ class ExportGraph:
         """
         graphs = {spec.graph_name: nx.DiGraph() for spec in RESOURCE_SPECS}
 
-        for session_id, session_data in self.sessions_by_id.items():
-            placement = self.build_current_placement(session_data)
-
-            for spec in RESOURCE_SPECS:
-                self.add_session_to_resource_graph(
-                    graphs[spec.graph_name],
-                    session_data[spec.session_field],
-                    session_id,
-                    placement,
-                )
+        for graph_name, occupancy in self.scoped_occupancy.items():
+            graph = graphs[graph_name]
+            for node, session_ids in occupancy.items():
+                graph.add_node(node, ids=list(session_ids))
 
         self.connect_nodes_according_to_changes(graphs)
         self.dependency_graph = self.build_change_dependency_graph(graphs)

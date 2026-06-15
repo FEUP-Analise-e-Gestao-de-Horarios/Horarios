@@ -7,6 +7,11 @@ from django.views import View
 
 from src.core.errors import NotAuthenticatedResponse, ProjectNotFoundResponse
 from src.core.schemas import SuccessResponse
+from src.exporter.compact_payload import (
+    COMPACT_EXPORT_FORMAT,
+    compact_export_payload,
+    expand_compact_export_payload,
+)
 from src.exporter.export_graph import ExportGraph
 from src.projects.models import Project
 from src.projects.projects_db.dao.class_dao import ClassDAO
@@ -41,6 +46,9 @@ class ProjectExportView(View):
         if not isinstance(payload, dict):
             payload = {}
         recalculate_export_graph = bool(payload.get("recalculate_export_graph"))
+        payload_format = payload.get("payload_format")
+        if payload_format not in {"compact", "expanded"}:
+            payload_format = "expanded"
 
         # -- Compute differences and conflicts ---------------------------------
         # with Comparator(project_id) as comp:
@@ -66,10 +74,11 @@ class ProjectExportView(View):
             if not recalculate_export_graph:
                 cached_data = export_cache_dao.get_project_export_payload()
                 if cached_data is not None:
+                    response_data = self.format_export_payload(cached_data, payload_format)
                     return JsonResponse(
                         SuccessResponse(
                             message="Project export loaded from cache",
-                            data=cached_data,
+                            data=response_data,
                         ).model_dump(),
                     )
 
@@ -110,7 +119,8 @@ class ProjectExportView(View):
                     "modification_steps": modification_steps,
                 },
             )
-            export_cache_dao.replace_project_export_payload(data)
+            compact_data = compact_export_payload(data)
+            export_cache_dao.replace_project_export_payload(compact_data)
             session.commit()
 
             print(f"time elapsed: {'%.2f' % (end_time - start_time)}")
@@ -118,6 +128,17 @@ class ProjectExportView(View):
             return JsonResponse(
                 SuccessResponse(
                     message="Project export computed successfully",
-                    data=data,
+                    data=self.format_export_payload(compact_data, payload_format),
                 ).model_dump(),
             )
+
+    @staticmethod
+    def format_export_payload(data: dict[str, Any], payload_format: str) -> dict[str, Any]:
+        if data.get("format") == COMPACT_EXPORT_FORMAT:
+            if payload_format == "compact":
+                return data
+            return expand_compact_export_payload(data)
+
+        if payload_format == "compact":
+            return compact_export_payload(data)
+        return data

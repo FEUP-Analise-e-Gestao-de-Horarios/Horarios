@@ -109,6 +109,9 @@ CREATE TABLE sessions (
     UNIQUE (week, original_block_id)
 );
 
+CREATE INDEX ix_sessions_conflict_slot
+    ON sessions(week, weekday, start_time, duration, id);
+
 CREATE TABLE session_rooms (
     session_id  UUID NOT NULL REFERENCES sessions(id),
     room_id     UUID NOT NULL REFERENCES rooms(id),
@@ -116,12 +119,18 @@ CREATE TABLE session_rooms (
     PRIMARY KEY (session_id, room_id)
 );
 
+CREATE INDEX ix_session_rooms_room_session
+    ON session_rooms(room_id, session_id);
+
 CREATE TABLE session_teachers (
     session_id  UUID NOT NULL REFERENCES sessions(id),
     teacher_id  UUID NOT NULL REFERENCES teachers(id),
 
     PRIMARY KEY (session_id, teacher_id)
 );
+
+CREATE INDEX ix_session_teachers_teacher_session
+    ON session_teachers(teacher_id, session_id);
 
 CREATE TABLE sessions_classes_subject (
     session_id  UUID NOT NULL REFERENCES sessions(id),
@@ -131,6 +140,9 @@ CREATE TABLE sessions_classes_subject (
     PRIMARY KEY (session_id, class_id, subject_id),
     UNIQUE (session_id, class_id)
 );
+
+CREATE INDEX ix_sessions_classes_subject_class_session
+    ON sessions_classes_subject(class_id, session_id);
 
 
 -----------------------------------------------------------

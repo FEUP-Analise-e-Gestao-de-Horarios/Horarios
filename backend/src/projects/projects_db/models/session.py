@@ -24,6 +24,7 @@ class Session(Base):
     __table_args__ = (
         UniqueConstraint("week", "original_block_id"),
         Index("ix_sessions_week_original_block_id", "week", "original_block_id"),
+        Index("ix_sessions_conflict_slot", "week", "weekday", "start_time", "duration", "id"),
     )
 
     # UUIDs

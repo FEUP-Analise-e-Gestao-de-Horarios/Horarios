@@ -11,6 +11,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from sqlalchemy import func, select
 
+from src.exporter.compact_payload import COMPACT_EXPORT_FORMAT, expand_compact_export_payload
 from src.projects.models import Project
 from src.projects.projects_db.dao import ExportCacheDAO
 from src.projects.projects_db.models import (
@@ -161,6 +162,40 @@ class SessionDeletionEndpointTests(TestCase):
         self.assertEqual(cached_response.status_code, HTTPStatus.OK)
         self.assertEqual(cached_response.json()["message"], "Project export loaded from cache")
         self.assertEqual(cached_response.json()["data"], response.json()["data"])
+
+    def test_export_endpoint_supports_compact_payload_format(self) -> None:
+        expanded_response = self.client.post(
+            f"/api/projects/{self.project.pk}/export",
+            data=json.dumps({"recalculate_export_graph": True}),
+            content_type="application/json",
+        )
+        compact_response = self.client.post(
+            f"/api/projects/{self.project.pk}/export",
+            data=json.dumps({"payload_format": "compact"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(expanded_response.status_code, HTTPStatus.OK)
+        self.assertEqual(compact_response.status_code, HTTPStatus.OK)
+        compact_payload = compact_response.json()["data"]
+        self.assertEqual(compact_payload["format"], COMPACT_EXPORT_FORMAT)
+        self.assertEqual(
+            expand_compact_export_payload(compact_payload),
+            expanded_response.json()["data"],
+        )
+
+    def test_export_generation_does_not_load_all_sessions(self) -> None:
+        with patch(
+            "src.projects.projects_db.dao.base_dao.BaseDAO.get_all",
+            side_effect=AssertionError("export generation should use scoped loaders"),
+        ):
+            response = self.client.post(
+                f"/api/projects/{self.project.pk}/export",
+                data=json.dumps({"recalculate_export_graph": True}),
+                content_type="application/json",
+            )
+
+        self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_delete_session_endpoint_clears_export_cache(self) -> None:
         response = self.client.post(

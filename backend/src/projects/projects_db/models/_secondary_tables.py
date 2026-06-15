@@ -18,6 +18,7 @@ session_rooms = Table(
         primary_key=True,
     ),
     Index("ix_session_rooms_room_id", "room_id"),
+    Index("ix_session_rooms_room_session", "room_id", "session_id"),
 )
 
 session_teachers = Table(
@@ -36,4 +37,5 @@ session_teachers = Table(
         primary_key=True,
     ),
     Index("ix_session_teachers_teacher_id", "teacher_id"),
+    Index("ix_session_teachers_teacher_session", "teacher_id", "session_id"),
 )

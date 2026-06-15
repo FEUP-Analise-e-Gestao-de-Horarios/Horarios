@@ -144,3 +144,48 @@ export interface ProjectExportPayload {
   classes_conflicts: ExportClassConflict[];
   modification_steps: ExportModificationSteps;
 }
+
+export type CompactExportConflictKind = "room" | "teacher" | "class";
+
+export type CompactExportConflict = [
+  kind: CompactExportConflictKind,
+  resourceId: string,
+  week: string,
+  weeks: string[] | undefined,
+  weekday: Weekday,
+  startTime: number,
+  duration: number,
+  collisions: number,
+  sessionIds: string[],
+];
+
+export interface CompactExportEntities {
+  rooms: Record<string, Omit<ExportRoomRelationChange, "room_id">>;
+  teachers: Record<string, Omit<ExportTeacherRelationChange, "teacher_id">>;
+  classes: Record<string, Pick<ExportClassSubjectRelationChange, "class_code" | "class_shift">>;
+  subjects: Record<
+    string,
+    Pick<
+      ExportClassSubjectRelationChange,
+      "subject_number" | "subject_code" | "subject_acronym" | "subject_name"
+    >
+  >;
+  sessions: Record<string, ExportSessionSnapshot>;
+}
+
+export interface CompactExportModificationStep extends Omit<
+  ExportModificationStep,
+  "session" | "modifications"
+> {
+  modifications: Record<string, unknown>;
+}
+
+export interface CompactProjectExportPayload {
+  format: "compact_export_v1";
+  entities: CompactExportEntities;
+  added_removed_sessions: ExportAddedRemovedRecords<ExportSessionRecord>;
+  conflicts: CompactExportConflict[];
+  modification_steps: CompactExportModificationStep[];
+}
+
+export type ProjectExportApiPayload = ProjectExportPayload | CompactProjectExportPayload;

@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { queryKeys } from "@/api/queryKeys";
 import type { ApiResponse } from "@/types/api";
-import type { ProjectExportPayload } from "@/types/exporter";
+import type { ProjectExportApiPayload, ProjectExportPayload } from "@/types/exporter";
+import { compactExportToProjectExportPayload } from "@/utils/exportCompact";
 
 export { useProject } from "./project/project";
 
@@ -14,11 +15,11 @@ export function useProjectExport(projectId: string) {
     queryFn: async (): Promise<ProjectExportPayload> => {
       const shouldRecalculate = recalculateExportGraph.current;
       recalculateExportGraph.current = false;
-      const response = await api.post<ApiResponse<ProjectExportPayload>>(
+      const response = await api.post<ApiResponse<ProjectExportApiPayload>>(
         `/api/projects/${projectId}/export`,
-        { recalculate_export_graph: shouldRecalculate },
+        { recalculate_export_graph: shouldRecalculate, payload_format: "compact" },
       );
-      return response.data;
+      return compactExportToProjectExportPayload(response.data);
     },
     enabled: !!projectId,
     refetchOnWindowFocus: false,
