@@ -1,3 +1,4 @@
+import type { RedBlockBase } from "./red_block";
 import type { WeekBlockResponse } from "./sessions";
 import type { YearBase } from "./year";
 
@@ -17,4 +18,5 @@ export interface ClassWithSessions extends ClassBase {
 export interface ClassDetail extends ClassBase {
   year: YearBase;
   blocks: WeekBlockResponse[];
+  red_blocks: RedBlockBase[];
 }
