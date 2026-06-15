@@ -30,6 +30,19 @@ function salaToOption(room: RoomOption) {
   return { id: room.id, label: `${room.label}${capacity} - ${room.type}` };
 }
 
+/** Inline amber warning shown while editing the event (PI ToDo #17, #18). */
+function DrawerWarning({ children }: { children: string }) {
+  return (
+    <div
+      role="alert"
+      className="flex items-start gap-2 rounded border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-200"
+    >
+      <span aria-hidden="true">⚠</span>
+      <span>{children}</span>
+    </div>
+  );
+}
+
 interface EditEventDrawerProps {
   open: boolean;
   onClose: () => void;
@@ -135,14 +148,48 @@ export default function EditEventDrawer({
     [selectedEventTeacherIds, teacherOptions],
   );
 
+  // Capacities of the event's current room(s); rooms matching one of these sort
+  // to the top of their type group (PI ToDo #8a follow-up).
+  const preferredSeats = useMemo(() => {
+    if (!event?.rooms || event.rooms.length === 0) return new Set<string>();
+    const eventRoomIds = new Set(event.rooms.map((room) => room.id));
+    return new Set(
+      roomOptions
+        .filter((room) => eventRoomIds.has(room.id))
+        .map((room) => room.seats)
+        .filter((seats): seats is string => Boolean(seats)),
+    );
+  }, [event, roomOptions]);
+
+  // Same capacity first, then the rest (stable, so name order is preserved).
+  const bySeatsMatch = (a: RoomOption, b: RoomOption) =>
+    Number(preferredSeats.has(b.seats ?? "")) - Number(preferredSeats.has(a.seats ?? ""));
+
+  // Selected rooms head the list in their own group, so they're pulled out of
+  // the type groups below to avoid showing twice.
+  const selectedSalaIds = useMemo(() => new Set(selectedSalaOverride), [selectedSalaOverride]);
+
+  const selectedSalas = useMemo(
+    () => roomOptions.filter((room) => selectedSalaIds.has(room.id)),
+    [roomOptions, selectedSalaIds],
+  );
+
   const preferredSalas = useMemo(
-    () => roomOptions.filter((room) => preferredRoomTypes.has(room.type)),
-    [preferredRoomTypes, roomOptions],
+    () =>
+      roomOptions
+        .filter((room) => !selectedSalaIds.has(room.id) && preferredRoomTypes.has(room.type))
+        .sort(bySeatsMatch),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [preferredRoomTypes, preferredSeats, roomOptions, selectedSalaIds],
   );
 
   const otherSalas = useMemo(
-    () => roomOptions.filter((room) => !preferredRoomTypes.has(room.type)),
-    [preferredRoomTypes, roomOptions],
+    () =>
+      roomOptions
+        .filter((room) => !selectedSalaIds.has(room.id) && !preferredRoomTypes.has(room.type))
+        .sort(bySeatsMatch),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [preferredRoomTypes, preferredSeats, roomOptions, selectedSalaIds],
   );
 
   const docenteMatches = docentesSearch.matches;
@@ -159,6 +206,11 @@ export default function EditEventDrawer({
     [docenteMatches, otherDocentes],
   );
 
+  const filteredSelectedSalas = useMemo(
+    () => selectedSalas.filter((room) => salaMatches(`${room.id} ${room.type}`)),
+    [selectedSalas, salaMatches],
+  );
+
   const filteredPreferredSalas = useMemo(
     () => preferredSalas.filter((room) => salaMatches(`${room.id} ${room.type}`)),
     [preferredSalas, salaMatches],
@@ -169,15 +221,23 @@ export default function EditEventDrawer({
     [otherSalas, salaMatches],
   );
 
+  const eventTurmas = useMemo(() => new Set(event?.classCodes ?? []), [event?.classCodes]);
+
+  // A shared event carries turmas from another course that aren't in this
+  // course's list — append them so they're visible and selectable (PI ToDo #18).
+  const turmaDropdownOptions = useMemo(() => {
+    const extra = (event?.classCodes ?? []).filter((code) => !turmaOptions.includes(code));
+    return extra.length ? [...turmaOptions, ...extra] : turmaOptions;
+  }, [event, turmaOptions]);
+
   // The event's own turmas float to the top of the list; everything else keeps
   // its incoming (numeric) order since Array.sort is stable (PI ToDo #8d).
-  const eventTurmas = useMemo(() => new Set(event?.classCodes ?? []), [event?.classCodes]);
   const filteredTurmas = useMemo(
     () =>
-      turmaOptions
+      turmaDropdownOptions
         .filter((turma) => turmaMatches(turma))
         .sort((a, b) => Number(eventTurmas.has(b)) - Number(eventTurmas.has(a))),
-    [turmaOptions, turmaMatches, eventTurmas],
+    [turmaDropdownOptions, turmaMatches, eventTurmas],
   );
 
   // The "effective" selections are simply the user's overrides, narrowed to
@@ -224,8 +284,24 @@ export default function EditEventDrawer({
   // search box should only narrow what's *displayed* in the dropdown, never
   // drop selections the user already made.
   const effectiveSelectedTurmas = useMemo(
-    () => selectedTurmasOverride.filter((id) => turmaOptions.includes(id)),
-    [selectedTurmasOverride, turmaOptions],
+    () => selectedTurmasOverride.filter((id) => turmaDropdownOptions.includes(id)),
+    [selectedTurmasOverride, turmaDropdownOptions],
+  );
+
+  // Inline edit warnings (PI ToDo #17, #18).
+  // #17 — changed when the selection differs from the event's own turmas at open.
+  const turmasChanged = useMemo(() => {
+    if (effectiveSelectedTurmas.length !== eventTurmas.size) return true;
+    return effectiveSelectedTurmas.some((turma) => !eventTurmas.has(turma));
+  }, [effectiveSelectedTurmas, eventTurmas]);
+
+  // #18 — a class code outside this course's turma list belongs to another course
+  // (guarded against the transient empty option list while the course loads).
+  const isCrossCourse = useMemo(
+    () =>
+      turmaOptions.length > 0 &&
+      (event?.classCodes ?? []).some((code) => !turmaOptions.includes(code)),
+    [event, turmaOptions],
   );
 
   if (!open) return null;
@@ -272,6 +348,17 @@ export default function EditEventDrawer({
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          {(turmasChanged || isCrossCourse) && (
+            <div className="space-y-2">
+              {turmasChanged && (
+                <DrawerWarning>Está a mudar esta aula para uma turma diferente.</DrawerWarning>
+              )}
+              {isCrossCourse && (
+                <DrawerWarning>Esta aula é partilhada com outro curso.</DrawerWarning>
+              )}
+            </div>
+          )}
+
           <label className="block text-sm">
             <span className="mb-1.5 block text-white/90">UC Selecionada</span>
             <select
@@ -385,7 +472,7 @@ export default function EditEventDrawer({
               onToggle={() => setOpenDropdown((prev) => (prev === "docentes" ? null : "docentes"))}
               search={docentesSearch.query}
               onSearchChange={docentesSearch.setQuery}
-              listMaxHeightClass="max-h-72"
+              listMaxHeightClass="max-h-48"
               groups={[
                 {
                   heading: "Docentes desta aula",
@@ -406,8 +493,12 @@ export default function EditEventDrawer({
                   onToggle={() => setOpenDropdown((prev) => (prev === "salas" ? null : "salas"))}
                   search={salasSearch.query}
                   onSearchChange={salasSearch.setQuery}
-                  listMaxHeightClass="max-h-64"
+                  listMaxHeightClass="max-h-32"
                   groups={[
+                    {
+                      heading: "Selecionada",
+                      options: filteredSelectedSalas.map(salaToOption),
+                    },
                     {
                       heading: "Tipologia correspondente",
                       options: filteredPreferredSalas.map(salaToOption),
@@ -430,9 +521,15 @@ export default function EditEventDrawer({
                   onToggle={() => setOpenDropdown((prev) => (prev === "turmas" ? null : "turmas"))}
                   search={turmasSearch.query}
                   onSearchChange={turmasSearch.setQuery}
-                  listMaxHeightClass="max-h-56"
+                  listMaxHeightClass="max-h-32"
                   groups={[
-                    { options: filteredTurmas.map((turma) => ({ id: turma, label: turma })) },
+                    {
+                      options: filteredTurmas.map((turma) => ({
+                        id: turma,
+                        // Flag the event's own turma(s) so the original is clear (#17).
+                        label: eventTurmas.has(turma) ? `${turma} · original` : turma,
+                      })),
+                    },
                   ]}
                   selectedIds={effectiveSelectedTurmas}
                   onToggleOption={(id) =>
