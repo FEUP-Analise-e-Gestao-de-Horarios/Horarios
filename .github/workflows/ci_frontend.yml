@@ -39,3 +39,14 @@ jobs:
       - uses: astral-sh/setup-uv@v7
       - run: cd frontend && npm install
       - run: uvx pre-commit run frontend-format --all-files
+
+  frontend-test:
+    name: "Test"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - run: cd frontend && npm install
+      - run: cd frontend && npm run test
