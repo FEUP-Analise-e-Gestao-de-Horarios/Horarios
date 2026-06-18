@@ -1,6 +1,6 @@
 import type { RedBlockBase } from "./red_block";
 import type { WeekBlockResponse } from "./sessions";
-import type { YearBase } from "./year";
+import type { YearWithDegree } from "./year";
 
 // -- Base ----------------------------------------------------------------
 export interface ClassBase {
@@ -16,7 +16,7 @@ export interface ClassWithSessions extends ClassBase {
 
 // -- Detail --------------------------------------------------------------
 export interface ClassDetail extends ClassBase {
-  year: YearBase;
+  year: YearWithDegree;
   blocks: WeekBlockResponse[];
   red_blocks: RedBlockBase[];
 }

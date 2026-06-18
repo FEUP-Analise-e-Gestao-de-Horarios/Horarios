@@ -3,13 +3,16 @@ from uuid import UUID
 
 from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session as DBSession
+from sqlalchemy.orm import selectinload
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.models import (
+    Class,
     SessionClassSubject,
     Subject,
+    Year,
 )
-from src.projects.projects_db.models._secondary_tables import session_teachers
+from src.projects.projects_db.models._secondary_tables import session_teachers, subject_years
 from src.projects.projects_db.schemas.subject import SubjectStats
 
 
@@ -23,11 +26,15 @@ class SubjectDAO(BaseDAO[Subject]):
     # -- Create
     # -------------------------------------------------------------------
 
-    def create(self, *, year_id: UUID, number: int, code: str, acronym: str, name: str) -> Subject:
-        """Create and persist a new subject.
+    def create(self, *, year: Year, number: int, code: str, acronym: str, name: str) -> Subject:
+        """Create and persist a new subject taught in the given year.
+
+        A subject can be taught across multiple years; pass the first year it
+        is found in here and append further years to ``subject.years`` as they
+        are discovered.
 
         Args:
-            year_id: UUID of the year this subject belongs to.
+            year: The year this subject is initially associated with.
             number: Unique institutional number of the subject.
             code: Unique code identifying the subject.
             acronym: Short abbreviation for the subject.
@@ -36,7 +43,7 @@ class SubjectDAO(BaseDAO[Subject]):
         Returns:
             The newly created Subject instance, flushed to the session.
         """
-        return self._create(year_id=year_id, number=number, code=code, acronym=acronym, name=name)
+        return self._create(years=[year], number=number, code=code, acronym=acronym, name=name)
 
     # -------------------------------------------------------------------
     # -- Get Subjects
@@ -53,10 +60,31 @@ class SubjectDAO(BaseDAO[Subject]):
             return []
         existing = set(
             self.session.scalars(
-                select(Subject.id).where(Subject.id.in_(unique), Subject.year_id == year_id),
+                select(subject_years.c.subject_id).where(
+                    subject_years.c.subject_id.in_(unique),
+                    subject_years.c.year_id == year_id,
+                ),
             ).all(),
         )
         return list(unique - existing)
+
+    def get_with_years(self, subject_id: UUID) -> Subject | None:
+        """Return a subject with its years (and each year's degree) eager-loaded.
+
+        Avoids the N+1 that serializing ``SubjectDetailResponse.years`` would
+        otherwise trigger when lazy-loading each year and its degree.
+
+        Args:
+            subject_id: UUID of the subject to retrieve.
+
+        Returns:
+            The matching Subject with ``years`` populated, or None if not found.
+        """
+        return self.session.scalars(
+            select(Subject)
+            .where(Subject.id == subject_id)
+            .options(selectinload(Subject.years).selectinload(Year.degree)),
+        ).one_or_none()
 
     def get_by_teacher(self, teacher_id: UUID) -> list[Subject]:
         """Return distinct subjects taught by the given teacher across all their sessions.
@@ -104,20 +132,19 @@ class SubjectDAO(BaseDAO[Subject]):
         return self._get_with_stats(year_id=year_id)
 
     def _get_with_stats(self, *, year_id: UUID | None = None) -> list[SubjectStats]:
-        sessions_sq_q = select(
+        sessions_select = select(
             SessionClassSubject.subject_id,
             func.count(distinct(SessionClassSubject.session_id)).label("cnt"),
         )
         if year_id is not None:
-            sessions_sq_q = sessions_sq_q.join(
-                Subject,
-                Subject.id == SessionClassSubject.subject_id,
-            ).where(Subject.year_id == year_id)
-        sessions_sq = sessions_sq_q.group_by(SessionClassSubject.subject_id).subquery()
+            sessions_select = sessions_select.join(
+                Class,
+                Class.id == SessionClassSubject.class_id,
+            ).where(Class.year_id == year_id)
+        sessions_sq = sessions_select.group_by(SessionClassSubject.subject_id).subquery()
 
         stmt = select(
             Subject.id,
-            Subject.year_id,
             Subject.number,
             Subject.code,
             Subject.acronym,
@@ -125,7 +152,10 @@ class SubjectDAO(BaseDAO[Subject]):
             func.coalesce(sessions_sq.c.cnt, 0).label("sessions"),
         ).outerjoin(sessions_sq, sessions_sq.c.subject_id == Subject.id)
         if year_id is not None:
-            stmt = stmt.where(Subject.year_id == year_id)
+            stmt = stmt.join(
+                subject_years,
+                subject_years.c.subject_id == Subject.id,
+            ).where(subject_years.c.year_id == year_id)
 
         rows = self.session.execute(stmt).all()
 
