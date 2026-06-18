@@ -6,6 +6,7 @@ from sqlalchemy import ForeignKey, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.projects.projects_db.base import Base
+from src.projects.projects_db.models._secondary_tables import subject_years
 
 if TYPE_CHECKING:
     from src.projects.projects_db.models import Class, Degree, Subject
@@ -26,7 +27,10 @@ class Year(Base):
 
     # Relationships
     degree: Mapped[Degree] = relationship(back_populates="years")
-    subjects: Mapped[list[Subject]] = relationship(back_populates="year")
+    subjects: Mapped[list[Subject]] = relationship(
+        secondary=subject_years,
+        back_populates="years",
+    )
     classes: Mapped[list[Class]] = relationship(back_populates="year")
 
     def __str__(self) -> str:

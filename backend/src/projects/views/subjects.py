@@ -42,7 +42,7 @@ class ProjectSubjectView(View):
     @require_project
     def get(self, request: HttpRequest, project_id: int, subject_id: UUID) -> HttpResponse:
         with get_project_session(general_db(project_id)) as db_session:
-            subject = SubjectDAO(db_session).get(subject_id)
+            subject = SubjectDAO(db_session).get_with_years(subject_id)
             if subject is None:
                 return SubjectNotFoundResponse()
 
