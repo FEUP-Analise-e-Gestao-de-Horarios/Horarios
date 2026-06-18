@@ -3,6 +3,7 @@ from uuid import UUID
 
 from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session as DBSession
+from sqlalchemy.orm import selectinload
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
 from src.projects.projects_db.models import (
@@ -66,6 +67,24 @@ class SubjectDAO(BaseDAO[Subject]):
             ).all(),
         )
         return list(unique - existing)
+
+    def get_with_years(self, subject_id: UUID) -> Subject | None:
+        """Return a subject with its years (and each year's degree) eager-loaded.
+
+        Avoids the N+1 that serializing ``SubjectDetailResponse.years`` would
+        otherwise trigger when lazy-loading each year and its degree.
+
+        Args:
+            subject_id: UUID of the subject to retrieve.
+
+        Returns:
+            The matching Subject with ``years`` populated, or None if not found.
+        """
+        return self.session.scalars(
+            select(Subject)
+            .where(Subject.id == subject_id)
+            .options(selectinload(Subject.years).selectinload(Year.degree)),
+        ).one_or_none()
 
     def get_by_teacher(self, teacher_id: UUID) -> list[Subject]:
         """Return distinct subjects taught by the given teacher across all their sessions.
