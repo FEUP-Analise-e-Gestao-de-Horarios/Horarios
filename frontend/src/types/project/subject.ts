@@ -1,10 +1,9 @@
 import type { WeekBlockResponse } from "./sessions";
-import type { YearBase } from "./year";
+import type { YearWithDegree } from "./year";
 
 // -- Base ----------------------------------------------------------------
 export interface SubjectBase {
   id: string;
-  year_id: string;
   number: number;
   code: string;
   acronym: string;
@@ -22,14 +21,13 @@ export interface SubjectStats extends SubjectBase {
   degree_id: string;
   degree_acronym: string;
   degree_name: string;
-  year_id: string;
   year_number: number;
   sessions: number;
 }
 
 // -- Detail --------------------------------------------------------------
 export interface SubjectDetail extends SubjectBase {
-  year: YearBase;
+  years: YearWithDegree[];
   blocks: WeekBlockResponse[];
 }
 

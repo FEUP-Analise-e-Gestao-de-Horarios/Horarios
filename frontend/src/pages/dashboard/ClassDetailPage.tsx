@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useProject } from "@/api/hooks/project/project";
 import { useProjectClass } from "@/api/hooks/project/class";
 import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
 import SessionPopup from "@/components/dashboard/SessionPopup";
 import WeekGrid, { type WeekGridEvent, type WeekGridMark } from "@/components/dashboard/WeekGrid";
+import { ROUTES } from "@/routes";
 import type { RedBlockBase } from "@/types/project/red_block";
 import type { SessionResponse, WeekBlockResponse } from "@/types/project/sessions";
 import { formatBlockLabel } from "@/utils/date";
+import { buildPath } from "@/utils/routes";
 
 export default function ClassDetailPage() {
   const { projectId, classId } = useParams<{ projectId: string; classId: string }>();
@@ -82,7 +84,16 @@ export default function ClassDetailPage() {
                 <div className="min-w-0">
                   <h1 className="text-2xl font-bold text-[#08060d] truncate">{data.code}</h1>
                   <div className="mt-1 text-sm text-[#6b6375] truncate">
-                    Ano {data.year.number} · Turno {data.shift}
+                    <Link
+                      to={`${buildPath(ROUTES.DEGREE_DETAIL, {
+                        projectId: pid,
+                        degreeId: data.year.degree.id,
+                      })}#year-${data.year.id}`}
+                      className="hover:text-[#08060d] hover:underline transition-colors"
+                    >
+                      {data.year.degree.acronym} {data.year.number}º Ano
+                    </Link>{" "}
+                    · Turno {data.shift}
                   </div>
                 </div>
                 <div className="shrink-0 text-right text-sm text-[#6b6375]">
