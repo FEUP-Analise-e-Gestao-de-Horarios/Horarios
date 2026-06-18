@@ -72,7 +72,10 @@ export default function SubjectDetailPage() {
             </div>
           ) : (
             <>
-              <div className="bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)] px-6 py-4 flex items-start justify-between gap-4">
+              <div
+                data-copy-id={sid}
+                className="bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)] px-6 py-4 flex items-start justify-between gap-4"
+              >
                 <div className="min-w-0">
                   <h1 className="text-2xl font-bold text-[#08060d] truncate">{data.name}</h1>
                   <div className="mt-1.5 text-sm text-[#6b6375] truncate">
