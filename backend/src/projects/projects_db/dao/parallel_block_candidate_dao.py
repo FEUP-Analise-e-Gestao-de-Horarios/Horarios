@@ -126,7 +126,7 @@ class ParallelBlockCandidateDAO:
             )
             .join(Subject, Subject.id == SessionClassSubject.subject_id)
             .join(Class, Class.id == SessionClassSubject.class_id)
-            .join(Year, Year.id == Subject.year_id)
+            .join(Year, Year.id == Class.year_id)
             .join(Degree, Degree.id == Year.degree_id)
             .group_by(
                 candidate_blocks.c.first_week,
