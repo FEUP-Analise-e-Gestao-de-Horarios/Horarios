@@ -5,28 +5,40 @@ updates:
     directory: "/backend"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "08:00"
 
   - package-ecosystem: "npm"
     directory: "/frontend"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "08:00"
 
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "08:00"
 
   - package-ecosystem: "docker"
     directory: "/backend"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "08:00"
 
   - package-ecosystem: "docker"
     directory: "/frontend"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "08:00"
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "08:00"
