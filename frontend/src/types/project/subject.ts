@@ -18,10 +18,6 @@ export interface SubjectsListPayload {
 
 // -- Stats ---------------------------------------------------------------
 export interface SubjectStats extends SubjectBase {
-  degree_id: string;
-  degree_acronym: string;
-  degree_name: string;
-  year_number: number;
   sessions: number;
 }
 
