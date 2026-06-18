@@ -64,7 +64,6 @@ function makeTeacher(overrides: Partial<TeacherBase> = {}): TeacherBase {
 function makeSubject(overrides: Partial<SubjectBase> = {}): SubjectBase {
   return {
     id: "u1",
-    year_id: "y1",
     number: 1,
     code: "ALG01",
     acronym: "ALG",
