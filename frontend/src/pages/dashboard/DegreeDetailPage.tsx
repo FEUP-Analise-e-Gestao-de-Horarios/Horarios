@@ -71,7 +71,10 @@ export default function DegreeDetailPage() {
             </div>
           ) : (
             <>
-              <div className="bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)] px-6 py-4 flex items-start justify-between gap-4">
+              <div
+                data-copy-id={did}
+                className="bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)] px-6 py-4 flex items-start justify-between gap-4"
+              >
                 <div className="min-w-0">
                   <h1 className="text-2xl font-bold text-[#08060d]">{degree.data.name}</h1>
                   <div className="mt-1 text-sm text-[#6b6375]">{degree.data.acronym}</div>
@@ -151,6 +154,7 @@ function SubjectRow({ projectId, subject }: { projectId: string; subject: Subjec
     <li>
       <Link
         to={buildPath(ROUTES.SUBJECT_DETAIL, { projectId, subjectId: subject.id })}
+        data-copy-id={subject.id}
         className="flex items-baseline justify-between gap-3 px-4 py-2 hover:bg-[#f9f7f4] transition-colors"
       >
         <div className="min-w-0">
@@ -172,6 +176,7 @@ function ClassRow({ projectId, classItem }: { projectId: string; classItem: Clas
     <li>
       <Link
         to={buildPath(ROUTES.CLASS_DETAIL, { projectId, classId: classItem.id })}
+        data-copy-id={classItem.id}
         className="flex items-baseline justify-between gap-3 px-4 py-2 hover:bg-[#f9f7f4] transition-colors"
       >
         <div className="min-w-0">
