@@ -3,6 +3,7 @@ version: 2
 updates:
   - package-ecosystem: "uv"
     directory: "/backend"
+    open-pull-requests-limit: 10
     schedule:
       interval: "weekly"
       day: "monday"
@@ -10,6 +11,7 @@ updates:
 
   - package-ecosystem: "npm"
     directory: "/frontend"
+    open-pull-requests-limit: 10
     schedule:
       interval: "weekly"
       day: "monday"
@@ -17,6 +19,7 @@ updates:
 
   - package-ecosystem: "docker"
     directory: "/"
+    open-pull-requests-limit: 10
     schedule:
       interval: "weekly"
       day: "monday"
@@ -24,6 +27,7 @@ updates:
 
   - package-ecosystem: "docker"
     directory: "/backend"
+    open-pull-requests-limit: 10
     schedule:
       interval: "weekly"
       day: "monday"
@@ -31,6 +35,7 @@ updates:
 
   - package-ecosystem: "docker"
     directory: "/frontend"
+    open-pull-requests-limit: 10
     schedule:
       interval: "weekly"
       day: "monday"
@@ -38,6 +43,7 @@ updates:
 
   - package-ecosystem: "github-actions"
     directory: "/"
+    open-pull-requests-limit: 10
     schedule:
       interval: "weekly"
       day: "monday"
