@@ -101,7 +101,7 @@ export default function SessionPopup({
       >
         <div className="px-6 py-4 border-b border-[#e5e4e7] flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h2 className="text-lg font-bold text-[#08060d] truncate">
+            <h2 data-copy-id={session.id} className="text-lg font-bold text-[#08060d] truncate">
               {session.subjects.map((s) => s.acronym).join(", ") || "—"}
             </h2>
             <div className="mt-1 text-sm text-[#6b6375]">
