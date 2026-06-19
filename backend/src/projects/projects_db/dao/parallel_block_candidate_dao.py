@@ -3,6 +3,7 @@ from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date
+from itertools import combinations
 from uuid import NAMESPACE_OID, UUID
 
 from sqlalchemy import select
@@ -11,7 +12,7 @@ from sqlalchemy.orm import Session as DBSession
 from src.projects.projects_db.dao.queries.parallel_block_candidates import (
     block_details_stmt,
     block_weeks_stmt,
-    candidate_edges_stmt,
+    candidate_slot_members_stmt,
 )
 from src.projects.projects_db.models.parallel_block_group_member import ParallelBlockGroupMember
 from src.projects.projects_db.schemas.parallel_candidates import (
@@ -123,19 +124,31 @@ class ParallelBlockCandidateDAO:
 
     def get_candidate_components(self) -> list[CandidateComponent]:
         """Return the candidate groups as connected components with their edges."""
-        edge_rows = self.session.execute(candidate_edges_stmt()).all()
+        rows = self.session.execute(candidate_slot_members_stmt()).all()
+
+        # Blocks sharing a (week, weekday, start_time, subject) slot are mutually
+        # adjacent. Grouping per slot avoids a quadratic sessions self-join.
+        blocks_by_slot: defaultdict[tuple, set[UUID]] = defaultdict(set)
+        for row in rows:
+            slot = (row.week, row.weekday, row.start_time, row.subject_id)
+            blocks_by_slot[slot].add(row.original_block_id)
 
         union_find = _UnionFind()
-        for row in edge_rows:
-            union_find.union(row.block_a, row.block_b)
+        edges: set[tuple[UUID, UUID]] = set()
+        for blocks in blocks_by_slot.values():
+            if len(blocks) < 2:
+                continue
+            for block_a, block_b in combinations(sorted(blocks), 2):
+                edges.add((block_a, block_b))
+                union_find.union(block_a, block_b)
 
         blocks_by_root: defaultdict[UUID, set[UUID]] = defaultdict(set)
         for block_id in list(union_find.parent):
             blocks_by_root[union_find.find(block_id)].add(block_id)
 
         edges_by_root: defaultdict[UUID, list[tuple[UUID, UUID]]] = defaultdict(list)
-        for row in edge_rows:
-            edges_by_root[union_find.find(row.block_a)].append((row.block_a, row.block_b))
+        for block_a, block_b in edges:
+            edges_by_root[union_find.find(block_a)].append((block_a, block_b))
 
         return [
             CandidateComponent(

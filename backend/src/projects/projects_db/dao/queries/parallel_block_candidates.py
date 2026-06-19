@@ -1,8 +1,7 @@
 from collections.abc import Sequence
 from uuid import UUID
 
-from sqlalchemy import Select, and_, func, select
-from sqlalchemy.orm import aliased
+from sqlalchemy import Select, func, select
 
 from src.projects.projects_db.models.class_ import Class
 from src.projects.projects_db.models.degree import Degree
@@ -12,41 +11,24 @@ from src.projects.projects_db.models.subject import Subject
 from src.projects.projects_db.models.year import Year
 
 
-def candidate_edges_stmt() -> Select:
-    """Select distinct undirected ``(block_a, block_b)`` parallel-candidate edges.
+def candidate_slot_members_stmt() -> Select:
+    """Select distinct ``(slot, subject, block)`` rows for candidate detection.
 
-    Two blocks are adjacent when they share at least one session at the same
-    ``(week, weekday, start_time)`` for the same subject, i.e. they collide on
-    at least one week. ``block_a < block_b`` keeps each undirected edge once and
-    excludes self-pairs.
+    A "slot" is ``(week, weekday, start_time)``. Two blocks are parallel
+    candidates when they appear in the same slot for the same subject; grouping
+    these rows by ``(week, weekday, start_time, subject_id)`` yields the overlap
+    graph's edges (blocks sharing a slot are mutually adjacent) without the
+    quadratic ``sessions``-self-join SQLite cannot index efficiently.
     """
-    left = aliased(Session, name="left_session")
-    right = aliased(Session, name="right_session")
-    left_scs = aliased(SessionClassSubject, name="left_scs")
-    right_scs = aliased(SessionClassSubject, name="right_scs")
-
     return (
         select(
-            left.original_block_id.label("block_a"),
-            right.original_block_id.label("block_b"),
+            Session.week.label("week"),
+            Session.weekday.label("weekday"),
+            Session.start_time.label("start_time"),
+            SessionClassSubject.subject_id.label("subject_id"),
+            Session.original_block_id.label("original_block_id"),
         )
-        .join(left_scs, left_scs.session_id == left.id)
-        .join(
-            right,
-            and_(
-                right.week == left.week,
-                right.weekday == left.weekday,
-                right.start_time == left.start_time,
-            ),
-        )
-        .join(
-            right_scs,
-            and_(
-                right_scs.session_id == right.id,
-                right_scs.subject_id == left_scs.subject_id,
-            ),
-        )
-        .where(left.original_block_id < right.original_block_id)
+        .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
         .distinct()
     )
 
