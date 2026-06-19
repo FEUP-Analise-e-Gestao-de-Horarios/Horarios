@@ -129,9 +129,8 @@ class ParallelBlockCandidateDAO:
         # Blocks sharing a (week, weekday, start_time, subject) slot are mutually
         # adjacent. Grouping per slot avoids a quadratic sessions self-join.
         blocks_by_slot: defaultdict[tuple, set[UUID]] = defaultdict(set)
-        for row in rows:
-            slot = (row.week, row.weekday, row.start_time, row.subject_id)
-            blocks_by_slot[slot].add(row.original_block_id)
+        for week, weekday, start_time, subject_id, block_id in rows:
+            blocks_by_slot[(week, weekday, start_time, subject_id)].add(block_id)
 
         union_find = _UnionFind()
         edges: set[tuple[UUID, UUID]] = set()
