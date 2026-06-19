@@ -10,13 +10,12 @@ from src.core.errors import (
     ParallelGroupNotFoundResponse,
 )
 from src.core.schemas import SuccessResponse
-from src.core.validation import validate_query_params, validate_request_body
+from src.core.validation import validate_request_body
 from src.projects.models import Project
 from src.projects.projects_db.dao.parallel_block_candidate_dao import ParallelBlockCandidateDAO
 from src.projects.projects_db.dao.parallel_block_group_dao import ParallelBlockGroupDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
-from src.projects.projects_db.schemas.parallel_candidates import ParallelBlockCandidateFilters
 from src.projects.views.schemas.parallel_block_group_members import SaveParallelGroupMembersRequest
 
 
@@ -27,14 +26,10 @@ class ProjectParallelBlockCandidateView(View):
     @require_project
     def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
 
-        filters, err = validate_query_params(ParallelBlockCandidateFilters, request.GET)
-        if err is not None:
-            return err
-
         with get_project_session(general_db(project_id)) as db_session:
             parallel_block_candidate_dao = ParallelBlockCandidateDAO(db_session)
 
-            result = parallel_block_candidate_dao.get_all_groups_with_info(filters)
+            result = parallel_block_candidate_dao.get_all_groups_with_info()
 
             return JsonResponse(
                 SuccessResponse(
@@ -75,19 +70,17 @@ class ProjectParallelBlockGroupsView(View):
         assert validated is not None
 
         with get_project_session(general_db(project_id)) as db_session:
-            block_to_group = {
-                block_id: group_id
-                for group_id, block_ids in ParallelBlockCandidateDAO(db_session)
-                .get_all_groups()
-                .items()
-                for block_id in block_ids
+            components = {
+                component.candidate_group_id: component
+                for component in ParallelBlockCandidateDAO(db_session).get_candidate_components()
             }
 
             for entry in validated.groups:
-                if len(entry.classes) < 2:
+                blocks = set(entry.classes)
+                if len(blocks) < 2:
                     continue
-                candidate_groups = {block_to_group.get(block_id) for block_id in entry.classes}
-                if None in candidate_groups or len(candidate_groups) > 1:
+                component = components.get(entry.candidate_group_id)
+                if component is None or not component.is_connected_subset(blocks):
                     return ParallelGroupInvalidCandidatesResponse()
 
             dao = ParallelBlockGroupDAO(db_session)
