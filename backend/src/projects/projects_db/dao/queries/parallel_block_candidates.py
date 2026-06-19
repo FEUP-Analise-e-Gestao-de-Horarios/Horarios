@@ -12,25 +12,25 @@ from src.projects.projects_db.models.year import Year
 
 
 def candidate_slot_members_stmt() -> Select:
-    """Select distinct ``(slot, subject, block)`` rows for candidate detection.
+    """Select ``(slot, subject, block)`` rows for candidate detection.
 
     A "slot" is ``(week, weekday, start_time)``. Two blocks are parallel
     candidates when they appear in the same slot for the same subject; grouping
     these rows by ``(week, weekday, start_time, subject_id)`` yields the overlap
     graph's edges (blocks sharing a slot are mutually adjacent) without the
     quadratic ``sessions``-self-join SQLite cannot index efficiently.
+
+    Not de-duplicated in SQL on purpose: the caller groups blocks into a ``set``
+    per slot, which already collapses duplicates, so a SQL ``DISTINCT`` would
+    only add a needless sort over every session row.
     """
-    return (
-        select(
-            Session.week.label("week"),
-            Session.weekday.label("weekday"),
-            Session.start_time.label("start_time"),
-            SessionClassSubject.subject_id.label("subject_id"),
-            Session.original_block_id.label("original_block_id"),
-        )
-        .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
-        .distinct()
-    )
+    return select(
+        Session.week.label("week"),
+        Session.weekday.label("weekday"),
+        Session.start_time.label("start_time"),
+        SessionClassSubject.subject_id.label("subject_id"),
+        Session.original_block_id.label("original_block_id"),
+    ).join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
 
 
 def block_details_stmt(block_ids: Sequence[UUID]) -> Select:
