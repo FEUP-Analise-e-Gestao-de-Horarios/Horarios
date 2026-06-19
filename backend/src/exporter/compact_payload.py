@@ -1,12 +1,32 @@
+from collections.abc import Mapping, Sequence
 from copy import deepcopy
-from typing import Any
+from typing import cast
+
+from src.exporter.schemas import (
+    CompactExportConflict,
+    CompactExportConflictKind,
+    CompactProjectExportPayload,
+    ExportJsonValue,
+    ProjectExportPayload,
+)
 
 COMPACT_EXPORT_FORMAT = "compact_export_v1"
 
+type ExportMapping = dict[str, ExportJsonValue]
+type ExportRecord = Mapping[str, ExportJsonValue]
+type EntityMaps = dict[str, ExportMapping]
+type CompactConflictRecord = CompactExportConflict | ExportRecord
+type RelationRecord = ExportRecord
+type CompactRelationRecord = RelationRecord | str
+type CompactClassSubjectRecord = RelationRecord | Sequence[str]
 
-def compact_export_payload(expanded: dict[str, Any]) -> dict[str, Any]:
+
+def compact_export_payload(
+    expanded: ProjectExportPayload | ExportRecord,
+) -> CompactProjectExportPayload:
     """Return a compact, normalized exporter payload for transport/cache storage."""
-    entities: dict[str, dict[str, Any]] = {
+    expanded_data = ProjectExportPayload.model_validate(expanded).model_dump(mode="json")
+    entities: EntityMaps = {
         "rooms": {},
         "teachers": {},
         "classes": {},
@@ -17,70 +37,80 @@ def compact_export_payload(expanded: dict[str, Any]) -> dict[str, Any]:
     compact_conflicts = [
         compact_conflict(kind, conflict, entities)
         for kind, rows in (
-            ("room", expanded.get("rooms_conflicts", [])),
-            ("teacher", expanded.get("teacher_conflicts", [])),
-            ("class", expanded.get("classes_conflicts", [])),
+            ("room", expanded_data.get("rooms_conflicts", [])),
+            ("teacher", expanded_data.get("teacher_conflicts", [])),
+            ("class", expanded_data.get("classes_conflicts", [])),
         )
-        for conflict in rows
+        for conflict in cast(Sequence[ExportRecord], rows)
     ]
 
     compact_steps = [
-        compact_modification_step(step, entities) for step in expanded.get("modification_steps", [])
+        compact_modification_step(step, entities)
+        for step in cast(Sequence[ExportRecord], expanded_data.get("modification_steps", []))
     ]
 
-    return {
-        "format": COMPACT_EXPORT_FORMAT,
-        "entities": entities,
-        "added_removed_sessions": deepcopy(expanded.get("added_removed_sessions", {})),
-        "conflicts": compact_conflicts,
-        "modification_steps": compact_steps,
-    }
+    return CompactProjectExportPayload.model_validate(
+        {
+            "format": COMPACT_EXPORT_FORMAT,
+            "entities": entities,
+            "added_removed_sessions": deepcopy(expanded_data.get("added_removed_sessions", {})),
+            "conflicts": compact_conflicts,
+            "modification_steps": compact_steps,
+        },
+    )
 
 
-def expand_compact_export_payload(compact: dict[str, Any]) -> dict[str, Any]:
+def expand_compact_export_payload(
+    compact: CompactProjectExportPayload | ExportRecord,
+) -> ProjectExportPayload:
     """Expand a compact exporter payload into the legacy frontend view model."""
-    if compact.get("format") != COMPACT_EXPORT_FORMAT:
-        return compact
+    compact_data = CompactProjectExportPayload.model_validate(compact).model_dump(mode="json")
+    entities = cast(EntityMaps, compact_data.get("entities", {}))
+    conflicts = cast(Sequence[CompactConflictRecord], compact_data.get("conflicts", []))
 
-    entities = compact.get("entities", {})
-    conflicts = compact.get("conflicts", [])
-    return {
-        "added_removed_sessions": deepcopy(compact.get("added_removed_sessions", {})),
-        "rooms_conflicts": [
-            expand_conflict(conflict, entities)
-            for conflict in conflicts
-            if compact_conflict_kind(conflict) == "room"
-        ],
-        "teacher_conflicts": [
-            expand_conflict(conflict, entities)
-            for conflict in conflicts
-            if compact_conflict_kind(conflict) == "teacher"
-        ],
-        "classes_conflicts": [
-            expand_conflict(conflict, entities)
-            for conflict in conflicts
-            if compact_conflict_kind(conflict) == "class"
-        ],
-        "modification_steps": [
-            expand_modification_step(step, entities)
-            for step in compact.get("modification_steps", [])
-        ],
-    }
+    return ProjectExportPayload.model_validate(
+        {
+            "added_removed_sessions": deepcopy(compact_data.get("added_removed_sessions", {})),
+            "rooms_conflicts": [
+                expand_conflict(conflict, entities)
+                for conflict in conflicts
+                if compact_conflict_kind(conflict) == "room"
+            ],
+            "teacher_conflicts": [
+                expand_conflict(conflict, entities)
+                for conflict in conflicts
+                if compact_conflict_kind(conflict) == "teacher"
+            ],
+            "classes_conflicts": [
+                expand_conflict(conflict, entities)
+                for conflict in conflicts
+                if compact_conflict_kind(conflict) == "class"
+            ],
+            "modification_steps": [
+                expand_modification_step(step, entities)
+                for step in cast(
+                    Sequence[ExportRecord],
+                    compact_data.get("modification_steps", []),
+                )
+            ],
+        },
+    )
 
 
-def compact_conflict_kind(conflict: Any) -> str | None:
-    if isinstance(conflict, list) and conflict:
+def compact_conflict_kind(conflict: CompactConflictRecord) -> str | None:
+    if isinstance(conflict, list | tuple) and conflict:
         return str(conflict[0])
-    if isinstance(conflict, dict):
-        return conflict.get("kind")
+    if isinstance(conflict, Mapping):
+        kind = conflict.get("kind")
+        return str(kind) if kind is not None else None
     return None
 
 
 def compact_conflict(
-    kind: str,
-    conflict: dict[str, Any],
-    entities: dict[str, dict[str, Any]],
-) -> dict[str, Any]:
+    kind: CompactExportConflictKind,
+    conflict: ExportRecord,
+    entities: EntityMaps,
+) -> CompactExportConflict:
     compact = {
         key: deepcopy(value)
         for key, value in conflict.items()
@@ -126,24 +156,21 @@ def compact_conflict(
     else:
         raise ValueError(f"Unknown compact conflict kind: {kind}")
 
-    return [
+    return (
         kind,
         resource_id,
-        compact["week"],
-        compact.get("weeks"),
-        compact["weekday"],
-        compact["start_time"],
-        compact["duration"],
-        compact["collisions"],
-        compact["session_ids"],
-    ]
+        str(compact["week"]),
+        cast(list[str] | None, compact.get("weeks")),
+        str(compact["weekday"]),
+        cast(int, compact["start_time"]),
+        cast(int, compact["duration"]),
+        cast(int, compact["collisions"]),
+        cast(list[str], compact["session_ids"]),
+    )
 
 
-def expand_conflict(
-    conflict: dict[str, Any],
-    entities: dict[str, dict[str, Any]],
-) -> dict[str, Any]:
-    if isinstance(conflict, list):
+def expand_conflict(conflict: CompactConflictRecord, entities: EntityMaps) -> ExportMapping:
+    if isinstance(conflict, list | tuple):
         (
             kind,
             resource_id,
@@ -155,7 +182,7 @@ def expand_conflict(
             collisions,
             session_ids,
         ) = conflict
-        expanded = {
+        expanded: ExportMapping = {
             "week": week,
             "weeks": weeks,
             "weekday": weekday,
@@ -165,11 +192,12 @@ def expand_conflict(
             "session_ids": session_ids,
         }
     else:
-        kind = conflict["kind"]
-        resource_id = str(conflict["resource_id"])
+        conflict_mapping = cast(ExportRecord, conflict)
+        kind = conflict_mapping["kind"]
+        resource_id = str(conflict_mapping["resource_id"])
         expanded = {
             key: deepcopy(value)
-            for key, value in conflict.items()
+            for key, value in conflict_mapping.items()
             if key not in {"kind", "resource_id"}
         }
 
@@ -191,11 +219,8 @@ def expand_conflict(
     return expanded
 
 
-def compact_modification_step(
-    step: dict[str, Any],
-    entities: dict[str, dict[str, Any]],
-) -> dict[str, Any]:
-    session = deepcopy(step["session"])
+def compact_modification_step(step: ExportRecord, entities: EntityMaps) -> ExportMapping:
+    session = cast(ExportMapping, deepcopy(step["session"]))
     session_id = str(session["id"])
     entities["sessions"].setdefault(session_id, session)
 
@@ -204,67 +229,81 @@ def compact_modification_step(
         for key, value in step.items()
         if key not in {"session", "modifications"}
     }
-    compact["modifications"] = compact_modifications(step.get("modifications", {}), entities)
+    compact["modifications"] = compact_modifications(
+        cast(ExportRecord, step.get("modifications", {})),
+        entities,
+    )
     return compact
 
 
-def expand_modification_step(
-    step: dict[str, Any],
-    entities: dict[str, dict[str, Any]],
-) -> dict[str, Any]:
-    session_id = str(step["session_ids"][0])
-    expanded = {key: deepcopy(value) for key, value in step.items()}
+def expand_modification_step(step: ExportRecord, entities: EntityMaps) -> ExportMapping:
+    session_ids = cast(Sequence[ExportJsonValue], step["session_ids"])
+    session_id = str(session_ids[0])
+    expanded = dict(deepcopy(step))
     expanded["session"] = deepcopy(entities.get("sessions", {}).get(session_id, {"id": session_id}))
     expanded["modifications"] = expand_modifications(
-        step.get("modifications", {}),
+        cast(ExportRecord, step.get("modifications", {})),
         entities,
     )
     return expanded
 
 
 def compact_modifications(
-    modifications: dict[str, Any],
-    entities: dict[str, dict[str, Any]],
-) -> dict[str, Any]:
-    compact: dict[str, Any] = {}
+    modifications: ExportRecord,
+    entities: EntityMaps,
+) -> ExportMapping:
+    compact: ExportMapping = {}
     for field, change in modifications.items():
+        change_mapping = cast(ExportRecord, change)
         if field == "rooms":
-            compact[field] = compact_relation_change(change, "room_id", "rooms", entities)
+            compact[field] = compact_relation_change(change_mapping, "room_id", "rooms", entities)
         elif field == "teachers":
-            compact[field] = compact_relation_change(change, "teacher_id", "teachers", entities)
+            compact[field] = compact_relation_change(
+                change_mapping,
+                "teacher_id",
+                "teachers",
+                entities,
+            )
         elif field == "class_subjects":
-            compact[field] = compact_class_subject_change(change, entities)
+            compact[field] = compact_class_subject_change(change_mapping, entities)
         else:
             compact[field] = deepcopy(change)
     return compact
 
 
 def expand_modifications(
-    modifications: dict[str, Any],
-    entities: dict[str, dict[str, Any]],
-) -> dict[str, Any]:
-    expanded: dict[str, Any] = {}
+    modifications: ExportRecord,
+    entities: EntityMaps,
+) -> ExportMapping:
+    expanded: ExportMapping = {}
     for field, change in modifications.items():
+        change_mapping = cast(ExportRecord, change)
         if field == "rooms":
-            expanded[field] = expand_relation_change(change, "room_id", "rooms", entities)
+            expanded[field] = expand_relation_change(change_mapping, "room_id", "rooms", entities)
         elif field == "teachers":
-            expanded[field] = expand_relation_change(change, "teacher_id", "teachers", entities)
+            expanded[field] = expand_relation_change(
+                change_mapping,
+                "teacher_id",
+                "teachers",
+                entities,
+            )
         elif field == "class_subjects":
-            expanded[field] = expand_class_subject_change(change, entities)
+            expanded[field] = expand_class_subject_change(change_mapping, entities)
         else:
             expanded[field] = deepcopy(change)
     return expanded
 
 
 def compact_relation_change(
-    change: dict[str, Any],
+    change: ExportRecord,
     id_key: str,
     entity_key: str,
-    entities: dict[str, dict[str, Any]],
+    entities: EntityMaps,
 ) -> dict[str, list[str]]:
-    compact = {"added": [], "removed": []}
+    compact: dict[str, list[str]] = {"added": [], "removed": []}
     for change_type in ("added", "removed"):
-        for record in change.get(change_type, []):
+        records = cast(Sequence[RelationRecord], change.get(change_type, []))
+        for record in records:
             entity_id = str(record[id_key])
             entities[entity_key].setdefault(
                 entity_id,
@@ -275,15 +314,18 @@ def compact_relation_change(
 
 
 def expand_relation_change(
-    change: dict[str, Any],
+    change: ExportRecord,
     id_key: str,
     entity_key: str,
-    entities: dict[str, dict[str, Any]],
-) -> dict[str, list[dict[str, Any]]]:
-    expanded = {"added": [], "removed": []}
+    entities: EntityMaps,
+) -> dict[str, list[ExportMapping]]:
+    expanded: dict[str, list[ExportMapping]] = {"added": [], "removed": []}
     for change_type in ("added", "removed"):
-        for record in change.get(change_type, []):
-            entity_id = str(record[id_key] if isinstance(record, dict) else record)
+        records = cast(Sequence[CompactRelationRecord], change.get(change_type, []))
+        for record in records:
+            entity_id = str(
+                cast(RelationRecord, record)[id_key] if isinstance(record, Mapping) else record,
+            )
             expanded[change_type].append(
                 {id_key: entity_id, **deepcopy(entities.get(entity_key, {}).get(entity_id, {}))},
             )
@@ -291,12 +333,13 @@ def expand_relation_change(
 
 
 def compact_class_subject_change(
-    change: dict[str, Any],
-    entities: dict[str, dict[str, Any]],
+    change: ExportRecord,
+    entities: EntityMaps,
 ) -> dict[str, list[list[str]]]:
-    compact = {"added": [], "removed": []}
+    compact: dict[str, list[list[str]]] = {"added": [], "removed": []}
     for change_type in ("added", "removed"):
-        for record in change.get(change_type, []):
+        records = cast(Sequence[RelationRecord], change.get(change_type, []))
+        for record in records:
             class_id = str(record["class_id"])
             subject_id = str(record["subject_id"])
             entities["classes"].setdefault(
@@ -316,17 +359,19 @@ def compact_class_subject_change(
 
 
 def expand_class_subject_change(
-    change: dict[str, Any],
-    entities: dict[str, dict[str, Any]],
-) -> dict[str, list[dict[str, Any]]]:
-    expanded = {"added": [], "removed": []}
+    change: ExportRecord,
+    entities: EntityMaps,
+) -> dict[str, list[ExportMapping]]:
+    expanded: dict[str, list[ExportMapping]] = {"added": [], "removed": []}
     for change_type in ("added", "removed"):
-        for record in change.get(change_type, []):
-            if isinstance(record, list):
+        records = cast(Sequence[CompactClassSubjectRecord], change.get(change_type, []))
+        for record in records:
+            if isinstance(record, list | tuple):
                 class_id, subject_id = map(str, record)
             else:
-                class_id = str(record["class_id"])
-                subject_id = str(record["subject_id"])
+                record_mapping = cast(RelationRecord, record)
+                class_id = str(record_mapping["class_id"])
+                subject_id = str(record_mapping["subject_id"])
             expanded[change_type].append(
                 {
                     "class_id": class_id,

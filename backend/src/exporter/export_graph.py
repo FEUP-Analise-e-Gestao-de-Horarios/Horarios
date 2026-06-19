@@ -18,6 +18,7 @@ from src.exporter.export_graph_types import (
     TimeMovement,
     TimePlacement,
 )
+from src.exporter.schemas import ExportModificationStep, ExportSessionSnapshot
 from src.projects.projects_db.dao.base_dao import ChangedRecords
 from src.projects.projects_db.models._secondary_tables import session_rooms, session_teachers
 from src.projects.projects_db.models.class_ import Class
@@ -807,11 +808,13 @@ class ExportGraph:
             step["session_ids"].append(session_id)
 
         return [
-            self.build_modification_step(
-                step["session_ids"],
-                step["type"],
-                dependencies,
-            )
+            ExportModificationStep.model_validate(
+                self.build_modification_step(
+                    step["session_ids"],
+                    step["type"],
+                    dependencies,
+                ),
+            ).model_dump(mode="json")
             for step in grouped_steps.values()
         ]
 
@@ -970,7 +973,7 @@ class ExportGraph:
         for field in ("room_ids", "teacher_ids", "class_ids"):
             session_data.pop(field, None)
 
-        return session_data
+        return ExportSessionSnapshot.model_validate(session_data).model_dump(mode="json")
 
     def get_session_classes(self, session_id: Any) -> tuple[str, ...]:
         """Return sorted class codes for a session id."""

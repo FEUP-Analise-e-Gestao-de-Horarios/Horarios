@@ -1,9 +1,11 @@
 import json
+from collections.abc import Mapping
 from time import time
-from typing import Any
+from typing import cast
 
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views import View
+from pydantic import BaseModel
 
 from src.core.errors import NotAuthenticatedResponse, ProjectNotFoundResponse
 from src.core.schemas import SuccessResponse
@@ -13,6 +15,13 @@ from src.exporter.compact_payload import (
     expand_compact_export_payload,
 )
 from src.exporter.export_graph import ExportGraph
+from src.exporter.schemas import (
+    CompactProjectExportPayload,
+    ExportJsonValue,
+    ExportPayload,
+    PayloadFormat,
+    ProjectExportPayload,
+)
 from src.projects.models import Project
 from src.projects.projects_db.dao.class_dao import ClassDAO
 from src.projects.projects_db.dao.export_cache_dao import ExportCacheDAO
@@ -46,9 +55,12 @@ class ProjectExportView(View):
         if not isinstance(payload, dict):
             payload = {}
         recalculate_export_graph = bool(payload.get("recalculate_export_graph"))
-        payload_format = payload.get("payload_format")
-        if payload_format not in {"compact", "expanded"}:
-            payload_format = "expanded"
+        request_payload_format = payload.get("payload_format")
+        payload_format: PayloadFormat = (
+            request_payload_format
+            if request_payload_format in {"compact", "expanded"}
+            else "expanded"
+        )
 
         # -- Compute differences and conflicts ---------------------------------
         # with Comparator(project_id) as comp:
@@ -95,13 +107,10 @@ class ProjectExportView(View):
 
             start_time = time()
             alias = session_dao.attach_db(initial_db(project_id))
-            data: dict[str, Any] = {}
-            data.update(
-                {"added_removed_sessions": session_dao.get_added_removed_records(alias)},
-            )
-            data.update({"rooms_conflicts": rooms_dao.get_conflicting_slots()})
-            data.update({"teacher_conflicts": teachers_dao.get_conflicting_slots()})
-            data.update({"classes_conflicts": class_dao.get_conflicting_slots()})
+            added_removed_sessions = session_dao.get_added_removed_records(alias)
+            rooms_conflicts = rooms_dao.get_conflicting_slots()
+            teacher_conflicts = teachers_dao.get_conflicting_slots()
+            classes_conflicts = class_dao.get_conflicting_slots()
 
             if cached_modification_steps:
                 modification_steps = cached_modification_steps
@@ -114,8 +123,12 @@ class ProjectExportView(View):
             session_dao.detach_db(alias)
             end_time = time()
 
-            data.update(
+            data = ProjectExportPayload.model_validate(
                 {
+                    "added_removed_sessions": added_removed_sessions,
+                    "rooms_conflicts": rooms_conflicts,
+                    "teacher_conflicts": teacher_conflicts,
+                    "classes_conflicts": classes_conflicts,
                     "modification_steps": modification_steps,
                 },
             )
@@ -133,12 +146,28 @@ class ProjectExportView(View):
             )
 
     @staticmethod
-    def format_export_payload(data: dict[str, Any], payload_format: str) -> dict[str, Any]:
-        if data.get("format") == COMPACT_EXPORT_FORMAT:
+    def format_export_payload(
+        data: ExportPayload | Mapping[str, ExportJsonValue],
+        payload_format: PayloadFormat,
+    ) -> dict[str, ExportJsonValue]:
+        if isinstance(data, BaseModel):
+            model = data
+        elif data.get("format") == COMPACT_EXPORT_FORMAT:
+            model = CompactProjectExportPayload.model_validate(data)
+        else:
+            model = ProjectExportPayload.model_validate(data)
+
+        if isinstance(model, CompactProjectExportPayload):
             if payload_format == "compact":
-                return data
-            return expand_compact_export_payload(data)
+                return cast(dict[str, ExportJsonValue], model.model_dump(mode="json"))
+            return cast(
+                dict[str, ExportJsonValue],
+                expand_compact_export_payload(model).model_dump(mode="json"),
+            )
 
         if payload_format == "compact":
-            return compact_export_payload(data)
-        return data
+            return cast(
+                dict[str, ExportJsonValue],
+                compact_export_payload(model).model_dump(mode="json"),
+            )
+        return cast(dict[str, ExportJsonValue], model.model_dump(mode="json"))

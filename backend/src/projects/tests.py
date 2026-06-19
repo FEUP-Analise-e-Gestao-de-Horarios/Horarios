@@ -180,7 +180,7 @@ class SessionDeletionEndpointTests(TestCase):
         compact_payload = compact_response.json()["data"]
         self.assertEqual(compact_payload["format"], COMPACT_EXPORT_FORMAT)
         self.assertEqual(
-            expand_compact_export_payload(compact_payload),
+            expand_compact_export_payload(compact_payload).model_dump(mode="json"),
             expanded_response.json()["data"],
         )
 
