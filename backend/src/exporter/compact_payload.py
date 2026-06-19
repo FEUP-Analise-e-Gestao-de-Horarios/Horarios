@@ -98,6 +98,7 @@ def expand_compact_export_payload(
 
 
 def compact_conflict_kind(conflict: CompactConflictRecord) -> str | None:
+    """Return the resource kind from either tuple-style or dict-style compact conflicts."""
     if isinstance(conflict, list | tuple) and conflict:
         return str(conflict[0])
     if isinstance(conflict, Mapping):
@@ -111,6 +112,7 @@ def compact_conflict(
     conflict: ExportRecord,
     entities: EntityMaps,
 ) -> CompactExportConflict:
+    """Normalize one expanded conflict row and store repeated resource data in entities."""
     compact = {
         key: deepcopy(value)
         for key, value in conflict.items()
@@ -170,6 +172,7 @@ def compact_conflict(
 
 
 def expand_conflict(conflict: CompactConflictRecord, entities: EntityMaps) -> ExportMapping:
+    """Rebuild one legacy expanded conflict row from a compact conflict record."""
     if isinstance(conflict, list | tuple):
         (
             kind,
@@ -220,6 +223,7 @@ def expand_conflict(conflict: CompactConflictRecord, entities: EntityMaps) -> Ex
 
 
 def compact_modification_step(step: ExportRecord, entities: EntityMaps) -> ExportMapping:
+    """Replace an expanded modification step's session/details with normalized references."""
     session = cast(ExportMapping, deepcopy(step["session"]))
     session_id = str(session["id"])
     entities["sessions"].setdefault(session_id, session)
@@ -237,6 +241,7 @@ def compact_modification_step(step: ExportRecord, entities: EntityMaps) -> Expor
 
 
 def expand_modification_step(step: ExportRecord, entities: EntityMaps) -> ExportMapping:
+    """Rebuild one legacy modification step from compact normalized entities."""
     session_ids = cast(Sequence[ExportJsonValue], step["session_ids"])
     session_id = str(session_ids[0])
     expanded = dict(deepcopy(step))
@@ -252,6 +257,7 @@ def compact_modifications(
     modifications: ExportRecord,
     entities: EntityMaps,
 ) -> ExportMapping:
+    """Compact relation modifications while preserving scalar column changes."""
     compact: ExportMapping = {}
     for field, change in modifications.items():
         change_mapping = cast(ExportRecord, change)
@@ -275,6 +281,7 @@ def expand_modifications(
     modifications: ExportRecord,
     entities: EntityMaps,
 ) -> ExportMapping:
+    """Expand compact relation modifications back to the legacy relation payloads."""
     expanded: ExportMapping = {}
     for field, change in modifications.items():
         change_mapping = cast(ExportRecord, change)
@@ -300,6 +307,7 @@ def compact_relation_change(
     entity_key: str,
     entities: EntityMaps,
 ) -> dict[str, list[str]]:
+    """Normalize added/removed room or teacher relation rows into entity id lists."""
     compact: dict[str, list[str]] = {"added": [], "removed": []}
     for change_type in ("added", "removed"):
         records = cast(Sequence[RelationRecord], change.get(change_type, []))
@@ -319,6 +327,7 @@ def expand_relation_change(
     entity_key: str,
     entities: EntityMaps,
 ) -> dict[str, list[ExportMapping]]:
+    """Expand compact room or teacher id lists into full added/removed relation rows."""
     expanded: dict[str, list[ExportMapping]] = {"added": [], "removed": []}
     for change_type in ("added", "removed"):
         records = cast(Sequence[CompactRelationRecord], change.get(change_type, []))
@@ -336,6 +345,7 @@ def compact_class_subject_change(
     change: ExportRecord,
     entities: EntityMaps,
 ) -> dict[str, list[list[str]]]:
+    """Normalize class-subject relation changes into class/subject id pairs."""
     compact: dict[str, list[list[str]]] = {"added": [], "removed": []}
     for change_type in ("added", "removed"):
         records = cast(Sequence[RelationRecord], change.get(change_type, []))
@@ -362,6 +372,7 @@ def expand_class_subject_change(
     change: ExportRecord,
     entities: EntityMaps,
 ) -> dict[str, list[ExportMapping]]:
+    """Expand compact class/subject id pairs into full class-subject relation rows."""
     expanded: dict[str, list[ExportMapping]] = {"added": [], "removed": []}
     for change_type in ("added", "removed"):
         records = cast(Sequence[CompactClassSubjectRecord], change.get(change_type, []))

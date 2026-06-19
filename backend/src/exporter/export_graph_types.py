@@ -1,10 +1,21 @@
 from dataclasses import dataclass
 from datetime import date
+from uuid import UUID
 
 from src.projects.projects_db.schemas.weekday import WeekDay
 
 type Resource = str | int
 type ResourceNode = tuple[Resource, int, str, str]
+type SessionId = str | UUID
+type GraphPrimitive = str | int | float | bool | None | date | UUID
+type GraphValue = GraphPrimitive | tuple[GraphValue, ...] | list[GraphValue] | dict[str, GraphValue]
+type SessionSnapshot = dict[str, GraphValue]
+type ChangeBucket = dict[str, GraphValue]
+type SessionChanges = dict[str, GraphValue]
+type DependencyMap = dict[SessionId, list[SessionId]]
+type OrderedModification = tuple[SessionId, str]
+type ResourceOccupancy = dict[ResourceNode, list[SessionId]]
+type ExportGraphStep = dict[str, GraphValue]
 
 
 @dataclass(frozen=True)

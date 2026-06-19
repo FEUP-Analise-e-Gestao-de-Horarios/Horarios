@@ -7,6 +7,7 @@ from src.projects.projects_db.models.session import Session
 
 
 def room_conflicts(sessions: list[Session]) -> set[tuple[UUID, UUID]]:
+    """Return pairs of sessions that overlap while sharing a room."""
     return _conflicts_by_resource(
         sessions,
         lambda session: (room.id for room in session.rooms),
@@ -14,6 +15,7 @@ def room_conflicts(sessions: list[Session]) -> set[tuple[UUID, UUID]]:
 
 
 def teacher_conflicts(sessions: list[Session]) -> set[tuple[UUID, UUID]]:
+    """Return pairs of sessions that overlap while sharing a teacher."""
     return _conflicts_by_resource(
         sessions,
         lambda session: (teacher.id for teacher in session.teachers),
@@ -21,6 +23,7 @@ def teacher_conflicts(sessions: list[Session]) -> set[tuple[UUID, UUID]]:
 
 
 def class_conflicts(sessions: list[Session]) -> set[tuple[UUID, UUID]]:
+    """Return pairs of sessions that overlap while sharing a class."""
     return _conflicts_by_resource(
         sessions,
         lambda session: (link.class_id for link in session.session_class_subjects),
@@ -28,6 +31,7 @@ def class_conflicts(sessions: list[Session]) -> set[tuple[UUID, UUID]]:
 
 
 def sessions_overlap(session1: Session, session2: Session) -> bool:
+    """Return whether two ORM sessions overlap in week, weekday, and time."""
     if session1.week != session2.week:
         return False
 
@@ -46,6 +50,7 @@ def sessions_conflict(
     session1: Session | Mapping[str, Any],
     session2: Session | Mapping[str, Any],
 ) -> bool:
+    """Return whether two ORM or dict session records overlap on any resource."""
     if not _sessions_overlap_data(session1, session2):
         return False
 
@@ -59,6 +64,7 @@ def sessions_conflict(
 
 
 def _time_to_minutes(time_hhmm: int) -> int:
+    """Convert an integer HHMM time into minutes after midnight."""
     hours, minutes = divmod(time_hhmm, 100)
     return hours * 60 + minutes
 
@@ -67,6 +73,7 @@ def _conflicts_by_resource(
     sessions: list[Session],
     get_resources: Callable[[Session], Iterable[Hashable]],
 ) -> set[tuple[UUID, UUID]]:
+    """Group sessions by resource and collect overlapping session id pairs."""
     sessions_by_resource: dict[Hashable, list[Session]] = {}
 
     for session in sessions:
@@ -84,6 +91,7 @@ def _conflicts_by_resource(
 
 
 def serialize_conflicts(conflicts: set[tuple[UUID, UUID]]) -> list[dict[str, str]]:
+    """Serialize conflict id pairs into the legacy comparator response shape."""
     return [
         {
             "session1": str(session1_id),
@@ -97,6 +105,7 @@ def _sessions_overlap_data(
     session1: Session | Mapping[str, Any],
     session2: Session | Mapping[str, Any],
 ) -> bool:
+    """Return whether ORM or dict session records overlap in time coordinates."""
     if _normalize_scalar(_get_session_value(session1, "week")) != _normalize_scalar(
         _get_session_value(session2, "week"),
     ):
@@ -116,6 +125,7 @@ def _sessions_overlap_data(
 
 
 def _room_ids(session: Session | Mapping[str, Any]) -> set[str]:
+    """Extract room ids from an ORM session or serialized session mapping."""
     if isinstance(session, Mapping):
         return {str(room_id) for room_id in session.get("room_ids", [])}
 
@@ -123,6 +133,7 @@ def _room_ids(session: Session | Mapping[str, Any]) -> set[str]:
 
 
 def _teacher_ids(session: Session | Mapping[str, Any]) -> set[str]:
+    """Extract teacher ids from an ORM session or serialized session mapping."""
     if isinstance(session, Mapping):
         return {str(teacher_id) for teacher_id in session.get("teacher_ids", [])}
 
@@ -130,6 +141,7 @@ def _teacher_ids(session: Session | Mapping[str, Any]) -> set[str]:
 
 
 def _class_ids(session: Session | Mapping[str, Any]) -> set[str]:
+    """Extract class ids from an ORM session or serialized session mapping."""
     if isinstance(session, Mapping):
         class_subjects = session.get("class_subjects", {})
         if isinstance(class_subjects, Mapping):
@@ -140,12 +152,14 @@ def _class_ids(session: Session | Mapping[str, Any]) -> set[str]:
 
 
 def _get_session_value(session: Session | Mapping[str, Any], key: str) -> Any:
+    """Read a session field from either a mapping or ORM object."""
     if isinstance(session, Mapping):
         return session[key]
     return getattr(session, key)
 
 
 def _normalize_scalar(value: Any) -> str:
+    """Normalize enum/date/scalar values for equality checks across representations."""
     if hasattr(value, "isoformat"):
         return value.isoformat()
 

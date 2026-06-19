@@ -13,10 +13,12 @@ type CompactExportConflictKind = Literal["room", "teacher", "class"]
 
 
 def stringify_export_value(value: ExportPrimitive) -> str:
+    """Coerce scalar exporter values to strings for JSON-facing id/date fields."""
     return str(value)
 
 
 def stringify_optional_export_value(value: ExportPrimitive) -> str | None:
+    """Coerce optional scalar exporter values to strings while preserving nulls."""
     return None if value is None else str(value)
 
 
@@ -25,15 +27,21 @@ type ExportOptionalString = Annotated[str | None, BeforeValidator(stringify_opti
 
 
 class ExportAddedRemovedRecords[T](BaseModel):
+    """Generic added/removed bucket used for sessions and relation diffs."""
+
     added: list[T] = Field(default_factory=list)
     removed: list[T] = Field(default_factory=list)
 
 
 class ExportSessionRecord(BaseModel):
+    """Minimal session reference used by added/removed exporter payloads."""
+
     id: ExportString
 
 
 class ExportRoomRelationChange(BaseModel):
+    """Expanded room relation row embedded in modification diffs."""
+
     room_id: ExportString
     room_name: ExportOptionalString = None
     room_type: ExportOptionalString = None
@@ -42,6 +50,8 @@ class ExportRoomRelationChange(BaseModel):
 
 
 class ExportTeacherRelationChange(BaseModel):
+    """Expanded teacher relation row embedded in modification diffs."""
+
     teacher_id: ExportString
     teacher_number: int | None = None
     teacher_acronym: ExportOptionalString = None
@@ -49,6 +59,8 @@ class ExportTeacherRelationChange(BaseModel):
 
 
 class ExportClassSubjectRelationChange(BaseModel):
+    """Expanded class-subject relation row embedded in modification diffs."""
+
     class_id: ExportString
     class_code: ExportOptionalString = None
     class_shift: int | None = None
@@ -60,11 +72,15 @@ class ExportClassSubjectRelationChange(BaseModel):
 
 
 class ExportColumnChange(BaseModel):
+    """Old/new value pair for a modified scalar session column."""
+
     old: ExportJsonValue
     new: ExportJsonValue
 
 
 class ExportSessionModifications(BaseModel):
+    """Field-level modifications for one exported session or recurring group."""
+
     model_config = ConfigDict(extra="allow")
 
     __pydantic_extra__: dict[str, ExportJsonValue] = Field(init=False)
@@ -81,18 +97,24 @@ class ExportSessionModifications(BaseModel):
 
 
 class ExportTeacherSnapshot(BaseModel):
+    """Teacher details shown in the expanded session snapshot."""
+
     number: int
     name: ExportString
     acronym: ExportString
 
 
 class ExportSubjectSnapshot(BaseModel):
+    """Subject details shown in the expanded session snapshot."""
+
     name: ExportString
     acronym: ExportOptionalString = None
     code: ExportString
 
 
 class ExportSessionSnapshot(BaseModel):
+    """Public session snapshot attached to an expanded modification step."""
+
     model_config = ConfigDict(extra="allow")
 
     __pydantic_extra__: dict[str, ExportJsonValue] = Field(init=False)
@@ -110,12 +132,16 @@ class ExportSessionSnapshot(BaseModel):
 
 
 class ExportWeekRange(BaseModel):
+    """Display-friendly range metadata for recurring-week grouped steps."""
+
     start: ExportOptionalString
     end: ExportOptionalString
     contiguous: bool
 
 
 class ExportModificationStep(BaseModel):
+    """Expanded exporter instruction describing a move or exchange step."""
+
     type: Literal["move", "exchange"]
     original_block_id: ExportString
     session_ids: list[ExportString]
@@ -128,6 +154,8 @@ class ExportModificationStep(BaseModel):
 
 
 class ExportConflictBase(BaseModel):
+    """Common timing and collision details for resource conflict rows."""
+
     week: ExportString
     weeks: list[ExportString] | None = None
     weekday: ExportString
@@ -138,11 +166,15 @@ class ExportConflictBase(BaseModel):
 
 
 class ExportRoomConflict(ExportConflictBase):
+    """Expanded conflict row for a room resource."""
+
     room_id: ExportString
     room_name: ExportString
 
 
 class ExportTeacherConflict(ExportConflictBase):
+    """Expanded conflict row for a teacher resource."""
+
     teacher_id: ExportString
     teacher_number: int
     teacher_acronym: ExportString
@@ -150,11 +182,15 @@ class ExportTeacherConflict(ExportConflictBase):
 
 
 class ExportClassConflict(ExportConflictBase):
+    """Expanded conflict row for a class resource."""
+
     class_id: ExportString
     class_code: ExportString
 
 
 class ProjectExportPayload(BaseModel):
+    """Legacy expanded exporter payload consumed by existing frontend views."""
+
     added_removed_sessions: ExportAddedRemovedRecords[ExportSessionRecord]
     rooms_conflicts: list[ExportRoomConflict] = Field(default_factory=list)
     teacher_conflicts: list[ExportTeacherConflict] = Field(default_factory=list)
@@ -163,6 +199,8 @@ class ProjectExportPayload(BaseModel):
 
 
 class CompactExportEntities(BaseModel):
+    """Normalized entity maps referenced by compact conflicts and steps."""
+
     rooms: dict[str, dict[str, ExportJsonValue]] = Field(default_factory=dict)
     teachers: dict[str, dict[str, ExportJsonValue]] = Field(default_factory=dict)
     classes: dict[str, dict[str, ExportJsonValue]] = Field(default_factory=dict)
@@ -184,6 +222,8 @@ type CompactExportConflict = tuple[
 
 
 class CompactExportModificationStep(BaseModel):
+    """Compact modification step with session data moved into entity maps."""
+
     model_config = ConfigDict(extra="allow")
 
     __pydantic_extra__: dict[str, ExportJsonValue] = Field(init=False)
@@ -199,6 +239,8 @@ class CompactExportModificationStep(BaseModel):
 
 
 class CompactProjectExportPayload(BaseModel):
+    """Canonical compact exporter payload stored in cache and sent on request."""
+
     format: Literal["compact_export_v1"]
     entities: CompactExportEntities
     added_removed_sessions: ExportAddedRemovedRecords[ExportSessionRecord]
