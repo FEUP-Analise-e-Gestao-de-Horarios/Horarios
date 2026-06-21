@@ -16,8 +16,13 @@ from src.projects.projects_db.dao.queries.parallel_block_candidates import (
 )
 from src.projects.projects_db.models.parallel_block_group_member import ParallelBlockGroupMember
 from src.projects.projects_db.schemas.parallel_candidates import (
+    ParallelBlockCandidateClass,
+    ParallelBlockCandidateDegree,
     ParallelBlockCandidateGroupResponse,
     ParallelBlockCandidateNode,
+    ParallelBlockCandidateSession,
+    ParallelBlockCandidateSubject,
+    ParallelBlockCandidateYear,
 )
 from src.projects.projects_db.schemas.weekday import WeekDay
 
@@ -33,17 +38,27 @@ def _component_uuid(block_ids: Iterable[UUID]) -> UUID:
 
 
 @dataclass(frozen=True)
+class _YearDegree:
+    """A ``years`` row (one per degree) the subject is taught in."""
+
+    year_id: UUID
+    year_number: int
+    degree_id: UUID
+    degree_acronym: str
+    degree_name: str
+
+
+@dataclass(frozen=True)
 class _BlockDetail:
-    class_codes: list[str]
+    classes: list[ParallelBlockCandidateClass]
     session_type: str
+    start_time: int
     duration: int
     weekday: WeekDay
-    start_time: int
+    subject_id: UUID
+    subject_acronym: str
     subject_name: str
-    year: int
-    degree_id: UUID
-    degree_name: str
-    degree_acronym: str
+    year_degrees: tuple[_YearDegree, ...]
 
 
 @dataclass(frozen=True)
@@ -184,16 +199,22 @@ class ParallelBlockCandidateDAO:
                 nodes.append(
                     ParallelBlockCandidateNode(
                         original_block_id=block_id,
-                        class_codes=detail.class_codes,
-                        session_type=detail.session_type,
-                        session_duration=detail.duration,
+                        confirmed_group_id=confirmed.get(block_id),
+                        classes=detail.classes,
+                        session=ParallelBlockCandidateSession(
+                            type=detail.session_type,
+                            start_time=detail.start_time,
+                            duration=detail.duration,
+                        ),
                         first_week=first_week,
                         last_week=last_week,
-                        year=detail.year,
-                        degree_id=detail.degree_id,
-                        degree_name=detail.degree_name,
-                        degree_acronym=detail.degree_acronym,
-                        confirmed_group_id=confirmed.get(block_id),
+                        year_ids=[
+                            year_degree.year_id
+                            for year_degree in sorted(
+                                detail.year_degrees,
+                                key=lambda yd: (yd.year_number, yd.degree_acronym),
+                            )
+                        ],
                     ),
                 )
 
@@ -201,13 +222,40 @@ class ParallelBlockCandidateDAO:
                 continue
 
             representative = details[nodes[0].original_block_id]
+
+            # Collect the year/degree rows present across the whole group, keyed
+            # by year id (each year row belongs to a single degree).
+            years_by_id: dict[UUID, _YearDegree] = {}
+            for node in nodes:
+                for year_degree in details[node.original_block_id].year_degrees:
+                    years_by_id.setdefault(year_degree.year_id, year_degree)
+
+            subject = ParallelBlockCandidateSubject(
+                id=representative.subject_id,
+                acronym=representative.subject_acronym,
+                name=representative.subject_name,
+                years=[
+                    ParallelBlockCandidateYear(
+                        id=year_degree.year_id,
+                        degree=ParallelBlockCandidateDegree(
+                            id=year_degree.degree_id,
+                            acronym=year_degree.degree_acronym,
+                            name=year_degree.degree_name,
+                        ),
+                    )
+                    for year_degree in sorted(
+                        years_by_id.values(),
+                        key=lambda yd: (yd.year_number, yd.degree_acronym),
+                    )
+                ],
+            )
+
             edges = [(a, b) for a, b in component.edges if a in details and b in details]
             groups.append(
                 ParallelBlockCandidateGroupResponse(
                     candidate_group_id=component.candidate_group_id,
-                    subject_name=representative.subject_name,
-                    session_weekday=representative.weekday,
-                    session_start_time=representative.start_time,
+                    subject=subject,
+                    weekday=representative.weekday,
                     nodes=nodes,
                     edges=edges,
                 ),
@@ -222,24 +270,40 @@ class ParallelBlockCandidateDAO:
     def _block_details(self, block_ids: Sequence[UUID]) -> dict[UUID, _BlockDetail]:
         rows = self.session.execute(block_details_stmt(block_ids)).all()
 
-        class_codes: defaultdict[UUID, set[str]] = defaultdict(set)
+        classes: defaultdict[UUID, dict[UUID, str]] = defaultdict(dict)
+        year_degrees: defaultdict[UUID, dict[UUID, _YearDegree]] = defaultdict(dict)
         representative = {}
         for row in rows:
-            class_codes[row.original_block_id].add(row.class_code)
+            classes[row.original_block_id].setdefault(row.class_id, row.class_code)
+            year_degrees[row.original_block_id].setdefault(
+                row.year_id,
+                _YearDegree(
+                    year_id=row.year_id,
+                    year_number=row.year,
+                    degree_id=row.degree_id,
+                    degree_acronym=row.degree_acronym,
+                    degree_name=row.degree_name,
+                ),
+            )
             representative.setdefault(row.original_block_id, row)
 
         return {
             block_id: _BlockDetail(
-                class_codes=sorted(class_codes[block_id]),
+                classes=[
+                    ParallelBlockCandidateClass(id=class_id, code=code)
+                    for class_id, code in sorted(
+                        classes[block_id].items(),
+                        key=lambda item: item[1],
+                    )
+                ],
                 session_type=row.session_type,
+                start_time=row.start_time,
                 duration=row.duration,
                 weekday=row.weekday,
-                start_time=row.start_time,
+                subject_id=row.subject_id,
+                subject_acronym=row.subject_acronym,
                 subject_name=row.subject_name,
-                year=row.year,
-                degree_id=row.degree_id,
-                degree_name=row.degree_name,
-                degree_acronym=row.degree_acronym,
+                year_degrees=tuple(year_degrees[block_id].values()),
             )
             for block_id, row in representative.items()
         }

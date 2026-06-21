@@ -6,24 +6,68 @@ from pydantic import BaseModel
 from src.projects.projects_db.schemas.weekday import WeekDay
 
 
+class ParallelBlockCandidateClass(BaseModel):
+    """A class taught by the block."""
+
+    id: UUID
+    code: str
+
+
+class ParallelBlockCandidateSession(BaseModel):
+    """The session template shared by a block's weekly occurrences."""
+
+    type: str
+    start_time: int
+    duration: int
+
+
 class ParallelBlockCandidateNode(BaseModel):
     """A single block within a candidate group, with its display info.
+
+    ``year_ids`` reference the group's ``subject.years`` rows this block belongs
+    to (a block may span several year/degree rows); resolve degree info there.
 
     ``confirmed_group_id`` is the ``parallel_block_group_id`` this block is
     already saved under, or ``None`` if it is not part of a confirmed group.
     """
 
     original_block_id: UUID
-    class_codes: list[str]
-    session_type: str
-    session_duration: int
+    confirmed_group_id: UUID | None = None
     first_week: date
     last_week: date
-    year: int
-    degree_id: UUID
-    degree_name: str
-    degree_acronym: str
-    confirmed_group_id: UUID | None = None
+    session: ParallelBlockCandidateSession
+    year_ids: list[UUID]
+    classes: list[ParallelBlockCandidateClass]
+
+
+class ParallelBlockCandidateDegree(BaseModel):
+    """A degree that teaches the candidate group's subject."""
+
+    id: UUID
+    acronym: str
+    name: str
+
+
+class ParallelBlockCandidateYear(BaseModel):
+    """An academic year row the candidate group's subject is taught in.
+
+    Each ``years`` row belongs to a single degree.
+    """
+
+    id: UUID
+    degree: ParallelBlockCandidateDegree
+
+
+class ParallelBlockCandidateSubject(BaseModel):
+    """The subject shared by every block in a candidate group.
+
+    ``years`` lists only the year/degree combinations present in this group.
+    """
+
+    id: UUID
+    acronym: str
+    name: str
+    years: list[ParallelBlockCandidateYear]
 
 
 class ParallelBlockCandidateGroupResponse(BaseModel):
@@ -31,13 +75,12 @@ class ParallelBlockCandidateGroupResponse(BaseModel):
 
     ``nodes`` are the blocks; ``edges`` are the undirected adjacency pairs
     (blocks that collide on at least one week). A selection is valid only if
-    its blocks form a connected subgraph of these edges. ``subject_name``,
-    ``session_weekday`` and ``session_start_time`` are shared by every node.
+    its blocks form a connected subgraph of these edges. ``subject`` and
+    ``weekday`` are shared by every node.
     """
 
     candidate_group_id: UUID
-    subject_name: str
-    session_weekday: WeekDay
-    session_start_time: int
+    weekday: WeekDay
+    subject: ParallelBlockCandidateSubject
     nodes: list[ParallelBlockCandidateNode]
     edges: list[tuple[UUID, UUID]]
