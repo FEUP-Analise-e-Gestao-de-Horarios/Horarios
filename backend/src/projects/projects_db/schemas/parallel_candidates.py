@@ -7,10 +7,11 @@ from src.projects.projects_db.schemas.weekday import WeekDay
 
 
 class ParallelBlockCandidateClass(BaseModel):
-    """A class taught by the block."""
+    """A class taught by the block, with the year it belongs to."""
 
     id: UUID
     code: str
+    year_id: UUID
 
 
 class ParallelBlockCandidateSession(BaseModel):
@@ -24,8 +25,9 @@ class ParallelBlockCandidateSession(BaseModel):
 class ParallelBlockCandidateNode(BaseModel):
     """A single block within a candidate group, with its display info.
 
-    ``year_ids`` reference the group's ``subject.years`` rows this block belongs
-    to (a block may span several year/degree rows); resolve degree info there.
+    Each class carries the group's ``subject.years`` row it belongs to via its
+    ``year_id`` (a block may span several year/degree rows); resolve degree info
+    there.
 
     ``confirmed_group_id`` is the ``parallel_block_group_id`` this block is
     already saved under, or ``None`` if it is not part of a confirmed group.
@@ -36,7 +38,6 @@ class ParallelBlockCandidateNode(BaseModel):
     first_week: date
     last_week: date
     session: ParallelBlockCandidateSession
-    year_ids: list[UUID]
     classes: list[ParallelBlockCandidateClass]
 
 

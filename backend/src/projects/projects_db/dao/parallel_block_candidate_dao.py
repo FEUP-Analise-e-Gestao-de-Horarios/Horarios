@@ -224,13 +224,6 @@ class ParallelBlockCandidateDAO:
                         ),
                         first_week=first_week,
                         last_week=last_week,
-                        year_ids=[
-                            year_degree.year_id
-                            for year_degree in sorted(
-                                detail.year_degrees,
-                                key=lambda yd: (yd.year_number, yd.degree_acronym),
-                            )
-                        ],
                     ),
                 )
 
@@ -286,11 +279,14 @@ class ParallelBlockCandidateDAO:
     def _block_details(self, block_ids: Sequence[UUID]) -> dict[UUID, _BlockDetail]:
         rows = self.session.execute(block_details_stmt(block_ids)).all()
 
-        classes: defaultdict[UUID, dict[UUID, str]] = defaultdict(dict)
+        classes: defaultdict[UUID, dict[UUID, tuple[str, UUID]]] = defaultdict(dict)
         year_degrees: defaultdict[UUID, dict[UUID, _YearDegree]] = defaultdict(dict)
         representative = {}
         for row in rows:
-            classes[row.original_block_id].setdefault(row.class_id, row.class_code)
+            classes[row.original_block_id].setdefault(
+                row.class_id,
+                (row.class_code, row.year_id),
+            )
             year_degrees[row.original_block_id].setdefault(
                 row.year_id,
                 _YearDegree(
@@ -306,10 +302,10 @@ class ParallelBlockCandidateDAO:
         return {
             block_id: _BlockDetail(
                 classes=[
-                    ParallelBlockCandidateClass(id=class_id, code=code)
-                    for class_id, code in sorted(
+                    ParallelBlockCandidateClass(id=class_id, code=code, year_id=year_id)
+                    for class_id, (code, year_id) in sorted(
                         classes[block_id].items(),
-                        key=lambda item: item[1],
+                        key=lambda item: item[1][0],
                     )
                 ],
                 session_type=row.session_type,
