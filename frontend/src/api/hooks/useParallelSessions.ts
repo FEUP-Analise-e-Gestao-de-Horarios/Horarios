@@ -262,7 +262,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     const yearIdsWithData = new Set<UUID>();
     for (const g of degreeGraphs) {
       for (const node of g.nodes) {
-        for (const yid of node.year_ids) yearIdsWithData.add(yid);
+        for (const cls of node.classes) yearIdsWithData.add(cls.year_id);
       }
     }
     return degreeYears.filter((y) => yearIdsWithData.has(y.id)).sort((a, b) => a.number - b.number);
@@ -294,7 +294,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
   const visibleGraphs = useMemo(() => {
     if (selectedYearIdSet.size === 0) return degreeGraphs;
     return degreeGraphs.filter((g) =>
-      g.nodes.some((node) => node.year_ids.some((yid) => selectedYearIdSet.has(yid))),
+      g.nodes.some((node) => node.classes.some((cls) => selectedYearIdSet.has(cls.year_id))),
     );
   }, [degreeGraphs, selectedYearIdSet]);
 

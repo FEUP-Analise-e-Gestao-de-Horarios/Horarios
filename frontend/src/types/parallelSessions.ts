@@ -15,6 +15,8 @@ export interface ParallelSessionTemplate {
 export interface ParallelBlockClass {
   id: UUID;
   code: string;
+  /** The `subject.years` row this class belongs to (resolve degree there). */
+  year_id: UUID;
 }
 
 export interface ParallelBlockNode {
@@ -24,8 +26,6 @@ export interface ParallelBlockNode {
   first_week: string;
   last_week: string;
   session: ParallelSessionTemplate;
-  /** `subject.years` rows this block belongs to (resolve degree there). */
-  year_ids: UUID[];
   classes: ParallelBlockClass[];
 }
 
