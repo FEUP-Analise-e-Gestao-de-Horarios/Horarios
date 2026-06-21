@@ -1,11 +1,15 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
-import { useProject, useProjectClass } from "@/api/hooks/useDashboard";
+import { Link, useParams } from "react-router-dom";
+import { useProject } from "@/api/hooks/project/project";
+import { useProjectClass } from "@/api/hooks/project/class";
 import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
 import SessionPopup from "@/components/dashboard/SessionPopup";
-import WeekGrid, { type WeekGridEvent } from "@/components/dashboard/WeekGrid";
-import type { SessionResponse, WeekBlockResponse } from "@/types/dashboard";
+import WeekGrid, { type WeekGridEvent, type WeekGridMark } from "@/components/dashboard/WeekGrid";
+import { ROUTES } from "@/routes";
+import type { RedBlockBase } from "@/types/project/red_block";
+import type { SessionResponse, WeekBlockResponse } from "@/types/project/sessions";
 import { formatBlockLabel } from "@/utils/date";
+import { buildPath } from "@/utils/routes";
 
 export default function ClassDetailPage() {
   const { projectId, classId } = useParams<{ projectId: string; classId: string }>();
@@ -43,6 +47,13 @@ export default function ClassDetailPage() {
     type: s.type,
   }));
 
+  const redBlocks: RedBlockBase[] = data?.red_blocks ?? [];
+  const marks: WeekGridMark[] = redBlocks.map((rb) => ({
+    id: rb.id,
+    weekday: rb.weekday,
+    time: rb.hour,
+  }));
+
   const handleEventClick = (ev: WeekGridEvent) => {
     const session = blockSessions.find((s) => s.id === ev.id);
     if (session) setSelectedSession(session);
@@ -69,16 +80,32 @@ export default function ClassDetailPage() {
             </div>
           ) : (
             <>
-              <div className="bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)] px-6 py-4 flex items-start justify-between gap-4">
+              <div
+                data-copy-id={cid}
+                className="bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)] px-6 py-4 flex items-start justify-between gap-4"
+              >
                 <div className="min-w-0">
                   <h1 className="text-2xl font-bold text-[#08060d] truncate">{data.code}</h1>
                   <div className="mt-1 text-sm text-[#6b6375] truncate">
-                    Ano {data.year.number} · Turno {data.shift}
+                    <Link
+                      to={`${buildPath(ROUTES.DEGREE_DETAIL, {
+                        projectId: pid,
+                        degreeId: data.year.degree.id,
+                      })}#year-${data.year.id}`}
+                      className="hover:text-[#08060d] hover:underline transition-colors"
+                    >
+                      {data.year.degree.acronym} {data.year.number}º Ano
+                    </Link>{" "}
+                    · Turno {data.shift}
                   </div>
                 </div>
                 <div className="shrink-0 text-right text-sm text-[#6b6375]">
                   <div>
                     <span className="font-semibold text-[#08060d]">{totalSessions}</span> aulas
+                  </div>
+                  <div>
+                    <span className="font-semibold text-[#08060d]">{redBlocks.length}</span> blocos
+                    vermelhos
                   </div>
                 </div>
               </div>
@@ -113,8 +140,9 @@ export default function ClassDetailPage() {
               <div className="flex-1 min-h-0">
                 <WeekGrid
                   events={events}
+                  marks={marks}
                   onEventClick={handleEventClick}
-                  emptyMessage="Sem aulas para esta turma."
+                  emptyMessage="Sem aulas nem blocos vermelhos para esta turma."
                 />
               </div>
             </>

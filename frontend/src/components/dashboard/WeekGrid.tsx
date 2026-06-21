@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { Weekday } from "@/types/dashboard";
+import type { Weekday } from "@/types/project/weekday";
 
 export interface WeekGridEvent {
   id: string;
@@ -262,7 +262,8 @@ export default function WeekGrid({
             <button
               key={`e-${ev.id}`}
               type="button"
-              onClick={clickable ? () => onEventClick(ev) : undefined}
+              data-copy-id={ev.id}
+              onClick={clickable ? (e) => !e.altKey && onEventClick(ev) : undefined}
               className={`relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden ${
                 style.bg
               } ${style.border} ${style.text} ${

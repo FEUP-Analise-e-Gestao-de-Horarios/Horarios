@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { Link } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useProjectRooms } from "@/api/hooks/useDashboard";
+import { useProjectRooms } from "@/api/hooks/project/room";
 import { ROUTES } from "@/routes";
 import { buildPath } from "@/utils/routes";
 import { matchesSequence } from "@/utils/search";
@@ -99,6 +99,7 @@ export default function RoomsTab({ projectId, search, pollInterval, processing }
               >
                 <Link
                   to={buildPath(ROUTES.ROOM_DETAIL, { projectId, roomId: room.id })}
+                  data-copy-id={room.id}
                   draggable={false}
                   aria-label={room.name}
                   className="contents text-inherit no-underline [-webkit-user-drag:none]"

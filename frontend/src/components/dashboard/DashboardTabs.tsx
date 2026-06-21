@@ -3,7 +3,9 @@ import { Search } from "lucide-react";
 import DegreesTab from "./tabs/DegreesTab";
 import TeachersTab from "./tabs/TeachersTab";
 import RoomsTab from "./tabs/RoomsTab";
-import { useProjectDegrees, useProjectTeachers, useProjectRooms } from "@/api/hooks/useDashboard";
+import { useProjectDegrees } from "@/api/hooks/project/degree";
+import { useProjectTeachers } from "@/api/hooks/project/teacher";
+import { useProjectRooms } from "@/api/hooks/project/room";
 
 type Tab = "degrees" | "teachers" | "rooms";
 

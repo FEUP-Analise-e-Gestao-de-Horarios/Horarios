@@ -523,13 +523,17 @@ class IngestionManager:
             subject_db_entry = self.subject_entries.get(subject["number"])
             if subject_db_entry is None:
                 subject_db_entry = subject_dao.create(
-                    year_id=year_db_entry.id,
+                    year=year_db_entry,
                     number=subject["number"],
                     code=subject["code"],
                     acronym=subject["acronym"],
                     name=subject["name"],
                 )
                 self.subject_entries[subject["number"]] = subject_db_entry
+            elif year_db_entry not in subject_db_entry.years:
+                # Same UC taught in another year (e.g. shared/optional): record
+                # the extra year membership rather than overwriting the first.
+                subject_db_entry.years.append(year_db_entry)
             subjects_by_acronym[subject["acronym"]] = subject_db_entry
         self.db_session.flush()
         return subjects_by_acronym

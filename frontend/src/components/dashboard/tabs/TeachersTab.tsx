@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { Link } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useProjectTeachers } from "@/api/hooks/useDashboard";
+import { useProjectTeachers } from "@/api/hooks/project/teacher";
 import { ROUTES } from "@/routes";
 import { buildPath } from "@/utils/routes";
 import { matchesSequence } from "@/utils/search";
@@ -110,6 +110,7 @@ export default function TeachersTab({
               >
                 <Link
                   to={buildPath(ROUTES.TEACHER_DETAIL, { projectId, teacherId: teacher.id })}
+                  data-copy-id={teacher.id}
                   draggable={false}
                   aria-label={teacher.name}
                   className="contents text-inherit no-underline [-webkit-user-drag:none]"

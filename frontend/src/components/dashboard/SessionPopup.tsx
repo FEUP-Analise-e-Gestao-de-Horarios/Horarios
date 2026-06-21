@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { X } from "lucide-react";
 import { ROUTES } from "@/routes";
-import type { SessionResponse } from "@/types/dashboard";
+import type { SessionResponse } from "@/types/project/sessions";
 import { buildPath } from "@/utils/routes";
 
 const WEEKDAY_LABELS: Record<string, string> = {
@@ -101,7 +101,7 @@ export default function SessionPopup({
       >
         <div className="px-6 py-4 border-b border-[#e5e4e7] flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h2 className="text-lg font-bold text-[#08060d] truncate">
+            <h2 data-copy-id={session.id} className="text-lg font-bold text-[#08060d] truncate">
               {session.subjects.map((s) => s.acronym).join(", ") || "—"}
             </h2>
             <div className="mt-1 text-sm text-[#6b6375]">
@@ -128,6 +128,7 @@ export default function SessionPopup({
                   <li key={s.id}>
                     <Link
                       to={buildPath(ROUTES.SUBJECT_DETAIL, { projectId, subjectId: s.id })}
+                      data-copy-id={s.id}
                       className="flex items-baseline justify-between gap-3 -mx-2 px-2 py-0.5 rounded hover:bg-[#f9f7f4] transition-colors"
                     >
                       <span className="font-medium text-[#08060d] truncate">{s.name}</span>
@@ -146,6 +147,7 @@ export default function SessionPopup({
                   <Link
                     key={c.id}
                     to={buildPath(ROUTES.CLASS_DETAIL, { projectId, classId: c.id })}
+                    data-copy-id={c.id}
                     className="inline-flex items-center rounded-md bg-[#f9f7f4] border border-[#e5e4e7] px-2 py-0.5 text-xs font-medium text-[#08060d] hover:bg-[#f0eeeb] hover:border-[#d9d6db] transition-colors"
                   >
                     {c.code}
@@ -162,6 +164,7 @@ export default function SessionPopup({
                   <li key={t.id}>
                     <Link
                       to={buildPath(ROUTES.TEACHER_DETAIL, { projectId, teacherId: t.id })}
+                      data-copy-id={t.id}
                       className="flex items-baseline justify-between gap-3 -mx-2 px-2 py-0.5 rounded hover:bg-[#f9f7f4] transition-colors"
                     >
                       <span className="text-[#08060d] truncate">{t.name}</span>
@@ -180,6 +183,7 @@ export default function SessionPopup({
                   <Link
                     key={r.id}
                     to={buildPath(ROUTES.ROOM_DETAIL, { projectId, roomId: r.id })}
+                    data-copy-id={r.id}
                     className="inline-flex items-center rounded-md bg-[#f9f7f4] border border-[#e5e4e7] px-2 py-0.5 text-xs font-medium text-[#08060d] hover:bg-[#f0eeeb] hover:border-[#d9d6db] transition-colors"
                   >
                     {r.name}

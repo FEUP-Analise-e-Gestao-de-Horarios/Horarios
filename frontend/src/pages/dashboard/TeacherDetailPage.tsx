@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { useProject, useProjectTeacher } from "@/api/hooks/useDashboard";
+import { useProject } from "@/api/hooks/project/project";
+import { useProjectTeacher } from "@/api/hooks/project/teacher";
 import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
 import SessionPopup from "@/components/dashboard/SessionPopup";
 import WeekGrid, { type WeekGridEvent, type WeekGridMark } from "@/components/dashboard/WeekGrid";
-import type { RedBlockBase, SessionResponse, WeekBlockResponse } from "@/types/dashboard";
+import type { RedBlockBase } from "@/types/project/red_block";
+import type { SessionResponse, WeekBlockResponse } from "@/types/project/sessions";
 import { formatBlockLabel } from "@/utils/date";
 
 export default function TeacherDetailPage() {
@@ -75,7 +77,10 @@ export default function TeacherDetailPage() {
             </div>
           ) : (
             <>
-              <div className="bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)] px-6 py-4 flex items-start justify-between gap-4">
+              <div
+                data-copy-id={tid}
+                className="bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)] px-6 py-4 flex items-start justify-between gap-4"
+              >
                 <div className="min-w-0">
                   <h1 className="text-2xl font-bold text-[#08060d]">{data.name}</h1>
                   <div className="mt-1 text-sm text-[#6b6375]">

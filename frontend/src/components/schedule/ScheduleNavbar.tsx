@@ -1,10 +1,14 @@
-import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { ROUTES } from "@/routes";
 import { buildPath } from "@/utils/routes";
 import CursoDropdown from "./CursoDropdown";
+import { SCHEDULE_NAVBAR_DATA_ATTR } from "./dismissable";
 import MultiDropdown from "./MultiDropdown";
-import { ANOS } from "./data";
+import TurnoTurmaDropdown, { type TurnoTurmaGroup } from "./TurnoTurmaDropdown";
+import { styleForSubjectDark } from "./subjectColors";
+import type { CourseGroup, DropdownOption } from "./types";
+import { useDismissable } from "./useDismissable";
 
 interface ScheduleNavbarProps {
   projectId: string;
@@ -18,16 +22,22 @@ interface ScheduleNavbarProps {
   setTurnos: (v: string[]) => void;
   turmas: string[];
   setTurmas: (v: string[]) => void;
+  dias: string[];
+  setDias: (v: string[]) => void;
   semanas: string[];
   setSemanas: (v: string[]) => void;
+  weekOptions: DropdownOption[];
+  dayOptions: DropdownOption[];
   ucOptions: string[];
-  turnoOptions: string[];
-  turmaOptions: string[];
-  onEditEventClick: () => void;
+  turnoTurmaGroups: TurnoTurmaGroup[];
+  yearOptions: DropdownOption[];
+  courseOptions: CourseGroup[];
   onViewConflicts: () => void;
+  // When a drawer/dialog opens, any open filter dropdown should collapse.
+  anyDialogOpen: boolean;
 }
 
-type DropdownId = "curso" | "ano" | "uc" | "turno" | "turma" | "semana";
+type DropdownId = "curso" | "ano" | "uc" | "turnoTurma" | "dia" | "semana";
 
 export default function ScheduleNavbar({
   projectId,
@@ -41,27 +51,37 @@ export default function ScheduleNavbar({
   setTurnos,
   turmas,
   setTurmas,
+  dias,
+  setDias,
   semanas,
   setSemanas,
+  weekOptions,
+  dayOptions,
   ucOptions,
-  turnoOptions,
-  turmaOptions,
-  onEditEventClick,
+  turnoTurmaGroups,
+  yearOptions,
+  courseOptions,
   onViewConflicts,
+  anyDialogOpen,
 }: ScheduleNavbarProps) {
-  const navigate = useNavigate();
+  const primaryRedButtonClass =
+    "bg-[#8C2C19] text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap hover:bg-[#A9361E] transition-colors";
   const [openDropdown, setOpenDropdown] = useState<DropdownId | null>(null);
   const navRef = useRef<HTMLElement>(null);
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (navRef.current && !navRef.current.contains(e.target as Node)) {
-        setOpenDropdown(null);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  useDismissable(navRef, () => setOpenDropdown(null), { escape: true });
+
+  // Collapse any open filter dropdown when a drawer/dialog takes over. This
+  // replaces a `key` remount of the whole navbar from the parent, which threw
+  // away all navbar state on every drawer toggle. Adjusting state during
+  // render (rather than in an effect) is the documented pattern for reacting
+  // to a prop change without an extra commit.
+  const [dialogWasOpen, setDialogWasOpen] = useState(anyDialogOpen);
+  if (anyDialogOpen !== dialogWasOpen) {
+    setDialogWasOpen(anyDialogOpen);
+    if (anyDialogOpen) setOpenDropdown(null);
+  }
 
   function toggle(id: DropdownId) {
     setOpenDropdown((prev) => (prev === id ? null : id));
@@ -69,108 +89,107 @@ export default function ScheduleNavbar({
 
   function handleSelectCurso(c: string) {
     setCurso(c);
-    setAnos([]);
-    setUcs([]);
-    setTurnos([]);
-    setTurmas([]);
-    setSemanas([]);
     setOpenDropdown(null);
   }
 
   return (
     <header
       ref={navRef}
-      className="relative z-20 px-6 py-3 bg-[#1e2028] flex items-center gap-2 w-full flex-wrap overflow-visible border-b border-gray-700"
+      {...{ [SCHEDULE_NAVBAR_DATA_ATTR]: "" }}
+      className="relative z-50 shrink-0 px-6 py-3 bg-[#1e2028] flex items-center gap-2 w-full flex-wrap overflow-visible border-b border-gray-700"
     >
-      <button
-        onClick={() => void navigate(ROUTES.HOME)}
-        className="bg-[#8c2d19] text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap hover:bg-[#a33520] transition-colors"
-      >
+      <Link to={ROUTES.HOME} className={primaryRedButtonClass}>
         Início
-      </button>
+      </Link>
 
-      <button className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors">
-        Exportar
-      </button>
-
-      <div className="w-px h-6 bg-gray-600 mx-1" />
-
-      <button
-        onClick={() => void navigate(buildPath(ROUTES.DASHBOARD, { projectId }))}
+      <Link
+        to={buildPath(ROUTES.DASHBOARD, { projectId })}
         className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors"
       >
         Dados
+      </Link>
+      <button
+        type="button"
+        disabled
+        title="Funcionalidade ainda não disponível"
+        className="bg-transparent text-gray-500 font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 cursor-not-allowed"
+      >
+        Exportar
       </button>
 
-      <button className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors">
-        Distribuição
-      </button>
-
-      <div className="w-px h-6 bg-gray-600 mx-1" />
+      <div className="border-l border-gray-600 h-5 mx-1" />
 
       <CursoDropdown
         value={curso}
         onSelect={handleSelectCurso}
         open={openDropdown === "curso"}
         onToggle={() => toggle("curso")}
+        options={courseOptions}
       />
 
       <MultiDropdown
         label="Ano"
-        options={ANOS}
+        options={yearOptions}
         selected={anos}
         onSelect={setAnos}
         open={openDropdown === "ano"}
         onToggle={() => toggle("ano")}
-        disabled={!curso}
+        disabled={!curso || yearOptions.length === 0}
         showLabel
+        singleSelect
+        compact
       />
 
       <MultiDropdown
-        label="Unidade Curricular"
-        options={ucOptions}
+        label="UCs"
+        options={ucOptions.map((uc) => ({ value: uc, label: uc }))}
         selected={ucs}
         onSelect={setUcs}
         open={openDropdown === "uc"}
         onToggle={() => toggle("uc")}
         disabled={!curso}
         showLabel
+        fitContent
+        getOptionStyle={styleForSubjectDark}
+      />
+
+      <TurnoTurmaDropdown
+        groups={turnoTurmaGroups}
+        selectedTurnos={turnos}
+        selectedTurmas={turmas}
+        onSelectTurnos={setTurnos}
+        onSelectTurmas={setTurmas}
+        open={openDropdown === "turnoTurma"}
+        onToggle={() => toggle("turnoTurma")}
+        disabled={!curso}
       />
 
       <MultiDropdown
-        label="Turno"
-        options={turnoOptions}
-        selected={turnos}
-        onSelect={setTurnos}
-        open={openDropdown === "turno"}
-        onToggle={() => toggle("turno")}
+        label="Dias"
+        options={dayOptions}
+        selected={dias}
+        onSelect={setDias}
+        open={openDropdown === "dia"}
+        onToggle={() => toggle("dia")}
         disabled={!curso}
         showLabel
-      />
-
-      <MultiDropdown
-        label="Turma"
-        options={turmaOptions}
-        selected={turmas}
-        onSelect={setTurmas}
-        open={openDropdown === "turma"}
-        onToggle={() => toggle("turma")}
-        disabled={!curso}
-        showLabel
+        compact
+        minSelected={1}
+        hideSelectedCountWhenDisabled
       />
 
       <MultiDropdown
         label="Semanas"
-        options={["S1", "S2", "S3", "S4", "S5"]}
+        options={weekOptions}
         selected={semanas}
         onSelect={setSemanas}
         open={openDropdown === "semana"}
         onToggle={() => toggle("semana")}
-        disabled={!curso}
+        disabled={!curso || weekOptions.length === 0}
         showLabel
       />
 
-      <div className="w-px h-6 bg-gray-600 mx-1" />
+      <div className="border-l border-gray-600 h-5 mx-1" />
 
       <button
         onClick={() => void navigate(buildPath(ROUTES.PARALLEL_SESSIONS, { projectId }))}
@@ -179,16 +198,21 @@ export default function ScheduleNavbar({
         Editar Aulas em Paralelo
       </button>
 
+      <div className="border-l border-gray-600 h-5 mx-1" />
+
       <button
-        onClick={onEditEventClick}
-        className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors"
+        type="button"
+        disabled
+        title="Funcionalidade ainda não disponível"
+        className="bg-transparent text-gray-500 font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 cursor-not-allowed"
       >
-        Editar Evento
+        Distribuição
       </button>
 
       <button
+        type="button"
         onClick={onViewConflicts}
-        className="bg-transparent text-red-400 font-medium px-3.5 py-2 rounded text-sm whitespace-nowrap border border-red-400 hover:bg-red-400/10 transition-colors"
+        className="bg-transparent text-[#C73F24] font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-[#C73F24] hover:bg-[#C73F24]/10 transition-colors"
       >
         Ver Conflitos
       </button>

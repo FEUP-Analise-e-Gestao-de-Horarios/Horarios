@@ -1,9 +1,9 @@
 import { useRef } from "react";
 import { Link } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useProjectDegrees } from "@/api/hooks/useDashboard";
+import { useProjectDegrees } from "@/api/hooks/project/degree";
 import { ROUTES } from "@/routes";
-import type { DegreeStats } from "@/types/dashboard";
+import type { DegreeStats } from "@/types/project/degree";
 import { buildPath } from "@/utils/routes";
 import { matchesSequence } from "@/utils/search";
 import TableSkeleton from "./TableSkeleton";
@@ -106,6 +106,7 @@ export default function DegreesTab({
               >
                 <Link
                   to={buildPath(ROUTES.DEGREE_DETAIL, { projectId, degreeId: degree.id })}
+                  data-copy-id={degree.id}
                   draggable={false}
                   aria-label={degree.name}
                   className="contents text-inherit no-underline [-webkit-user-drag:none]"

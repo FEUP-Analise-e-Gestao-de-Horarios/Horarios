@@ -35,3 +35,10 @@ repos:
         entry: bash -c 'cd frontend && npm run format && git diff --exit-code --quiet'
         pass_filenames: false
         files: ^frontend/
+
+      - id: frontend-test
+        name: frontend test (vitest)
+        language: system
+        entry: bash -c 'cd frontend && npm test --silent'
+        pass_filenames: false
+        files: ^frontend/
