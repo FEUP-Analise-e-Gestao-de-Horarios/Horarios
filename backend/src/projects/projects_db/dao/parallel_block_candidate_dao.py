@@ -141,10 +141,26 @@ class ParallelBlockCandidateDAO:
         """Return the candidate groups as connected components with their edges."""
         rows = self.session.execute(candidate_slot_members_stmt()).all()
 
+        # A block only qualifies if every session under it starts at the same
+        # time. An edit that moves a single week to a different start_time
+        # leaves the block_id spanning a heterogeneous set of sessions; rather
+        # than represent it by an arbitrary start_time, drop it from candidate
+        # detection entirely.
+        start_times_by_block: defaultdict[UUID, set[int]] = defaultdict(set)
+        for _week, _weekday, start_time, _subject_id, block_id in rows:
+            start_times_by_block[block_id].add(start_time)
+        eligible_blocks = {
+            block_id
+            for block_id, start_times in start_times_by_block.items()
+            if len(start_times) == 1
+        }
+
         # Blocks sharing a (week, weekday, start_time, subject) slot are mutually
         # adjacent. Grouping per slot avoids a quadratic sessions self-join.
         blocks_by_slot: defaultdict[tuple, set[UUID]] = defaultdict(set)
         for week, weekday, start_time, subject_id, block_id in rows:
+            if block_id not in eligible_blocks:
+                continue
             blocks_by_slot[(week, weekday, start_time, subject_id)].add(block_id)
 
         union_find = _UnionFind()
