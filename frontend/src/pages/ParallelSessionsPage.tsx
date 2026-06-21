@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParallelSessions } from "@/api/hooks/useParallelSessions";
-import type { DisplayCandidate } from "@/types/parallelSessions";
-import { DAY_ORDER } from "@/types/parallelSessions";
+import { DAY_ORDER, type ParallelCandidateGraph } from "@/types/parallelSessions";
 import DegreeDropdown from "@/components/schedule/DegreeDropdown";
 import MultiDropdown from "@/components/schedule/MultiDropdown";
+import ParallelGraph from "@/components/parallel/ParallelGraph";
 
 const DAY_CONFIG: Record<string, { short: string; bg: string; text: string }> = {
   monday: { short: "SEG", bg: "bg-blue-500", text: "text-white" },
@@ -11,6 +11,7 @@ const DAY_CONFIG: Record<string, { short: string; bg: string; text: string }> = 
   wednesday: { short: "QUA", bg: "bg-violet-500", text: "text-white" },
   thursday: { short: "QUI", bg: "bg-orange-500", text: "text-white" },
   friday: { short: "SEX", bg: "bg-rose-500", text: "text-white" },
+  saturday: { short: "SAB", bg: "bg-gray-500", text: "text-white" },
 };
 
 const SESSION_TYPE_CONFIG: Record<string, { bg: string; text: string }> = {
@@ -22,9 +23,12 @@ const SESSION_TYPE_CONFIG: Record<string, { bg: string; text: string }> = {
 };
 const SESSION_TYPE_DEFAULT = { bg: "bg-gray-100", text: "text-gray-600" };
 
-function formatWeekDate(dateStr: string): string {
-  const parts = dateStr.split("-");
-  return `${parts[2]}/${parts[1]}`;
+function sessionTypeStyle(type: string): { bg: string; text: string } {
+  return SESSION_TYPE_CONFIG[type] ?? SESSION_TYPE_DEFAULT;
+}
+
+function dayConfig(weekday: string) {
+  return DAY_CONFIG[weekday] ?? { short: "?", bg: "bg-gray-400", text: "text-white" };
 }
 
 function formatTime(t: number): string {
@@ -32,69 +36,16 @@ function formatTime(t: number): string {
   return `${s.slice(0, 2)}:${s.slice(2)}`;
 }
 
+function graphStartTime(graph: ParallelCandidateGraph): number {
+  return graph.nodes[0]?.session.start_time ?? 0;
+}
+
 function CandidatesLoadingSkeleton() {
   return (
     <div className="flex flex-col gap-3">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="h-12 rounded-xl bg-[#e8e8e8] animate-pulse" />
+        <div key={i} className="h-40 rounded-2xl bg-[#e8e8e8] animate-pulse" />
       ))}
-    </div>
-  );
-}
-
-function OverflowFadeScroll({
-  children,
-  className,
-  duration = 1.4,
-}: {
-  children: React.ReactNode;
-  className?: string;
-  duration?: number;
-}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const innerRef = useRef<HTMLDivElement>(null);
-  const [overflow, setOverflow] = useState(0);
-  const [hovered, setHovered] = useState(false);
-
-  useEffect(() => {
-    const measure = () => {
-      if (!containerRef.current || !innerRef.current) return;
-      setOverflow(Math.max(0, innerRef.current.scrollWidth - containerRef.current.clientWidth));
-    };
-    measure();
-    const obs = new ResizeObserver(measure);
-    if (containerRef.current) obs.observe(containerRef.current);
-    if (innerRef.current) obs.observe(innerRef.current);
-    return () => obs.disconnect();
-  }, []);
-
-  return (
-    <div
-      ref={containerRef}
-      className={`relative overflow-hidden w-full ${className ?? ""}`}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      <div
-        ref={innerRef}
-        className="flex items-center gap-1 w-max"
-        style={{
-          transform: hovered && overflow > 0 ? `translateX(-${overflow}px)` : "translateX(0)",
-          transition: `transform ${duration}s linear`,
-        }}
-      >
-        {children}
-      </div>
-      {overflow > 0 && (
-        <div
-          className="absolute right-0 top-0 bottom-0 w-12 pointer-events-none"
-          style={{
-            background: "linear-gradient(to left, white, transparent)",
-            opacity: hovered ? 0 : 1,
-            transition: "opacity 0.3s ease",
-          }}
-        />
-      )}
     </div>
   );
 }
@@ -124,11 +75,12 @@ export default function ParallelClassesPage() {
     yearsWithCandidates,
     loadingCandidates,
     candidatesError,
-    filteredCandidates,
-    candidatesBySubject,
-    groupsBySubject,
+    visibleGraphs,
+    assignedBlockIds,
+    selectionByGroup,
+    isSelectionValid,
+    groupViewsBySubject,
     savedGroupIds,
-    pendingSelection,
     saving,
     saveStatus,
     showUnsavedModal,
@@ -137,8 +89,7 @@ export default function ParallelClassesPage() {
     setShowResetModal,
     handleDegreeClick,
     handleYearToggle,
-    handleSessionPendingToggle,
-    handleSelectAllForCandidate,
+    handleToggleNode,
     handleCreateGroup,
     handleRemoveGroup,
     handleBack,
@@ -150,126 +101,36 @@ export default function ParallelClassesPage() {
     confirmReset,
   } = useParallelSessions();
 
-  const renderRow = (candidate: DisplayCandidate, rowIdx: number, hasWeeks: boolean) => {
-    const sessions = candidate.sessions ?? [];
-    const selectedInRow = sessions
-      .map((s) => s.original_block_id)
-      .filter((id) => pendingSelection.has(id));
-    const day = DAY_CONFIG[candidate.session_weekday ?? ""] ?? {
-      short: "?",
-      bg: "bg-gray-400",
-      text: "text-white",
-    };
-    return (
-      <tr
-        key={candidate.candidate_group_id}
-        className={`bg-white hover:bg-[#fffdf5] transition-colors ${rowIdx > 0 ? "border-t border-[#f0f0f0]" : ""}`}
-      >
-        <td className="px-3 py-3 align-top">
-          <div className="flex flex-col items-start gap-0.5">
-            <span
-              className={`text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-md ${day.bg} ${day.text}`}
-            >
-              {day.short}
-            </span>
-            {!hasWeeks && candidate.showWeek && candidate.displayWeeks.length > 0 && (
-              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-gray-200 text-gray-600 whitespace-nowrap tabular-nums">
-                {candidate.displayWeeks.length > 1
-                  ? candidate.displayWeeks.map(formatWeekDate).join(", ")
-                  : formatWeekDate(candidate.displayWeeks[0] ?? "")}
-              </span>
-            )}
-          </div>
-        </td>
-        <td className="px-3 py-3 align-top font-bold text-[#333] tabular-nums whitespace-nowrap">
-          {candidate.session_start_time != null ? formatTime(candidate.session_start_time) : "—"}
-        </td>
-        <td className="px-4 py-3 overflow-hidden">
-          <div className="flex flex-col gap-1.5">
-            {sessions.map((session) => {
-              const checked = pendingSelection.has(session.original_block_id);
-              const typeLabel = session.session_type ?? null;
-              const typeStyle = typeLabel
-                ? (SESSION_TYPE_CONFIG[typeLabel] ?? SESSION_TYPE_DEFAULT)
-                : null;
-              const typeSpan =
-                typeLabel && typeStyle ? (
-                  <span
-                    className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded ${typeStyle.bg} ${typeStyle.text}`}
-                  >
-                    {typeLabel}
-                  </span>
-                ) : null;
-              const codePills = session.class_codes.map((code: string) => (
-                <span
-                  key={`${session.original_block_id}-${code}`}
-                  className={`rounded px-2 py-0.5 text-[12px] font-semibold transition-colors ${
-                    checked ? "bg-[#ffc107] text-[#222]" : "bg-[#f0f0f0] text-[#666]"
-                  }`}
-                >
-                  {code}
-                </span>
-              ));
-              return sessions.length > 1 ? (
-                <label
-                  key={session.original_block_id}
-                  className="flex items-center gap-1.5 cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => handleSessionPendingToggle(session.original_block_id)}
-                    className="w-3.5 h-3.5 accent-[#ffc107] cursor-pointer shrink-0"
-                  />
-                  <div className="flex items-center gap-1 flex-1 min-w-0">
-                    {typeSpan}
-                    <OverflowFadeScroll className="flex-1 min-w-0" duration={0.5}>
-                      {codePills}
-                    </OverflowFadeScroll>
-                  </div>
-                </label>
-              ) : (
-                <div key={session.original_block_id} className="flex items-center gap-1">
-                  {typeSpan}
-                  <OverflowFadeScroll className="flex-1 min-w-0">{codePills}</OverflowFadeScroll>
-                </div>
-              );
-            })}
-            {sessions.length > 1 && (
-              <div className="flex items-center justify-between mt-0.5">
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={
-                      sessions.length > 0 &&
-                      sessions.every((s) => pendingSelection.has(s.original_block_id))
-                    }
-                    onChange={() => handleSelectAllForCandidate(sessions)}
-                    className="w-3.5 h-3.5 accent-[#ffc107] cursor-pointer shrink-0"
-                  />
-                  <span className="text-[11px] text-[#999] font-semibold whitespace-nowrap">
-                    selecionar todas
-                  </span>
-                </label>
-                {selectedInRow.length >= 2 && (
-                  <button
-                    onClick={() => handleCreateGroup(selectedInRow, candidate)}
-                    className="ml-3 bg-[#1e2028] text-white font-semibold px-3 py-1 rounded-lg text-[11px] hover:bg-[#2a2d37] transition-colors whitespace-nowrap cursor-pointer"
-                  >
-                    Criar Grupo
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        </td>
-      </tr>
-    );
-  };
+  // Group the visible candidate components by subject, sorted for display.
+  const graphsBySubject = useMemo(() => {
+    const map = new Map<string, ParallelCandidateGraph[]>();
+    for (const g of visibleGraphs) {
+      const key = g.subject.name;
+      const list = map.get(key);
+      if (list) list.push(g);
+      else map.set(key, [g]);
+    }
+    for (const list of map.values()) {
+      list.sort(
+        (a, b) =>
+          (DAY_ORDER[a.weekday] ?? 99) - (DAY_ORDER[b.weekday] ?? 99) ||
+          graphStartTime(a) - graphStartTime(b),
+      );
+    }
+    return map;
+  }, [visibleGraphs]);
+
+  const yearOptions = useMemo(
+    () => yearsWithCandidates.map((y) => ({ value: y.id, label: `${y.number}º Ano` })),
+    [yearsWithCandidates],
+  );
 
   return (
     <div className="h-screen flex flex-col bg-[#f0eeeb]">
-      <header className="shrink-0 sticky top-0 z-50 px-6 py-3 bg-[#1e2028] flex items-center gap-2 w-full flex-wrap border-b border-gray-700">
+      <header
+        ref={headerRef}
+        className="shrink-0 sticky top-0 z-50 px-6 py-3 bg-[#1e2028] flex items-center gap-2 w-full flex-wrap border-b border-gray-700"
+      >
         <button
           onClick={handleNavigateHome}
           className="bg-[#8c2d19] text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap hover:bg-[#a33520] transition-colors cursor-pointer"
@@ -291,7 +152,10 @@ export default function ParallelClassesPage() {
           <DegreeDropdown
             degrees={degrees}
             selected={selectedDegree}
-            onSelect={handleDegreeClick}
+            onSelect={(degree) => {
+              handleDegreeClick(degree);
+              setOpenDropdown(null);
+            }}
             open={openDropdown === "degree"}
             onToggle={() => setOpenDropdown((prev) => (prev === "degree" ? null : "degree"))}
             loading={loadingDegrees}
@@ -303,18 +167,12 @@ export default function ParallelClassesPage() {
         ) : (
           <MultiDropdown
             label="Ano"
-            options={yearsWithCandidates.map((y) => `${y.number}º Ano`)}
-            selected={yearsWithCandidates
-              .filter((y) => selectedYearIds.has(y.id))
-              .map((y) => `${y.number}º Ano`)}
-            onSelect={(newLabels) => {
-              const newIds = new Set(
-                yearsWithCandidates
-                  .filter((y) => newLabels.includes(`${y.number}º Ano`))
-                  .map((y) => y.id),
-              );
-              for (const y of yearsWithCandidates) {
-                if (selectedYearIds.has(y.id) !== newIds.has(y.id)) handleYearToggle(y.id);
+            options={yearOptions}
+            selected={yearOptions.filter((o) => selectedYearIds.has(o.value)).map((o) => o.value)}
+            onSelect={(newValues) => {
+              const next = new Set(newValues);
+              for (const o of yearOptions) {
+                if (selectedYearIds.has(o.value) !== next.has(o.value)) handleYearToggle(o.value);
               }
             }}
             open={openDropdown === "year"}
@@ -355,103 +213,110 @@ export default function ParallelClassesPage() {
             Seleciona um curso para ver as aulas em paralelo.
           </p>
         ) : (
-          <div className="h-full max-w-6xl mx-auto px-6 pt-6 flex gap-6">
-            {/* Left column: Por selecionar */}
+          <div className="h-full max-w-7xl mx-auto px-6 pt-6 flex gap-6">
+            {/* Left column: candidate graphs */}
             <div className="flex-1 min-w-0 flex flex-col min-h-0">
               <div className="flex items-center justify-between mb-3 shrink-0">
-                <h2 className="font-bold text-[#333] text-base">Por selecionar</h2>
+                <h2 className="font-bold text-[#333] text-base">Candidatos a paralelas</h2>
+                <p className="text-[11px] text-[#999]">
+                  Clica em turmas ligadas para formar um grupo
+                </p>
               </div>
               <div className="flex-1 overflow-y-auto pb-6 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300/60">
                 {loadingCandidates ? (
                   <CandidatesLoadingSkeleton />
                 ) : candidatesError ? (
                   <p className="text-sm text-red-600">{candidatesError}</p>
-                ) : !filteredCandidates.length ? (
+                ) : graphsBySubject.size === 0 ? (
                   <p className="text-sm text-[#aaa]">Sem aulas em paralelo.</p>
-                ) : candidatesBySubject.size === 0 ? (
-                  <p className="text-xs text-[#aaa] text-center py-8">
-                    Todas as aulas foram atribuídas a grupos.
-                  </p>
                 ) : (
                   <div className="flex flex-col gap-4">
-                    {[...candidatesBySubject.entries()]
+                    {[...graphsBySubject.entries()]
                       .sort(([a], [b]) => a.localeCompare(b))
-                      .map(([subjectName, candidates]) => {
-                        const hasWeeks = candidates.some((c) => c.showWeek);
-
-                        const weekMap = new Map<string, DisplayCandidate[]>();
-                        for (const c of candidates) {
-                          const weekKey = c.displayWeeks[0] ?? "";
-                          const list = weekMap.get(weekKey);
-                          if (list) list.push(c);
-                          else weekMap.set(weekKey, [c]);
-                        }
-                        const sortedWeeks = [...weekMap.keys()].sort();
-
-                        return (
-                          <div
-                            key={subjectName}
-                            className="overflow-hidden rounded-2xl border border-[#e8e8e8] shadow-sm"
-                          >
-                            <div className="px-4 py-2.5 bg-[#fafafa] border-b border-[#e8e8e8]">
-                              <p className="font-semibold text-[#222] text-sm">{subjectName}</p>
-                            </div>
-                            <div>
-                              <table className="w-full text-sm border-collapse table-fixed">
-                                <thead>
-                                  <tr className="bg-white border-b border-[#e8e8e8]">
-                                    <th className="text-left px-3 py-2 text-[11px] font-bold tracking-widest uppercase text-[#999] w-[52px]">
-                                      Dia
-                                    </th>
-                                    <th className="text-left px-3 py-2 text-[11px] font-bold tracking-widest uppercase text-[#999] w-[64px]">
-                                      Hora
-                                    </th>
-                                    <th className="text-left px-4 py-2 text-[11px] font-bold tracking-widest uppercase text-[#999]">
-                                      Turmas em paralelo
-                                    </th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {hasWeeks
-                                    ? sortedWeeks.flatMap((weekKey, weekIdx) => [
-                                        <tr
-                                          key={`whdr-${weekKey}`}
-                                          className="bg-[#f5f4f1] border-t border-[#e8e8e8]"
-                                        >
-                                          <td colSpan={3} className="px-3 py-1.5">
-                                            <span className="text-[10px] font-bold tracking-widest uppercase text-[#888]">
-                                              Semana {weekIdx + 1}
-                                              {weekKey ? ` · ${formatWeekDate(weekKey)}` : ""}
-                                            </span>
-                                          </td>
-                                        </tr>,
-                                        ...(weekMap.get(weekKey) ?? []).map((c, i) =>
-                                          renderRow(c, i, hasWeeks),
-                                        ),
-                                      ])
-                                    : candidates.map((c, i) => renderRow(c, i, hasWeeks))}
-                                </tbody>
-                              </table>
-                            </div>
+                      .map(([subjectName, subjectGraphs]) => (
+                        <div
+                          key={subjectName}
+                          className="overflow-hidden rounded-2xl border border-[#e8e8e8] shadow-sm bg-white"
+                        >
+                          <div className="px-4 py-2.5 bg-[#fafafa] border-b border-[#e8e8e8]">
+                            <p className="font-semibold text-[#222] text-sm">{subjectName}</p>
                           </div>
-                        );
-                      })}
+                          <div className="flex flex-col divide-y divide-[#f0f0f0]">
+                            {subjectGraphs.map((graph) => {
+                              const day = dayConfig(graph.weekday);
+                              const selection =
+                                selectionByGroup[graph.candidate_group_id] ?? new Set<string>();
+                              const valid = isSelectionValid(graph.candidate_group_id);
+                              const allAssigned = graph.nodes.every((n) =>
+                                assignedBlockIds.has(n.original_block_id),
+                              );
+                              return (
+                                <div
+                                  key={graph.candidate_group_id}
+                                  className="flex flex-col gap-2 px-4 py-4"
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2">
+                                      <span
+                                        className={`text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-md ${day.bg} ${day.text}`}
+                                      >
+                                        {day.short}
+                                      </span>
+                                      <span className="font-bold text-[#333] tabular-nums text-sm">
+                                        {formatTime(graphStartTime(graph))}
+                                      </span>
+                                      <span className="text-[11px] text-[#aaa]">
+                                        {graph.nodes.length} turmas
+                                      </span>
+                                    </div>
+                                    {valid ? (
+                                      <button
+                                        onClick={() => handleCreateGroup(graph.candidate_group_id)}
+                                        className="bg-[#1e2028] text-white font-semibold px-3 py-1 rounded-lg text-[11px] hover:bg-[#2a2d37] transition-colors whitespace-nowrap cursor-pointer"
+                                      >
+                                        Criar grupo ({selection.size})
+                                      </button>
+                                    ) : selection.size > 0 ? (
+                                      <span className="text-[11px] text-[#bbb] font-medium">
+                                        Liga ≥2 turmas adjacentes
+                                      </span>
+                                    ) : allAssigned ? (
+                                      <span className="text-[11px] text-emerald-600 font-semibold">
+                                        Todas agrupadas
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  <ParallelGraph
+                                    graph={graph}
+                                    selected={selection}
+                                    assigned={assignedBlockIds}
+                                    onToggleNode={(blockId) =>
+                                      handleToggleNode(graph.candidate_group_id, blockId)
+                                    }
+                                    sessionTypeStyle={sessionTypeStyle}
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Right column: Selecionadas */}
+            {/* Right column: selected groups */}
             <div className="w-80 shrink-0 flex flex-col min-h-0">
               <h2 className="font-bold text-[#333] text-base mb-3 shrink-0">Selecionadas</h2>
               <div className="flex-1 overflow-y-auto pb-6 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300/60">
                 {loadingCandidates ? (
                   <CandidatesLoadingSkeleton />
-                ) : groupsBySubject.size === 0 ? (
+                ) : groupViewsBySubject.size === 0 ? (
                   <p className="text-xs text-[#aaa] text-center py-8">Nenhum grupo criado ainda.</p>
                 ) : (
                   <div className="flex flex-col gap-5">
-                    {[...groupsBySubject.entries()]
+                    {[...groupViewsBySubject.entries()]
                       .sort(([a], [b]) => a.localeCompare(b))
                       .map(([subjName, items]) => (
                         <div
@@ -464,85 +329,67 @@ export default function ParallelClassesPage() {
                             </p>
                           </div>
                           <div className="flex flex-col gap-2 p-2">
-                            {[...items]
-                              .sort(
-                                (a, b) =>
-                                  (DAY_ORDER[a.weekday] ?? 99) - (DAY_ORDER[b.weekday] ?? 99) ||
-                                  a.start_time - b.start_time,
-                              )
-                              .map(({ group, weekday, start_time, session_week, sessions }) => {
-                                const day = DAY_CONFIG[weekday] ?? {
-                                  short: "?",
-                                  bg: "bg-gray-400",
-                                  text: "text-white",
-                                };
-                                return (
+                            {items.map(({ group, weekday, startTime, blocks }) => {
+                              const day = dayConfig(weekday);
+                              const saved = savedGroupIds.has(group.id);
+                              return (
+                                <div
+                                  key={group.id}
+                                  className="overflow-hidden rounded-xl shadow-sm bg-white border border-[#e8e8e8]"
+                                >
                                   <div
-                                    key={group.id}
-                                    className="overflow-hidden rounded-xl shadow-sm bg-white border border-[#e8e8e8]"
+                                    className={`px-3 py-1.5 flex items-center justify-between ${saved ? "bg-[#1e2028]" : "bg-emerald-200"}`}
                                   >
-                                    <div
-                                      className={`px-3 py-1.5 flex items-center justify-between ${savedGroupIds.has(group.id) ? "bg-[#1e2028]" : "bg-emerald-200"}`}
-                                    >
-                                      <div className="flex items-center gap-2">
-                                        <span
-                                          className={`text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded ${day.bg} ${day.text}`}
-                                        >
-                                          {day.short}
-                                        </span>
-                                        {session_week && (
-                                          <span
-                                            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded tabular-nums whitespace-nowrap ${savedGroupIds.has(group.id) ? "bg-gray-600 text-gray-300" : "bg-emerald-300 text-emerald-900"}`}
-                                          >
-                                            {formatWeekDate(session_week)}
-                                          </span>
-                                        )}
-                                        <span
-                                          className={`text-[11px] font-bold tabular-nums ${savedGroupIds.has(group.id) ? "text-gray-300" : "text-emerald-900"}`}
-                                        >
-                                          {formatTime(start_time)}
-                                        </span>
-                                      </div>
-                                      <button
-                                        onClick={() => handleRemoveGroup(group.id)}
-                                        className="flex items-center justify-center w-5 h-5 rounded bg-red-600 hover:bg-red-500 transition-colors text-white text-xs font-bold leading-none cursor-pointer"
-                                        title="Remover grupo"
+                                    <div className="flex items-center gap-2">
+                                      <span
+                                        className={`text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded ${day.bg} ${day.text}`}
                                       >
-                                        ×
-                                      </button>
+                                        {day.short}
+                                      </span>
+                                      <span
+                                        className={`text-[11px] font-bold tabular-nums ${saved ? "text-gray-300" : "text-emerald-900"}`}
+                                      >
+                                        {formatTime(startTime)}
+                                      </span>
                                     </div>
-                                    <div className="px-3 py-2 flex flex-col gap-1">
-                                      {sessions.map((meta, i) => {
-                                        const typeLabel = meta.session_type ?? null;
-                                        const typeStyle = typeLabel
-                                          ? (SESSION_TYPE_CONFIG[typeLabel] ?? SESSION_TYPE_DEFAULT)
-                                          : null;
-                                        return (
-                                          <div key={i} className="flex items-center gap-1">
-                                            {typeLabel && typeStyle && (
-                                              <span
-                                                className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded ${typeStyle.bg} ${typeStyle.text}`}
-                                              >
-                                                {typeLabel}
-                                              </span>
-                                            )}
-                                            <OverflowFadeScroll className="flex-1 min-w-0">
-                                              {meta.class_codes.map((code: string) => (
-                                                <span
-                                                  key={`${group.id}-${i}-${code}`}
-                                                  className="rounded px-1.5 py-0.5 text-[11px] font-semibold bg-[#ffc107] text-[#222]"
-                                                >
-                                                  {code}
-                                                </span>
-                                              ))}
-                                            </OverflowFadeScroll>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
+                                    <button
+                                      onClick={() => handleRemoveGroup(group.id)}
+                                      className="flex items-center justify-center w-5 h-5 rounded bg-red-600 hover:bg-red-500 transition-colors text-white text-xs font-bold leading-none cursor-pointer"
+                                      title="Remover grupo"
+                                    >
+                                      ×
+                                    </button>
                                   </div>
-                                );
-                              })}
+                                  <div className="px-3 py-2 flex flex-col gap-1">
+                                    {blocks.map((block) => {
+                                      const typeStyle = sessionTypeStyle(block.type);
+                                      return (
+                                        <div
+                                          key={block.blockId}
+                                          className="flex items-center gap-1"
+                                        >
+                                          <span
+                                            className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded ${typeStyle.bg} ${typeStyle.text}`}
+                                          >
+                                            {block.type}
+                                          </span>
+                                          <div className="flex flex-wrap gap-1">
+                                            {block.codes.map((code) => (
+                                              <span
+                                                key={`${block.blockId}-${code}`}
+                                                className="rounded px-1.5 py-0.5 text-[11px] font-semibold bg-[#ffc107] text-[#222]"
+                                              >
+                                                {code}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       ))}

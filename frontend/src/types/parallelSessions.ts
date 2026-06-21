@@ -1,33 +1,59 @@
 export type UUID = string;
 
-export interface YearOption {
-  id: UUID;
-  number: number;
+// -- Wire shape (GET /parallel-blocks/candidates) ------------------------
+// Each candidate group is a connected component of the week-overlap graph:
+// `nodes` are the blocks, `edges` are the undirected adjacency pairs of
+// blocks that collide on at least one week. A valid selection is a connected
+// subgraph of these edges.
+
+export interface ParallelSessionTemplate {
+  type: string;
+  start_time: number;
+  duration: number;
 }
 
-export interface DegreeOption {
+export interface ParallelBlockClass {
   id: UUID;
-  name: string;
-  acronym: string;
+  code: string;
 }
 
-export interface ParallelCandidateSession {
+export interface ParallelBlockNode {
   original_block_id: UUID;
-  class_codes: string[];
-  session_type: string;
+  /** The confirmed parallel group this block is already saved under, if any. */
+  confirmed_group_id: UUID | null;
+  first_week: string;
+  last_week: string;
+  session: ParallelSessionTemplate;
+  /** `subject.years` rows this block belongs to (resolve degree there). */
+  year_ids: UUID[];
+  classes: ParallelBlockClass[];
 }
 
-export interface ParallelCandidate {
+export interface ParallelDegree {
+  id: UUID;
+  acronym: string;
+  name: string;
+}
+
+export interface ParallelYear {
+  id: UUID;
+  degree: ParallelDegree;
+}
+
+export interface ParallelSubject {
+  id: UUID;
+  acronym: string;
+  name: string;
+  /** Only the year/degree combinations present in this group. */
+  years: ParallelYear[];
+}
+
+export interface ParallelCandidateGraph {
   candidate_group_id: UUID;
-  subject_name: string;
-  session_start_time: number;
-  session_weekday: string;
-  session_duration: number;
-  session_week: string;
-  sessions: ParallelCandidateSession[];
-  year: number;
-  degree_id: string;
-  degree_acronym: string;
+  weekday: string;
+  subject: ParallelSubject;
+  nodes: ParallelBlockNode[];
+  edges: [UUID, UUID][];
 }
 
 export interface SuccessResponse<T> {
@@ -35,33 +61,27 @@ export interface SuccessResponse<T> {
   data: T;
 }
 
-export interface LocalGroup {
+// -- Filter options (derived client-side) --------------------------------
+export interface DegreeOption {
+  id: UUID;
+  name: string;
+  acronym: string;
+}
+
+export interface YearOption {
+  id: UUID;
+  number: number;
+}
+
+// -- Local selection model ----------------------------------------------
+/** A group the user has formed (or one loaded from the server). */
+export interface ParallelGroup {
+  /** Local id; for server-loaded groups this is the confirmed_group_id. */
   id: string;
+  candidateGroupId: UUID;
   blockIds: UUID[];
-}
-
-export interface BlockMeta {
-  subject_name: string;
-  weekday: string;
-  start_time: number;
-  class_codes: string[];
-  session_type?: string;
-  session_week?: string;
-}
-
-export interface DisplayCandidate extends ParallelCandidate {
-  showWeek: boolean;
-  displayWeeks: string[];
-  equivalentCandidates: ParallelCandidate[];
-}
-
-export interface EnrichedGroup {
-  group: LocalGroup;
-  subject_name: string;
-  weekday: string;
-  start_time: number;
-  session_week: string | undefined;
-  sessions: BlockMeta[];
+  /** True when this group is already persisted on the server. */
+  confirmed: boolean;
 }
 
 export const DAY_ORDER: Record<string, number> = {
@@ -70,4 +90,5 @@ export const DAY_ORDER: Record<string, number> = {
   wednesday: 2,
   thursday: 3,
   friday: 4,
+  saturday: 5,
 };
