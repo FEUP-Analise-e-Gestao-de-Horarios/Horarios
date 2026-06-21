@@ -16,6 +16,19 @@ const NODE_PAD = 84;
 /** Per-node delay of the entrance burst, in ms. */
 const STAGGER = 45;
 
+/** Format an ISO date (YYYY-MM-DD) as DD/MM. */
+function formatWeek(dateStr: string): string {
+  const parts = dateStr.split("-");
+  return parts.length === 3 ? `${parts[2]}/${parts[1]}` : dateStr;
+}
+
+/** A block's active week span, e.g. "15/09" or "15/09–20/12". */
+function weekRange(first: string, last: string): string {
+  const a = formatWeek(first);
+  const b = formatWeek(last);
+  return a === b ? a : `${a}–${b}`;
+}
+
 export default function ParallelGraph({
   graph,
   selected,
@@ -145,6 +158,9 @@ export default function ParallelGraph({
             </span>
             <span className="max-w-full truncate text-[11px] font-bold tabular-nums text-[#333]">
               {codes}
+            </span>
+            <span className="text-[9px] font-semibold tabular-nums text-[#999] whitespace-nowrap">
+              {weekRange(node.first_week, node.last_week)}
             </span>
             {isAssigned && (
               <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-400">
