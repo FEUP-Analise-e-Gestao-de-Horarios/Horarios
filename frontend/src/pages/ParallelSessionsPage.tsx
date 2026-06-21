@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { useParallelSessions } from "@/api/hooks/useParallelSessions";
 import { DAY_ORDER, type ParallelCandidateGraph } from "@/types/parallelSessions";
 import DegreeDropdown from "@/components/schedule/DegreeDropdown";
@@ -52,7 +53,16 @@ function CandidatesLoadingSkeleton() {
 
 export default function ParallelClassesPage() {
   const [openDropdown, setOpenDropdown] = useState<"degree" | "year" | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const headerRef = useRef<HTMLElement>(null);
+
+  const toggleExpanded = (id: string) =>
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -250,13 +260,21 @@ export default function ParallelClassesPage() {
                               const allAssigned = graph.nodes.every((n) =>
                                 assignedBlockIds.has(n.original_block_id),
                               );
+                              const expanded = expandedGroups.has(graph.candidate_group_id);
                               return (
                                 <div
                                   key={graph.candidate_group_id}
                                   className="flex flex-col gap-2 px-4 py-4"
                                 >
                                   <div className="flex items-center justify-between gap-2">
-                                    <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleExpanded(graph.candidate_group_id)}
+                                      className="flex items-center gap-2 flex-1 min-w-0 text-left cursor-pointer"
+                                    >
+                                      <ChevronDown
+                                        className={`w-4 h-4 shrink-0 text-[#999] transition-transform ${expanded ? "" : "-rotate-90"}`}
+                                      />
                                       <span
                                         className={`text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-md ${day.bg} ${day.text}`}
                                       >
@@ -268,7 +286,12 @@ export default function ParallelClassesPage() {
                                       <span className="text-[11px] text-[#aaa]">
                                         {graph.nodes.length} turmas
                                       </span>
-                                    </div>
+                                      {!expanded && selection.size > 0 && (
+                                        <span className="text-[11px] text-amber-600 font-semibold">
+                                          {selection.size} selecionadas
+                                        </span>
+                                      )}
+                                    </button>
                                     {valid ? (
                                       <button
                                         onClick={() => handleCreateGroup(graph.candidate_group_id)}
@@ -286,15 +309,17 @@ export default function ParallelClassesPage() {
                                       </span>
                                     ) : null}
                                   </div>
-                                  <ParallelGraph
-                                    graph={graph}
-                                    selected={selection}
-                                    assigned={assignedBlockIds}
-                                    onToggleNode={(blockId) =>
-                                      handleToggleNode(graph.candidate_group_id, blockId)
-                                    }
-                                    sessionTypeStyle={sessionTypeStyle}
-                                  />
+                                  {expanded && (
+                                    <ParallelGraph
+                                      graph={graph}
+                                      selected={selection}
+                                      assigned={assignedBlockIds}
+                                      onToggleNode={(blockId) =>
+                                        handleToggleNode(graph.candidate_group_id, blockId)
+                                      }
+                                      sessionTypeStyle={sessionTypeStyle}
+                                    />
+                                  )}
                                 </div>
                               );
                             })}

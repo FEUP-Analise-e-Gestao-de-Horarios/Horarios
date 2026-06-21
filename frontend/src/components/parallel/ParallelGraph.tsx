@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ParallelBlockNode, ParallelCandidateGraph, UUID } from "@/types/parallelSessions";
-import { layoutNodes } from "./parallelGraph";
+import { forceLayout } from "./parallelGraph";
 
 interface ParallelGraphProps {
   graph: ParallelCandidateGraph;
@@ -12,7 +12,9 @@ interface ParallelGraphProps {
   sessionTypeStyle: (type: string) => { bg: string; text: string };
 }
 
-const NODE_PAD = 96;
+const NODE_PAD = 84;
+/** Per-node delay of the entrance burst, in ms. */
+const STAGGER = 45;
 
 export default function ParallelGraph({
   graph,
@@ -27,39 +29,88 @@ export default function ParallelGraph({
     for (const node of graph.nodes) map.set(node.original_block_id, node);
     return map;
   }, [graph.nodes]);
+  const orderIndex = useMemo(() => {
+    const map = new Map<UUID, number>();
+    ids.forEach((id, i) => map.set(id, i));
+    return map;
+  }, [ids]);
 
-  const radius = ids.length <= 2 ? 96 : Math.max(96, ids.length * 22);
-  const side = 2 * radius + NODE_PAD * 2;
-  const center = side / 2;
+  const positions = useMemo(
+    () => forceLayout(ids, graph.edges, { linkDistance: 120 }),
+    [ids, graph.edges],
+  );
 
-  const positions = useMemo(() => layoutNodes(ids, radius), [ids, radius]);
+  // Container bounds derived from the laid-out positions.
+  const { width, height, place } = useMemo(() => {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const p of positions.values()) {
+      minX = Math.min(minX, p.x);
+      minY = Math.min(minY, p.y);
+      maxX = Math.max(maxX, p.x);
+      maxY = Math.max(maxY, p.y);
+    }
+    if (!Number.isFinite(minX)) {
+      minX = minY = maxX = maxY = 0;
+    }
+    const w = maxX - minX + NODE_PAD * 2;
+    const h = maxY - minY + NODE_PAD * 2;
+    const place = (p: { x: number; y: number }) => ({
+      left: p.x - minX + NODE_PAD,
+      top: p.y - minY + NODE_PAD,
+    });
+    return { width: w, height: h, place };
+  }, [positions]);
+
+  // Entrance burst: nodes pop in sequence once the graph mounts.
+  const [appear, setAppear] = useState(false);
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setAppear(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   return (
-    <div className="relative mx-auto" style={{ width: side, height: side }}>
-      <svg className="absolute inset-0 pointer-events-none" width={side} height={side} aria-hidden>
+    <div className="relative mx-auto" style={{ width, height }}>
+      <svg
+        className="absolute inset-0 pointer-events-none"
+        width={width}
+        height={height}
+        aria-hidden
+      >
         {graph.edges.map(([a, b], i) => {
           const pa = positions.get(a);
           const pb = positions.get(b);
           if (!pa || !pb) return null;
+          const la = place(pa);
+          const lb = place(pb);
           const bothSelected = selected.has(a) && selected.has(b);
+          const delay = (Math.max(orderIndex.get(a) ?? 0, orderIndex.get(b) ?? 0) + 1) * STAGGER;
           return (
             <line
               key={`${a}-${b}-${i}`}
-              x1={center + pa.x}
-              y1={center + pa.y}
-              x2={center + pb.x}
-              y2={center + pb.y}
+              x1={la.left}
+              y1={la.top}
+              x2={lb.left}
+              y2={lb.top}
               stroke={bothSelected ? "#f59e0b" : "#d1d5db"}
               strokeWidth={bothSelected ? 2.5 : 1.5}
+              style={{
+                opacity: appear ? 1 : 0,
+                transition: "opacity 240ms ease",
+                transitionDelay: `${delay}ms`,
+              }}
             />
           );
         })}
       </svg>
 
-      {ids.map((id) => {
+      {ids.map((id, i) => {
         const node = nodeById.get(id);
         const pos = positions.get(id);
         if (!node || !pos) return null;
+        const loc = place(pos);
         const isAssigned = assigned.has(id);
         const isSelected = selected.has(id);
         const typeStyle = sessionTypeStyle(node.session.type);
@@ -72,13 +123,16 @@ export default function ParallelGraph({
             onClick={() => onToggleNode(id)}
             title={isAssigned ? "Já pertence a um grupo" : codes}
             style={{
-              left: center + pos.x,
-              top: center + pos.y,
-              transform: "translate(-50%, -50%)",
+              left: loc.left,
+              top: loc.top,
+              opacity: appear ? (isAssigned ? 0.6 : 1) : 0,
+              transform: `translate(-50%, -50%) scale(${appear ? 1 : 0.4})`,
+              transition: "opacity 220ms ease, transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1)",
+              transitionDelay: `${i * STAGGER}ms`,
             }}
-            className={`absolute flex max-w-[150px] flex-col items-center gap-1 rounded-xl border px-2.5 py-1.5 shadow-sm transition-colors ${
+            className={`absolute flex max-w-[150px] flex-col items-center gap-1 rounded-xl border px-2.5 py-1.5 shadow-sm ${
               isAssigned
-                ? "cursor-default border-dashed border-gray-300 bg-gray-100 opacity-60"
+                ? "cursor-default border-dashed border-gray-300 bg-gray-100"
                 : isSelected
                   ? "cursor-pointer border-amber-400 bg-amber-50 ring-2 ring-amber-300"
                   : "cursor-pointer border-gray-300 bg-white hover:border-gray-400 hover:bg-[#fffdf5]"
