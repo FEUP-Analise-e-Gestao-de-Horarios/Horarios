@@ -65,10 +65,21 @@ export function forceLayout(
   }
 
   const k = opts.linkDistance ?? 120;
+
+  // Two nodes are just a single edge: place them side by side. (The general
+  // simulation would otherwise keep them on one axis and can collapse them
+  // onto the same point, leaving only one visible node.)
+  if (n === 2) {
+    positions.set(ids[0]!, { x: -k / 2, y: 0 });
+    positions.set(ids[1]!, { x: k / 2, y: 0 });
+    return positions;
+  }
+
   const iterations = opts.iterations ?? 300;
   const k2 = k * k;
 
-  // Deterministic initial layout on a circle.
+  // Deterministic initial layout on a circle, with a tiny per-node offset to
+  // break perfect symmetry (which can trap nodes on top of each other).
   const r0 = k * Math.max(1, n / (2 * Math.PI));
   const xs = new Array<number>(n);
   const ys = new Array<number>(n);
@@ -76,8 +87,8 @@ export function forceLayout(
   for (let i = 0; i < n; i++) {
     const id = ids[i]!;
     const angle = (i * 2 * Math.PI) / n - Math.PI / 2;
-    xs[i] = Math.cos(angle) * r0;
-    ys[i] = Math.sin(angle) * r0;
+    xs[i] = Math.cos(angle) * r0 + Math.cos(i * 2.399963) * 4;
+    ys[i] = Math.sin(angle) * r0 + Math.sin(i * 2.399963) * 4;
     index.set(id, i);
   }
 
@@ -97,10 +108,20 @@ export function forceLayout(
       for (let j = i + 1; j < n; j++) {
         const ddx = xs[i]! - xs[j]!;
         const ddy = ys[i]! - ys[j]!;
-        const dist = Math.hypot(ddx, ddy) || 0.01;
-        const force = k2 / dist;
-        const ux = ddx / dist;
-        const uy = ddy / dist;
+        let dist = Math.hypot(ddx, ddy);
+        let ux: number;
+        let uy: number;
+        if (dist < 1e-3) {
+          // Coincident nodes: pick a deterministic direction so they separate.
+          const a = (i + 1) * 1.337 + (j + 1) * 0.911;
+          ux = Math.cos(a);
+          uy = Math.sin(a);
+          dist = 1e-3;
+        } else {
+          ux = ddx / dist;
+          uy = ddy / dist;
+        }
+        const force = k2 / Math.max(dist, 1);
         dx[i]! += ux * force;
         dy[i]! += uy * force;
         dx[j]! -= ux * force;
