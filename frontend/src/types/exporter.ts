@@ -118,6 +118,7 @@ export interface ExportConflictBase {
   duration: number;
   collisions: number;
   session_ids: string[];
+  subject_labels?: string[];
 }
 
 export interface ExportRoomConflict extends ExportConflictBase {
@@ -157,6 +158,7 @@ export type CompactExportConflict = [
   duration: number,
   collisions: number,
   sessionIds: string[],
+  subjectLabels?: string[],
 ];
 
 export interface CompactExportEntities {

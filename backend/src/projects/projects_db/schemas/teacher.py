@@ -16,6 +16,7 @@ class TeacherStats(BaseModel):
     subjects: int
     classes: int
     sessions: int
+    red_blocks: int
 
 
 class TeacherConflict(dict):
@@ -33,3 +34,4 @@ class TeacherConflict(dict):
     collisions: int
     session_ids: list[UUID]
     red_blocks: int
+    subject_labels: list[str]

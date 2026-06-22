@@ -30,7 +30,7 @@ export function compactExportToProjectExportPayload(
     rooms_conflicts: payload.conflicts
       .filter((conflict) => conflict[0] === "room")
       .map((conflict): ExportRoomConflict => {
-        const room = payload.entities.rooms[conflict[1]];
+        const room = findEntity(payload.entities.rooms, conflict[1]);
         return {
           ...baseConflict(conflict),
           room_id: conflict[1],
@@ -40,7 +40,7 @@ export function compactExportToProjectExportPayload(
     teacher_conflicts: payload.conflicts
       .filter((conflict) => conflict[0] === "teacher")
       .map((conflict): ExportTeacherConflict => {
-        const teacher = payload.entities.teachers[conflict[1]];
+        const teacher = findEntity(payload.entities.teachers, conflict[1]);
         return {
           ...baseConflict(conflict),
           teacher_id: conflict[1],
@@ -51,31 +51,57 @@ export function compactExportToProjectExportPayload(
       }),
     classes_conflicts: payload.conflicts
       .filter((conflict) => conflict[0] === "class")
-      .map(
-        (conflict): ExportClassConflict => ({
+      .map((conflict): ExportClassConflict => {
+        const classEntity = findEntity(payload.entities.classes, conflict[1]);
+        return {
           ...baseConflict(conflict),
           class_id: conflict[1],
-          class_code: payload.entities.classes[conflict[1]]?.class_code ?? conflict[1],
-        }),
-      ),
+          class_code: classEntity?.class_code ?? conflict[1],
+        };
+      }),
     modification_steps: payload.modification_steps.map(
       (step): ExportModificationStep => ({
         ...step,
-        session: payload.entities.sessions[step.session_ids[0] ?? ""] ?? {
-          id: step.session_ids[0] ?? "",
-          start_time: 0,
-          duration: 0,
-          weekday: "monday",
-          week: "",
-          rooms: [],
-          teachers: [],
-          classes: [],
-          subjects: [],
-        },
+        session: sessionForStep(step, payload),
         modifications: expandModifications(step.modifications, payload),
       }),
     ),
   };
+}
+
+function normalizeEntityId(value: string): string {
+  return value.replaceAll("-", "");
+}
+
+function findEntity<T>(entities: Record<string, T>, id: string): T | undefined {
+  const exact = entities[id];
+  if (exact !== undefined) return exact;
+
+  const normalizedId = normalizeEntityId(id);
+  const normalized = entities[normalizedId];
+  if (normalized !== undefined) return normalized;
+
+  return Object.entries(entities).find(([key]) => normalizeEntityId(key) === normalizedId)?.[1];
+}
+
+function sessionForStep(
+  step: CompactProjectExportPayload["modification_steps"][number],
+  payload: CompactProjectExportPayload,
+): ExportModificationStep["session"] {
+  const sessionId = step.session_ids[0] ?? "";
+  return (
+    findEntity(payload.entities.sessions, sessionId) ?? {
+      id: sessionId,
+      start_time: 0,
+      duration: 0,
+      weekday: "monday",
+      week: "",
+      rooms: [],
+      teachers: [],
+      classes: [],
+      subjects: [],
+    }
+  );
 }
 
 function baseConflict(conflict: CompactProjectExportPayload["conflicts"][number]) {
@@ -87,6 +113,7 @@ function baseConflict(conflict: CompactProjectExportPayload["conflicts"][number]
     duration: conflict[6],
     collisions: conflict[7],
     session_ids: conflict[8],
+    subject_labels: conflict[9] ?? [],
   };
 }
 
@@ -140,7 +167,7 @@ function expandRelationRecord<T extends object>(
   entities: Record<string, T>,
 ): T {
   if (typeof record === "string") {
-    return { [idKey]: record, ...(entities[record] ?? {}) } as T;
+    return { [idKey]: record, ...(findEntity(entities, record) ?? {}) } as T;
   }
 
   if (typeof record !== "object" || record === null || !(idKey in record)) {
@@ -148,7 +175,7 @@ function expandRelationRecord<T extends object>(
   }
 
   const id = String((record as Record<string, unknown>)[idKey]);
-  return { [idKey]: id, ...(entities[id] ?? {}) } as T;
+  return { [idKey]: id, ...(findEntity(entities, id) ?? {}) } as T;
 }
 
 function expandClassSubjectChange(
@@ -190,11 +217,17 @@ function expandClassSubjectIds(
   subjectId: string,
   payload: CompactProjectExportPayload,
 ): ExportClassSubjectRelationChange {
+  const classEntity = findEntity(payload.entities.classes, classId);
   return {
     class_id: classId,
     subject_id: subjectId,
-    ...payload.entities.classes[classId],
-    ...payload.entities.subjects[subjectId],
+    ...(classEntity
+      ? {
+          class_code: classEntity.class_code,
+          class_shift: classEntity.class_shift,
+        }
+      : {}),
+    ...findEntity(payload.entities.subjects, subjectId),
   };
 }
 

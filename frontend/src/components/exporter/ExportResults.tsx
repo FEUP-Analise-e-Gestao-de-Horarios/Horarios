@@ -83,7 +83,24 @@ function formatDuration(slots: number): string {
 function formatConflictWeeks(row: ExportConflictBase): string {
   const weeks = row.weeks?.length ? [...new Set(row.weeks)] : [row.week];
   if (weeks.length === 1) return weeks[0] ?? row.week;
-  return `${weeks[0]} a ${weeks[weeks.length - 1]} · ${weeks.length} semanas`;
+  return `${weeks[0]} a ${weeks[weeks.length - 1]}`;
+}
+
+function conflictAulasCount(row: ExportConflictBase): number {
+  const uniqueSessions = new Set(row.session_ids.map(normalizeId)).size;
+  const weekCount = row.weeks?.length ?? 1;
+  return Math.max(1, Math.round(uniqueSessions / weekCount));
+}
+
+function conflictTitle(row: ExportConflictBase, name: string): ReactNode {
+  if (!row.subject_labels?.length) return name;
+
+  return (
+    <>
+      <span>{name}</span>
+      <span className="font-normal text-[#6b6375]"> · {row.subject_labels.join(", ")}</span>
+    </>
+  );
 }
 
 function formatJsonValue(value: unknown): string {
@@ -332,18 +349,47 @@ function relationChangeLabel(label: string, changeType: "added" | "removed"): st
   );
 }
 
-function sessionTitle(session: ExportSessionSnapshot): string {
-  const subjects = uniqueByLabel(session.subjects, (subject) => relationRecord(subject).label)
-    .map((subject) => relationRecord(subject).label)
-    .join(", ");
-  const classes = uniqueByLabel(session.classes, (classCode) => classCode).join(", ");
-  return [subjects, classes].filter(Boolean).join(" · ") || "Sessão";
+function subjectTitleLabel(subject: ExportSessionSnapshot["subjects"][number]): string {
+  return [subject.acronym ?? subject.name, subject.code].filter(Boolean).join(" ");
 }
 
-function changeTitle(session: ExportSessionSnapshot): string {
-  return `${sessionTitle(session)} · ${WEEKDAY_LABELS[session.weekday]} ${formatTime(
-    session.start_time,
-  )}`;
+function SubjectTitle({ subject }: { subject: ExportSessionSnapshot["subjects"][number] }) {
+  const label = subject.acronym ?? subject.name;
+
+  return (
+    <span className="inline-flex items-baseline gap-1">
+      <span>{label}</span>
+      {subject.code && <span className="font-normal">({subject.code})</span>}
+    </span>
+  );
+}
+
+function sessionTitle(session: ExportSessionSnapshot): ReactNode {
+  const subjects = uniqueByLabel(session.subjects, subjectTitleLabel);
+  const classes = uniqueByLabel(session.classes, (classCode) => classCode).join(", ");
+
+  if (!subjects.length && !classes) return "Sessão";
+
+  return (
+    <>
+      {subjects.map((subject, index) => (
+        <span key={subjectTitleLabel(subject)}>
+          {index > 0 && ", "}
+          <SubjectTitle subject={subject} />
+        </span>
+      ))}
+      {subjects.length > 0 && classes && " · "}
+      {classes}
+    </>
+  );
+}
+
+function changeTitle(session: ExportSessionSnapshot): ReactNode {
+  return (
+    <>
+      {sessionTitle(session)} · {WEEKDAY_LABELS[session.weekday]} {formatTime(session.start_time)}
+    </>
+  );
 }
 
 function normalizeId(value: string): string {
@@ -569,21 +615,20 @@ function ConflictRows<T extends ExportConflictBase>({
       {rows.map((row, index) => (
         <div
           key={`${getName(row)}-${row.week}-${row.weekday}-${row.start_time}-${index}`}
-          className="px-4 py-3"
+          className="relative px-4 py-3 pr-24"
         >
-          <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
             <span className="min-w-0 break-words text-sm font-semibold text-[#08060d]">
-              {getName(row)}
-            </span>
-            <span className="rounded border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">
-              {row.session_ids.length} sessões
+              {conflictTitle(row, getName(row))}
             </span>
           </div>
+          <span className="absolute right-4 top-3 rounded border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">
+            {conflictAulasCount(row)} aulas
+          </span>
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[#6b6375]">
             <span>{formatConflictWeeks(row)}</span>
             <span>{WEEKDAY_LABELS[row.weekday]}</span>
             <span>{formatTime(row.start_time)}</span>
-            <span>{formatDuration(row.duration)}</span>
           </div>
         </div>
       ))}
@@ -642,7 +687,7 @@ function ModificationChange({
       <div className="inline-flex max-w-full flex-wrap items-center gap-1 rounded border border-[#e5e4e7] bg-[#f9f7f4] px-1.5 py-0.5">
         <span className="text-[11px] font-bold uppercase text-[#08060d]">{fieldLabel(name)}</span>
         <span className="min-w-0 text-xs text-[#6b6375]">
-          <span className="line-through">{oldValue}</span>
+          <span>{oldValue}</span>
           <span className="mx-1 text-[#08060d]">→</span>
           <span className="font-medium text-[#08060d]">{newValue}</span>
         </span>

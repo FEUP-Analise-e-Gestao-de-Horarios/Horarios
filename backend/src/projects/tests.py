@@ -140,7 +140,7 @@ class SessionDeletionEndpointTests(TestCase):
             },
         )
 
-    def test_export_endpoint_reuses_cached_full_payload(self) -> None:
+    def test_export_endpoint_reuses_cached_compact_payload(self) -> None:
         response = self.client.post(
             f"/api/projects/{self.project.pk}/export",
             data=json.dumps({"recalculate_export_graph": False}),
@@ -148,6 +148,7 @@ class SessionDeletionEndpointTests(TestCase):
         )
         self.assertEqual(response.status_code, HTTPStatus.OK)
         self.assertEqual(response.json()["message"], "Project export computed successfully")
+        self.assertEqual(response.json()["data"]["format"], COMPACT_EXPORT_FORMAT)
 
         with patch(
             "src.projects.views.export.RoomDAO.get_conflicting_slots",
@@ -163,10 +164,33 @@ class SessionDeletionEndpointTests(TestCase):
         self.assertEqual(cached_response.json()["message"], "Project export loaded from cache")
         self.assertEqual(cached_response.json()["data"], response.json()["data"])
 
+    def test_export_endpoint_replaces_legacy_expanded_cache(self) -> None:
+        with get_project_session(general_db(self.project.pk)) as db_session:
+            ExportCacheDAO(db_session).replace_project_export_payload(
+                {
+                    "added_removed_sessions": {"added": [], "removed": []},
+                    "rooms_conflicts": [],
+                    "teacher_conflicts": [],
+                    "classes_conflicts": [],
+                    "modification_steps": [],
+                },
+            )
+            db_session.commit()
+
+        response = self.client.post(
+            f"/api/projects/{self.project.pk}/export",
+            data=json.dumps({"recalculate_export_graph": False}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertEqual(response.json()["message"], "Project export computed successfully")
+        self.assertEqual(response.json()["data"]["format"], COMPACT_EXPORT_FORMAT)
+
     def test_export_endpoint_supports_compact_payload_format(self) -> None:
         expanded_response = self.client.post(
             f"/api/projects/{self.project.pk}/export",
-            data=json.dumps({"recalculate_export_graph": True}),
+            data=json.dumps({"recalculate_export_graph": True, "payload_format": "expanded"}),
             content_type="application/json",
         )
         compact_response = self.client.post(
@@ -184,6 +208,52 @@ class SessionDeletionEndpointTests(TestCase):
             expanded_response.json()["data"],
         )
 
+    def test_export_endpoint_includes_class_conflict_subject_labels(self) -> None:
+        with get_project_session(general_db(self.project.pk)) as db_session:
+            existing_session = db_session.get(Session, self.session_id)
+            self.assertIsNotNone(existing_session)
+            assert existing_session is not None
+
+            class_subject = existing_session.session_class_subjects[0]
+            conflict_session = Session(
+                week=existing_session.week,
+                weekday=existing_session.weekday,
+                start_time=9,
+                duration=2,
+                type="T",
+                original_block_id=uuid.uuid7(),
+                rooms=list(existing_session.rooms),
+                teachers=list(existing_session.teachers),
+                session_class_subjects=[
+                    SessionClassSubject(
+                        class_=class_subject.class_,
+                        subject=class_subject.subject,
+                    ),
+                ],
+            )
+            db_session.add(conflict_session)
+            db_session.commit()
+
+        response = self.client.post(
+            f"/api/projects/{self.project.pk}/export",
+            data=json.dumps({"recalculate_export_graph": True, "payload_format": "expanded"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertEqual(
+            response.json()["data"]["rooms_conflicts"][0]["subject_labels"],
+            ["TEST (TEST001)"],
+        )
+        self.assertEqual(
+            response.json()["data"]["teacher_conflicts"][0]["subject_labels"],
+            ["TEST (TEST001)"],
+        )
+        self.assertEqual(
+            response.json()["data"]["classes_conflicts"][0]["subject_labels"],
+            ["TEST (TEST001)"],
+        )
+
     def test_export_generation_does_not_load_all_sessions(self) -> None:
         with patch(
             "src.projects.projects_db.dao.base_dao.BaseDAO.get_all",
@@ -196,6 +266,27 @@ class SessionDeletionEndpointTests(TestCase):
             )
 
         self.assertEqual(response.status_code, HTTPStatus.OK)
+
+    def test_teachers_endpoint_includes_red_block_count(self) -> None:
+        response = self.client.get(f"/api/projects/{self.project.pk}/teachers/")
+
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertEqual(response.json()["message"], "Teachers retrieved successfully")
+        self.assertEqual(
+            response.json()["data"]["teachers"],
+            [
+                {
+                    "id": str(self.teacher_id),
+                    "number": 1,
+                    "acronym": "ABC",
+                    "name": "Alice Example",
+                    "subjects": 1,
+                    "classes": 1,
+                    "sessions": 1,
+                    "red_blocks": 0,
+                },
+            ],
+        )
 
     def test_delete_session_endpoint_clears_export_cache(self) -> None:
         response = self.client.post(

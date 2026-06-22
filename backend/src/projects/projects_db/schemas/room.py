@@ -30,3 +30,4 @@ class RoomConflict(dict):
 
     collisions: int
     session_ids: list[UUID]
+    subject_labels: list[str]

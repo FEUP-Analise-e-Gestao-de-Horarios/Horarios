@@ -21,6 +21,31 @@ type CompactRelationRecord = RelationRecord | str
 type CompactClassSubjectRecord = RelationRecord | Sequence[str]
 
 
+def normalize_compact_id(value: ExportJsonValue) -> str:
+    """Return an id string in the comparison form used across compact lookups."""
+    return str(value).replace("-", "")
+
+
+def find_entity(entities: EntityMaps, entity_key: str, entity_id: ExportJsonValue) -> ExportMapping:
+    """Return an entity by exact id or UUID-normalized id."""
+    entity_map = entities.get(entity_key, {})
+    exact_id = str(entity_id)
+    exact = entity_map.get(exact_id)
+    if isinstance(exact, Mapping):
+        return dict(exact)
+
+    normalized_id = normalize_compact_id(entity_id)
+    normalized = entity_map.get(normalized_id)
+    if isinstance(normalized, Mapping):
+        return dict(normalized)
+
+    for key, value in entity_map.items():
+        if normalize_compact_id(key) == normalized_id and isinstance(value, Mapping):
+            return dict(value)
+
+    return {}
+
+
 def compact_export_payload(
     expanded: ProjectExportPayload | ExportRecord,
 ) -> CompactProjectExportPayload:
@@ -149,12 +174,8 @@ def compact_conflict(
         )
     elif kind == "class":
         resource_id = str(conflict["class_id"])
-        entities["classes"].setdefault(
-            resource_id,
-            {
-                "class_code": conflict["class_code"],
-            },
-        )
+        class_entity = entities["classes"].setdefault(resource_id, {})
+        class_entity.setdefault("class_code", conflict["class_code"])
     else:
         raise ValueError(f"Unknown compact conflict kind: {kind}")
 
@@ -168,23 +189,39 @@ def compact_conflict(
         cast(int, compact["duration"]),
         cast(int, compact["collisions"]),
         cast(list[str], compact["session_ids"]),
+        cast(list[str], compact.get("subject_labels", [])),
     )
 
 
 def expand_conflict(conflict: CompactConflictRecord, entities: EntityMaps) -> ExportMapping:
     """Rebuild one legacy expanded conflict row from a compact conflict record."""
     if isinstance(conflict, list | tuple):
-        (
-            kind,
-            resource_id,
-            week,
-            weeks,
-            weekday,
-            start_time,
-            duration,
-            collisions,
-            session_ids,
-        ) = conflict
+        if len(conflict) == 9:
+            (
+                kind,
+                resource_id,
+                week,
+                weeks,
+                weekday,
+                start_time,
+                duration,
+                collisions,
+                session_ids,
+            ) = conflict
+            subject_labels = []
+        else:
+            (
+                kind,
+                resource_id,
+                week,
+                weeks,
+                weekday,
+                start_time,
+                duration,
+                collisions,
+                session_ids,
+                subject_labels,
+            ) = conflict
         expanded: ExportMapping = {
             "week": week,
             "weeks": weeks,
@@ -193,6 +230,7 @@ def expand_conflict(conflict: CompactConflictRecord, entities: EntityMaps) -> Ex
             "duration": duration,
             "collisions": collisions,
             "session_ids": session_ids,
+            "subject_labels": subject_labels,
         }
     else:
         conflict_mapping = cast(ExportRecord, conflict)
@@ -207,14 +245,14 @@ def expand_conflict(conflict: CompactConflictRecord, entities: EntityMaps) -> Ex
     resource_id = str(resource_id)
 
     if kind == "room":
-        expanded.update({"room_id": resource_id, **entities.get("rooms", {}).get(resource_id, {})})
+        expanded.update({"room_id": resource_id, **find_entity(entities, "rooms", resource_id)})
     elif kind == "teacher":
         expanded.update(
-            {"teacher_id": resource_id, **entities.get("teachers", {}).get(resource_id, {})},
+            {"teacher_id": resource_id, **find_entity(entities, "teachers", resource_id)},
         )
     elif kind == "class":
         expanded.update(
-            {"class_id": resource_id, **entities.get("classes", {}).get(resource_id, {})},
+            {"class_id": resource_id, **find_entity(entities, "classes", resource_id)},
         )
     else:
         raise ValueError(f"Unknown compact conflict kind: {kind}")
@@ -245,7 +283,9 @@ def expand_modification_step(step: ExportRecord, entities: EntityMaps) -> Export
     session_ids = cast(Sequence[ExportJsonValue], step["session_ids"])
     session_id = str(session_ids[0])
     expanded = dict(deepcopy(step))
-    expanded["session"] = deepcopy(entities.get("sessions", {}).get(session_id, {"id": session_id}))
+    expanded["session"] = deepcopy(
+        find_entity(entities, "sessions", session_id) or {"id": session_id},
+    )
     expanded["modifications"] = expand_modifications(
         cast(ExportRecord, step.get("modifications", {})),
         entities,
@@ -260,6 +300,8 @@ def compact_modifications(
     """Compact relation modifications while preserving scalar column changes."""
     compact: ExportMapping = {}
     for field, change in modifications.items():
+        if change is None:
+            continue
         change_mapping = cast(ExportRecord, change)
         if field == "rooms":
             compact[field] = compact_relation_change(change_mapping, "room_id", "rooms", entities)
@@ -284,6 +326,8 @@ def expand_modifications(
     """Expand compact relation modifications back to the legacy relation payloads."""
     expanded: ExportMapping = {}
     for field, change in modifications.items():
+        if change is None:
+            continue
         change_mapping = cast(ExportRecord, change)
         if field == "rooms":
             expanded[field] = expand_relation_change(change_mapping, "room_id", "rooms", entities)
@@ -336,7 +380,7 @@ def expand_relation_change(
                 cast(RelationRecord, record)[id_key] if isinstance(record, Mapping) else record,
             )
             expanded[change_type].append(
-                {id_key: entity_id, **deepcopy(entities.get(entity_key, {}).get(entity_id, {}))},
+                {id_key: entity_id, **deepcopy(find_entity(entities, entity_key, entity_id))},
             )
     return expanded
 
@@ -386,10 +430,16 @@ def expand_class_subject_change(
             expanded[change_type].append(
                 {
                     "class_id": class_id,
-                    **deepcopy(entities.get("classes", {}).get(class_id, {"class_id": class_id})),
+                    **deepcopy(
+                        {
+                            key: value
+                            for key, value in find_entity(entities, "classes", class_id).items()
+                            if key in {"class_code", "class_shift"}
+                        },
+                    ),
                     "subject_id": subject_id,
                     **deepcopy(
-                        entities.get("subjects", {}).get(subject_id, {"subject_id": subject_id}),
+                        find_entity(entities, "subjects", subject_id) or {"subject_id": subject_id},
                     ),
                 },
             )

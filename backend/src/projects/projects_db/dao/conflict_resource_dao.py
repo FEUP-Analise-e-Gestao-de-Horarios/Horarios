@@ -7,6 +7,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.projects.projects_db.models.session import Session as SessionModel
+from src.projects.projects_db.models.session_class_subject import SessionClassSubject
+from src.projects.projects_db.models.subject import Subject
 
 
 @dataclass(frozen=True)
@@ -215,6 +217,43 @@ class ConflictResourceDAO:
             ),
         )
 
+    def _add_subject_labels(self, conflicts: list[dict[str, object]]) -> list[dict[str, object]]:
+        session_ids = {
+            session_id
+            for conflict in conflicts
+            for session_id in cast("Sequence[object]", conflict["session_ids"])
+        }
+        if not session_ids:
+            return conflicts
+
+        rows = self.session.execute(
+            select(
+                SessionClassSubject.session_id,
+                SessionClassSubject.class_id,
+                Subject.acronym,
+                Subject.code,
+            )
+            .join(Subject, Subject.id == SessionClassSubject.subject_id)
+            .where(SessionClassSubject.session_id.in_(session_ids)),
+        ).all()
+        labels_by_session: dict[object, list[tuple[object, str]]] = defaultdict(list)
+        for row in rows:
+            labels_by_session[row.session_id].append(
+                (row.class_id, f"{row.acronym} ({row.code})"),
+            )
+
+        for conflict in conflicts:
+            class_id = conflict.get("class_id")
+            labels = {
+                label
+                for session_id in cast("Sequence[object]", conflict["session_ids"])
+                for row_class_id, label in labels_by_session.get(session_id, [])
+                if class_id is None or row_class_id == class_id
+            }
+            conflict["subject_labels"] = sorted(labels)
+
+        return conflicts
+
     def get_conflicting_slots(
         self,
         spec: ConflictResourceSpec,
@@ -246,4 +285,6 @@ class ConflictResourceDAO:
         rows = self.session.execute(stmt).all()
 
         conflicts = self._cluster_overlaps(rows, identity_columns)
-        return self._group_recurring_conflicts(conflicts, identity_columns)
+        return self._add_subject_labels(
+            self._group_recurring_conflicts(conflicts, identity_columns),
+        )

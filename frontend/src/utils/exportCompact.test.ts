@@ -54,6 +54,19 @@ describe("compactExportToProjectExportPayload", () => {
           2,
           2,
           ["session1", "session2"],
+          ["TEST (TEST001)"],
+        ],
+        [
+          "class",
+          "class1",
+          "2026-01-05",
+          ["2026-01-05"],
+          "monday",
+          830,
+          2,
+          2,
+          ["session1", "session2"],
+          ["TEST (TEST001)"],
         ],
       ],
       modification_steps: [
@@ -87,6 +100,7 @@ describe("compactExportToProjectExportPayload", () => {
       room_id: "room1",
       room_name: "A1",
       session_ids: ["session1", "session2"],
+      subject_labels: ["TEST (TEST001)"],
     });
     expect(firstStep?.session.id).toBe("session1");
     expect(firstStep?.modifications.rooms?.added[0]).toEqual({
@@ -102,6 +116,77 @@ describe("compactExportToProjectExportPayload", () => {
       subject_code: "TEST001",
       subject_acronym: "TEST",
       subject_name: "Testing",
+    });
+    expect(expanded.classes_conflicts[0]).toMatchObject({
+      class_id: "class1",
+      class_code: "1LEIC01",
+      subject_labels: ["TEST (TEST001)"],
+    });
+  });
+
+  it("resolves compact entity keys that differ only by UUID hyphens", () => {
+    const hyphenatedSessionId = "019e21c0-8ed5-7722-bd5e-8ad5a3c750b3";
+    const normalizedSessionId = "019e21c08ed57722bd5e8ad5a3c750b3";
+    const compact: CompactProjectExportPayload = {
+      format: "compact_export_v1",
+      entities: {
+        rooms: {},
+        teachers: {},
+        classes: {
+          "019e21c0-8ed5-7722-bd5e-8ad5a3c750c4": { class_code: "1LEIC01" },
+        },
+        subjects: {
+          "019e21c0-8ed5-7722-bd5e-8ad5a3c750d5": {
+            subject_acronym: "IA",
+          },
+        },
+        sessions: {
+          [hyphenatedSessionId]: {
+            id: hyphenatedSessionId,
+            start_time: 830,
+            duration: 2,
+            weekday: "monday",
+            week: "2026-01-05",
+            rooms: [],
+            teachers: [],
+            classes: ["1LEIC01"],
+            subjects: [{ name: "Inteligencia Artificial", acronym: "IA", code: "IA001" }],
+          },
+        },
+      },
+      added_removed_sessions: { added: [], removed: [] },
+      conflicts: [],
+      modification_steps: [
+        {
+          type: "move",
+          original_block_id: "block1",
+          session_ids: [normalizedSessionId],
+          weeks: ["2026-01-05"],
+          week_range: { start: "2026-01-05", end: "2026-01-05", contiguous: true },
+          applies_to_all_weeks: true,
+          dependencies: [],
+          modifications: {
+            class_subjects: {
+              added: [["019e21c08ed57722bd5e8ad5a3c750c4", "019e21c08ed57722bd5e8ad5a3c750d5"]],
+              removed: [],
+            },
+          },
+        },
+      ],
+    };
+
+    const firstStep = compactExportToProjectExportPayload(compact).modification_steps[0];
+
+    expect(firstStep?.session).toMatchObject({
+      id: hyphenatedSessionId,
+      start_time: 830,
+      weekday: "monday",
+      week: "2026-01-05",
+      classes: ["1LEIC01"],
+    });
+    expect(firstStep?.modifications.class_subjects?.added[0]).toMatchObject({
+      class_code: "1LEIC01",
+      subject_acronym: "IA",
     });
   });
 

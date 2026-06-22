@@ -163,6 +163,7 @@ class ExportConflictBase(BaseModel):
     duration: int
     collisions: int
     session_ids: list[ExportString]
+    subject_labels: list[ExportString] = Field(default_factory=list)
 
 
 class ExportRoomConflict(ExportConflictBase):
@@ -208,7 +209,7 @@ class CompactExportEntities(BaseModel):
     sessions: dict[str, ExportSessionSnapshot] = Field(default_factory=dict)
 
 
-type CompactExportConflict = tuple[
+type LegacyCompactExportConflict = tuple[
     CompactExportConflictKind,
     ExportString,
     ExportString,
@@ -219,6 +220,22 @@ type CompactExportConflict = tuple[
     int,
     list[str],
 ]
+
+type CompactExportConflict = (
+    tuple[
+        CompactExportConflictKind,
+        ExportString,
+        ExportString,
+        list[ExportString] | None,
+        ExportString,
+        int,
+        int,
+        int,
+        list[str],
+        list[ExportString],
+    ]
+    | LegacyCompactExportConflict
+)
 
 
 class CompactExportModificationStep(BaseModel):

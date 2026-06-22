@@ -59,7 +59,7 @@ class ProjectExportView(View):
         payload_format: PayloadFormat = (
             request_payload_format
             if request_payload_format in {"compact", "expanded"}
-            else "expanded"
+            else "compact"
         )
 
         # -- Compute differences and conflicts ---------------------------------
@@ -86,13 +86,17 @@ class ProjectExportView(View):
             if not recalculate_export_graph:
                 cached_data = export_cache_dao.get_project_export_payload()
                 if cached_data is not None:
-                    response_data = self.format_export_payload(cached_data, payload_format)
-                    return JsonResponse(
-                        SuccessResponse(
-                            message="Project export loaded from cache",
-                            data=response_data,
-                        ).model_dump(),
-                    )
+                    if cached_data.get("format") == COMPACT_EXPORT_FORMAT:
+                        response_data = self.format_export_payload(cached_data, payload_format)
+                        return JsonResponse(
+                            SuccessResponse(
+                                message="Project export loaded from cache",
+                                data=response_data,
+                            ).model_dump(),
+                        )
+
+                    export_cache_dao.clear_project_export_payload()
+                    session.commit()
 
             session_dao = SessionDAO(session)
             modified_session_dao = ModifiedSessionDAO(session)
