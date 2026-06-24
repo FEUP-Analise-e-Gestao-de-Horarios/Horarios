@@ -10,12 +10,16 @@ export function ExportSection({
   children,
   action,
   defaultOpen = false,
+  open,
+  onOpenChange,
   collapsible = true,
 }: {
   title: string;
   children: ReactNode;
   action?: ReactNode;
   defaultOpen?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   collapsible?: boolean;
 }) {
   if (!collapsible) {
@@ -33,7 +37,8 @@ export function ExportSection({
   return (
     <details
       className="group bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)] overflow-hidden"
-      open={defaultOpen}
+      open={open ?? defaultOpen}
+      onToggle={(event) => onOpenChange?.(event.currentTarget.open)}
     >
       <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-3 text-sm font-bold uppercase tracking-wider text-[#08060d] marker:hidden">
         <span className="inline-flex items-center gap-2">

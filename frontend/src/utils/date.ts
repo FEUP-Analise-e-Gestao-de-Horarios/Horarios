@@ -23,3 +23,8 @@ export function formatBlockLabel(block: WeekBlockResponse): string {
   const weeksLabel = count === 1 ? "1 semana" : `${count} semanas`;
   return `${range} · ${weeksLabel}`;
 }
+
+export function findWeekBlockIndex(blocks: WeekBlockResponse[], targetWeek: string | null): number {
+  if (!targetWeek) return -1;
+  return blocks.findIndex((block) => block.weeks.includes(targetWeek));
+}

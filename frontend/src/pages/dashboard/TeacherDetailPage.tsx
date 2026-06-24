@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useProject } from "@/api/hooks/project/project";
 import { useProjectTeacher } from "@/api/hooks/project/teacher";
 import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
@@ -7,24 +7,33 @@ import SessionPopup from "@/components/dashboard/SessionPopup";
 import WeekGrid, { type WeekGridEvent, type WeekGridMark } from "@/components/dashboard/WeekGrid";
 import type { RedBlockBase } from "@/types/project/red_block";
 import type { SessionResponse, WeekBlockResponse } from "@/types/project/sessions";
-import { formatBlockLabel } from "@/utils/date";
+import { findWeekBlockIndex, formatBlockLabel } from "@/utils/date";
 
 export default function TeacherDetailPage() {
   const { projectId, teacherId } = useParams<{ projectId: string; teacherId: string }>();
+  const [searchParams] = useSearchParams();
   const pid = projectId ?? "";
   const tid = teacherId ?? "";
+  const targetWeek = searchParams.get("week");
 
   const project = useProject(pid);
   const { data, isLoading, isError } = useProjectTeacher(pid, tid);
 
   const blocks: WeekBlockResponse[] = data?.blocks ?? [];
+  const targetBlockIdx = findWeekBlockIndex(blocks, targetWeek);
   const [selectedBlockIdx, setSelectedBlockIdx] = useState(0);
   const [selectedSession, setSelectedSession] = useState<SessionResponse | null>(null);
   const [prevTid, setPrevTid] = useState(tid);
+  const [appliedTargetWeek, setAppliedTargetWeek] = useState<string | null>(null);
   if (tid !== prevTid) {
     setPrevTid(tid);
+    setAppliedTargetWeek(null);
     setSelectedSession(null);
     setSelectedBlockIdx(0);
+  }
+  if (targetWeek && targetBlockIdx !== -1 && targetWeek !== appliedTargetWeek) {
+    setAppliedTargetWeek(targetWeek);
+    setSelectedBlockIdx(targetBlockIdx);
   }
 
   const activeBlock = blocks[selectedBlockIdx] ?? blocks[0] ?? null;

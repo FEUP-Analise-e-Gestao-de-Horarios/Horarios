@@ -1,8 +1,10 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, ArrowLeftRight, Shuffle } from "lucide-react";
+import { Link, useParams } from "react-router-dom";
+import { AlertTriangle, ArrowLeftRight, ArrowUpRight, Shuffle } from "lucide-react";
 import { EmptyState, ExportSection } from "@/components/exporter/ExportSection";
+import { ROUTES } from "@/routes";
 import type {
   ExportClassConflict,
   ExportConflictBase,
@@ -15,6 +17,7 @@ import type {
   ProjectExportPayload,
 } from "@/types/exporter";
 import type { Weekday } from "@/types/project/weekday";
+import { buildPath } from "@/utils/routes";
 
 const WEEKDAY_LABELS: Record<Weekday, string> = {
   monday: "Segunda",
@@ -66,6 +69,13 @@ const HIDDEN_DETAIL_KEYS = new Set([
   "original_block_id",
 ]);
 
+function readSessionBoolean(key: string, fallback: boolean): boolean {
+  if (typeof window === "undefined") return fallback;
+  const savedValue = window.sessionStorage.getItem(key);
+  if (savedValue === null) return fallback;
+  return savedValue === "true";
+}
+
 function formatTime(value: number): string {
   const hours = Math.floor(value / 100);
   const minutes = value % 100;
@@ -84,6 +94,14 @@ function formatConflictWeeks(row: ExportConflictBase): string {
   const weeks = row.weeks?.length ? [...new Set(row.weeks)] : [row.week];
   if (weeks.length === 1) return weeks[0] ?? row.week;
   return `${weeks[0]} a ${weeks[weeks.length - 1]}`;
+}
+
+function firstConflictWeek(row: ExportConflictBase): string {
+  return [...new Set(row.weeks?.length ? row.weeks : [row.week])].sort()[0] ?? row.week;
+}
+
+function withConflictWeek(path: string, row: ExportConflictBase): string {
+  return `${path}?week=${encodeURIComponent(firstConflictWeek(row))}`;
 }
 
 function conflictAulasCount(row: ExportConflictBase): number {
@@ -400,6 +418,25 @@ function anchorId(sessionId: string): string {
   return `change-${normalizeId(sessionId)}`;
 }
 
+function anchorPart(value: string | number | undefined): string {
+  return String(value ?? "unknown").replace(/[^a-zA-Z0-9_-]/g, "-");
+}
+
+function conflictCardAnchorId(
+  kind: "room" | "teacher" | "class",
+  row: ExportConflictBase,
+  index: number,
+): string {
+  return [
+    "export-conflict",
+    kind,
+    anchorPart(row.week),
+    anchorPart(row.weekday),
+    row.start_time,
+    index,
+  ].join("-");
+}
+
 function shortId(value: string): string {
   return value.length > 12 ? `${value.slice(0, 8)}…` : value;
 }
@@ -604,34 +641,51 @@ function StatCard({
 function ConflictRows<T extends ExportConflictBase>({
   rows,
   getName,
+  getHref,
+  getAnchorId,
+  onCardClick,
 }: {
   rows: T[];
   getName: (row: T) => string;
+  getHref: (row: T) => string;
+  getAnchorId: (row: T, index: number) => string;
+  onCardClick: (anchorId: string) => void;
 }) {
   if (!rows.length) return <EmptyState>Sem conflitos.</EmptyState>;
 
   return (
     <div className="divide-y divide-[#e5e4e7]">
-      {rows.map((row, index) => (
-        <div
-          key={`${getName(row)}-${row.week}-${row.weekday}-${row.start_time}-${index}`}
-          className="relative px-4 py-3 pr-24"
-        >
-          <div className="min-w-0">
-            <span className="min-w-0 break-words text-sm font-semibold text-[#08060d]">
-              {conflictTitle(row, getName(row))}
+      {rows.map((row, index) => {
+        const anchor = getAnchorId(row, index);
+        return (
+          <Link
+            id={anchor}
+            key={`${getName(row)}-${row.week}-${row.weekday}-${row.start_time}-${index}`}
+            to={getHref(row)}
+            aria-label={`Ver horário do conflito de ${getName(row)}`}
+            onClick={() => onCardClick(anchor)}
+            className="group relative block scroll-mt-4 cursor-pointer px-4 py-3 pr-28 text-left transition-colors hover:bg-[#fff8f4] focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8c2d19] focus-visible:ring-inset"
+          >
+            <div className="min-w-0">
+              <span className="min-w-0 break-words text-sm font-semibold text-[#08060d] transition-colors group-hover:text-[#8c2d19]">
+                {conflictTitle(row, getName(row))}
+              </span>
+            </div>
+            <span className="absolute right-4 top-3 rounded border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700 transition-colors group-hover:border-red-300 group-hover:bg-red-100">
+              {conflictAulasCount(row)} aulas
             </span>
-          </div>
-          <span className="absolute right-4 top-3 rounded border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">
-            {conflictAulasCount(row)} aulas
-          </span>
-          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[#6b6375]">
-            <span>{formatConflictWeeks(row)}</span>
-            <span>{WEEKDAY_LABELS[row.weekday]}</span>
-            <span>{formatTime(row.start_time)}</span>
-          </div>
-        </div>
-      ))}
+            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[#6b6375]">
+              <span>{formatConflictWeeks(row)}</span>
+              <span>{WEEKDAY_LABELS[row.weekday]}</span>
+              <span>{formatTime(row.start_time)}</span>
+            </div>
+            <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#8c2d19] opacity-80 transition-opacity group-hover:opacity-100">
+              Ver horário
+              <ArrowUpRight size={12} aria-hidden="true" />
+            </span>
+          </Link>
+        );
+      })}
     </div>
   );
 }
@@ -1004,8 +1058,18 @@ function ExchangeClusterCard({
 }
 
 export default function ExportResults({ data }: { data: ProjectExportPayload }) {
+  const { projectId = "" } = useParams<{ projectId: string }>();
+  const conflictsOpenStorageKey = `exporter-conflicts-open:${projectId}`;
+  const selectedConflictStorageKey = `exporter-selected-conflict:${projectId}`;
   const [highlightedAnchor, setHighlightedAnchor] = useState<string | null>(null);
+  const [isConflictsOpen, setIsConflictsOpen] = useState(() =>
+    readSessionBoolean(
+      conflictsOpenStorageKey,
+      window.sessionStorage.getItem(selectedConflictStorageKey) !== null,
+    ),
+  );
   const highlightTimeoutRef = useRef<number | null>(null);
+  const restoredConflictAnchorRef = useRef<string | null>(null);
   const modificationPlanItems = useMemo(
     () => buildModificationPlanItems(data.modification_steps),
     [data.modification_steps],
@@ -1036,6 +1100,30 @@ export default function ExportResults({ data }: { data: ProjectExportPayload }) 
     }, 2400);
   }
 
+  function handleConflictsOpenChange(open: boolean) {
+    setIsConflictsOpen(open);
+    window.sessionStorage.setItem(conflictsOpenStorageKey, String(open));
+  }
+
+  function handleConflictCardClick(anchor: string) {
+    window.sessionStorage.setItem(conflictsOpenStorageKey, "true");
+    window.sessionStorage.setItem(selectedConflictStorageKey, anchor);
+  }
+
+  useEffect(() => {
+    const selectedConflictAnchor = window.sessionStorage.getItem(selectedConflictStorageKey);
+    if (!selectedConflictAnchor || restoredConflictAnchorRef.current === selectedConflictAnchor)
+      return;
+    if (!isConflictsOpen) return;
+
+    window.requestAnimationFrame(() => {
+      const selectedCard = document.getElementById(selectedConflictAnchor);
+      selectedCard?.scrollIntoView({ block: "center" });
+      restoredConflictAnchorRef.current = selectedConflictAnchor;
+      window.sessionStorage.removeItem(selectedConflictStorageKey);
+    });
+  }, [conflictsOpenStorageKey, isConflictsOpen, selectedConflictStorageKey]);
+
   const totalConflicts =
     data.rooms_conflicts.length + data.teacher_conflicts.length + data.classes_conflicts.length;
   const changedBlocks = data.modification_steps.length;
@@ -1057,6 +1145,8 @@ export default function ExportResults({ data }: { data: ProjectExportPayload }) 
       <ExportSection
         title="Conflitos"
         action={<span className="text-xs text-[#6b6375]">{totalConflicts}</span>}
+        open={isConflictsOpen}
+        onOpenChange={handleConflictsOpenChange}
       >
         <div className="grid gap-5 p-5 xl:grid-cols-3">
           <div className="rounded-lg border border-[#e5e4e7] overflow-hidden">
@@ -1066,6 +1156,17 @@ export default function ExportResults({ data }: { data: ProjectExportPayload }) 
             <ConflictRows<ExportRoomConflict>
               rows={data.rooms_conflicts}
               getName={(row) => row.room_name}
+              getAnchorId={(row, index) => conflictCardAnchorId("room", row, index)}
+              getHref={(row) =>
+                withConflictWeek(
+                  buildPath(ROUTES.ROOM_DETAIL, {
+                    projectId,
+                    roomId: row.room_id,
+                  }),
+                  row,
+                )
+              }
+              onCardClick={handleConflictCardClick}
             />
           </div>
           <div className="rounded-lg border border-[#e5e4e7] overflow-hidden">
@@ -1075,6 +1176,17 @@ export default function ExportResults({ data }: { data: ProjectExportPayload }) 
             <ConflictRows<ExportTeacherConflict>
               rows={data.teacher_conflicts}
               getName={(row) => `${row.teacher_acronym} · ${row.teacher_name}`}
+              getAnchorId={(row, index) => conflictCardAnchorId("teacher", row, index)}
+              getHref={(row) =>
+                withConflictWeek(
+                  buildPath(ROUTES.TEACHER_DETAIL, {
+                    projectId,
+                    teacherId: row.teacher_id,
+                  }),
+                  row,
+                )
+              }
+              onCardClick={handleConflictCardClick}
             />
           </div>
           <div className="rounded-lg border border-[#e5e4e7] overflow-hidden">
@@ -1084,6 +1196,17 @@ export default function ExportResults({ data }: { data: ProjectExportPayload }) 
             <ConflictRows<ExportClassConflict>
               rows={data.classes_conflicts}
               getName={(row) => row.class_code}
+              getAnchorId={(row, index) => conflictCardAnchorId("class", row, index)}
+              getHref={(row) =>
+                withConflictWeek(
+                  buildPath(ROUTES.CLASS_DETAIL, {
+                    projectId,
+                    classId: row.class_id,
+                  }),
+                  row,
+                )
+              }
+              onCardClick={handleConflictCardClick}
             />
           </div>
         </div>
