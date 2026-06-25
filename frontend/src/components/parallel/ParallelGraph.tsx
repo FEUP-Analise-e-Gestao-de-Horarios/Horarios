@@ -44,14 +44,19 @@ function weekRange(first: string, last: string): string {
 }
 
 /**
- * The weeks two blocks share — the reason an edge exists. ISO dates sort
- * lexically, so the overlap is [later start, earlier end]; edges only exist
- * when the blocks collide, so this span is always non-empty.
+ * The exact weeks two blocks collide on — the reason an edge exists. The label
+ * is the span of those weeks; the tooltip carries the precise list (collisions
+ * can be non-contiguous, e.g. biweekly). ISO dates sort lexically.
  */
-function overlapRange(a: ParallelBlockNode, b: ParallelBlockNode): string {
-  const start = a.first_week > b.first_week ? a.first_week : b.first_week;
-  const end = a.last_week < b.last_week ? a.last_week : b.last_week;
-  return weekRange(start, end);
+function edgeWeeksLabel(weeks: string[]): { range: string; tooltip: string } {
+  if (weeks.length === 0) return { range: "", tooltip: "" };
+  const sorted = [...weeks].sort();
+  const range = weekRange(sorted[0]!, sorted[sorted.length - 1]!);
+  const tooltip =
+    sorted.length === 1
+      ? `1 semana: ${formatWeek(sorted[0]!)}`
+      : `${sorted.length} semanas: ${sorted.map(formatWeek).join(", ")}`;
+  return { range, tooltip };
 }
 
 export default function ParallelGraph({
@@ -180,12 +185,13 @@ export default function ParallelGraph({
         height={layout.height}
         aria-hidden
       >
-        {graph.edges.map(({ source: a, target: b }, i) => {
+        {graph.edges.map(({ source: a, target: b, weeks }, i) => {
           const pa = positions.get(a);
           const pb = positions.get(b);
           const na = nodeById.get(a);
           const nb = nodeById.get(b);
           if (!pa || !pb || !na || !nb) return null;
+          const { range: weeksRange, tooltip: weeksTooltip } = edgeWeeksLabel(weeks);
           const bothSelected = selected.has(a) && selected.has(b);
           // An edge is "connected to the selection" when either endpoint is
           // selected; otherwise its line and week range are dimmed.
@@ -227,7 +233,8 @@ export default function ParallelGraph({
                   strokeLinejoin: "round",
                 }}
               >
-                {overlapRange(na, nb)}
+                <title>{weeksTooltip}</title>
+                {weeksRange}
               </text>
             </g>
           );
