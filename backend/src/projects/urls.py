@@ -5,6 +5,8 @@ from src.projects.views.conflicts import (
     ProjectConflictPreviewView,
     ProjectConflictsView,
     ProjectConflictView,
+    ProjectTagsView,
+    ProjectTagView,
 )
 from src.projects.views.degrees import ProjectDegreesView, ProjectDegreeView
 from src.projects.views.project import ProjectsView, ProjectView
@@ -54,6 +56,8 @@ session_patterns = [
 conflict_patterns = [
     path("", ProjectConflictsView.as_view()),
     path("/preview", ProjectConflictPreviewView.as_view()),
+    path("/tags", ProjectTagsView.as_view()),
+    path("/tags/<str:tag_name>", ProjectTagView.as_view()),
     path("/<uuid:conflict_id>", ProjectConflictView.as_view()),
 ]
 

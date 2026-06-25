@@ -12,6 +12,9 @@ class TagDAO:
     def __init__(self, session: DBSession) -> None:
         self.session = session
 
+    def get_all(self) -> list[str]:
+        return [t.name for t in self.session.scalars(select(Tag)).all()]
+
     def get_or_create(self, name: str) -> Tag:
         tag = self.session.scalars(select(Tag).where(Tag.name == name)).first()
         if tag is None:

@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from src.projects.projects_db.dao.tag_dao import TagDAO
 from src.projects.projects_db.models.conflict import Conflict
+from src.projects.projects_db.models.tag import Tag
 
 
 class ConflictDAO:
@@ -61,4 +62,12 @@ class ConflictDAO:
             )
         else:
             self.session.add(Conflict(conflict_id=conflict_id, tag_id=tag_obj.tag_id))
+        self.session.commit()
+
+    def delete_tag(self, tag_name: str) -> None:
+        tag = self.session.scalars(select(Tag).where(Tag.name == tag_name)).first()
+        if tag is None:
+            return
+        self.session.execute(delete(Conflict).where(Conflict.tag_id == tag.tag_id))
+        self.session.delete(tag)
         self.session.commit()

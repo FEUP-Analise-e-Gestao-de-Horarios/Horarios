@@ -9,6 +9,7 @@ from src.core.schemas import SuccessResponse
 from src.core.validation import validate_request_body
 from src.projects.projects_db.dao import ConflictDAO
 from src.projects.projects_db.dao.session_dao import SessionDAO
+from src.projects.projects_db.dao.tag_dao import TagDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
 from src.projects.services.conflict_detection import get_live_conflicts
@@ -56,6 +57,40 @@ class ProjectConflictView(View):
             return JsonResponse(
                 SuccessResponse(
                     message="Conflict tag updated successfully",
+                    data=None,
+                ).model_dump(),
+            )
+
+
+class ProjectTagsView(View):
+    """List all tags for the project."""
+
+    @require_auth
+    @require_project
+    def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
+        with get_project_session(general_db(project_id)) as db_session:
+            tags = TagDAO(db_session).get_all()
+
+            return JsonResponse(
+                SuccessResponse(
+                    message="Tags retrieved successfully",
+                    data={"tags": tags},
+                ).model_dump(),
+            )
+
+
+class ProjectTagView(View):
+    """Delete a tag and all conflict rows that reference it."""
+
+    @require_auth
+    @require_project
+    def delete(self, request: HttpRequest, project_id: int, tag_name: str) -> HttpResponse:
+        with get_project_session(general_db(project_id)) as db_session:
+            ConflictDAO(db_session).delete_tag(tag_name)
+
+            return JsonResponse(
+                SuccessResponse(
+                    message="Tag deleted successfully",
                     data=None,
                 ).model_dump(),
             )
