@@ -71,17 +71,30 @@ class ParallelBlockCandidateSubject(BaseModel):
     years: list[ParallelBlockCandidateYear]
 
 
+class ParallelBlockCandidateEdge(BaseModel):
+    """An undirected adjacency between two blocks of a candidate group.
+
+    ``source`` and ``target`` are the two blocks' ``original_block_id``s; the
+    edge is undirected, so their order carries no meaning. ``weeks`` lists every
+    week on which the two blocks collide (same weekday and start time).
+    """
+
+    source: UUID
+    target: UUID
+    weeks: list[date]
+
+
 class ParallelBlockCandidateGroupResponse(BaseModel):
     """A connected component of the parallel-candidate overlap graph.
 
-    ``nodes`` are the blocks; ``edges`` are the undirected adjacency pairs
-    (blocks that collide on at least one week). A selection is valid only if
-    its blocks form a connected subgraph of these edges. ``subject`` and
-    ``weekday`` are shared by every node.
+    ``nodes`` are the blocks; ``edges`` are the undirected adjacencies (blocks
+    that collide on at least one week, each carrying those overlapping weeks). A
+    selection is valid only if its blocks form a connected subgraph of these
+    edges. ``subject`` and ``weekday`` are shared by every node.
     """
 
     candidate_group_id: UUID
     weekday: WeekDay
     subject: ParallelBlockCandidateSubject
     nodes: list[ParallelBlockCandidateNode]
-    edges: list[tuple[UUID, UUID]]
+    edges: list[ParallelBlockCandidateEdge]

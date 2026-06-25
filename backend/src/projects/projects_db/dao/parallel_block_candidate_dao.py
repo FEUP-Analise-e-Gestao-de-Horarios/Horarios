@@ -18,6 +18,7 @@ from src.projects.projects_db.models.parallel_block_group_member import Parallel
 from src.projects.projects_db.schemas.parallel_candidates import (
     ParallelBlockCandidateClass,
     ParallelBlockCandidateDegree,
+    ParallelBlockCandidateEdge,
     ParallelBlockCandidateGroupResponse,
     ParallelBlockCandidateNode,
     ParallelBlockCandidateSession,
@@ -62,12 +63,25 @@ class _BlockDetail:
 
 
 @dataclass(frozen=True)
+class _CandidateEdge:
+    """An undirected adjacency between two blocks, with the weeks they collide on.
+
+    ``block_a`` and ``block_b`` are sorted so each unordered pair has one
+    canonical edge; ``weeks`` are the (sorted) weeks both blocks share a slot.
+    """
+
+    block_a: UUID
+    block_b: UUID
+    weeks: tuple[date, ...]
+
+
+@dataclass(frozen=True)
 class CandidateComponent:
     """A connected component of the parallel-candidate overlap graph."""
 
     candidate_group_id: UUID
     block_ids: frozenset[UUID]
-    edges: tuple[tuple[UUID, UUID], ...]
+    edges: tuple[_CandidateEdge, ...]
 
     def is_connected_subset(self, blocks: set[UUID]) -> bool:
         """Whether ``blocks`` is a connected subgraph of this component.
@@ -80,10 +94,10 @@ class CandidateComponent:
             return False
 
         adjacency: defaultdict[UUID, set[UUID]] = defaultdict(set)
-        for block_a, block_b in self.edges:
-            if block_a in blocks and block_b in blocks:
-                adjacency[block_a].add(block_b)
-                adjacency[block_b].add(block_a)
+        for edge in self.edges:
+            if edge.block_a in blocks and edge.block_b in blocks:
+                adjacency[edge.block_a].add(edge.block_b)
+                adjacency[edge.block_b].add(edge.block_a)
 
         start = next(iter(blocks))
         seen = {start}
@@ -164,27 +178,28 @@ class ParallelBlockCandidateDAO:
             blocks_by_slot[(week, weekday, start_time, subject_id)].add(block_id)
 
         union_find = _UnionFind()
-        edges: set[tuple[UUID, UUID]] = set()
-        for blocks in blocks_by_slot.values():
+        weeks_by_edge: defaultdict[tuple[UUID, UUID], set] = defaultdict(set)
+        for (week, _weekday, _start_time, _subject_id), blocks in blocks_by_slot.items():
             if len(blocks) < 2:
                 continue
             for block_a, block_b in combinations(sorted(blocks), 2):
-                edges.add((block_a, block_b))
+                weeks_by_edge[(block_a, block_b)].add(week)
                 union_find.union(block_a, block_b)
 
         blocks_by_root: defaultdict[UUID, set[UUID]] = defaultdict(set)
         for block_id in list(union_find.parent):
             blocks_by_root[union_find.find(block_id)].add(block_id)
 
-        edges_by_root: defaultdict[UUID, list[tuple[UUID, UUID]]] = defaultdict(list)
-        for block_a, block_b in edges:
-            edges_by_root[union_find.find(block_a)].append((block_a, block_b))
+        edges_by_root: defaultdict[UUID, list[_CandidateEdge]] = defaultdict(list)
+        for (block_a, block_b), weeks in weeks_by_edge.items():
+            edge = _CandidateEdge(block_a, block_b, tuple(sorted(weeks)))
+            edges_by_root[union_find.find(block_a)].append(edge)
 
         return [
             CandidateComponent(
                 candidate_group_id=_component_uuid(block_ids),
                 block_ids=frozenset(block_ids),
-                edges=tuple(sorted(edges_by_root[root])),
+                edges=tuple(sorted(edges_by_root[root], key=lambda e: (e.block_a, e.block_b))),
             )
             for root, block_ids in blocks_by_root.items()
         ]
@@ -259,7 +274,15 @@ class ParallelBlockCandidateDAO:
                 ],
             )
 
-            edges = [(a, b) for a, b in component.edges if a in details and b in details]
+            edges = [
+                ParallelBlockCandidateEdge(
+                    source=edge.block_a,
+                    target=edge.block_b,
+                    weeks=list(edge.weeks),
+                )
+                for edge in component.edges
+                if edge.block_a in details and edge.block_b in details
+            ]
             groups.append(
                 ParallelBlockCandidateGroupResponse(
                     candidate_group_id=component.candidate_group_id,
