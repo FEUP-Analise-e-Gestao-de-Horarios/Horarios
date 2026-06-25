@@ -180,7 +180,7 @@ export default function ParallelGraph({
         height={layout.height}
         aria-hidden
       >
-        {graph.edges.map(([a, b], i) => {
+        {graph.edges.map(({ source: a, target: b }, i) => {
           const pa = positions.get(a);
           const pb = positions.get(b);
           const na = nodeById.get(a);

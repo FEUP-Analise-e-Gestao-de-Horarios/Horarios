@@ -48,12 +48,21 @@ export interface ParallelSubject {
   years: ParallelYear[];
 }
 
+// An undirected adjacency between two blocks. `source`/`target` are the two
+// blocks' ids (order carries no meaning); `weeks` lists every week on which the
+// blocks collide (ISO dates).
+export interface ParallelCandidateEdge {
+  source: UUID;
+  target: UUID;
+  weeks: string[];
+}
+
 export interface ParallelCandidateGraph {
   candidate_group_id: UUID;
   weekday: string;
   subject: ParallelSubject;
   nodes: ParallelBlockNode[];
-  edges: [UUID, UUID][];
+  edges: ParallelCandidateEdge[];
 }
 
 export interface SuccessResponse<T> {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent, RefObject } from "react";
-import type { UUID } from "@/types/parallelSessions";
+import type { ParallelCandidateEdge, UUID } from "@/types/parallelSessions";
 import type { NodePosition } from "./parallelGraph";
 
 /** Coulomb-style repulsion strength between every pair of nodes. */
@@ -69,7 +69,7 @@ export interface ForceSimulation {
  */
 export function useForceSimulation(
   ids: UUID[],
-  edges: [UUID, UUID][],
+  edges: ParallelCandidateEdge[],
   layout: Layout,
   radii: Map<UUID, number>,
   selected: Set<UUID>,
@@ -110,7 +110,7 @@ export function useForceSimulation(
       r[i] = radiiRef.current.get(id) ?? DEFAULT_RADIUS;
     });
     const edgeIdx: [number, number][] = [];
-    for (const [a, b] of edges) {
+    for (const { source: a, target: b } of edges) {
       const ia = index.get(a);
       const ib = index.get(b);
       if (ia != null && ib != null) edgeIdx.push([ia, ib]);

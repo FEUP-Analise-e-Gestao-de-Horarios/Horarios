@@ -1,7 +1,7 @@
-import type { UUID } from "@/types/parallelSessions";
+import type { ParallelCandidateEdge, UUID } from "@/types/parallelSessions";
 
 /** Build an undirected adjacency map from an edge list. */
-export function buildAdjacency(edges: [UUID, UUID][]): Map<UUID, Set<UUID>> {
+export function buildAdjacency(edges: ParallelCandidateEdge[]): Map<UUID, Set<UUID>> {
   const adj = new Map<UUID, Set<UUID>>();
   const link = (a: UUID, b: UUID) => {
     let set = adj.get(a);
@@ -11,7 +11,7 @@ export function buildAdjacency(edges: [UUID, UUID][]): Map<UUID, Set<UUID>> {
     }
     set.add(b);
   };
-  for (const [a, b] of edges) {
+  for (const { source: a, target: b } of edges) {
     link(a, b);
     link(b, a);
   }
@@ -53,7 +53,7 @@ export interface NodePosition {
  */
 export function forceLayout(
   ids: UUID[],
-  edges: [UUID, UUID][],
+  edges: ParallelCandidateEdge[],
   opts: { linkDistance?: number; iterations?: number } = {},
 ): Map<UUID, NodePosition> {
   const positions = new Map<UUID, NodePosition>();
@@ -130,7 +130,7 @@ export function forceLayout(
     }
 
     // Attraction along edges.
-    for (const [a, b] of edges) {
+    for (const { source: a, target: b } of edges) {
       const ia = index.get(a);
       const ib = index.get(b);
       if (ia == null || ib == null) continue;
