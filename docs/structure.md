@@ -41,21 +41,30 @@ Horarios/
 
 ## Django Applications
 
-| Directory             | Purpose                                                                             |
-| --------------------- | ----------------------------------------------------------------------------------- |
-| `config/`             | Project-wide settings, root URL config (`urls.py`), ASGI entry point                |
-| `core/`               | Core API endpoints for the schedule editor                                          |
-| `ingestion/`          | Schedule data ingestion pipeline (see [Ingestion](internals/ingestion-pipeline.md)) |
-| `login/`              | Authentication views and session management                                         |
-| `projects/`           | `Project` and `Group` models, project management views                              |
-| `users/`              | Custom `User` model and user management                                             |
+| Directory             | Purpose                                                                                        |
+| --------------------- | ---------------------------------------------------------------------------------------------- |
+| `config/`             | Project-wide settings, root URL config (`urls.py`), ASGI entry point                           |
+| `core/`               | Shared API infrastructure: auth/project decorators, error helpers, Pydantic schemas, validation |
+| `ingestion/`          | Schedule data ingestion pipeline (see [Ingestion](internals/ingestion-pipeline.md))            |
+| `login/`              | Session-based authentication endpoints (`/api/auth/`)                                           |
+| `projects/`           | `Project`/`Group` Django models plus the per-project SQLite database layer and `/api/projects/` endpoints |
+| `users/`              | Custom `User` model (`AUTH_USER_MODEL = "users.User"`) and user management                      |
 
-Within each application the following files are most relevant:
+The Django `core` and `users` apps expose no HTTP routes of their own; `core`
+holds cross-cutting helpers and `users` defines the auth user model. The two
+apps that serve the JSON API are `projects` and `login`. Within an application
+the most relevant files are:
 
 - `models.py` — Django ORM model definitions
-- `views.py` — Request handlers (render pages or return JSON)
+- `views.py` / `views/` — Request handlers returning JSON (class-based or function views)
 - `urls.py` — URL-to-view mappings
-- `schemas.py` — Pydantic schemas for request/response validation
+- `schemas.py` / `views/schemas/` — Pydantic schemas for request/response validation
+
+The `projects` app is the largest: alongside `models.py` (the meta-database
+`Project`/`Group` models) it contains a `projects_db/` package — the SQLAlchemy
+layer for the per-project schedule databases (models, DAOs, schemas, engine
+registry) — a `services/` package for database lifecycle, and a `views/`
+package with one module per resource.
 
 ## Ingestion Package Layout
 
@@ -79,6 +88,27 @@ backend/src/ingestion/
 ```
 
 See [Ingestion](internals/ingestion-pipeline.md) for a detailed description of the pipeline.
+
+## Per-Project Database Layout
+
+The `projects` app stores each project's schedule data in its own SQLite file,
+accessed through SQLAlchemy (not the Django ORM). The supporting code lives in
+`backend/src/projects/projects_db/`:
+
+```
+backend/src/projects/projects_db/
+├── base.py            # Declarative SQLAlchemy Base
+├── registry.py        # Per-path engine cache + get_session() (WAL pragmas)
+├── paths.py           # general_db()/initial_db() path helpers
+├── models/            # SQLAlchemy ORM models (one file per table)
+│   └── db_schema.sql  # Reference-only DDL of the schema
+├── dao/               # Data Access Objects (one per model)
+└── schemas/           # Pydantic read-models for API responses
+```
+
+`src/projects/services/project_db.py` creates and deletes these databases as
+projects are created and removed. See [Backend](backend.md) for the
+meta-database vs per-project database model.
 
 ## Settings Modules
 
