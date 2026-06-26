@@ -24,6 +24,7 @@ interface WeekGridProps {
   endTime?: number;
   onEventClick?: (event: WeekGridEvent) => void;
   emptyMessage?: string;
+  highlightedEventIds?: Set<string>;
 }
 
 const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
@@ -79,6 +80,7 @@ export default function WeekGrid({
   endTime,
   onEventClick,
   emptyMessage,
+  highlightedEventIds,
 }: WeekGridProps) {
   const { gridStartMinutes, slotCount } = useMemo(() => {
     let min = hhmmToMinutes(startTime ?? DEFAULT_START_HHMM);
@@ -258,16 +260,17 @@ export default function WeekGrid({
         {placedEvents.map(({ ev, col, rowStart, span, lane, laneCount }) => {
           const style = styleForType(ev.type);
           const clickable = !!onEventClick;
+          const isHighlighted = highlightedEventIds?.has(ev.id) ?? false;
           return (
             <button
               key={`e-${ev.id}`}
               type="button"
               onClick={clickable ? () => onEventClick(ev) : undefined}
               className={`relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden ${
-                style.bg
-              } ${style.border} ${style.text} ${
-                clickable ? "cursor-pointer hover:brightness-95 transition" : "cursor-default"
-              }`}
+                isHighlighted
+                  ? "z-10 animate-pulse border-red-700 bg-red-100 text-red-950 shadow-[0_0_0_2px_rgba(220,38,38,0.75)]"
+                  : `${style.bg} ${style.border} ${style.text}`
+              } ${clickable ? "cursor-pointer hover:brightness-95 transition" : "cursor-default"}`}
               style={{
                 gridColumn: col + 2,
                 gridRow: `${rowStart + 2} / span ${span}`,

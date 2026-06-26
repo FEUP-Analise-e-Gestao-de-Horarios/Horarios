@@ -15,6 +15,9 @@ export default function RoomDetailPage() {
   const pid = projectId ?? "";
   const rid = roomId ?? "";
   const targetWeek = searchParams.get("week");
+  const highlightedEventIds = new Set(
+    (searchParams.get("conflictSessions") ?? "").split(",").filter(Boolean),
+  );
 
   const project = useProject(pid);
   const { data, isLoading, isError } = useProjectRoom(pid, rid);
@@ -138,6 +141,7 @@ export default function RoomDetailPage() {
                 <WeekGrid
                   events={events}
                   marks={marks}
+                  highlightedEventIds={highlightedEventIds}
                   onEventClick={handleEventClick}
                   emptyMessage="Sem aulas nem blocos vermelhos para esta sala."
                 />

@@ -14,6 +14,9 @@ export default function ClassDetailPage() {
   const pid = projectId ?? "";
   const cid = classId ?? "";
   const targetWeek = searchParams.get("week");
+  const highlightedEventIds = new Set(
+    (searchParams.get("conflictSessions") ?? "").split(",").filter(Boolean),
+  );
 
   const project = useProject(pid);
   const { data, isLoading, isError } = useProjectClass(pid, cid);
@@ -123,6 +126,7 @@ export default function ClassDetailPage() {
               <div className="flex-1 min-h-0">
                 <WeekGrid
                   events={events}
+                  highlightedEventIds={highlightedEventIds}
                   onEventClick={handleEventClick}
                   emptyMessage="Sem aulas para esta turma."
                 />

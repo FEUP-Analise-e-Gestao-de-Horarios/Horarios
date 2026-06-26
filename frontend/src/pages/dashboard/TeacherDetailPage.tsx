@@ -15,6 +15,9 @@ export default function TeacherDetailPage() {
   const pid = projectId ?? "";
   const tid = teacherId ?? "";
   const targetWeek = searchParams.get("week");
+  const highlightedEventIds = new Set(
+    (searchParams.get("conflictSessions") ?? "").split(",").filter(Boolean),
+  );
 
   const project = useProject(pid);
   const { data, isLoading, isError } = useProjectTeacher(pid, tid);
@@ -142,6 +145,7 @@ export default function TeacherDetailPage() {
                 <WeekGrid
                   events={events}
                   marks={marks}
+                  highlightedEventIds={highlightedEventIds}
                   onEventClick={handleEventClick}
                   emptyMessage="Sem aulas nem blocos vermelhos para este docente."
                 />
