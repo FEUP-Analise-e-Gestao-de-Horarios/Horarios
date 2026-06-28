@@ -4,7 +4,7 @@ import { api } from "@/api/client";
 import { queryKeys } from "@/api/queryKeys";
 import type { ApiResponse } from "@/types/api";
 import type { ProjectExportApiPayload, ProjectExportPayload } from "@/types/exporter";
-import { compactExportToProjectExportPayload } from "@/utils/exportCompact";
+import { compactExportToProjectExportPayload } from "@/utils/exporter/exportCompact";
 
 export { useProject } from "./project/project";
 

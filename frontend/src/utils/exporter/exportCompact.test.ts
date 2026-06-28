@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compactExportToProjectExportPayload } from "@/utils/exportCompact";
+import { compactExportToProjectExportPayload } from "@/utils/exporter/exportCompact";
 import type { CompactProjectExportPayload, ProjectExportPayload } from "@/types/exporter";
 
 describe("compactExportToProjectExportPayload", () => {

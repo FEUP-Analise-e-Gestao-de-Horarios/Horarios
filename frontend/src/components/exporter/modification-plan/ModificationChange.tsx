@@ -1,5 +1,5 @@
 import type { ExportFieldModification, ExportModificationStep } from "@/types/exporter";
-import { EntityChip } from "@/components/exporter/EntityChip";
+import { EntityChip } from "@/components/exporter/shared/EntityChip";
 import {
   fieldLabel,
   formatFieldValue,

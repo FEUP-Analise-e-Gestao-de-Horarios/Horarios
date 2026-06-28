@@ -1,4 +1,4 @@
-import StyledTooltip from "@/components/exporter/StyledTooltip";
+import StyledTooltip from "@/components/exporter/shared/StyledTooltip";
 import { relationRecord } from "@/utils/exporter/relations";
 
 export function EntityChip({ item }: { item: unknown }) {

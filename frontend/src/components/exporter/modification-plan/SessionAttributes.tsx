@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { ExportSessionSnapshot } from "@/types/exporter";
-import { EntityChip } from "@/components/exporter/EntityChip";
+import { EntityChip } from "@/components/exporter/shared/EntityChip";
 import { formatDuration } from "@/utils/exporter/formatters";
 import { relationRecord, uniqueByLabel } from "@/utils/exporter/relations";
 

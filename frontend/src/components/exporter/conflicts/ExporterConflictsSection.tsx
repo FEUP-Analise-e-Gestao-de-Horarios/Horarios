@@ -5,7 +5,7 @@ import type {
   ProjectExportPayload,
 } from "@/types/exporter";
 import { ExportSection } from "@/components/exporter/ExportSection";
-import ConflictRows from "@/components/exporter/ConflictRows";
+import ConflictRows from "@/components/exporter/conflicts/ConflictRows";
 import { conflictCardAnchorId } from "@/utils/exporter/conflicts";
 import { withConflictParams } from "@/utils/exporter/formatters";
 import { ROUTES } from "@/routes";

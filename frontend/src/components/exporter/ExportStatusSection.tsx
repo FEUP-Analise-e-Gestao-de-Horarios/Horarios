@@ -2,7 +2,7 @@ import { AlertTriangle, CalendarClock, Download, RefreshCw } from "lucide-react"
 import type { ProjectExportPayload } from "@/types/exporter";
 import ExportResults from "@/components/exporter/ExportResults";
 import { EmptyState, ExportSection } from "@/components/exporter/ExportSection";
-import { downloadPlainTextExport } from "@/utils/exportPlainText";
+import { downloadPlainTextExport } from "@/utils/exporter/exportPlainText";
 
 interface ExportStatusSectionProps {
   data?: ProjectExportPayload;

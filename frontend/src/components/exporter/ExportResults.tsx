@@ -1,9 +1,9 @@
 import { useMemo } from "react";
 import { useParams } from "react-router-dom";
-import AddedRemovedSessions from "@/components/exporter/AddedRemovedSessions";
-import ExporterConflictsSection from "@/components/exporter/ExporterConflictsSection";
-import ExporterStats from "@/components/exporter/ExporterStats";
-import ModificationPlanSection from "@/components/exporter/ModificationPlanSection";
+import AddedRemovedSessions from "@/components/exporter/added-removed/AddedRemovedSessions";
+import ExporterConflictsSection from "@/components/exporter/conflicts/ExporterConflictsSection";
+import ExporterStats from "@/components/exporter/summary/ExporterStats";
+import ModificationPlanSection from "@/components/exporter/modification-plan/ModificationPlanSection";
 import { ExportSection } from "@/components/exporter/ExportSection";
 import useExporterNavigationState from "@/api/hooks/useExporterNavigationState";
 import { buildConflictLookup, buildConflictSessionIds } from "@/utils/exporter/conflicts";
