@@ -37,3 +37,21 @@ session_teachers = Table(
     ),
     Index("ix_session_teachers_teacher_id", "teacher_id"),
 )
+
+conflict_tags = Table(
+    "conflict_tags",
+    Base.metadata,
+    Column(
+        "conflict_id",
+        Uuid(native_uuid=False),
+        ForeignKey("conflicts.conflict_id"),
+        primary_key=True,
+    ),
+    Column(
+        "tag_id",
+        Uuid(native_uuid=False),
+        ForeignKey("tags.tag_id"),
+        primary_key=True,
+    ),
+    Index("ix_conflict_tags_tag_id", "tag_id"),
+)

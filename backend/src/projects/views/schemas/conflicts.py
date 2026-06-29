@@ -12,7 +12,7 @@ class ConflictsResponse(BaseModel):
 
 
 class UpdateConflictTagRequest(BaseModel):
-    tag: str | None
+    tags: list[str]
 
 
 class ConflictPreviewRequest(BaseModel):
