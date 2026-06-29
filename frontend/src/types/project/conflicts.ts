@@ -6,8 +6,11 @@ export interface ConflictRecord {
   day: string;
   time: number;
   turma: string[];
+  block_ids: string[];
+  degrees: string[];
+  subjects: string[];
   conflict_reasons: string[];
-  tag: string | null;
+  tags: string[];
 }
 
 // -- Tag constants -------------------------------------------------------

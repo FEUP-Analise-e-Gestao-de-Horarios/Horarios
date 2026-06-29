@@ -64,6 +64,7 @@ export default function SchedulePage() {
   const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
   const [isEditDrawerCollapsed, setIsEditDrawerCollapsed] = useState(false);
   const [isConflictsDrawerOpen, setIsConflictsDrawerOpen] = useState(false);
+  const [conflictsFetchEnabled, setConflictsFetchEnabled] = useState(false);
   const [editingEvent, setEditingEvent] = useState<WeekGridEvent | null>(null);
 
   const canShowSchedule = curso !== "";
@@ -95,7 +96,7 @@ export default function SchedulePage() {
   );
 
   const { data: selectedYearDetail } = useProjectYear(projectId ?? "", selectedYear?.id ?? "");
-  const yearConflictsQuery = useProjectConflicts(projectId ?? "");
+  const yearConflictsQuery = useProjectConflicts(projectId ?? "", conflictsFetchEnabled);
   const yearConflicts = yearConflictsQuery.data ?? [];
 
   const selectedYearSubjects = useMemo(
@@ -356,6 +357,11 @@ export default function SchedulePage() {
     return blockEvents;
   }, [activeWeekBlocks, effectiveTurmas, effectiveTurnos, effectiveUcs, effectiveDias]);
 
+  const displayedBlockIds = useMemo(
+    () => new Set(scheduleEvents.map((event) => event.blockId).filter((id): id is string => !!id)),
+    [scheduleEvents],
+  );
+
   const courseOptions = useMemo(() => {
     const degreeOptions = (degrees ?? [])
       .slice()
@@ -446,7 +452,7 @@ export default function SchedulePage() {
         yearOptions={yearOptions}
         courseOptions={courseOptions}
         onViewConflicts={() => {
-          void yearConflictsQuery.refetch();
+          setConflictsFetchEnabled(true);
           setIsConflictsDrawerOpen(true);
         }}
       />
@@ -479,6 +485,7 @@ export default function SchedulePage() {
         conflicts={yearConflicts}
         isLoading={yearConflictsQuery.isFetching}
         onRefresh={() => void yearConflictsQuery.refetch()}
+        displayedBlockIds={displayedBlockIds}
       />
 
       <div className="flex-1 min-h-0 overflow-hidden">
