@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildConflictLookup, conflictCardAnchorId } from "@/utils/exporter/conflicts";
+import {
+  buildConflictLookup,
+  conflictCardAnchorId,
+  teacherConflictName,
+} from "@/utils/exporter/conflicts";
 import { withConflictParams } from "@/utils/exporter/formatters";
 import type { ProjectExportPayload } from "@/types/exporter";
 
@@ -62,7 +66,43 @@ describe("conflict anchors and URLs", () => {
       "export-conflict-room-2026-01-12-monday-830-0",
     );
     expect(withConflictParams("/rooms/room-1", conflict)).toBe(
-      "/rooms/room-1?week=2026-01-05&conflictSessions=019e-aaaa",
+      "/rooms/room-1?week=2026-01-05&conflictSessions=019e-aaaa&conflictWeeks=2026-01-12%2C2026-01-05",
     );
+  });
+});
+
+describe("teacherConflictName", () => {
+  it("shows only the acronym when the teacher acronym and name are equal", () => {
+    expect(
+      teacherConflictName({
+        teacher_id: "teacher-1",
+        teacher_number: 7,
+        teacher_acronym: "ABC",
+        teacher_name: "ABC",
+        week: "2026-01-05",
+        weekday: "monday",
+        start_time: 830,
+        duration: 2,
+        collisions: 2,
+        session_ids: [],
+      }),
+    ).toBe("ABC");
+  });
+
+  it("shows acronym and name when they differ", () => {
+    expect(
+      teacherConflictName({
+        teacher_id: "teacher-1",
+        teacher_number: 7,
+        teacher_acronym: "ABC",
+        teacher_name: "Alice Example",
+        week: "2026-01-05",
+        weekday: "monday",
+        start_time: 830,
+        duration: 2,
+        collisions: 2,
+        session_ids: [],
+      }),
+    ).toBe("ABC · Alice Example");
   });
 });

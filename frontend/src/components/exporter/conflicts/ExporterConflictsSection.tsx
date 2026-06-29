@@ -6,7 +6,7 @@ import type {
 } from "@/types/exporter";
 import { ExportSection } from "@/components/exporter/ExportSection";
 import ConflictRows from "@/components/exporter/conflicts/ConflictRows";
-import { conflictCardAnchorId } from "@/utils/exporter/conflicts";
+import { conflictCardAnchorId, teacherConflictName } from "@/utils/exporter/conflicts";
 import { withConflictParams } from "@/utils/exporter/formatters";
 import { ROUTES } from "@/routes";
 import { buildPath } from "@/utils/routes";
@@ -63,7 +63,7 @@ export default function ExporterConflictsSection({
           </div>
           <ConflictRows<ExportTeacherConflict>
             rows={data.teacher_conflicts}
-            getName={(row) => `${row.teacher_acronym} · ${row.teacher_name}`}
+            getName={teacherConflictName}
             getAnchorId={(row, index) => conflictCardAnchorId("teacher", row, index)}
             highlightedAnchor={highlightedAnchor}
             getHref={(row) =>

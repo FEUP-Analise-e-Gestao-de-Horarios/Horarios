@@ -1,4 +1,8 @@
-import type { ExportConflictBase, ProjectExportPayload } from "@/types/exporter";
+import type {
+  ExportConflictBase,
+  ExportTeacherConflict,
+  ProjectExportPayload,
+} from "@/types/exporter";
 import { anchorPart, normalizeId } from "@/utils/exporter/ids";
 
 export type ConflictKind = "room" | "teacher" | "class";
@@ -29,6 +33,11 @@ export function conflictAulasCount(row: ExportConflictBase): number {
   const uniqueSessions = new Set(row.session_ids.map(normalizeId)).size;
   const weekCount = row.weeks?.length ?? 1;
   return Math.max(1, Math.round(uniqueSessions / weekCount));
+}
+
+export function teacherConflictName(row: ExportTeacherConflict): string {
+  if (row.teacher_acronym.trim() === row.teacher_name.trim()) return row.teacher_acronym;
+  return `${row.teacher_acronym} · ${row.teacher_name}`;
 }
 
 export function buildConflictSessionIds(data: ProjectExportPayload): Set<string> {

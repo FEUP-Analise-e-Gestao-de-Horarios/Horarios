@@ -46,7 +46,7 @@ const FIELD_LABELS: Record<string, string> = {
   code: "Código",
 };
 
-const HIDDEN_DETAIL_KEYS = new Set([
+export const HIDDEN_DETAIL_KEYS = new Set([
   "id",
   "room_id",
   "teacher_id",
@@ -175,6 +175,12 @@ export function tooltipAddsInformation(label: string, content?: string): boolean
   });
 }
 
+export function formatConflictWeeks(row: { week: string; weeks?: string[] }): string {
+  const weeks = row.weeks?.length ? [...new Set(row.weeks)] : [row.week];
+  if (weeks.length === 1) return weeks[0] ?? row.week;
+  return `${weeks[0]} a ${weeks[weeks.length - 1]}`;
+}
+
 export function formatWeekLabel(step: ExportModificationStep): string {
   const { weeks, week_range: weekRange } = step;
   if (
@@ -219,6 +225,7 @@ export function withConflictParams(
   const params = new URLSearchParams({
     week: firstWeek,
     conflictSessions: row.session_ids.join(","),
+    conflictWeeks: [...new Set(weeks)].join(","),
   });
   return `${path}?${params.toString()}`;
 }

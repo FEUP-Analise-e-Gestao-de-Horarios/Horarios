@@ -36,14 +36,14 @@ function sessionTitle(session: ExportSessionSnapshot): ReactNode {
 
   return (
     <>
+      {classes}
+      {subjects.length > 0 && classes && " · "}
       {subjects.map((subject, index) => (
         <span key={subjectTitleLabel(subject)}>
           {index > 0 && ", "}
           <SubjectTitle subject={subject} />
         </span>
       ))}
-      {subjects.length > 0 && classes && " · "}
-      {classes}
     </>
   );
 }

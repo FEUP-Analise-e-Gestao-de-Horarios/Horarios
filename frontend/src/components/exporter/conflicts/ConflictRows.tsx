@@ -4,13 +4,7 @@ import { ArrowUpRight } from "lucide-react";
 import { EmptyState } from "@/components/exporter/ExportSection";
 import type { ExportConflictBase } from "@/types/exporter";
 import { conflictAulasCount } from "@/utils/exporter/conflicts";
-import { formatTime, WEEKDAY_LABELS } from "@/utils/exporter/formatters";
-
-function formatConflictWeeks(row: ExportConflictBase): string {
-  const weeks = row.weeks?.length ? [...new Set(row.weeks)] : [row.week];
-  if (weeks.length === 1) return weeks[0] ?? row.week;
-  return `${weeks[0]} a ${weeks[weeks.length - 1]}`;
-}
+import { formatConflictWeeks, formatTime, WEEKDAY_LABELS } from "@/utils/exporter/formatters";
 
 function conflictTitle(row: ExportConflictBase, name: string): ReactNode {
   if (!row.subject_labels?.length) return name;

@@ -8,6 +8,11 @@ import WeekGrid, { type WeekGridEvent, type WeekGridMark } from "@/components/da
 import type { RedBlockBase } from "@/types/project/red_block";
 import type { SessionResponse, WeekBlockResponse } from "@/types/project/sessions";
 import { findWeekBlockIndex, formatBlockLabel } from "@/utils/date";
+import {
+  parseConflictWeeks,
+  weekBlockButtonClass,
+  weekBlockHasConflict,
+} from "@/utils/exporter/conflictNavigation";
 
 export default function RoomDetailPage() {
   const { projectId, roomId } = useParams<{ projectId: string; roomId: string }>();
@@ -18,6 +23,7 @@ export default function RoomDetailPage() {
   const highlightedEventIds = new Set(
     (searchParams.get("conflictSessions") ?? "").split(",").filter(Boolean),
   );
+  const conflictWeeks = parseConflictWeeks(searchParams);
 
   const project = useProject(pid);
   const { data, isLoading, isError } = useProjectRoom(pid, rid);
@@ -118,16 +124,19 @@ export default function RoomDetailPage() {
                   <div className="flex flex-wrap gap-1.5">
                     {blocks.map((b, i) => {
                       const active = i === selectedBlockIdx;
+                      const hasConflictWeek = weekBlockHasConflict(b, conflictWeeks);
                       return (
                         <button
                           key={b.weeks[0] ?? i}
                           type="button"
                           onClick={() => setSelectedBlockIdx(i)}
-                          className={`text-sm rounded-md px-3 py-1 border transition-colors ${
-                            active
-                              ? "bg-[#8c2d19] text-white border-[#8c2d19]"
-                              : "bg-white text-[#08060d] border-[#e5e4e7] hover:bg-[#f9f7f4]"
-                          }`}
+                          className={`text-sm rounded-md px-3 py-1 border transition-colors ${weekBlockButtonClass(
+                            active,
+                            hasConflictWeek,
+                          )}`}
+                          title={
+                            hasConflictWeek ? "Esta semana também tem este conflito" : undefined
+                          }
                         >
                           {formatBlockLabel(b)}
                         </button>
