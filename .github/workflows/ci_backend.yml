@@ -8,7 +8,7 @@ jobs:
     name: "Lint"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
       - run: uvx pre-commit run ruff --all-files
 
@@ -16,6 +16,6 @@ jobs:
     name: "Format"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
       - run: uvx pre-commit run ruff-format --all-files

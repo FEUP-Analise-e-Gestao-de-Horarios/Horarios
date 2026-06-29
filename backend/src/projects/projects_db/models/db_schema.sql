@@ -66,9 +66,15 @@ CREATE TABLE subjects (
     number   INT UNIQUE NOT NULL,
     code     TEXT UNIQUE NOT NULL,
     acronym  TEXT NOT NULL,
-    name     TEXT NOT NULL,
+    name     TEXT NOT NULL
+);
 
-    year_id  UUID NOT NULL REFERENCES years(id)
+-- A subject can be taught across several years (shared/optional UCs).
+CREATE TABLE subject_years (
+    subject_id  UUID NOT NULL REFERENCES subjects(id),
+    year_id     UUID NOT NULL REFERENCES years(id),
+
+    PRIMARY KEY (subject_id, year_id)
 );
 
 

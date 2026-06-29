@@ -1,5 +1,6 @@
 import { useQueries } from "@tanstack/react-query";
-import { Link, useParams } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { api } from "@/api/client";
 import { useProject } from "@/api/hooks/project/project";
 import { useProjectDegree } from "@/api/hooks/project/degree";
@@ -36,6 +37,16 @@ export default function DegreeDetailPage() {
   const isLoading = degree.isLoading || (yearStats.length > 0 && yearsLoading);
   const isError = degree.isError || yearsError;
 
+  // The pills on the subject page link here with a `#year-<id>` hash. React
+  // Router doesn't auto-scroll to hashes, and the years load asynchronously,
+  // so scroll once they're rendered.
+  const location = useLocation();
+  useEffect(() => {
+    if (!location.hash || isLoading) return;
+    const el = document.getElementById(location.hash.slice(1));
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [location.hash, isLoading]);
+
   const subjectsCount = years.reduce((sum, y) => sum + y.subjects.length, 0);
   const classesCount = years.reduce((sum, y) => sum + y.classes.length, 0);
 
@@ -60,7 +71,10 @@ export default function DegreeDetailPage() {
             </div>
           ) : (
             <>
-              <div className="bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)] px-6 py-4 flex items-start justify-between gap-4">
+              <div
+                data-copy-id={did}
+                className="bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)] px-6 py-4 flex items-start justify-between gap-4"
+              >
                 <div className="min-w-0">
                   <h1 className="text-2xl font-bold text-[#08060d]">{degree.data.name}</h1>
                   <div className="mt-1 text-sm text-[#6b6375]">{degree.data.acronym}</div>
@@ -95,7 +109,7 @@ export default function DegreeDetailPage() {
 
 function YearSection({ projectId, year }: { projectId: string; year: YearDetail }) {
   return (
-    <section>
+    <section id={`year-${year.id}`} className="scroll-mt-6">
       <div className="flex items-baseline justify-between mb-2">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-[#08060d]">
           Ano {year.number}
@@ -140,6 +154,7 @@ function SubjectRow({ projectId, subject }: { projectId: string; subject: Subjec
     <li>
       <Link
         to={buildPath(ROUTES.SUBJECT_DETAIL, { projectId, subjectId: subject.id })}
+        data-copy-id={subject.id}
         className="flex items-baseline justify-between gap-3 px-4 py-2 hover:bg-[#f9f7f4] transition-colors"
       >
         <div className="min-w-0">
@@ -161,6 +176,7 @@ function ClassRow({ projectId, classItem }: { projectId: string; classItem: Clas
     <li>
       <Link
         to={buildPath(ROUTES.CLASS_DETAIL, { projectId, classId: classItem.id })}
+        data-copy-id={classItem.id}
         className="flex items-baseline justify-between gap-3 px-4 py-2 hover:bg-[#f9f7f4] transition-colors"
       >
         <div className="min-w-0">

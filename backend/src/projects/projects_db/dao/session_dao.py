@@ -13,6 +13,7 @@ from src.projects.projects_db.models._secondary_tables import (
     session_rooms,
     session_teachers,
 )
+from src.projects.projects_db.models.class_ import Class
 from src.projects.projects_db.models.session import Session
 from src.projects.projects_db.models.session_class_subject import SessionClassSubject
 from src.projects.projects_db.models.subject import Subject
@@ -206,8 +207,8 @@ class SessionDAO(BaseDAO[Session]):
         stmt = (
             select(Session)
             .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
-            .join(Subject, Subject.id == SessionClassSubject.subject_id)
-            .where(Subject.year_id == year_id)
+            .join(Class, Class.id == SessionClassSubject.class_id)
+            .where(Class.year_id == year_id)
             .distinct()
             .options(*self._load_options(includes))
         )
@@ -250,8 +251,8 @@ class SessionDAO(BaseDAO[Session]):
         year_session_ids = (
             select(Session.id)
             .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
-            .join(Subject, Subject.id == SessionClassSubject.subject_id)
-            .where(Subject.year_id == year_id)
+            .join(Class, Class.id == SessionClassSubject.class_id)
+            .where(Class.year_id == year_id)
         )
         if subject_ids:
             year_session_ids = year_session_ids.where(
