@@ -46,7 +46,7 @@ from src.projects.projects_db.models import Teacher as TeacherModel
 from src.projects.projects_db.models._secondary_tables import session_rooms, session_teachers
 from src.projects.projects_db.paths import general_db, initial_db
 from src.projects.projects_db.registry import get_session
-from src.projects.services.conflict_detection import _compute_conflict_rows
+from src.projects.services.conflict_detection import _compute_conflict_rows, load_red_blocks
 
 
 class IngestionManager:
@@ -520,7 +520,7 @@ class IngestionManager:
     def _ingest_conflicts(self) -> None:
         """Detect conflicts across all sessions and persist them to the conflict tables."""
         sessions = SessionDAO(self.db_session).get_all(includes=list(SessionDAO.Include))
-        data = _compute_conflict_rows(sessions)
+        data = _compute_conflict_rows(sessions, load_red_blocks(self.db_session))
 
         conflict_dao = ConflictDAO(self.db_session)
         conflict_session_dao = ConflictSessionDAO(self.db_session)

@@ -9,13 +9,45 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session as DBSession
 
+from src.projects.projects_db.dao.class_red_block_dao import ClassRedBlockDAO
 from src.projects.projects_db.dao.conflict_dao import ConflictDAO
+from src.projects.projects_db.dao.room_red_block_dao import RoomRedBlockDAO
+from src.projects.projects_db.dao.teacher_red_block_dao import TeacherRedBlockDAO
 from src.projects.projects_db.models.session import Session
-from src.projects.services.schemas.conflicts import ConflictData, ConflictResult
+from src.projects.projects_db.schemas.weekday import WeekDay
+from src.projects.services.schemas.conflicts import ConflictData, ConflictResult, RedBlocks
+
+# A red block marks a single 30-minute slot as unavailable.
+RED_BLOCK_SLOT_MINUTES = 30
+
+
+def load_red_blocks(db_session: DBSession) -> RedBlocks:
+    """Load all teacher, room and class red blocks indexed by resource and weekday."""
+    red_blocks = RedBlocks()
+    for rb in TeacherRedBlockDAO(db_session).get_all():
+        red_blocks.teacher.setdefault(rb.teacher_id, {}).setdefault(rb.weekday, set()).add(rb.hour)
+    for rb in RoomRedBlockDAO(db_session).get_all():
+        red_blocks.room.setdefault(rb.room_id, {}).setdefault(rb.weekday, set()).add(rb.hour)
+    for rb in ClassRedBlockDAO(db_session).get_all():
+        red_blocks.class_.setdefault(rb.class_id, {}).setdefault(rb.weekday, set()).add(rb.hour)
+    return red_blocks
 
 
 def _hhmm_to_minutes(hhmm: int) -> int:
     return (hhmm // 100) * 60 + (hhmm % 100)
+
+
+def _session_hits_red_block(session: Session, slots: dict[WeekDay, set[int]]) -> bool:
+    """True if the session's time range overlaps any 30-minute red block slot."""
+    day_slots = slots.get(session.weekday)
+    if not day_slots:
+        return False
+    start = _hhmm_to_minutes(session.start_time)
+    end = start + session.duration * 30
+    return any(
+        start < _hhmm_to_minutes(hour) + RED_BLOCK_SLOT_MINUTES and _hhmm_to_minutes(hour) < end
+        for hour in day_slots
+    )
 
 
 def _overlaps(session_a: Session, session_b: Session) -> bool:
@@ -93,7 +125,10 @@ def _dedup_by_block(sessions: list[Session]) -> list[Session]:
     return result
 
 
-def _compute_conflict_rows(sessions: list[Session]) -> ConflictData:
+def _compute_conflict_rows(
+    sessions: list[Session],
+    red_blocks: RedBlocks | None = None,
+) -> ConflictData:
     """Compute rows for the 6 normalized conflict tables.
 
     Returns a ConflictData with one entry per unique conflict_id in
@@ -103,6 +138,11 @@ def _compute_conflict_rows(sessions: list[Session]) -> ConflictData:
 
     The conflict_id is derived from the sorted block IDs of the group so all
     resource types that involve the same sessions share the same conflict_id.
+
+    When ``red_blocks`` is given, sessions that overlap a teacher, room or
+    class red block (an unavailable time slot) are also reported as conflicts.
+    Each such conflict involves a single session, so its conflict_id —
+    derived from that one block — never collides with a multi-session overlap.
     """
     data = ConflictData()
     seen_conflict_ids: set[UUID] = set()
@@ -113,11 +153,19 @@ def _compute_conflict_rows(sessions: list[Session]) -> ConflictData:
     for s in sessions:
         block_weeks[s.original_block_id].add(s.week)
 
-    def _emit_group(group: list[Session], resource_id: UUID, resource_type: str) -> None:
+    def _emit_group(
+        group: list[Session],
+        resource_id: UUID,
+        resource_type: str,
+        *,
+        is_red_block: bool = False,
+    ) -> None:
         conflict_id = UUID(_group_conflict_id([s.original_block_id for s in group]))
         if conflict_id not in seen_conflict_ids:
             seen_conflict_ids.add(conflict_id)
             data.conflict_rows.append({"conflict_id": conflict_id})
+        if is_red_block:
+            data.redblock_conflict_ids.add(str(conflict_id))
         for session in group:
             key = (conflict_id, session.id)
             if key not in seen_session_pairs:
@@ -188,6 +236,23 @@ def _compute_conflict_rows(sessions: list[Session]) -> ConflictData:
 
     _emit_resource_groups(by_class, "class_id", guard=_different_subjects)
 
+    # --- Red-block conflicts (resource unavailable during the session) ---
+    if red_blocks is not None:
+        for session in _dedup_by_block(sessions):
+            for teacher in session.teachers:
+                if _session_hits_red_block(session, red_blocks.teacher.get(teacher.id, {})):
+                    _emit_group([session], teacher.id, "teacher_id", is_red_block=True)
+            for room in session.rooms:
+                if _session_hits_red_block(session, red_blocks.room.get(room.id, {})):
+                    _emit_group([session], room.id, "room_id", is_red_block=True)
+            seen_class_ids: set[UUID] = set()
+            for cs in session.session_class_subjects:
+                if cs.class_ is None or cs.class_id in seen_class_ids:
+                    continue
+                seen_class_ids.add(cs.class_id)
+                if _session_hits_red_block(session, red_blocks.class_.get(cs.class_id, {})):
+                    _emit_group([session], cs.class_id, "class_id", is_red_block=True)
+
     return data
 
 
@@ -241,19 +306,53 @@ def _conflict_data_to_results(
             },
         )
 
+        subjects = sorted(
+            {
+                cs.subject.acronym
+                for s in sessions
+                for cs in s.session_class_subjects
+                if cs.subject is not None
+            },
+        )
+
+        degrees: set[str] = set()
+        for s in sessions:
+            for cs in s.session_class_subjects:
+                # Prefer the class' degree, falling back to the subject's.
+                for owner in (cs.class_, cs.subject):
+                    year = getattr(owner, "year", None)
+                    degree = getattr(year, "degree", None)
+                    if degree is not None:
+                        degrees.add(degree.acronym)
+                        break
+
+        is_red_block = cid in data.redblock_conflict_ids
+
         reasons: list[str] = []
         for teacher_id in teacher_ids_by_conflict.get(cid, []):
             teacher = teacher_map.get(teacher_id)
             if teacher:
-                reasons.append(f"Prof. {teacher.name} em aulas diferentes ao mesmo tempo")
+                reasons.append(
+                    f"Prof. {teacher.name} num horário indisponível (bloco vermelho)"
+                    if is_red_block
+                    else f"Prof. {teacher.name} em aulas diferentes ao mesmo tempo",
+                )
         for room_id in room_ids_by_conflict.get(cid, []):
             room = room_map.get(room_id)
             if room:
-                reasons.append(f"Sala {room.name} com aulas diferentes ao mesmo tempo")
+                reasons.append(
+                    f"Sala {room.name} num horário indisponível (bloco vermelho)"
+                    if is_red_block
+                    else f"Sala {room.name} com aulas diferentes ao mesmo tempo",
+                )
         for class_id in class_ids_by_conflict.get(cid, []):
             class_ = class_map.get(class_id)
             if class_:
-                reasons.append(f"Turma {class_.code} em aulas diferentes ao mesmo tempo")
+                reasons.append(
+                    f"Turma {class_.code} num horário indisponível (bloco vermelho)"
+                    if is_red_block
+                    else f"Turma {class_.code} em aulas diferentes ao mesmo tempo",
+                )
 
         results.append(
             ConflictResult(
@@ -263,6 +362,9 @@ def _conflict_data_to_results(
                 day=first.weekday.value,
                 time=first.start_time,
                 turma=turma,
+                block_ids=sorted({str(s.original_block_id) for s in sessions}),
+                degrees=sorted(degrees),
+                subjects=subjects,
                 conflict_reasons=reasons,
             ),
         )
@@ -276,12 +378,11 @@ def get_live_conflicts(db_session: DBSession, sessions: list[Session]) -> list[C
     Sessions must have teachers, rooms, and session_class_subjects (with subject
     and class_ sub-relationships) eagerly loaded.
     """
-    data = _compute_conflict_rows(sessions)
+    data = _compute_conflict_rows(sessions, load_red_blocks(db_session))
     results = _conflict_data_to_results(data, sessions)
 
     tag_assignments = ConflictDAO(db_session).get_tag_assignments()
     for result in results:
-        if result.id in tag_assignments:
-            result.tag = tag_assignments[result.id]
+        result.tags = tag_assignments.get(result.id, [])
 
     return results

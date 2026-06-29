@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
@@ -12,6 +13,14 @@ class TeacherRedBlockDAO(BaseDAO[TeacherRedBlock]):
 
     def __init__(self, session: Session, *, flush_on_create: bool = True) -> None:
         super().__init__(TeacherRedBlock, session, flush_on_create=flush_on_create)
+
+    # -------------------------------------------------------------------
+    # -- Get
+    # -------------------------------------------------------------------
+
+    def get_all(self) -> list[TeacherRedBlock]:
+        """Return every teacher red block in the project database."""
+        return list(self.session.scalars(select(TeacherRedBlock)).all())
 
     # -------------------------------------------------------------------
     # -- Create

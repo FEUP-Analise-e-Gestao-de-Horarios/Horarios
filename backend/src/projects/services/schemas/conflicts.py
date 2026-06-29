@@ -13,8 +13,11 @@ class ConflictResult(BaseModel):
     day: str
     time: int
     turma: list[str]
+    block_ids: list[str] = Field(default_factory=list)
+    degrees: list[str] = Field(default_factory=list)
+    subjects: list[str] = Field(default_factory=list)
     conflict_reasons: list[str]
-    tag: str | None = None
+    tags: list[str] = Field(default_factory=list)
 
 
 class ConflictData(BaseModel):
@@ -23,6 +26,20 @@ class ConflictData(BaseModel):
     teacher_rows: list[dict] = Field(default_factory=list)
     room_rows: list[dict] = Field(default_factory=list)
     class_rows: list[dict] = Field(default_factory=list)
+    redblock_conflict_ids: set[str] = Field(default_factory=set)
+
+
+class RedBlocks(BaseModel):
+    """Per-resource unavailability slots.
+
+    Each mapping is ``resource_id -> {weekday -> {slot start times in HHMM}}``,
+    where every slot start time marks a 30-minute window in which the resource
+    is unavailable.
+    """
+
+    teacher: dict[UUID, dict[WeekDay, set[int]]] = Field(default_factory=dict)
+    room: dict[UUID, dict[WeekDay, set[int]]] = Field(default_factory=dict)
+    class_: dict[UUID, dict[WeekDay, set[int]]] = Field(default_factory=dict)
 
 
 class SimulatedClassSubject(BaseModel):

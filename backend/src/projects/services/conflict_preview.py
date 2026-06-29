@@ -13,6 +13,7 @@ from src.projects.services.conflict_detection import (
     _compute_conflict_rows,
     _conflict_data_to_results,
     get_live_conflicts,
+    load_red_blocks,
 )
 from src.projects.services.schemas.conflicts import (
     ConflictData,
@@ -163,7 +164,7 @@ def preview_conflict_changes(
     ]
 
     # 7. Run detection over candidates + simulated block.
-    data = _compute_conflict_rows(candidates + simulated)
+    data = _compute_conflict_rows(candidates + simulated, load_red_blocks(db_session))
 
     # 8. Extract conflict IDs that involve the simulated block.
     new_conflict_ids_for_block: set[str] = {
@@ -184,6 +185,7 @@ def preview_conflict_changes(
         teacher_rows=[r for r in data.teacher_rows if str(r["conflict_id"]) in truly_new_ids],
         room_rows=[r for r in data.room_rows if str(r["conflict_id"]) in truly_new_ids],
         class_rows=[r for r in data.class_rows if str(r["conflict_id"]) in truly_new_ids],
+        redblock_conflict_ids=data.redblock_conflict_ids & truly_new_ids,
     )
     new = _conflict_data_to_results(new_data, candidates + simulated)
 

@@ -13,9 +13,11 @@ from src.projects.projects_db.models._secondary_tables import (
     session_rooms,
     session_teachers,
 )
+from src.projects.projects_db.models.class_ import Class
 from src.projects.projects_db.models.session import Session
 from src.projects.projects_db.models.session_class_subject import SessionClassSubject
 from src.projects.projects_db.models.subject import Subject
+from src.projects.projects_db.models.year import Year
 from src.projects.projects_db.schemas.weekday import WeekDay
 
 
@@ -45,15 +47,17 @@ class SessionDAO(BaseDAO[Session]):
                     options.append(selectinload(Session.rooms))
                 case cls.Include.SUBJECTS:
                     options.append(
-                        selectinload(Session.session_class_subjects).joinedload(
-                            SessionClassSubject.subject,
-                        ),
+                        selectinload(Session.session_class_subjects)
+                        .joinedload(SessionClassSubject.subject)
+                        .joinedload(Subject.year)
+                        .joinedload(Year.degree),
                     )
                 case cls.Include.CLASSES:
                     options.append(
-                        selectinload(Session.session_class_subjects).joinedload(
-                            SessionClassSubject.class_,
-                        ),
+                        selectinload(Session.session_class_subjects)
+                        .joinedload(SessionClassSubject.class_)
+                        .joinedload(Class.year)
+                        .joinedload(Year.degree),
                     )
         return options
 
