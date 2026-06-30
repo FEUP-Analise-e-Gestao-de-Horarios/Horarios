@@ -7,13 +7,15 @@ from collections import defaultdict
 from collections.abc import Callable
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session as DBSession
 
-from src.projects.projects_db.dao.class_red_block_dao import ClassRedBlockDAO
 from src.projects.projects_db.dao.conflict_dao import ConflictDAO
-from src.projects.projects_db.dao.room_red_block_dao import RoomRedBlockDAO
-from src.projects.projects_db.dao.teacher_red_block_dao import TeacherRedBlockDAO
+from src.projects.projects_db.dao.session_dao import SessionDAO
+from src.projects.projects_db.models.class_red_block import ClassRedBlock
+from src.projects.projects_db.models.room_red_block import RoomRedBlock
 from src.projects.projects_db.models.session import Session
+from src.projects.projects_db.models.teacher_red_block import TeacherRedBlock
 from src.projects.projects_db.schemas.weekday import WeekDay
 from src.projects.services.schemas.conflicts import ConflictData, ConflictResult, RedBlocks
 
@@ -21,15 +23,42 @@ from src.projects.services.schemas.conflicts import ConflictData, ConflictResult
 RED_BLOCK_SLOT_MINUTES = 30
 
 
+def load_conflict_sessions(db_session: DBSession) -> tuple[list[Session], dict[UUID, set]]:
+    """Load the session data conflict detection needs.
+
+    Returns one representative session per block (fully eager-loaded with
+    teachers, rooms and class-subjects) together with the set of weeks each
+    block spans. Sessions of a block are identical across weeks, so a single
+    representative suffices while hydrating ~14x fewer rows than loading every
+    week. Shared by the live-conflict and preview flows so both load data the
+    same way.
+    """
+    dao = SessionDAO(db_session)
+    sessions = dao.get_block_representatives(includes=list(SessionDAO.Include))
+    return sessions, dao.get_block_weeks()
+
+
 def load_red_blocks(db_session: DBSession) -> RedBlocks:
-    """Load all teacher, room and class red blocks indexed by resource and weekday."""
+    """Load all teacher, room and class red blocks indexed by resource and weekday.
+
+    Reads only the ``(resource_id, weekday, hour)`` columns rather than
+    hydrating full ORM objects — there can be tens of thousands of red blocks
+    (one row per 30-minute slot per resource) and that hydration dominated this
+    step otherwise.
+    """
     red_blocks = RedBlocks()
-    for rb in TeacherRedBlockDAO(db_session).get_all():
-        red_blocks.teacher.setdefault(rb.teacher_id, {}).setdefault(rb.weekday, set()).add(rb.hour)
-    for rb in RoomRedBlockDAO(db_session).get_all():
-        red_blocks.room.setdefault(rb.room_id, {}).setdefault(rb.weekday, set()).add(rb.hour)
-    for rb in ClassRedBlockDAO(db_session).get_all():
-        red_blocks.class_.setdefault(rb.class_id, {}).setdefault(rb.weekday, set()).add(rb.hour)
+    for resource_id, weekday, hour in db_session.execute(
+        select(TeacherRedBlock.teacher_id, TeacherRedBlock.weekday, TeacherRedBlock.hour),
+    ).all():
+        red_blocks.teacher.setdefault(resource_id, {}).setdefault(weekday, set()).add(hour)
+    for resource_id, weekday, hour in db_session.execute(
+        select(RoomRedBlock.room_id, RoomRedBlock.weekday, RoomRedBlock.hour),
+    ).all():
+        red_blocks.room.setdefault(resource_id, {}).setdefault(weekday, set()).add(hour)
+    for resource_id, weekday, hour in db_session.execute(
+        select(ClassRedBlock.class_id, ClassRedBlock.weekday, ClassRedBlock.hour),
+    ).all():
+        red_blocks.class_.setdefault(resource_id, {}).setdefault(weekday, set()).add(hour)
     return red_blocks
 
 
@@ -128,6 +157,7 @@ def _dedup_by_block(sessions: list[Session]) -> list[Session]:
 def _compute_conflict_rows(
     sessions: list[Session],
     red_blocks: RedBlocks | None = None,
+    block_weeks: dict[UUID, set] | None = None,
 ) -> ConflictData:
     """Compute rows for the 6 normalized conflict tables.
 
@@ -143,15 +173,22 @@ def _compute_conflict_rows(
     class red block (an unavailable time slot) are also reported as conflicts.
     Each such conflict involves a single session, so its conflict_id —
     derived from that one block — never collides with a multi-session overlap.
+
+    ``block_weeks`` maps each ``original_block_id`` to the set of weeks it
+    occurs in; two blocks can only conflict if they share a week. When omitted
+    it is derived from ``sessions``, which assumes the passed sessions span
+    every week. Callers that pass a single representative session per block
+    (to avoid hydrating every week) must supply ``block_weeks`` explicitly.
     """
     data = ConflictData()
     seen_conflict_ids: set[UUID] = set()
     seen_session_pairs: set[tuple[UUID, UUID]] = set()
     seen_resource_pairs: set[tuple[UUID, UUID]] = set()
 
-    block_weeks: dict[UUID, set] = defaultdict(set)
-    for s in sessions:
-        block_weeks[s.original_block_id].add(s.week)
+    if block_weeks is None:
+        block_weeks = defaultdict(set)
+        for s in sessions:
+            block_weeks[s.original_block_id].add(s.week)
 
     def _emit_group(
         group: list[Session],
@@ -372,13 +409,26 @@ def _conflict_data_to_results(
     return results
 
 
-def get_live_conflicts(db_session: DBSession, sessions: list[Session]) -> list[ConflictResult]:
+def get_live_conflicts(
+    db_session: DBSession,
+    sessions: list[Session] | None = None,
+    block_weeks: dict[UUID, set] | None = None,
+) -> list[ConflictResult]:
     """Detect conflicts from live session data and overlay any stored tags.
 
+    When ``sessions`` is omitted, the representative sessions and per-block
+    week sets are loaded via :func:`load_conflict_sessions`. Callers that
+    already hold this data (e.g. the preview flow) pass both ``sessions`` and
+    ``block_weeks`` to avoid reloading.
+
     Sessions must have teachers, rooms, and session_class_subjects (with subject
-    and class_ sub-relationships) eagerly loaded.
+    and class_ sub-relationships) eagerly loaded. ``block_weeks`` maps each
+    block to the weeks it spans so cross-block overlap detection works even when
+    ``sessions`` holds one representative per block rather than every week.
     """
-    data = _compute_conflict_rows(sessions, load_red_blocks(db_session))
+    if sessions is None:
+        sessions, block_weeks = load_conflict_sessions(db_session)
+    data = _compute_conflict_rows(sessions, load_red_blocks(db_session), block_weeks=block_weeks)
     results = _conflict_data_to_results(data, sessions)
 
     tag_assignments = ConflictDAO(db_session).get_tag_assignments()

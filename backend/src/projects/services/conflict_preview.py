@@ -7,12 +7,12 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session as DBSession
 
-from src.projects.projects_db.dao.session_dao import SessionDAO
 from src.projects.projects_db.schemas.weekday import WeekDay
 from src.projects.services.conflict_detection import (
     _compute_conflict_rows,
     _conflict_data_to_results,
     get_live_conflicts,
+    load_conflict_sessions,
     load_red_blocks,
 )
 from src.projects.services.schemas.conflicts import (
@@ -53,11 +53,10 @@ def preview_conflict_changes(
         - solved: live ConflictResult objects that would disappear.
         - new: ConflictResult objects that would be created.
     """
-    includes = list(SessionDAO.Include)
-    session_dao = SessionDAO(db_session)
-
-    # 1. Load all sessions to compute the current live conflict state.
-    all_sessions = session_dao.get_all(includes=includes)
+    # 1. Load one representative session per block (+ the weeks each block
+    #    spans) to compute the current live conflict state — the same data the
+    #    live-conflict endpoint uses, via the shared loader.
+    all_sessions, block_weeks = load_conflict_sessions(db_session)
     block_sessions = [s for s in all_sessions if s.original_block_id == original_block_id]
     if not block_sessions:
         return [], []
@@ -65,7 +64,7 @@ def preview_conflict_changes(
     block_session_ids: set[UUID] = {s.id for s in block_sessions}
 
     # 2. Find live conflicts that currently involve any session in this block.
-    all_live = get_live_conflicts(db_session, all_sessions)
+    all_live = get_live_conflicts(db_session, all_sessions, block_weeks=block_weeks)
     current_for_block = [
         c for c in all_live if any(UUID(eid) in block_session_ids for eid in c.event_ids)
     ]
@@ -164,7 +163,11 @@ def preview_conflict_changes(
     ]
 
     # 7. Run detection over candidates + simulated block.
-    data = _compute_conflict_rows(candidates + simulated, load_red_blocks(db_session))
+    data = _compute_conflict_rows(
+        candidates + simulated,
+        load_red_blocks(db_session),
+        block_weeks=block_weeks,
+    )
 
     # 8. Extract conflict IDs that involve the simulated block.
     new_conflict_ids_for_block: set[str] = {

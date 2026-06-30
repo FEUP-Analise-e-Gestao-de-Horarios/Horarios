@@ -8,7 +8,6 @@ from src.core.decorators import require_auth, require_project
 from src.core.schemas import SuccessResponse
 from src.core.validation import validate_request_body
 from src.projects.projects_db.dao import ConflictDAO
-from src.projects.projects_db.dao.session_dao import SessionDAO
 from src.projects.projects_db.dao.tag_dao import TagDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
@@ -29,8 +28,7 @@ class ProjectConflictsView(View):
     @require_project
     def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
         with get_project_session(general_db(project_id)) as db_session:
-            sessions = SessionDAO(db_session).get_all(includes=list(SessionDAO.Include))
-            conflicts = get_live_conflicts(db_session, sessions)
+            conflicts = get_live_conflicts(db_session)
 
             return JsonResponse(
                 SuccessResponse(
