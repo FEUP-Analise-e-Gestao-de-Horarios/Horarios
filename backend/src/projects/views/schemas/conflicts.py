@@ -15,6 +15,19 @@ class UpdateConflictTagRequest(BaseModel):
     tags: list[str]
 
 
+class UpdateManyConflictTagItem(BaseModel):
+    conflict_id: UUID
+    tags: list[str]
+
+
+class UpdateManyConflictTagsRequest(BaseModel):
+    updates: list[UpdateManyConflictTagItem]
+
+
+class UpdateManyConflictTagsResponse(BaseModel):
+    conflicts: list[ConflictResult]
+
+
 class ConflictPreviewRequest(BaseModel):
     original_block_id: UUID
     weekday: WeekDay

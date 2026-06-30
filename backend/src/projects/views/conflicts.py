@@ -18,6 +18,8 @@ from src.projects.views.schemas.conflicts import (
     ConflictPreviewResponse,
     ConflictsResponse,
     UpdateConflictTagRequest,
+    UpdateManyConflictTagsRequest,
+    UpdateManyConflictTagsResponse,
 )
 
 
@@ -34,6 +36,29 @@ class ProjectConflictsView(View):
                 SuccessResponse(
                     message="Conflicts retrieved successfully",
                     data=ConflictsResponse(conflicts=conflicts, count=len(conflicts)),
+                ).model_dump(),
+            )
+
+    @require_auth
+    @require_project
+    def patch(self, request: HttpRequest, project_id: int) -> HttpResponse:
+        """Replace the tags on several conflicts at once, returning the updated ones."""
+        body, err = validate_request_body(UpdateManyConflictTagsRequest, request.body)
+        if err:
+            return err
+
+        with get_project_session(general_db(project_id)) as db_session:
+            ConflictDAO(db_session).set_tags_many(
+                [(item.conflict_id, item.tags) for item in body.updates],
+            )
+
+            touched = {str(item.conflict_id) for item in body.updates}
+            conflicts = [c for c in get_live_conflicts(db_session) if c.id in touched]
+
+            return JsonResponse(
+                SuccessResponse(
+                    message="Conflict tags updated successfully",
+                    data=UpdateManyConflictTagsResponse(conflicts=conflicts),
                 ).model_dump(),
             )
 

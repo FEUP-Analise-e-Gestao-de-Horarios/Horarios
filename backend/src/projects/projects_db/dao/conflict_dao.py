@@ -48,12 +48,22 @@ class ConflictDAO:
         An empty list removes the conflict from storage entirely (along with
         its tag associations).
         """
+        self._apply_tags(conflict_id, tags)
+        self.session.commit()
+
+    def set_tags_many(self, updates: list[tuple[UUID, list[str]]]) -> None:
+        """Replace the tags on several conflicts in a single commit."""
+        for conflict_id, tags in updates:
+            self._apply_tags(conflict_id, tags)
+        self.session.commit()
+
+    def _apply_tags(self, conflict_id: UUID, tags: list[str]) -> None:
+        """Stage a tag replacement for one conflict. An empty list deletes it."""
         conflict = self.session.get(Conflict, conflict_id)
 
         if not tags:
             if conflict is not None:
                 self.session.delete(conflict)
-            self.session.commit()
             return
 
         if conflict is None:
@@ -63,7 +73,6 @@ class ConflictDAO:
         # Deduplicate while preserving the caller's order.
         unique_names = list(dict.fromkeys(tags))
         conflict.tags = [self._tags.get_or_create(name) for name in unique_names]
-        self.session.commit()
 
     def delete_tag(self, tag_name: str) -> None:
         tag = self.session.scalars(select(Tag).where(Tag.name == tag_name)).first()
