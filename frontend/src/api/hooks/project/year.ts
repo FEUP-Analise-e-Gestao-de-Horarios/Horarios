@@ -6,6 +6,8 @@ import type {
   ConflictPreviewResponse,
   ConflictRecord,
   ConflictsListPayload,
+  UpdateManyConflictTagsRequest,
+  UpdateManyConflictTagsResponse,
 } from "@/types/project/conflicts";
 import type { ApiResponse } from "@/types/api";
 import type { YearDetail } from "@/types/project/year";
@@ -77,6 +79,41 @@ export function useUpdateConflictTags(projectId: string) {
       if (context?.previous) {
         queryClient.setQueryData(conflictsKey(projectId), context.previous);
       }
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: tagsKey(projectId) });
+    },
+  });
+}
+
+export function useUpdateManyConflictTags(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (updates: UpdateManyConflictTagsRequest["updates"]) =>
+      api
+        .patch<
+          ApiResponse<UpdateManyConflictTagsResponse>
+        >(`/api/projects/${projectId}/conflicts`, { updates })
+        .then((r) => r.data),
+    onMutate: async (updates) => {
+      await queryClient.cancelQueries({ queryKey: conflictsKey(projectId) });
+      const previous = queryClient.getQueryData<ConflictRecord[]>(conflictsKey(projectId));
+      const tagsById = new Map(updates.map((u) => [u.conflict_id, u.tags]));
+      queryClient.setQueryData<ConflictRecord[]>(conflictsKey(projectId), (old) =>
+        (old ?? []).map((c) => (tagsById.has(c.id) ? { ...c, tags: tagsById.get(c.id)! } : c)),
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(conflictsKey(projectId), context.previous);
+      }
+    },
+    onSuccess: ({ conflicts }) => {
+      const byId = new Map(conflicts.map((c) => [c.id, c]));
+      queryClient.setQueryData<ConflictRecord[]>(conflictsKey(projectId), (old) =>
+        (old ?? []).map((c) => byId.get(c.id) ?? c),
+      );
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: tagsKey(projectId) });

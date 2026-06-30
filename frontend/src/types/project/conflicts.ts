@@ -25,6 +25,20 @@ export interface ConflictsListPayload {
   count: number;
 }
 
+// -- Many tag update -----------------------------------------------------
+export interface UpdateManyConflictTagItem {
+  conflict_id: string;
+  tags: string[];
+}
+
+export interface UpdateManyConflictTagsRequest {
+  updates: UpdateManyConflictTagItem[];
+}
+
+export interface UpdateManyConflictTagsResponse {
+  conflicts: ConflictRecord[];
+}
+
 // -- Preview -------------------------------------------------------------
 export interface ConflictPreviewRequest {
   original_block_id: string;

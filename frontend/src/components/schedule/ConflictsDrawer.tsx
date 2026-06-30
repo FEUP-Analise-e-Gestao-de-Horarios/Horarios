@@ -5,6 +5,7 @@ import {
   useDeleteConflictTag,
   useProjectConflictTags,
   useUpdateConflictTags,
+  useUpdateManyConflictTags,
 } from "@/api/hooks/project/year";
 import { WEEKDAY_LABELS_SHORT } from "@/utils/weekdays";
 import { hhmmToMinutes, minutesToTime } from "@/utils/time";
@@ -378,6 +379,7 @@ export default function ConflictsDrawer({
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const { mutate: updateTags, isPending: isTagPending } = useUpdateConflictTags(projectId);
+  const { mutate: updateManyTags } = useUpdateManyConflictTags(projectId);
   const { mutate: deleteTag } = useDeleteConflictTag(projectId);
   const { data: dbTags = [] } = useProjectConflictTags(projectId, open);
   const [activeTab, setActiveTab] = useState<ConflictTab>("current");
@@ -489,7 +491,7 @@ export default function ConflictsDrawer({
   const hasActiveFilter = selectedFilters.length > 0 || selectedTags.length > 0;
 
   // Pre-existing conflicts that aren't already ignored — the targets of the
-  // "ignore all pre-existing" bulk action.
+  // "ignore all pre-existing" action.
   const preExistingToIgnore = useMemo(
     () =>
       conflicts.filter(
@@ -500,9 +502,13 @@ export default function ConflictsDrawer({
   );
 
   function ignoreAllPreExisting() {
-    for (const conflict of preExistingToIgnore) {
-      updateTags({ conflictId: conflict.id, tags: [...conflict.tags, CONFLICT_TAGS.IGNORED] });
-    }
+    if (preExistingToIgnore.length === 0) return;
+    updateManyTags(
+      preExistingToIgnore.map((conflict) => ({
+        conflict_id: conflict.id,
+        tags: [...conflict.tags, CONFLICT_TAGS.IGNORED],
+      })),
+    );
   }
 
   const pickerTags = dbTags.filter((t) => t !== CONFLICT_TAGS.PRE_EXISTING);
