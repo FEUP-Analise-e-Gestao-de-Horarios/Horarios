@@ -1,10 +1,6 @@
 from .class_ import Class
 from .class_red_block import ClassRedBlock
 from .conflict import Conflict
-from .conflict_class import ConflictClass
-from .conflict_room import ConflictRoom
-from .conflict_session import ConflictSession
-from .conflict_teacher import ConflictTeacher
 from .degree import Degree
 from .parallel_block_candidate import ParallelBlockCandidate
 from .room import Room
@@ -21,10 +17,6 @@ __all__ = [
     "Class",
     "ClassRedBlock",
     "Conflict",
-    "ConflictClass",
-    "ConflictRoom",
-    "ConflictSession",
-    "ConflictTeacher",
     "Degree",
     "ParallelBlockCandidate",
     "Room",

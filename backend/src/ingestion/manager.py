@@ -18,11 +18,7 @@ from src.projects.models import Project
 from src.projects.projects_db.dao import (
     ClassDAO,
     ClassRedBlockDAO,
-    ConflictClassDAO,
     ConflictDAO,
-    ConflictRoomDAO,
-    ConflictSessionDAO,
-    ConflictTeacherDAO,
     DegreeDAO,
     RoomDAO,
     RoomRedBlockDAO,
@@ -518,26 +514,12 @@ class IngestionManager:
         self.db_session.commit()
 
     def _ingest_conflicts(self) -> None:
-        """Detect conflicts across all sessions and persist them to the conflict tables."""
+        """Detect conflicts across all sessions and tag them as pre-existing."""
         sessions = SessionDAO(self.db_session).get_all(includes=list(SessionDAO.Include))
         data = _compute_conflict_rows(sessions, load_red_blocks(self.db_session))
 
-        conflict_dao = ConflictDAO(self.db_session)
-        conflict_session_dao = ConflictSessionDAO(self.db_session)
-        conflict_teacher_dao = ConflictTeacherDAO(self.db_session)
-        conflict_room_dao = ConflictRoomDAO(self.db_session)
-        conflict_class_dao = ConflictClassDAO(self.db_session)
-
         if data.conflict_rows:
-            conflict_dao.create_many_tagged(data.conflict_rows, "pre-existing")
-        if data.session_rows:
-            conflict_session_dao.create_many(data.session_rows)
-        if data.teacher_rows:
-            conflict_teacher_dao.create_many(data.teacher_rows)
-        if data.room_rows:
-            conflict_room_dao.create_many(data.room_rows)
-        if data.class_rows:
-            conflict_class_dao.create_many(data.class_rows)
+            ConflictDAO(self.db_session).create_many_tagged(data.conflict_rows, "pre-existing")
 
         self.db_session.commit()
 

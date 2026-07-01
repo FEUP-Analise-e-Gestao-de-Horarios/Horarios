@@ -143,36 +143,14 @@ CREATE TABLE tags (
 );
 
 CREATE TABLE conflicts (
-    conflict_id  UUID PRIMARY KEY,
-    tag_id       UUID NOT NULL REFERENCES tags(tag_id)
+    conflict_id  UUID PRIMARY KEY
 );
 
-CREATE TABLE conflict_sessions (
+CREATE TABLE conflict_tags (
     conflict_id  UUID NOT NULL REFERENCES conflicts(conflict_id),
-    session_id   UUID NOT NULL REFERENCES sessions(id),
+    tag_id       UUID NOT NULL REFERENCES tags(tag_id),
 
-    PRIMARY KEY (conflict_id, session_id)
-);
-
-CREATE TABLE conflict_rooms (
-    conflict_id  UUID NOT NULL REFERENCES conflicts(conflict_id),
-    room_id      UUID NOT NULL REFERENCES rooms(id),
-
-    PRIMARY KEY (conflict_id, room_id)
-);
-
-CREATE TABLE conflict_teachers (
-    conflict_id  UUID NOT NULL REFERENCES conflicts(conflict_id),
-    teacher_id   UUID NOT NULL REFERENCES teachers(id),
-
-    PRIMARY KEY (conflict_id, teacher_id)
-);
-
-CREATE TABLE conflict_classes (
-    conflict_id  UUID NOT NULL REFERENCES conflicts(conflict_id),
-    class_id     UUID NOT NULL REFERENCES classes(id),
-
-    PRIMARY KEY (conflict_id, class_id)
+    PRIMARY KEY (conflict_id, tag_id)
 );
 
 

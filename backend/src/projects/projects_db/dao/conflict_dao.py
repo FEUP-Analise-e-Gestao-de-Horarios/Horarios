@@ -28,19 +28,14 @@ class ConflictDAO:
         ).all()
         return {str(c.conflict_id): sorted(t.name for t in c.tags) for c in conflicts}
 
-    def create_many(self, rows: list[dict]) -> None:
-        self.session.execute(insert(Conflict), rows)
-
     def create_many_tagged(self, rows: list[dict], tag_name: str) -> None:
+        """Insert several conflicts and tag them all with the given tag."""
         tag = self._tags.get_or_create(tag_name)
         self.session.execute(insert(Conflict), rows)
         self.session.execute(
             insert(conflict_tags),
             [{"conflict_id": row["conflict_id"], "tag_id": tag.tag_id} for row in rows],
         )
-
-    def delete_all(self) -> None:
-        self.session.execute(delete(Conflict))
 
     def set_tags(self, conflict_id: UUID, tags: list[str]) -> None:
         """Replace the full set of tags on a conflict.
