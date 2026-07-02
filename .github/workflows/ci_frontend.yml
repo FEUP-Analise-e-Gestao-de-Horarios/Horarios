@@ -2,6 +2,7 @@ name: "CI: Frontend"
 
 on:
   pull_request:
+  merge_group:
 
 jobs:
   frontend-typecheck:
