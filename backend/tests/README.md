@@ -12,15 +12,22 @@ tests/
   conftest.py            # shared fixtures (user, auth_client, project, project_db)
   factories.py           # make_* row builders for the per-project SQLAlchemy DB
   unit/                  # fast, pure-logic tests — no DB, no HTTP
+    ingestion/           # scraper + HTML parser tests (built HTML, no network)
   integration/           # real HTTP requests through the Django test client
 ```
 
 - **Unit** tests import a module and assert on its behavior directly. They do
   not touch a database and should stay fast. Example: `unit/test_smoke.py`
   exercises `build_candidate_components`.
+- **Ingestion unit** tests (`unit/ingestion/`) cover the parsers and scraper.
+  `unit/ingestion/_html.py` builds the minimal FEUP schedule/menu/teacher HTML
+  each parser expects (indexed tables, the weekday header row, `td_tipologia_*`
+  session cells, ...), so no captured pages or network are needed. The scraper
+  tests swap in a fake `requests.Session`.
 - **Integration** tests drive endpoints end to end via the Django test client,
   backed by a real, seeded, per-project SQLite file. Example:
-  `integration/test_smoke_endpoint.py`.
+  `integration/test_smoke_endpoint.py`. `integration/test_ingestion_manager.py`
+  drives the whole `IngestionManager` pipeline with only the `Scraper` faked.
 
 ## How to run
 
@@ -86,6 +93,10 @@ creates a `Year`, which creates a `Degree`).
 - `make_degree`, `make_year`, `make_subject` (links to a year via the
   `subject_years` m2m), `make_class`, `make_session`,
   `make_session_class_subject`, `make_group_member`
+- `make_room`, `make_teacher`, and the red-block builders
+  `make_teacher_red_block` / `make_room_red_block` / `make_class_red_block`
+- `link_session_teacher` / `link_session_room` — attach a session to a teacher
+  or room via the m2m tables (so it shows up in that entity's stats and blocks)
 - `make_parallel_candidate_pair(session, ...)` — high-level helper that seeds
   the minimum rows for two blocks to be detected as parallel candidates for one
   subject (two blocks sharing the same `(week, weekday, start_time, subject)`
