@@ -323,7 +323,7 @@ export default function ParallelClassesPage() {
             {/* Right column: graph (top) + selected groups (bottom) */}
             <div className="flex-1 min-w-0 flex flex-col gap-4 min-h-0">
               {/* Graph panel — populated by the selected candidate */}
-              <div className="flex-[3] min-h-0 flex flex-col overflow-hidden rounded-2xl border border-[#e8e8e8] shadow-sm bg-white">
+              <div className="flex-[2] min-h-0 flex flex-col overflow-hidden rounded-2xl border border-[#e8e8e8] shadow-sm bg-white">
                 {selectedGraph && selectedDay ? (
                   <>
                     <div className="shrink-0 flex items-center justify-between gap-2 px-4 py-3 border-b border-[#e8e8e8] bg-[#fafafa]">

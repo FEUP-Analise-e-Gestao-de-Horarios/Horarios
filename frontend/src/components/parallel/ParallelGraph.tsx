@@ -18,6 +18,17 @@ const LINK_DISTANCE = 140;
 /** Widest a node box can render (Tailwind max-w-[150px]). */
 const NODE_MAX_W = 150;
 
+/** User-zoom bounds, applied on top of the fit-to-container scale. */
+const MIN_ZOOM = 0.4;
+const MAX_ZOOM = 3;
+/** Start a touch more zoomed-in than a plain fit. */
+const DEFAULT_ZOOM = 1.25;
+const ZOOM_STEP = 1.2;
+
+function clampZoom(z: number): number {
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
+}
+
 /**
  * Approximate a node's collision radius from its content, so spacing can scale
  * with size without waiting on a DOM measure. Width tracks the class-code text
@@ -194,13 +205,62 @@ export default function ParallelGraph({
     return () => ro.disconnect();
   }, []);
 
-  const scale = viewport ? Math.min(1, viewport.w / layout.width, viewport.h / layout.height) : 1;
+  // Fit-to-container scale (never upscales past natural size), then the user's
+  // own zoom on top so they can push in past the fit and pan by dragging nodes.
+  const fitScale = viewport
+    ? Math.min(1, viewport.w / layout.width, viewport.h / layout.height)
+    : 1;
+  const [zoom, setZoom] = useState(DEFAULT_ZOOM);
+  const scale = fitScale * zoom;
+
+  const zoomBy = useCallback((factor: number) => {
+    setZoom((z) => clampZoom(z * factor));
+  }, []);
+
+  // Wheel-to-zoom. Attached natively (non-passive) so preventDefault can stop
+  // the page from scrolling while zooming over the graph.
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      setZoom((z) => clampZoom(z * Math.exp(-e.deltaY * 0.0015)));
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
 
   return (
     <div
       ref={viewportRef}
-      className="flex h-full w-full items-center justify-center overflow-hidden"
+      className="relative flex h-full w-full items-center justify-center overflow-hidden"
     >
+      <div className="absolute left-2 top-2 z-20 flex flex-col overflow-hidden rounded-lg border border-[#e2e2e2] bg-white/90 shadow-sm backdrop-blur">
+        <button
+          type="button"
+          onClick={() => zoomBy(ZOOM_STEP)}
+          title="Aproximar"
+          className="flex h-7 w-7 items-center justify-center text-lg font-semibold leading-none text-[#555] hover:bg-[#f3f3f3] cursor-pointer"
+        >
+          +
+        </button>
+        <button
+          type="button"
+          onClick={() => zoomBy(1 / ZOOM_STEP)}
+          title="Afastar"
+          className="flex h-7 w-7 items-center justify-center border-t border-[#eee] text-lg font-semibold leading-none text-[#555] hover:bg-[#f3f3f3] cursor-pointer"
+        >
+          −
+        </button>
+        <button
+          type="button"
+          onClick={() => setZoom(DEFAULT_ZOOM)}
+          title="Repor zoom"
+          className="flex h-7 w-7 items-center justify-center border-t border-[#eee] text-xs font-semibold leading-none text-[#777] hover:bg-[#f3f3f3] cursor-pointer"
+        >
+          ⤢
+        </button>
+      </div>
       <div
         className="relative shrink-0"
         style={{ width: layout.width * scale, height: layout.height * scale }}
