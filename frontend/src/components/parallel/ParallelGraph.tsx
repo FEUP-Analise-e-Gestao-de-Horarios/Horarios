@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ParallelBlockNode, ParallelCandidateGraph, UUID } from "@/types/parallelSessions";
 import { buildAdjacency, forceLayout } from "./parallelGraph";
 import { useForceSimulation } from "./useForceSimulation";
@@ -173,130 +173,164 @@ export default function ParallelGraph({
     return () => cancelAnimationFrame(raf);
   }, []);
 
+  // Fit-to-container: measure the available area and scale the fixed-size graph
+  // down so it always fits without scrolling. Never upscale past natural size.
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const [viewport, setViewport] = useState<{ w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const measure = () => {
+      const rect = el.getBoundingClientRect();
+      setViewport((prev) =>
+        prev && prev.w === rect.width && prev.h === rect.height
+          ? prev
+          : { w: rect.width, h: rect.height },
+      );
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const scale = viewport ? Math.min(1, viewport.w / layout.width, viewport.h / layout.height) : 1;
+
   return (
     <div
-      ref={containerRef}
-      className="relative mx-auto touch-none select-none"
-      style={{ width: layout.width, height: layout.height }}
+      ref={viewportRef}
+      className="flex h-full w-full items-center justify-center overflow-hidden"
     >
-      <svg
-        className="absolute inset-0 pointer-events-none"
-        width={layout.width}
-        height={layout.height}
-        aria-hidden
+      <div
+        className="relative shrink-0"
+        style={{ width: layout.width * scale, height: layout.height * scale }}
       >
-        {graph.edges.map(({ source: a, target: b, weeks }, i) => {
-          const pa = positions.get(a);
-          const pb = positions.get(b);
-          const na = nodeById.get(a);
-          const nb = nodeById.get(b);
-          if (!pa || !pb || !na || !nb) return null;
-          const { range: weeksRange, tooltip: weeksTooltip } = edgeWeeksLabel(weeks);
-          const bothSelected = selected.has(a) && selected.has(b);
-          // An edge is "connected to the selection" when either endpoint is
-          // selected; otherwise its line and week range are dimmed.
-          const edgeActive = active === null || selected.has(a) || selected.has(b);
-          const delay = (Math.max(orderIndex.get(a) ?? 0, orderIndex.get(b) ?? 0) + 1) * STAGGER;
-          const mx = (pa.x + pb.x) / 2;
-          const my = (pa.y + pb.y) / 2;
-          return (
-            <g
-              key={`${a}-${b}-${i}`}
-              style={{
-                opacity: appear ? (edgeActive ? 1 : 0.18) : 0,
-                transition: "opacity 240ms ease",
-                transitionDelay: `${appear ? 0 : delay}ms`,
-              }}
-            >
-              <line
-                x1={pa.x}
-                y1={pa.y}
-                x2={pb.x}
-                y2={pb.y}
-                stroke={bothSelected ? "#f59e0b" : "#d1d5db"}
-                strokeWidth={bothSelected ? 2.5 : 1.5}
-              />
-              <text
-                x={mx}
-                y={my}
-                textAnchor="middle"
-                dominantBaseline="central"
-                style={{
-                  fontSize: 9,
-                  fontWeight: 600,
-                  fontVariantNumeric: "tabular-nums",
-                  fill: bothSelected ? "#b45309" : "#9ca3af",
-                  // White halo so the label stays legible over the edge line.
-                  paintOrder: "stroke",
-                  stroke: "#fff",
-                  strokeWidth: 3,
-                  strokeLinejoin: "round",
-                }}
-              >
-                <title>{weeksTooltip}</title>
-                {weeksRange}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
-
-      {ids.map((id, i) => {
-        const node = nodeById.get(id);
-        const pos = positions.get(id);
-        if (!node || !pos) return null;
-        const isAssigned = assigned.has(id);
-        const isSelected = selected.has(id);
-        const isDragging = draggingId === id;
-        // Not selected and not adjacent to the selection: greyed out.
-        const isDimmed = active !== null && !active.has(id);
-        const typeStyle = sessionTypeStyle(node.session.type);
-        const codes = node.classes.map((c) => c.code).join(" ");
-        return (
-          <button
-            key={id}
-            type="button"
-            onPointerDown={(e) => onNodePointerDown(id, e)}
-            title={isAssigned ? "Já pertence a um grupo" : codes}
-            style={{
-              left: pos.x,
-              top: pos.y,
-              opacity: appear ? (isDimmed ? 0.3 : isAssigned ? 0.6 : 1) : 0,
-              filter: isDimmed ? "grayscale(1)" : undefined,
-              transform: `translate(-50%, -50%) scale(${appear ? (isDragging ? 1.08 : 1) : 0.4})`,
-              // Position is driven by the physics loop, so it must not transition;
-              // only the entrance/drag scale, opacity and dimming animate.
-              transition: appear
-                ? "transform 120ms ease, opacity 220ms ease, filter 220ms ease"
-                : "opacity 220ms ease, transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1)",
-              transitionDelay: appear ? "0ms" : `${i * STAGGER}ms`,
-              cursor: isDragging ? "grabbing" : isAssigned ? "grab" : "grab",
-              zIndex: isDragging ? 10 : undefined,
-            }}
-            className={`absolute flex max-w-[150px] touch-none flex-col items-center gap-1 rounded-xl border px-2.5 py-1.5 shadow-sm ${
-              isAssigned
-                ? "border-dashed border-gray-300 bg-gray-100"
-                : isSelected
-                  ? "border-amber-400 bg-amber-50 ring-2 ring-amber-300"
-                  : "border-gray-300 bg-white hover:border-gray-400 hover:bg-[#fffdf5]"
-            } ${isDragging ? "shadow-lg" : ""}`}
+        <div
+          ref={containerRef}
+          className="absolute left-0 top-0 origin-top-left touch-none select-none"
+          style={{ width: layout.width, height: layout.height, transform: `scale(${scale})` }}
+        >
+          <svg
+            className="absolute inset-0 pointer-events-none"
+            width={layout.width}
+            height={layout.height}
+            aria-hidden
           >
-            <span
-              className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${typeStyle.bg} ${typeStyle.text}`}
-            >
-              {node.session.type}
-            </span>
-            <span className="max-w-full truncate text-[11px] font-bold tabular-nums text-[#333]">
-              {codes}
-            </span>
-            {isAssigned && (
-              <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-400">
-                em grupo
-              </span>
-            )}
-          </button>
-        );
-      })}
+            {graph.edges.map(({ source: a, target: b, weeks }, i) => {
+              const pa = positions.get(a);
+              const pb = positions.get(b);
+              const na = nodeById.get(a);
+              const nb = nodeById.get(b);
+              if (!pa || !pb || !na || !nb) return null;
+              const { range: weeksRange, tooltip: weeksTooltip } = edgeWeeksLabel(weeks);
+              const bothSelected = selected.has(a) && selected.has(b);
+              // An edge is "connected to the selection" when either endpoint is
+              // selected; otherwise its line and week range are dimmed.
+              const edgeActive = active === null || selected.has(a) || selected.has(b);
+              const delay =
+                (Math.max(orderIndex.get(a) ?? 0, orderIndex.get(b) ?? 0) + 1) * STAGGER;
+              const mx = (pa.x + pb.x) / 2;
+              const my = (pa.y + pb.y) / 2;
+              return (
+                <g
+                  key={`${a}-${b}-${i}`}
+                  style={{
+                    opacity: appear ? (edgeActive ? 1 : 0.18) : 0,
+                    transition: "opacity 240ms ease",
+                    transitionDelay: `${appear ? 0 : delay}ms`,
+                  }}
+                >
+                  <line
+                    x1={pa.x}
+                    y1={pa.y}
+                    x2={pb.x}
+                    y2={pb.y}
+                    stroke={bothSelected ? "#f59e0b" : "#d1d5db"}
+                    strokeWidth={bothSelected ? 2.5 : 1.5}
+                  />
+                  <text
+                    x={mx}
+                    y={my}
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    style={{
+                      fontSize: 9,
+                      fontWeight: 600,
+                      fontVariantNumeric: "tabular-nums",
+                      fill: bothSelected ? "#b45309" : "#9ca3af",
+                      // White halo so the label stays legible over the edge line.
+                      paintOrder: "stroke",
+                      stroke: "#fff",
+                      strokeWidth: 3,
+                      strokeLinejoin: "round",
+                    }}
+                  >
+                    <title>{weeksTooltip}</title>
+                    {weeksRange}
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+
+          {ids.map((id, i) => {
+            const node = nodeById.get(id);
+            const pos = positions.get(id);
+            if (!node || !pos) return null;
+            const isAssigned = assigned.has(id);
+            const isSelected = selected.has(id);
+            const isDragging = draggingId === id;
+            // Not selected and not adjacent to the selection: greyed out.
+            const isDimmed = active !== null && !active.has(id);
+            const typeStyle = sessionTypeStyle(node.session.type);
+            const codes = node.classes.map((c) => c.code).join(" ");
+            return (
+              <button
+                key={id}
+                type="button"
+                onPointerDown={(e) => onNodePointerDown(id, e)}
+                title={isAssigned ? "Já pertence a um grupo" : codes}
+                style={{
+                  left: pos.x,
+                  top: pos.y,
+                  opacity: appear ? (isDimmed ? 0.3 : isAssigned ? 0.6 : 1) : 0,
+                  filter: isDimmed ? "grayscale(1)" : undefined,
+                  transform: `translate(-50%, -50%) scale(${appear ? (isDragging ? 1.08 : 1) : 0.4})`,
+                  // Position is driven by the physics loop, so it must not transition;
+                  // only the entrance/drag scale, opacity and dimming animate.
+                  transition: appear
+                    ? "transform 120ms ease, opacity 220ms ease, filter 220ms ease"
+                    : "opacity 220ms ease, transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1)",
+                  transitionDelay: appear ? "0ms" : `${i * STAGGER}ms`,
+                  cursor: isDragging ? "grabbing" : isAssigned ? "grab" : "grab",
+                  zIndex: isDragging ? 10 : undefined,
+                }}
+                className={`absolute flex max-w-[150px] touch-none flex-col items-center gap-1 rounded-xl border px-2.5 py-1.5 shadow-sm ${
+                  isAssigned
+                    ? "border-dashed border-gray-300 bg-gray-100"
+                    : isSelected
+                      ? "border-amber-400 bg-amber-50 ring-2 ring-amber-300"
+                      : "border-gray-300 bg-white hover:border-gray-400 hover:bg-[#fffdf5]"
+                } ${isDragging ? "shadow-lg" : ""}`}
+              >
+                <span
+                  className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${typeStyle.bg} ${typeStyle.text}`}
+                >
+                  {node.session.type}
+                </span>
+                <span className="max-w-full truncate text-[11px] font-bold tabular-nums text-[#333]">
+                  {codes}
+                </span>
+                {isAssigned && (
+                  <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-400">
+                    em grupo
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

@@ -322,9 +322,13 @@ export function useForceSimulation(
       const rect = containerRef.current?.getBoundingClientRect();
       const s = sim.current;
       if (!rect || !s) return null;
+      // The container may be rendered scaled-to-fit, so its on-screen size differs
+      // from the simulation's logical size. Map screen pixels back to logical space.
+      const scaleX = rect.width ? rect.width / s.width : 1;
+      const scaleY = rect.height ? rect.height / s.height : 1;
       return {
-        x: Math.max(MARGIN, Math.min(s.width - MARGIN, clientX - rect.left)),
-        y: Math.max(MARGIN, Math.min(s.height - MARGIN, clientY - rect.top)),
+        x: Math.max(MARGIN, Math.min(s.width - MARGIN, (clientX - rect.left) / scaleX)),
+        y: Math.max(MARGIN, Math.min(s.height - MARGIN, (clientY - rect.top) / scaleY)),
       };
     },
     [containerRef],
