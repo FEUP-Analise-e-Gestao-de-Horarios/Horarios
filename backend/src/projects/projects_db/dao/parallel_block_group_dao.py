@@ -141,36 +141,9 @@ class ParallelBlockGroupDAO:
             [{"parallel_block_group_id": group_id, "original_block_id": block_id}],
         )
 
-    def remove_member(self, group_id: UUID, block_id: UUID) -> bool:
-        """Remove a block from a confirmed group.
-
-        Returns:
-            True if a member was removed, False if no matching member existed.
-        """
-        result = self.session.execute(
-            delete(ParallelBlockGroupMember).where(
-                ParallelBlockGroupMember.parallel_block_group_id == group_id,
-                ParallelBlockGroupMember.original_block_id == block_id,
-            ),
-        )
-        return result.rowcount > 0
-
     # -------------------------------------------------------------------
     # -- Delete
     # -------------------------------------------------------------------
-
-    def delete_group(self, group_id: UUID) -> bool:
-        """Delete all members of a confirmed group.
-
-        Returns:
-            True if any rows were removed, False if the group did not exist.
-        """
-        result = self.session.execute(
-            delete(ParallelBlockGroupMember).where(
-                ParallelBlockGroupMember.parallel_block_group_id == group_id,
-            ),
-        )
-        return result.rowcount > 0
 
     def clear_all(self) -> int:
         """Delete all confirmed parallel group members across every group.

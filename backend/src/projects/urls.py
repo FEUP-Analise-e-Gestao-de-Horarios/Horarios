@@ -4,9 +4,7 @@ from src.projects.views.classes import ProjectClassesView, ProjectClassView
 from src.projects.views.degrees import ProjectDegreesView, ProjectDegreeView
 from src.projects.views.parallel_blocks import (
     ProjectParallelBlockCandidateView,
-    ProjectParallelBlockGroupMemberView,
     ProjectParallelBlockGroupsView,
-    ProjectParallelBlockGroupView,
 )
 from src.projects.views.project import ProjectsView, ProjectView
 from src.projects.views.rooms import ProjectRoomsView, ProjectRoomView
@@ -52,15 +50,9 @@ session_patterns = [
     path("", ProjectSessionsView.as_view()),
 ]
 
-parallel_block_group_patterns = [
-    path("", ProjectParallelBlockGroupsView.as_view()),
-    path("<uuid:group_id>", ProjectParallelBlockGroupView.as_view()),
-    path("<uuid:group_id>/<uuid:block_id>", ProjectParallelBlockGroupMemberView.as_view()),
-]
-
 parallel_block_patterns = [
     path("candidates", ProjectParallelBlockCandidateView.as_view()),
-    path("groups/", include(parallel_block_group_patterns)),
+    path("groups/", ProjectParallelBlockGroupsView.as_view()),
 ]
 
 project_patterns = [
