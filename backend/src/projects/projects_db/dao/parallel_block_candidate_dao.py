@@ -42,25 +42,28 @@ class _YearDegree:
 
 
 @dataclass(frozen=True)
+class _SubjectInfo:
+    acronym: str
+    name: str
+
+
+@dataclass(frozen=True)
 class _BlockDetail:
     classes: list[ParallelBlockCandidateClass]
     session_type: str
     start_time: int
     duration: int
     weekday: WeekDay
-    subject_id: UUID
-    subject_acronym: str
-    subject_name: str
-    year_degrees: tuple[_YearDegree, ...]
+    year_degrees_by_subject: dict[UUID, tuple[_YearDegree, ...]]
 
 
 class ParallelBlockCandidateDAO:
     """Data access object for detected parallel block candidates.
 
-    Candidates are computed on every request as the connected components of an
-    overlap graph: blocks of the same subject that collide on at least one week
-    at the same weekday and start time. Nothing is persisted here; only
-    confirmed groups (``ParallelBlockGroupMember``) are stored.
+    Candidates are computed on every request as the connected components of a
+    per-subject overlap graph: blocks that collide on at least one week at the
+    same weekday and start time for a shared subject. Nothing is persisted
+    here; only confirmed groups (``ParallelBlockGroupMember``) are stored.
 
     Not a ``BaseDAO`` subclass: there is no persistent model to operate on.
     """
@@ -87,8 +90,10 @@ class ParallelBlockCandidateDAO:
         if not components:
             return []
 
-        all_block_ids = [block_id for component in components for block_id in component.block_ids]
-        details = self._block_details(all_block_ids)
+        all_block_ids = list(
+            {block_id for component in components for block_id in component.block_ids},
+        )
+        details, subjects = self._block_details(all_block_ids)
         weeks = self._block_weeks(all_block_ids)
         confirmed = self._confirmed_group_by_block(all_block_ids)
 
@@ -120,17 +125,20 @@ class ParallelBlockCandidateDAO:
 
             representative = details[nodes[0].original_block_id]
 
-            # Collect the year/degree rows present across the whole group, keyed
-            # by year id (each year row belongs to a single degree).
+            # Collect the year/degree rows present across the whole group for
+            # the component's subject, keyed by year id (each year row belongs
+            # to a single degree).
             years_by_id: dict[UUID, _YearDegree] = {}
             for node in nodes:
-                for year_degree in details[node.original_block_id].year_degrees:
+                block_year_degrees = details[node.original_block_id].year_degrees_by_subject
+                for year_degree in block_year_degrees.get(component.subject_id, ()):
                     years_by_id.setdefault(year_degree.year_id, year_degree)
 
+            subject_info = subjects[component.subject_id]
             subject = ParallelBlockCandidateSubject(
-                id=representative.subject_id,
-                acronym=representative.subject_acronym,
-                name=representative.subject_name,
+                id=component.subject_id,
+                acronym=subject_info.acronym,
+                name=subject_info.name,
                 years=[
                     ParallelBlockCandidateYear(
                         id=year_degree.year_id,
@@ -172,18 +180,24 @@ class ParallelBlockCandidateDAO:
     # -- Helpers
     # -------------------------------------------------------------------
 
-    def _block_details(self, block_ids: Sequence[UUID]) -> dict[UUID, _BlockDetail]:
+    def _block_details(
+        self,
+        block_ids: Sequence[UUID],
+    ) -> tuple[dict[UUID, _BlockDetail], dict[UUID, _SubjectInfo]]:
         rows = self.session.execute(block_details_stmt(block_ids)).all()
 
         classes: defaultdict[UUID, dict[UUID, tuple[str, UUID]]] = defaultdict(dict)
-        year_degrees: defaultdict[UUID, dict[UUID, _YearDegree]] = defaultdict(dict)
+        year_degrees: defaultdict[UUID, defaultdict[UUID, dict[UUID, _YearDegree]]] = defaultdict(
+            lambda: defaultdict(dict),
+        )
+        subjects: dict[UUID, _SubjectInfo] = {}
         representative = {}
         for row in rows:
             classes[row.original_block_id].setdefault(
                 row.class_id,
                 (row.class_code, row.year_id),
             )
-            year_degrees[row.original_block_id].setdefault(
+            year_degrees[row.original_block_id][row.subject_id].setdefault(
                 row.year_id,
                 _YearDegree(
                     year_id=row.year_id,
@@ -193,9 +207,13 @@ class ParallelBlockCandidateDAO:
                     degree_name=row.degree_name,
                 ),
             )
+            subjects.setdefault(
+                row.subject_id,
+                _SubjectInfo(acronym=row.subject_acronym, name=row.subject_name),
+            )
             representative.setdefault(row.original_block_id, row)
 
-        return {
+        details = {
             block_id: _BlockDetail(
                 classes=[
                     ParallelBlockCandidateClass(id=class_id, code=code, year_id=year_id)
@@ -208,13 +226,14 @@ class ParallelBlockCandidateDAO:
                 start_time=row.start_time,
                 duration=row.duration,
                 weekday=row.weekday,
-                subject_id=row.subject_id,
-                subject_acronym=row.subject_acronym,
-                subject_name=row.subject_name,
-                year_degrees=tuple(year_degrees[block_id].values()),
+                year_degrees_by_subject={
+                    subject_id: tuple(by_year.values())
+                    for subject_id, by_year in year_degrees[block_id].items()
+                },
             )
             for block_id, row in representative.items()
         }
+        return details, subjects
 
     def _block_weeks(self, block_ids: Sequence[UUID]) -> dict[UUID, tuple[date, date]]:
         rows = self.session.execute(block_weeks_stmt(block_ids)).all()
