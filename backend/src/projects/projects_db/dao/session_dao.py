@@ -17,6 +17,7 @@ from src.projects.projects_db.models.class_ import Class
 from src.projects.projects_db.models.session import Session
 from src.projects.projects_db.models.session_class_subject import SessionClassSubject
 from src.projects.projects_db.models.subject import Subject
+from src.projects.projects_db.models.year import Year
 from src.projects.projects_db.schemas.weekday import WeekDay
 
 
@@ -52,15 +53,78 @@ class SessionDAO(BaseDAO[Session]):
                     )
                 case cls.Include.CLASSES:
                     options.append(
-                        selectinload(Session.session_class_subjects).joinedload(
-                            SessionClassSubject.class_,
-                        ),
+                        selectinload(Session.session_class_subjects)
+                        .joinedload(SessionClassSubject.class_)
+                        .joinedload(Class.year)
+                        .joinedload(Year.degree),
                     )
         return options
 
     # -------------------------------------------------------------------
     # -- Get Sessions
     # -------------------------------------------------------------------
+
+    def get_all(self, includes: Iterable[Include] = ()) -> list[Session]:
+        """Return every session in the project database.
+
+        Args:
+            includes: Relationships to eager-load on each returned Session.
+
+        Returns:
+            List of all Session instances, in an unspecified order.
+        """
+        return list(
+            self.session.scalars(
+                select(Session).options(*self._load_options(includes)),
+            ).all(),
+        )
+
+    def get_block_representatives(self, includes: Iterable[Include] = ()) -> list[Session]:
+        """Return one representative session per ``original_block_id``.
+
+        Every session sharing an ``original_block_id`` is identical in slot
+        (weekday/start/duration/type) and in its teacher, room, class and
+        subject sets -they differ only by week. Conflict detection dedups by
+        block anyway, so a single representative per block carries all the
+        information it needs while hydrating far fewer rows than
+        :meth:`get_all` (which returns one row per block *per week*).
+
+        Callers that also need the weeks each block spans should pair this with
+        :meth:`get_block_weeks`.
+
+        Args:
+            includes: Relationships to eager-load on each returned Session.
+
+        Returns:
+            List of one Session per block, in an unspecified order.
+        """
+        rep_ids = select(func.min(Session.id)).group_by(Session.original_block_id)
+        return list(
+            self.session.scalars(
+                select(Session)
+                .where(Session.id.in_(rep_ids))
+                .options(*self._load_options(includes)),
+            ).all(),
+        )
+
+    def get_block_weeks(self) -> dict[UUID, set[datetime.date]]:
+        """Return the set of weeks each ``original_block_id`` occurs in.
+
+        Lightweight: pulls only the ``(original_block_id, week)`` columns with
+        no ORM hydration. Intended to accompany
+        :meth:`get_block_representatives` so conflict detection still knows
+        which weeks each block spans.
+
+        Returns:
+            Mapping of ``original_block_id`` to the set of weeks it appears in.
+        """
+        rows = self.session.execute(
+            select(Session.original_block_id, Session.week),
+        ).all()
+        block_weeks: dict[UUID, set[datetime.date]] = {}
+        for block_id, week in rows:
+            block_weeks.setdefault(block_id, set()).add(week)
+        return block_weeks
 
     def get_by_teacher(
         self,

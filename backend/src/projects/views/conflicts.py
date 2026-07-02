@@ -1,0 +1,149 @@
+import json
+from uuid import UUID
+
+from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.views import View
+
+from src.core.decorators import require_auth, require_project
+from src.core.schemas import SuccessResponse
+from src.core.validation import validate_request_body
+from src.projects.projects_db.dao import ConflictDAO
+from src.projects.projects_db.dao.tag_dao import TagDAO
+from src.projects.projects_db.paths import general_db
+from src.projects.projects_db.registry import get_session as get_project_session
+from src.projects.services.conflict_detection import get_live_conflicts
+from src.projects.services.conflict_preview import preview_conflict_changes
+from src.projects.views.schemas.conflicts import (
+    ConflictPreviewRequest,
+    ConflictPreviewResponse,
+    ConflictsResponse,
+    UpdateConflictTagRequest,
+    UpdateManyConflictTagsRequest,
+    UpdateManyConflictTagsResponse,
+)
+
+
+class ProjectConflictsView(View):
+    """List all live conflicts for the project, with stored tags applied."""
+
+    @require_auth
+    @require_project
+    def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
+        with get_project_session(general_db(project_id)) as db_session:
+            conflicts = get_live_conflicts(db_session)
+
+            return JsonResponse(
+                SuccessResponse(
+                    message="Conflicts retrieved successfully",
+                    data=ConflictsResponse(conflicts=conflicts, count=len(conflicts)),
+                ).model_dump(),
+            )
+
+    @require_auth
+    @require_project
+    def patch(self, request: HttpRequest, project_id: int) -> HttpResponse:
+        """Replace the tags on several conflicts at once, returning the updated ones."""
+        body, err = validate_request_body(UpdateManyConflictTagsRequest, request.body)
+        if err:
+            return err
+
+        with get_project_session(general_db(project_id)) as db_session:
+            ConflictDAO(db_session).set_tags_many(
+                [(item.conflict_id, item.tags) for item in body.updates],
+            )
+
+            touched = {str(item.conflict_id) for item in body.updates}
+            conflicts = [c for c in get_live_conflicts(db_session) if c.id in touched]
+
+            return JsonResponse(
+                SuccessResponse(
+                    message="Conflict tags updated successfully",
+                    data=UpdateManyConflictTagsResponse(conflicts=conflicts),
+                ).model_dump(),
+            )
+
+
+class ProjectConflictView(View):
+    """Operate on a single conflict group (identified by conflict_id)."""
+
+    @require_auth
+    @require_project
+    def patch(self, request: HttpRequest, project_id: int, conflict_id: UUID) -> HttpResponse:
+        try:
+            body = UpdateConflictTagRequest.model_validate(json.loads(request.body))
+        except Exception:
+            return JsonResponse({"error": "Invalid request body"}, status=400)
+
+        with get_project_session(general_db(project_id)) as db_session:
+            ConflictDAO(db_session).set_tags(conflict_id, body.tags)
+
+            return JsonResponse(
+                SuccessResponse(
+                    message="Conflict tags updated successfully",
+                    data=None,
+                ).model_dump(),
+            )
+
+
+class ProjectTagsView(View):
+    """List all tags for the project."""
+
+    @require_auth
+    @require_project
+    def get(self, request: HttpRequest, project_id: int) -> HttpResponse:
+        with get_project_session(general_db(project_id)) as db_session:
+            tags = TagDAO(db_session).get_all()
+
+            return JsonResponse(
+                SuccessResponse(
+                    message="Tags retrieved successfully",
+                    data={"tags": tags},
+                ).model_dump(),
+            )
+
+
+class ProjectTagView(View):
+    """Delete a tag and all conflict rows that reference it."""
+
+    @require_auth
+    @require_project
+    def delete(self, request: HttpRequest, project_id: int, tag_name: str) -> HttpResponse:
+        with get_project_session(general_db(project_id)) as db_session:
+            ConflictDAO(db_session).delete_tag(tag_name)
+
+            return JsonResponse(
+                SuccessResponse(
+                    message="Tag deleted successfully",
+                    data=None,
+                ).model_dump(),
+            )
+
+
+class ProjectConflictPreviewView(View):
+    """Return which conflicts a hypothetical session edit would solve or create."""
+
+    @require_auth
+    @require_project
+    def post(self, request: HttpRequest, project_id: int) -> HttpResponse:
+        body, err = validate_request_body(ConflictPreviewRequest, request.body)
+        if err:
+            return err
+
+        with get_project_session(general_db(project_id)) as db_session:
+            solved, new = preview_conflict_changes(
+                db_session=db_session,
+                original_block_id=body.original_block_id,
+                new_weekday=body.weekday,
+                new_start_time=body.start_time,
+                new_duration=body.duration,
+                new_teacher_ids=body.teacher_ids,
+                new_room_ids=body.room_ids,
+                new_class_ids=body.class_ids,
+            )
+
+            return JsonResponse(
+                SuccessResponse(
+                    message="Conflict preview computed successfully",
+                    data=ConflictPreviewResponse(solved=solved, new=new),
+                ).model_dump(),
+            )

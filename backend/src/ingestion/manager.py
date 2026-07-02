@@ -18,6 +18,7 @@ from src.projects.models import Project
 from src.projects.projects_db.dao import (
     ClassDAO,
     ClassRedBlockDAO,
+    ConflictDAO,
     DegreeDAO,
     RoomDAO,
     RoomRedBlockDAO,
@@ -40,6 +41,7 @@ from src.projects.projects_db.models import Teacher as TeacherModel
 from src.projects.projects_db.models._secondary_tables import session_rooms, session_teachers
 from src.projects.projects_db.paths import general_db, initial_db
 from src.projects.projects_db.registry import get_session
+from src.projects.services.conflict_detection import _compute_conflict_rows, load_red_blocks
 
 
 class IngestionManager:
@@ -115,11 +117,12 @@ class IngestionManager:
             self._ingest_sessions(degrees)
             self._ingest_shifts()
             self._assign_block_ids()
+            self._ingest_conflicts()
 
             # -- Snapshot general_db into init_db ----------------------------------
             # Force a WAL checkpoint so every committed row lands in the main DB
             # file before the snapshot copy. Without this, commits still sitting
-            # in the .db-wal file (notably the parallel block candidates written
+            # in the .db-wal file (notably the conflict rows written
             # just above) would be missing from initial_database.db, since
             # shutil.copy2 only copies the main .db file.
             self.db_session.execute(text("PRAGMA wal_checkpoint(TRUNCATE)"))
@@ -389,7 +392,7 @@ class IngestionManager:
                             )
 
         # -- Bulk insert and commit -------------------------------------------
-        self._bulk_insert_session_data(
+        self._create_many_session_data(
             pending_sessions,
             pending_session_teachers,
             pending_session_rooms,
@@ -444,6 +447,16 @@ class IngestionManager:
                     visited_classes.add(class_)
 
                 shift += 1
+
+        self.db_session.commit()
+
+    def _ingest_conflicts(self) -> None:
+        """Detect conflicts across all sessions and tag them as pre-existing."""
+        sessions = SessionDAO(self.db_session).get_all(includes=list(SessionDAO.Include))
+        data = _compute_conflict_rows(sessions, load_red_blocks(self.db_session))
+
+        if data.conflict_rows:
+            ConflictDAO(self.db_session).create_many_tagged(data.conflict_rows, "pre-existing")
 
         self.db_session.commit()
 
@@ -688,7 +701,7 @@ class IngestionManager:
         )
         return teacher_ids, class_ids, room_ids
 
-    def _bulk_insert_session_data(
+    def _create_many_session_data(
         self,
         pending_sessions: list[dict],
         pending_session_teachers: list[dict],

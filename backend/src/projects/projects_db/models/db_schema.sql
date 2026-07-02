@@ -140,6 +140,27 @@ CREATE TABLE sessions_classes_subject (
 
 
 -----------------------------------------------------------
+-- Conflicts
+-----------------------------------------------------------
+
+CREATE TABLE tags (
+    tag_id  UUID PRIMARY KEY,
+    name    TEXT UNIQUE NOT NULL
+);
+
+CREATE TABLE conflicts (
+    conflict_id  UUID PRIMARY KEY
+);
+
+CREATE TABLE conflict_tags (
+    conflict_id  UUID NOT NULL REFERENCES conflicts(conflict_id),
+    tag_id       UUID NOT NULL REFERENCES tags(tag_id),
+
+    PRIMARY KEY (conflict_id, tag_id)
+);
+
+
+-----------------------------------------------------------
 -- Parallel blocks
 -----------------------------------------------------------
 

@@ -17,7 +17,7 @@ import { useProjectDegree, useProjectDegrees } from "@/api/hooks/project/degree"
 import { useProjectRooms } from "@/api/hooks/project/room";
 import { useProjectTeachers } from "@/api/hooks/project/teacher";
 import { useProjectSessions } from "@/api/hooks/project/sessions";
-import { useProjectYear, useProjectYearConflicts } from "@/api/hooks/project/year";
+import { useProjectYear, useProjectConflicts } from "@/api/hooks/project/year";
 import { WEEKDAYS, WEEKDAY_LABELS_UPPER } from "@/utils/weekdays";
 
 export default function SchedulePage() {
@@ -48,6 +48,7 @@ export default function SchedulePage() {
 
   const eventEditor = useEventEditor();
   const [isConflictsDrawerOpen, setIsConflictsDrawerOpen] = useState(false);
+  const [conflictsFetchEnabled, setConflictsFetchEnabled] = useState(false);
 
   const canShowSchedule = curso !== "";
 
@@ -69,7 +70,7 @@ export default function SchedulePage() {
   );
 
   const { data: selectedYearDetail } = useProjectYear(projectId ?? "", selectedYear?.id ?? "");
-  const yearConflictsQuery = useProjectYearConflicts(projectId ?? "", selectedYear?.id ?? "");
+  const yearConflictsQuery = useProjectConflicts(projectId ?? "", conflictsFetchEnabled);
   const yearConflicts = yearConflictsQuery.data ?? [];
 
   // Sessions query needs subject/class/weekday ids derived from the year
@@ -135,6 +136,22 @@ export default function SchedulePage() {
     selectedYearWeeks: sessionsQuery.data,
     hasSaturdaySessions,
   });
+
+  const turmaIdMap = useMemo(
+    () =>
+      Object.fromEntries(
+        filters.selectedYearClasses.map((classItem) => [classItem.code, classItem.id]),
+      ),
+    [filters.selectedYearClasses],
+  );
+
+  const displayedBlockIds = useMemo(
+    () =>
+      new Set(
+        filters.scheduleEvents.map((event) => event.blockId).filter((id): id is string => !!id),
+      ),
+    [filters.scheduleEvents],
+  );
 
   // --- cascade ops ------------------------------------------------------
   const { handleSelectTurnos, handleSelectTurmas } = useTurnoTurmaSync({
@@ -228,7 +245,7 @@ export default function SchedulePage() {
         yearOptions={filters.yearOptions}
         courseOptions={courseOptions}
         onViewConflicts={() => {
-          void yearConflictsQuery.refetch();
+          setConflictsFetchEnabled(true);
           setIsConflictsDrawerOpen(true);
         }}
       />
@@ -240,20 +257,25 @@ export default function SchedulePage() {
         onCollapsedChange={eventEditor.setIsCollapsed}
         onClose={eventEditor.closeEditor}
         conflicts={yearConflicts}
+        isLoading={yearConflictsQuery.isFetching}
         ucOptions={filters.ucOptions}
         turmaOptions={filters.turmaOrder}
+        turmaIdMap={turmaIdMap}
         teacherOptions={teacherOptions}
         roomOptions={roomOptions}
         preferredUc={filters.effectiveUcs[0]}
         event={eventEditor.editingEvent}
+        projectId={projectId}
       />
 
       <ConflictsDrawer
         open={isConflictsDrawerOpen}
         onClose={() => setIsConflictsDrawerOpen(false)}
+        projectId={projectId}
         conflicts={yearConflicts}
         isLoading={yearConflictsQuery.isFetching}
         onRefresh={() => void yearConflictsQuery.refetch()}
+        displayedBlockIds={displayedBlockIds}
       />
 
       <div className="flex-1 min-h-0 overflow-hidden">

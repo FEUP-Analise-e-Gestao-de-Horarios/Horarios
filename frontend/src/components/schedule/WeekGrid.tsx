@@ -10,6 +10,7 @@ import { useGridTimeRange } from "./useGridTimeRange";
 
 export interface WeekGridEvent {
   id: string;
+  blockId?: string;
   weekday: Weekday;
   startTime: number;
   duration: number;

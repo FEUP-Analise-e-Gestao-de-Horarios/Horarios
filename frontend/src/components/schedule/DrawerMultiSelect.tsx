@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useId, useRef } from "react";
 import { useDismissable } from "./useDismissable";
 
-export type DrawerSelectOption = { id: string; label: string };
+export type DrawerSelectOption = { id: string; label: string; deletable?: boolean };
 export type DrawerSelectGroup = { heading?: string; options: DrawerSelectOption[] };
 
 interface DrawerMultiSelectProps {
@@ -17,6 +17,11 @@ interface DrawerMultiSelectProps {
   groups: DrawerSelectGroup[];
   selectedIds: string[];
   onToggleOption: (id: string) => void;
+  /**
+   * When provided, options flagged `deletable` render a trailing delete button
+   * that invokes this callback instead of toggling the option.
+   */
+  onDeleteOption?: (id: string) => void;
   /** Tailwind max-height class for the scrollable option list. */
   listMaxHeightClass?: string;
 }
@@ -39,6 +44,7 @@ export default function DrawerMultiSelect({
   groups,
   selectedIds,
   onToggleOption,
+  onDeleteOption,
   listMaxHeightClass = "max-h-52",
 }: DrawerMultiSelectProps) {
   const baseId = useId();
@@ -76,7 +82,7 @@ export default function DrawerMultiSelect({
         aria-controls={panelId}
         aria-labelledby={`${labelId} ${baseId}-trigger-value`}
         onClick={onToggle}
-        className="w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2 text-left flex items-center justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60"
+        className="w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2 text-left flex items-center justify-between cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60"
       >
         <span id={`${baseId}-trigger-value`}>{triggerLabel}</span>
         <span aria-hidden="true" className="text-white/70">
@@ -117,21 +123,42 @@ export default function DrawerMultiSelect({
                   <div role="group" aria-labelledby={hasHeading ? headingId : undefined}>
                     {group.options.map((option) => {
                       const isSelected = selectedIds.includes(option.id);
+                      const canDelete = !!onDeleteOption && option.deletable;
                       return (
-                        <button
-                          key={option.id}
-                          type="button"
-                          role="option"
-                          aria-selected={isSelected}
-                          onClick={() => onToggleOption(option.id)}
-                          className={`w-full px-2 py-1.5 text-left rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60 ${
-                            isSelected
-                              ? "bg-red-900/40 text-white font-semibold"
-                              : "text-white hover:bg-white/10"
-                          }`}
-                        >
-                          {option.label}
-                        </button>
+                        <div key={option.id} className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            role="option"
+                            aria-selected={isSelected}
+                            onClick={() => onToggleOption(option.id)}
+                            className={`flex-1 min-w-0 px-2 py-1.5 text-left rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60 ${
+                              isSelected
+                                ? "bg-red-900/40 text-white font-semibold"
+                                : "text-white hover:bg-white/10"
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                          {canDelete && (
+                            <button
+                              type="button"
+                              onClick={() => onDeleteOption?.(option.id)}
+                              aria-label={`Eliminar etiqueta ${option.label}`}
+                              title="Eliminar etiqueta"
+                              className="shrink-0 p-1.5 rounded text-white/40 hover:text-red-300 hover:bg-red-900/30 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60"
+                            >
+                              <svg className="w-3.5 h-3.5" viewBox="0 0 14 14" fill="none">
+                                <path
+                                  d="M2.5 3.5h9M5.5 3.5V2.5h3v1M3.5 3.5l.5 8h6l.5-8M6 6v3.5M8 6v3.5"
+                                  stroke="currentColor"
+                                  strokeWidth="1.2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
                       );
                     })}
                   </div>
