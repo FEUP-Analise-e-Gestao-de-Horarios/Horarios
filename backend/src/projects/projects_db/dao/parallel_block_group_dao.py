@@ -1,4 +1,5 @@
 import uuid
+from collections import defaultdict
 from collections.abc import Iterable
 from uuid import UUID
 
@@ -77,10 +78,10 @@ class ParallelBlockGroupDAO:
         """Return all confirmed groups, keyed by ``parallel_block_group_id``."""
         rows = self.session.scalars(select(ParallelBlockGroupMember)).all()
 
-        groups: dict[UUID, list[UUID]] = {}
+        groups: defaultdict[UUID, list[UUID]] = defaultdict(list)
         for row in rows:
-            groups.setdefault(row.parallel_block_group_id, []).append(row.original_block_id)
-        return groups
+            groups[row.parallel_block_group_id].append(row.original_block_id)
+        return dict(groups)
 
     # -------------------------------------------------------------------
     # -- Delete
