@@ -38,6 +38,7 @@ from tests.factories import (
 
 WEEK_1 = datetime.date(2025, 9, 15)
 WEEK_2 = datetime.date(2025, 9, 22)
+WEEK_3 = datetime.date(2025, 9, 29)
 
 
 # ---------------------------------------------------------------------------
@@ -580,6 +581,23 @@ def test_wrong_groups_shape_rejected(
     assert _all_members(project_db) == []
 
 
+@pytest.mark.parametrize("body", [[], 5])
+def test_non_object_json_body_rejected(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+    body: object,
+) -> None:
+    """A syntactically valid but non-object top-level body -> 400 invalid_body, no mutation."""
+    response = _post(auth_client, project.pk, body)
+
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload["error"] == "generic.invalid_body"
+    assert payload["message"] == "Input should be an object"
+    assert _all_members(project_db) == []
+
+
 @pytest.mark.parametrize(
     ("entry", "message_needle"),
     [
@@ -800,4 +818,62 @@ def test_valid_save_of_connected_proper_subset(
     groups = _groups_by_id(project_db)
     assert len(groups) == 1
     assert next(iter(groups.values())) == {a, b}
+    assert _flag(project.pk) is True
+
+
+def test_two_disjoint_subsets_of_one_component_save_as_separate_groups(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """One candidate component can yield two confirmed groups from disjoint subsets.
+
+    The chain a-b-c-d (edges a-b, b-c, c-d) is a single component, but {a, b}
+    and {c, d} are each a connected subset sharing no block. Two entries citing
+    the same candidate_group_id both validate and persist as two distinct groups.
+    """
+    subject = make_subject(project_db, commit=False)
+    year = subject.years[0]
+    classes = [make_class(project_db, year=year, commit=False) for _ in range(4)]
+    a, b, c, d = (uuid.uuid7() for _ in range(4))
+
+    def _seat(block_id: UUID, week: datetime.date, class_row: object) -> None:
+        session_row = make_session(
+            project_db,
+            week=week,
+            start_time=9,
+            original_block_id=block_id,
+            commit=False,
+        )
+        make_session_class_subject(
+            project_db,
+            session_row=session_row,
+            class_row=class_row,
+            subject=subject,
+            commit=False,
+        )
+
+    _seat(a, WEEK_1, classes[0])
+    _seat(b, WEEK_1, classes[1])
+    _seat(b, WEEK_2, classes[1])
+    _seat(c, WEEK_2, classes[2])
+    _seat(c, WEEK_3, classes[2])
+    _seat(d, WEEK_3, classes[3])
+    project_db.commit()
+
+    cid = _component_uuid(subject.id, [a, b, c, d])
+    response = _post(
+        auth_client,
+        project.pk,
+        {"groups": [_entry(cid, [a, b]), _entry(cid, [c, d])]},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"] == 2
+    groups = _groups_by_id(project_db)
+    assert len(groups) == 2
+    assert {frozenset(members) for members in groups.values()} == {
+        frozenset({a, b}),
+        frozenset({c, d}),
+    }
     assert _flag(project.pk) is True

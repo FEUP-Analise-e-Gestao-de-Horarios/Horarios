@@ -187,7 +187,8 @@ def test_get_candidate_components_drops_heterogeneous_block(
     class_b = make_class(project_db, year=year, commit=False)
 
     block_a = _seed_block(project_db, subject=subject, class_row=class_a, weeks=[W_09_15])
-    block_b = _seed_block(project_db, subject=subject, class_row=class_b, weeks=[W_09_15])
+    # B is A's would-be partner; the drop of A leaves it alone, so no group forms.
+    _seed_block(project_db, subject=subject, class_row=class_b, weeks=[W_09_15])
     _add_slot_to_block(
         project_db,
         block_id=block_a,
@@ -212,10 +213,9 @@ def test_get_candidate_components_drops_heterogeneous_block(
     dao = ParallelBlockCandidateDAO(project_db)
     components = dao.get_candidate_components()
 
+    # No component survives: the heterogeneous block is dropped, which leaves
+    # its partner(s) with nobody to pair with, so both blocks disappear.
     assert components == []
-    all_members = {b for component in components for b in component.block_ids}
-    assert block_a not in all_members
-    assert block_b not in all_members
 
 
 @pytest.mark.parametrize(
@@ -963,7 +963,6 @@ def test_get_all_groups_with_info_years_ordered_with_dedup(
         degree_name="Degree AAA",
     )
     lowest = min(block_a, block_b)
-    highest = max(block_a, block_b)
 
     def rich_details(block_ids):
         details, subjects = real_details(block_ids)
@@ -991,8 +990,8 @@ def test_get_all_groups_with_info_years_ordered_with_dedup(
     year_ids = [y.id for y in groups[0].subject.years]
     # Sorted by (year_number, degree_acronym): (1,ZZZ) < (2,AAA) < (2,BBB).
     assert year_ids == [year_zzz, year_aaa, year_bbb]
+    # Both nodes contribute yd_bbb; the DAO must dedup it to a single row.
     assert year_ids.count(year_bbb) == 1
-    assert highest is not None  # highest referenced to keep both blocks meaningful
 
 
 def test_get_all_groups_with_info_years_scoped_to_subject(project_db: Session) -> None:
@@ -1123,7 +1122,9 @@ def test_get_all_groups_with_info_edges_filtered_when_endpoint_missing(
     """Edges touching a detail-less endpoint drop; the group survives (no reconnect check)."""
     subject = make_subject(project_db, commit=False)
     year = subject.years[0]
-    # Hub topology: a collides with both b and c (a is the shared slot member).
+    # Path topology a--c--b: c is the sole connector. a collides with c only on
+    # W_09_15 and b collides with c only on W_09_22, so a and b never share a
+    # slot and have no direct edge -- the union is purely transitive through c.
     id_a = UUID(int=1)
     id_b = UUID(int=2)
     id_c = UUID(int=3)
@@ -1131,8 +1132,14 @@ def test_get_all_groups_with_info_edges_filtered_when_endpoint_missing(
     class_b = make_class(project_db, year=year, commit=False)
     class_c = make_class(project_db, year=year, commit=False)
     _seed_block(project_db, subject=subject, class_row=class_a, weeks=[W_09_15], block_id=id_a)
-    _seed_block(project_db, subject=subject, class_row=class_b, weeks=[W_09_15], block_id=id_b)
-    _seed_block(project_db, subject=subject, class_row=class_c, weeks=[W_09_15], block_id=id_c)
+    _seed_block(project_db, subject=subject, class_row=class_b, weeks=[W_09_22], block_id=id_b)
+    _seed_block(
+        project_db,
+        subject=subject,
+        class_row=class_c,
+        weeks=[W_09_15, W_09_22],
+        block_id=id_c,
+    )
     project_db.commit()
 
     dao = ParallelBlockCandidateDAO(project_db)
@@ -1150,9 +1157,11 @@ def test_get_all_groups_with_info_edges_filtered_when_endpoint_missing(
     node_ids = [node.original_block_id for node in group.nodes]
     assert node_ids == [id_a, id_b]
     assert id_c not in node_ids
-    for edge in group.edges:
-        assert id_c not in (edge.source, edge.target)
-    assert {(edge.source, edge.target) for edge in group.edges} == {(id_a, id_b)}
+    # Both original edges (a,c) and (c,b) touched c and are dropped, leaving a
+    # and b with no edge between them. The group still survives with both nodes:
+    # dropping a connector does not trigger a re-check that the remainder is
+    # still connected.
+    assert group.edges == []
 
 
 def test_get_all_groups_with_info_representative_weekday(project_db: Session) -> None:

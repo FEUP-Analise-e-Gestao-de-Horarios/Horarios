@@ -73,7 +73,6 @@ def test_require_auth_returns_401_and_skips_method_when_unauthenticated() -> Non
     response = view.guarded_by_auth(_request(is_authenticated=False))
 
     assert view.called is False
-    assert response is not SENTINEL
     assert response.status_code == 401
     assert _body(response) == {
         "error": "auth.not_authenticated",
@@ -119,7 +118,6 @@ def test_require_project_returns_404_and_skips_method_when_missing(db) -> None:
     response = view.guarded_by_project(_request(is_authenticated=True), project_id=999999)
 
     assert view.called is False
-    assert response is not SENTINEL
     assert response.status_code == 404
     assert _body(response) == {
         "error": "projects.not_found",

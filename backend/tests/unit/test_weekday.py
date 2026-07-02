@@ -60,6 +60,13 @@ _WHITESPACE = [
 # Unknown *string* names: valid type, no matching alias -> ValueError.
 _INVALID_NAMES = ["sunday", "domingo", "funday", "mondayy", "", "   ", "mon"]
 
+# Unknown names carrying surrounding whitespace. These give the un-stripped
+# repr assertion teeth: the default ``StrEnum`` fallback message is identical to
+# the custom one, so the only thing a message assertion can pin is the
+# ``value!r`` vs ``normalized!r`` choice -- and that is only observable when
+# stripping would change the value.
+_INVALID_PADDED = ["   ", "  domingo  ", "\tsunday\n", " Mon "]
+
 # Non-string inputs: caught by the ``isinstance`` guard -> ValueError.
 _NON_STRINGS = [1, None, ["monday"], object()]
 
@@ -109,21 +116,20 @@ def test_unknown_string_raises_value_error(value: str) -> None:
         WeekDay(value)
 
 
-@mark.parametrize("value", _INVALID_NAMES)
+@mark.parametrize("value", _INVALID_PADDED)
 def test_error_message_uses_unstripped_value_repr(value: str) -> None:
-    """The message repr's the original (un-stripped) value."""
+    """The message repr's the *original* (un-stripped) value.
+
+    Every value here carries surrounding whitespace, so the assertion has
+    teeth: it fails if the message ever repr's the stripped/normalized value
+    instead of the original the caller passed in.
+    """
+    assert value != value.strip()  # precondition: stripping must change it
+
     with raises(ValueError) as exc_info:
         WeekDay(value)
 
     assert str(exc_info.value) == f"{value!r} is not a valid WeekDay"
-
-
-def test_error_message_keeps_whitespace_in_repr() -> None:
-    """A whitespace-padded unknown value keeps its padding in the repr."""
-    with raises(ValueError) as exc_info:
-        WeekDay("  domingo  ")
-
-    assert str(exc_info.value) == "'  domingo  ' is not a valid WeekDay"
 
 
 @mark.parametrize("value", _NON_STRINGS)

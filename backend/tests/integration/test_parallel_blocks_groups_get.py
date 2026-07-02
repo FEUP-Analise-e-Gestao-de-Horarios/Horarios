@@ -101,8 +101,8 @@ def test_empty_db_returns_empty_data(
     payload = response.json()
     assert payload["data"] == []
     assert payload["message"] == GROUP_MESSAGE
-    # timestamp present and ISO-parseable, but its value is volatile.
-    assert datetime.datetime.fromisoformat(payload["timestamp"])
+    # timestamp present and ISO-parseable (raises on failure), but its value is volatile.
+    datetime.datetime.fromisoformat(payload["timestamp"])
 
 
 def test_single_group_two_members(
@@ -200,9 +200,9 @@ def test_response_ids_are_json_strings(
     for block_id in entry["block_ids"]:
         assert isinstance(block_id, str)
         assert UUID(block_id) in {block_a, block_b}
-    # timestamp is a string too, parseable as ISO 8601.
+    # timestamp is a string too, parseable as ISO 8601 (raises on failure).
     assert isinstance(payload["timestamp"], str)
-    assert datetime.datetime.fromisoformat(payload["timestamp"])
+    datetime.datetime.fromisoformat(payload["timestamp"])
 
 
 def test_response_entries_match_schema_no_extra_fields(
@@ -271,9 +271,8 @@ def test_get_reflects_prior_post_round_trip(
     assert len(data) == 1
     entry = data[0]
     assert set(entry["block_ids"]) == {str(block_a), str(block_b)}
-    # A confirmed group id is freshly generated, not the candidate id.
-    assert UUID(entry["group_id"])
-    assert entry["group_id"] != candidate_group_id
+    # A confirmed group id is a freshly generated UUID (parses), not the candidate id.
+    assert UUID(entry["group_id"]) != UUID(candidate_group_id)
 
 
 def test_get_after_post_clears_all_returns_empty(

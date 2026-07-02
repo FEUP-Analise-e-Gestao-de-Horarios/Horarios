@@ -444,8 +444,8 @@ def test_unique_original_block_id_across_groups_raises(project_db) -> None:
 
     with pytest.raises(IntegrityError):
         # Same block, different group id -> violates UNIQUE on original_block_id.
+        # make_group_member flushes internally, which is what raises here.
         make_group_member(project_db, group_id=g2, original_block_id=a, commit=False)
-        project_db.flush()
 
     project_db.rollback()
 
@@ -476,8 +476,8 @@ def test_exact_duplicate_row_raises_integrity_error(project_db) -> None:
     make_group_member(project_db, group_id=g1, original_block_id=a)  # committed
 
     with pytest.raises(IntegrityError):
+        # make_group_member flushes internally, which is what raises here.
         make_group_member(project_db, group_id=g1, original_block_id=a, commit=False)
-        project_db.flush()
 
     project_db.rollback()
 
