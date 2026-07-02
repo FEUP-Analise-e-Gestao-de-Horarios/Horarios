@@ -15,6 +15,7 @@ from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
 from src.projects.views.schemas.parallel_blocks import (
     ParallelCandidateGroupResponse,
+    ParallelGroupResponse,
     SaveParallelGroupMembersRequest,
 )
 
@@ -53,10 +54,10 @@ class ProjectParallelBlockGroupsView(View):
         return JsonResponse(
             SuccessResponse(
                 message="Parallel group members retrieved successfully",
-                data={
-                    str(group_id): [str(block_id) for block_id in block_ids]
+                data=[
+                    ParallelGroupResponse(group_id=group_id, block_ids=block_ids)
                     for group_id, block_ids in groups.items()
-                },
+                ],
             ).model_dump(),
         )
 

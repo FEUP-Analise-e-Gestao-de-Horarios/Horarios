@@ -19,6 +19,12 @@ class SaveParallelGroupMembersRequest(BaseModel):
     groups: list[ParallelGroupEntry]
 
 
+# -- Confirmed parallel groups (response) ------------------------------
+class ParallelGroupResponse(BaseModel):
+    group_id: UUID
+    block_ids: list[UUID]
+
+
 # -- Candidate parallel groups (response) ------------------------------
 class ParallelCandidateClass(BaseModel):
     model_config = ConfigDict(from_attributes=True)
