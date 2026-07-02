@@ -235,7 +235,7 @@ export default function ParallelGraph({
       ref={viewportRef}
       className="relative flex h-full w-full items-center justify-center overflow-hidden"
     >
-      <div className="absolute left-2 top-2 z-20 flex flex-col overflow-hidden rounded-lg border border-[#e2e2e2] bg-white/90 shadow-sm backdrop-blur">
+      <div className="absolute right-2 top-2 z-20 flex flex-col overflow-hidden rounded-lg border border-[#e2e2e2] bg-white/90 shadow-sm backdrop-blur">
         <button
           type="button"
           onClick={() => zoomBy(ZOOM_STEP)}
