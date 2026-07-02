@@ -178,3 +178,47 @@ def test_session_garbage_time_label_raises(label: str) -> None:
     """A non-numeric time label makes ``extract_sessions`` raise, not guess."""
     with pytest.raises(ValueError):
         extract_sessions(_soup(_class_page_one_session(label)))
+
+
+# ---------------------------------------------------------------------------
+# -- Main-grid shape guard + spanning-cell column dedup
+# ---------------------------------------------------------------------------
+
+
+def test_red_blocks_main_table_too_few_rows_raises() -> None:
+    """A ``tabela_principal`` grid whose direct <tr> children number < 4 is rejected.
+
+    The weekday header + red row are nested one level deep so the matrix (built
+    from all descendant <tr>) is well-formed, but the main table's direct-child
+    <tr> count is 3, tripping the "at least 4 rows" guard — the twin of
+    ``extract_sessions``' guard, reached here after a red cell is found.
+    """
+    inner = (
+        H.weekday_header((("Segunda", 1), ("Terça", 1)))
+        + f"<tr><td>09:00</td>{H.red_cell()}<td></td></tr>"
+    )
+    main = (
+        '<table class="tabela_principal">'
+        "<tr><td>h0</td></tr><tr><td>h1</td></tr>"
+        f"<tr><td><table>{inner}</table></td></tr>"
+        "</table>"
+    )
+    html = f"<html><body><center>{main}</center></body></html>"
+    with pytest.raises(ValueError, match="at least 4 rows in 'tabela_principal'"):
+        extract_red_blocks(_soup(html))
+
+
+def test_red_block_after_colspan_cell_resolves_column() -> None:
+    """A spanning cell is visited once for its leftmost column, then skipped.
+
+    A ``colspan=2`` filler occupies columns 1-2 (its second visit hits the
+    "already seen" skip branch in the cell→column lookup); the red cell that
+    follows sits at column 3 and must resolve to Quarta (Wednesday).
+    """
+    page = H.room_page(
+        days=(("Segunda", 1), ("Terça", 1), ("Quarta", 1)),
+        red_time_rows=[
+            [H.time_cell("09:00"), '<td colspan="2">x</td>', H.red_cell()],
+        ],
+    )
+    assert extract_red_blocks(_soup(page)) == [(900, WeekDay.WEDNESDAY)]

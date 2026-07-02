@@ -15,6 +15,7 @@ lookup dicts; the volatile ``timestamp`` is only checked for presence.
 
 import uuid
 
+import pytest
 from django.test import Client
 from sqlalchemy import insert
 from sqlalchemy.orm import Session
@@ -178,6 +179,12 @@ def test_detail_unknown_year_returns_404(
     assert response.json()["error"] == "projects.years.not_found"
 
 
+def test_detail_unknown_project_returns_404(auth_client: Client, project: Project) -> None:
+    response = auth_client.get(_detail_url(project.pk + 1000, uuid.uuid7()))
+    assert response.status_code == 404
+    assert response.json()["error"] == "projects.not_found"
+
+
 def test_detail_returns_sorted_subjects_and_classes_with_counts(
     auth_client: Client,
     project: Project,
@@ -261,3 +268,52 @@ def test_detail_empty_subjects_and_classes(
     assert data["number"] == 5
     assert data["subjects"] == []
     assert data["classes"] == []
+
+
+def test_detail_excludes_other_years_subjects_and_classes(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """Year detail is year-scoped: another year's subjects and classes are excluded."""
+    degree = make_degree(project_db)
+    year_a = make_year(project_db, degree=degree, number=1)
+    year_b = make_year(project_db, degree=degree, number=2)
+
+    # Year A owns its subject and class.
+    subject_a = make_subject(project_db, year=year_a, code="UC-A")
+    class_a = make_class(project_db, year=year_a, code="1LEIC0A")
+
+    # Year B owns a completely distinct subject and class, which must not leak.
+    subject_b = make_subject(project_db, year=year_b, code="UC-B")
+    class_b = make_class(project_db, year=year_b, code="2LEIC0B")
+
+    response = auth_client.get(_detail_url(project.pk, year_a.id))
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["id"] == str(year_a.id)
+    # Only year A's subject and class are present; year B's are excluded.
+    assert {s["id"] for s in data["subjects"]} == {str(subject_a.id)}
+    assert {c["id"] for c in data["classes"]} == {str(class_a.id)}
+    assert str(subject_b.id) not in {s["id"] for s in data["subjects"]}
+    assert str(class_b.id) not in {c["id"] for c in data["classes"]}
+
+
+# ---------------------------------------------------------------------------
+# -- Read-only routes reject mutating verbs
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("method", ["post", "put", "patch", "delete"])
+def test_write_methods_return_405(
+    method: str,
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """Both views define only get(); every write verb falls through to 405."""
+    for url in (_list_url(project.pk), _detail_url(project.pk, uuid.uuid7())):
+        response = getattr(auth_client, method)(url)
+        assert response.status_code == 405
+        assert "GET" in response.headers["Allow"]

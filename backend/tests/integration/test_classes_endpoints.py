@@ -139,6 +139,12 @@ def test_detail_unknown_class_returns_404(
     assert response.json()["error"] == "projects.classes.not_found"
 
 
+def test_detail_unknown_project_returns_404(auth_client: Client, project: Project) -> None:
+    response = auth_client.get(_detail_url(project.pk + 1000, uuid.uuid7()))
+    assert response.status_code == 404
+    assert response.json()["error"] == "projects.not_found"
+
+
 def test_detail_returns_year_degree_blocks_and_red_blocks(
     auth_client: Client,
     project: Project,
@@ -191,3 +197,49 @@ def test_detail_empty_blocks_and_red_blocks(
     # The nested year/degree are still present.
     assert data["year"]["id"] == str(klass.year_id)
     assert data["year"]["degree"]["id"] == str(klass.year.degree_id)
+
+
+def test_detail_excludes_other_classes_blocks_and_red_blocks(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """Class detail is class-scoped: another class's sessions and red blocks are excluded."""
+    # Class A: its own session (carrying a subject) and its own red block.
+    class_a = make_class(project_db, code="1LEIC0A")
+    subject = make_subject(project_db, year=class_a.year)
+    session_a = make_session(project_db)
+    make_session_class_subject(
+        project_db,
+        session_row=session_a,
+        class_row=class_a,
+        subject=subject,
+    )
+    make_class_red_block(project_db, class_row=class_a, hour=1000)
+
+    # Class B (same year): its own session + red block, must never leak into A's detail.
+    class_b = make_class(project_db, year=class_a.year, code="1LEIC0B")
+    session_b = make_session(project_db, start_time=14)
+    make_session_class_subject(
+        project_db,
+        session_row=session_b,
+        class_row=class_b,
+        subject=subject,
+    )
+    make_class_red_block(project_db, class_row=class_b, hour=2000)
+
+    response = auth_client.get(_detail_url(project.pk, class_a.id))
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["id"] == str(class_a.id)
+    # Only class A's session appears in the blocks; class B's is excluded.
+    block_session_ids = {s["id"] for block in data["blocks"] for s in block["sessions"]}
+    assert block_session_ids == {str(session_a.id)}
+    # Every returned session is bound only to class A.
+    block_class_codes = {
+        c["code"] for block in data["blocks"] for s in block["sessions"] for c in s["classes"]
+    }
+    assert block_class_codes == {"1LEIC0A"}
+    # Only class A's red block hour is present; class B's (2000) is excluded.
+    assert [rb["hour"] for rb in data["red_blocks"]] == [1000]

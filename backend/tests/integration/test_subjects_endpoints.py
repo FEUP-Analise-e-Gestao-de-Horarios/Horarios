@@ -16,6 +16,7 @@ presence.
 import datetime
 import uuid
 
+import pytest
 from django.test import Client
 from sqlalchemy import insert
 from sqlalchemy.orm import Session
@@ -129,6 +130,12 @@ def test_detail_unknown_subject_returns_404(
     response = auth_client.get(_detail_url(project.pk, uuid.uuid7()))
     assert response.status_code == 404
     assert response.json()["error"] == "projects.subjects.not_found"
+
+
+def test_detail_unknown_project_returns_404(auth_client: Client, project: Project) -> None:
+    response = auth_client.get(_detail_url(project.pk + 1000, uuid.uuid7()))
+    assert response.status_code == 404
+    assert response.json()["error"] == "projects.not_found"
 
 
 def test_detail_returns_years_degree_and_blocks(
@@ -339,3 +346,67 @@ def test_detail_blocks_group_weeks_and_dedup_session_entities(
     session_details = block["sessions"][0]
     assert [s["id"] for s in session_details["subjects"]] == [str(subject.id)]
     assert {c["code"] for c in session_details["classes"]} == {"1LEIC01", "1LEIC02"}
+
+
+def test_detail_blocks_exclude_other_subjects_sessions(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """Subject detail blocks are subject-scoped: another subject's sessions are excluded."""
+    year = make_year(project_db)
+    klass = make_class(project_db, year=year, code="1LEIC01")
+
+    # Subject A: its own session.
+    subject_a = make_subject(project_db, year=year, code="UC-A")
+    session_a = make_session(project_db)
+    make_session_class_subject(
+        project_db,
+        session_row=session_a,
+        class_row=klass,
+        subject=subject_a,
+    )
+
+    # Subject B: a distinct session that must never leak into A's blocks.
+    subject_b = make_subject(project_db, year=year, code="UC-B")
+    session_b = make_session(project_db, start_time=14)
+    make_session_class_subject(
+        project_db,
+        session_row=session_b,
+        class_row=klass,
+        subject=subject_b,
+    )
+
+    response = auth_client.get(_detail_url(project.pk, subject_a.id))
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["id"] == str(subject_a.id)
+    # Only subject A's session appears in the blocks; subject B's is excluded.
+    block_session_ids = {s["id"] for block in data["blocks"] for s in block["sessions"]}
+    assert block_session_ids == {str(session_a.id)}
+    assert str(session_b.id) not in block_session_ids
+    # And every returned session teaches only subject A.
+    block_subject_ids = {
+        s["id"] for block in data["blocks"] for sess in block["sessions"] for s in sess["subjects"]
+    }
+    assert block_subject_ids == {str(subject_a.id)}
+
+
+# ---------------------------------------------------------------------------
+# -- Read-only routes reject mutating verbs
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("method", ["post", "put", "patch", "delete"])
+def test_write_methods_return_405(
+    method: str,
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """Both views define only get(); every write verb falls through to 405."""
+    for url in (_list_url(project.pk), _detail_url(project.pk, uuid.uuid7())):
+        response = getattr(auth_client, method)(url)
+        assert response.status_code == 405
+        assert "GET" in response.headers["Allow"]

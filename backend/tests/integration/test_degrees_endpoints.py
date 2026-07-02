@@ -17,6 +17,7 @@ only checked for presence.
 
 import uuid
 
+import pytest
 from django.test import Client
 from sqlalchemy import insert
 from sqlalchemy.orm import Session
@@ -199,17 +200,18 @@ def test_detail_degree_without_years_has_empty_list(
 # ---------------------------------------------------------------------------
 
 
-def test_list_and_detail_reject_post_with_405(
+@pytest.mark.parametrize("method", ["post", "put", "patch", "delete"])
+def test_list_and_detail_reject_write_methods_with_405(
+    method: str,
     auth_client: Client,
     project: Project,
     project_db: Session,
 ) -> None:
     # The views only define get(); Django's View refuses every write method.
-    list_response = auth_client.post(_list_url(project.pk))
-    assert list_response.status_code == 405
-
-    detail_response = auth_client.post(_detail_url(project.pk, uuid.uuid7()))
-    assert detail_response.status_code == 405
+    for url in (_list_url(project.pk), _detail_url(project.pk, uuid.uuid7())):
+        response = getattr(auth_client, method)(url)
+        assert response.status_code == 405
+        assert "GET" in response.headers["Allow"]
 
 
 # ---------------------------------------------------------------------------

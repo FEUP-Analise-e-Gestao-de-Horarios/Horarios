@@ -200,6 +200,26 @@ def test_get_room_page_returns_red_blocks() -> None:
     assert scraper.get_room_page("r/b1.html") == [(1400, WeekDay.TUESDAY)]
 
 
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("get_teacher_page", "t/abc.html"),
+        ("get_class_page", "c/w1.html"),
+        ("get_room_page", "r/b1.html"),
+    ],
+)
+def test_page_fetchers_propagate_http_error(method: str, path: str) -> None:
+    # The scraper has no retry logic: a non-2xx response from the underlying
+    # _request must surface as requests.HTTPError to each page fetcher's caller,
+    # not be swallowed or returned as an empty result.
+    scraper, _ = _scraper(
+        "https://x/",
+        {f"https://x/{path}": _FakeResponse("", status_ok=False)},
+    )
+    with pytest.raises(requests.HTTPError):
+        getattr(scraper, method)(path)
+
+
 def test_close_closes_session() -> None:
     scraper, fake = _scraper("https://x/", {})
     scraper.close()

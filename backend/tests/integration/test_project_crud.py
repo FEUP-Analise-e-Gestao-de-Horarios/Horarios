@@ -337,6 +337,9 @@ def test_rename_duplicate_name_returns_400(auth_client: Client, user: User) -> N
     response = _rename(auth_client, a.pk, "Beta")
     assert response.status_code == 400
     assert response.json()["error"] == "projects.rename.duplicated_name"
+    # The rejected rename left the stored name untouched.
+    a.refresh_from_db()
+    assert a.name == "Alpha"
 
 
 def test_rename_to_same_name_is_allowed(auth_client: Client, project: Project) -> None:
@@ -627,3 +630,139 @@ def test_delete_unauthenticated_returns_401(db: None) -> None:
     response = Client().delete(_project_url(1))
     assert response.status_code == 401
     assert response.json()["error"] == "auth.not_authenticated"
+
+
+# ---------------------------------------------------------------------------
+# -- Gap 7: delete idempotency / double-delete
+# ---------------------------------------------------------------------------
+
+
+def test_delete_is_not_idempotent_second_call_returns_404(
+    auth_client: Client,
+    project: Project,
+    db_path: Path,
+) -> None:
+    """Deleting twice: the first call succeeds, the second sees no such project."""
+    project_dir(project.pk).mkdir(parents=True, exist_ok=True)
+
+    first = auth_client.delete(_project_url(project.pk))
+    assert first.status_code == 200
+
+    second = auth_client.delete(_project_url(project.pk))
+    assert second.status_code == 404
+    assert second.json()["error"] == "projects.not_found"
+
+    assert Project.objects.count() == 0
+
+
+def test_delete_without_provisioned_db_dir_succeeds(
+    auth_client: Client,
+    project: Project,
+    db_path: Path,
+) -> None:
+    """Deleting a project whose per-project DB dir was never created does not raise."""
+    # Deliberately do NOT create project_dir(project.pk).
+    assert not project_dir(project.pk).exists()
+
+    response = auth_client.delete(_project_url(project.pk))
+
+    assert response.status_code == 200
+    assert Project.objects.filter(pk=project.pk).count() == 0
+    assert not project_dir(project.pk).exists()
+
+
+# ---------------------------------------------------------------------------
+# -- Gap 8: create persists the (normalized) url, verified via round-trip GET
+# ---------------------------------------------------------------------------
+
+
+def test_create_url_round_trips_through_get(
+    auth_client: Client,
+    no_ingestion_thread: list,
+    db_path: Path,
+) -> None:
+    """The url sent to POST is stored and read back verbatim (path is not rewritten)."""
+    sent_url = "https://example.com/sched"
+    create = _create(auth_client, name="RoundTrip", url=sent_url)
+    assert create.status_code == 202
+    project_id = create.json()["data"]["id"]
+
+    detail = auth_client.get(_project_url(project_id))
+    assert detail.status_code == 200
+    # Pydantic HttpUrl leaves an explicit path untouched (no trailing slash added).
+    assert detail.json()["data"]["url"] == "https://example.com/sched"
+    assert Project.objects.get(pk=project_id).url == "https://example.com/sched"
+
+
+def test_create_bare_host_url_gains_trailing_slash(
+    auth_client: Client,
+    no_ingestion_thread: list,
+    db_path: Path,
+) -> None:
+    """A host-only url is normalized by HttpUrl to gain a trailing slash before persistence."""
+    create = _create(auth_client, name="BareHost", url="https://example.com")
+    assert create.status_code == 202
+    project_id = create.json()["data"]["id"]
+
+    detail = auth_client.get(_project_url(project_id))
+    assert detail.json()["data"]["url"] == "https://example.com/"
+    assert Project.objects.get(pk=project_id).url == "https://example.com/"
+
+
+# ---------------------------------------------------------------------------
+# -- Gap 9: unknown/extra fields are silently ignored (schema has no extra=forbid)
+# ---------------------------------------------------------------------------
+
+
+def test_create_ignores_unknown_extra_fields(
+    auth_client: Client,
+    no_ingestion_thread: list,
+    db_path: Path,
+) -> None:
+    response = _create(
+        auth_client,
+        name="Extra",
+        url="https://example.com/s",
+        bogus="ignored",
+        creator=999,
+    )
+    assert response.status_code == 202
+    assert response.json()["data"]["name"] == "Extra"
+    assert Project.objects.filter(name="Extra").count() == 1
+
+
+# ---------------------------------------------------------------------------
+# -- Gap 10: wrong-typed name is rejected
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("name", [None, 123])
+def test_create_rejects_wrong_typed_name(
+    auth_client: Client,
+    no_ingestion_thread: list,
+    db_path: Path,
+    name: object,
+) -> None:
+    response = _create(auth_client, name=name, url="https://example.com/s")
+    assert response.status_code == 400
+    assert response.json()["error"] == "generic.invalid_body"
+    assert Project.objects.count() == 0
+    assert no_ingestion_thread == []
+
+
+@pytest.mark.parametrize("name", [None, 123])
+def test_rename_rejects_wrong_typed_name(
+    auth_client: Client,
+    project: Project,
+    name: object,
+) -> None:
+    original_name = project.name
+    response = auth_client.patch(
+        _project_url(project.pk),
+        data=json.dumps({"name": name}),
+        content_type="application/json",
+    )
+    assert response.status_code == 400
+    assert response.json()["error"] == "generic.invalid_body"
+    project.refresh_from_db()
+    assert project.name == original_name

@@ -21,6 +21,7 @@ import datetime
 
 import pytest
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.ingestion import manager as manager_module
@@ -736,5 +737,108 @@ def test_run_merges_classpage_only_teacher_with_empty_red_blocks(
         assert len(menu_blocks) == 1
         assert menu_blocks[0].hour == 900
         assert menu_blocks[0].weekday == WeekDay.MONDAY
+    finally:
+        db.close()
+
+
+# -- 8. Re-ingestion is not idempotent: a second run hits unique constraints --
+
+
+def test_run_twice_raises_integrity_error_and_leaves_first_run_intact(
+    project: Project,
+    project_db: Session,
+    fake_scraper: list,
+) -> None:
+    # The pipeline is one-shot: it never clears general_db and the DAOs issue
+    # plain inserts. Entity columns (Teacher.number, Degree.acronym, Class.code,
+    # Room.name, Subject.number/code) are unique, so a second run re-inserting
+    # the same rows raises an IntegrityError (the teacher flush trips first),
+    # which _teardown_failure surfaces after stamping the project as failed. The
+    # first run's committed rows are left untouched.
+    with IngestionManager(proj_id=project.pk) as m:
+        m.run()
+
+    project.refresh_from_db()
+    assert project.ingestion_finished_at is not None
+
+    db = _fresh_session(project.pk)
+    try:
+        counts_before = {
+            "degrees": db.scalar(select(func.count()).select_from(Degree)),
+            "years": db.scalar(select(func.count()).select_from(Year)),
+            "classes": db.scalar(select(func.count()).select_from(Class)),
+            "subjects": db.scalar(select(func.count()).select_from(Subject)),
+            "teachers": db.scalar(select(func.count()).select_from(Teacher)),
+            "rooms": db.scalar(select(func.count()).select_from(Room)),
+            "sessions": db.scalar(select(func.count()).select_from(SessionModel)),
+        }
+    finally:
+        db.close()
+
+    with (
+        pytest.raises(IntegrityError),
+        IngestionManager(proj_id=project.pk) as m2,
+    ):
+        m2.run()
+
+    project.refresh_from_db()
+    # _setup on the second run clears finished_at; _teardown_failure stamps
+    # failed_at when the unique-constraint violation propagates.
+    assert project.ingestion_failed_at is not None
+    assert project.ingestion_finished_at is None
+
+    db = _fresh_session(project.pk)
+    try:
+        counts_after = {
+            "degrees": db.scalar(select(func.count()).select_from(Degree)),
+            "years": db.scalar(select(func.count()).select_from(Year)),
+            "classes": db.scalar(select(func.count()).select_from(Class)),
+            "subjects": db.scalar(select(func.count()).select_from(Subject)),
+            "teachers": db.scalar(select(func.count()).select_from(Teacher)),
+            "rooms": db.scalar(select(func.count()).select_from(Room)),
+            "sessions": db.scalar(select(func.count()).select_from(SessionModel)),
+        }
+    finally:
+        db.close()
+
+    # The failed second run committed nothing new: every table matches the
+    # first, successful run exactly.
+    assert counts_after == counts_before
+
+
+# -- 9. Zero-session run: empty-pending bulk-insert guards no-op cleanly ------
+
+
+def test_run_with_no_sessions_completes_with_empty_session_tables(
+    project: Project,
+    project_db: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A class page can list a subject (and red blocks) without any sessions. The
+    # four empty-pending guards in _bulk_insert_session_data must then each
+    # no-op, and the run must still finish successfully with zero session rows.
+    page = {
+        "start_date": WEEK_1,
+        "end_date": WEEK_2,
+        "teachers": [{"code": 123, "acronym": "ABC", "name": "Ada"}],
+        "subjects": [PROG],
+        "sessions": [],
+        "red_blocks": [],
+    }
+    scraper = _scraper_returning(_one_class_degree(), {"c1.html": page})
+    monkeypatch.setattr(manager_module, "Scraper", scraper)
+
+    with IngestionManager(proj_id=project.pk) as m:
+        m.run()
+
+    project.refresh_from_db()
+    assert project.ingestion_finished_at is not None
+    assert project.ingestion_failed_at is None
+
+    db = _fresh_session(project.pk)
+    try:
+        assert db.scalar(select(func.count()).select_from(Subject)) == 1
+        assert db.scalar(select(func.count()).select_from(Class)) == 1
+        assert db.scalar(select(func.count()).select_from(SessionModel)) == 0
     finally:
         db.close()

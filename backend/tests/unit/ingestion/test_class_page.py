@@ -709,3 +709,87 @@ def test_sessions_multiple_rooms_split_on_semicolon() -> None:
     )
     (session,) = extract_sessions(page)
     assert session["rooms"] == ["B001", "B002"]
+
+
+# ---------------------------------------------------------------------------
+# -- Gap 14: multiple sessions on one page (document order + no spurious block)
+# ---------------------------------------------------------------------------
+
+
+def test_sessions_multiple_blocks_ordered_by_column() -> None:
+    """Two session blocks on the same page parse in document order.
+
+    A PROG (T) block on Monday and an ALG (TP) block on Tuesday must both be
+    emitted, in document order, each mapped to its own weekday/type — no block
+    is dropped, duplicated, or misattributed.
+    """
+    page = _page(
+        time_rows=[
+            [
+                H.time_cell("09:00"),
+                H.session_cell(subject_acronym="PROG", tipologia=H.TIPOLOGIA_T),
+                H.session_cell(subject_acronym="ALG", tipologia=H.TIPOLOGIA_TP),
+            ],
+            [H.time_cell("10:00"), H.empty_cell(), H.empty_cell()],
+        ],
+        subjects=[
+            ("L.EIC001", "Programação", "PROG", 2024, 120),
+            ("L.EIC002", "Álgebra", "ALG", 2024, 90),
+        ],
+        tipologias=[("T", H.TIPOLOGIA_T), ("TP", H.TIPOLOGIA_TP)],
+    )
+    sessions = extract_sessions(page)
+    assert len(sessions) == 2
+    assert [s["subject_acronym"] for s in sessions] == ["PROG", "ALG"]
+    assert [s["weekday"] for s in sessions] == [WeekDay.MONDAY, WeekDay.TUESDAY]
+    assert [s["type"] for s in sessions] == ["T", "TP"]
+
+
+# ---------------------------------------------------------------------------
+# -- Gap 15: colspan>1 weekday header mapping end-to-end through extract_sessions
+# ---------------------------------------------------------------------------
+
+
+def test_sessions_weekday_resolved_across_wide_colspan() -> None:
+    """A session in a weekday whose header spans multiple columns resolves correctly.
+
+    Segunda and Terça each span 2 columns (cols 1-2 and 3-4). A session block at
+    column 3 must map to Terça, exercising the wide-span accumulation in
+    ``get_weekday_at_column`` through the real parser, not just in isolation.
+    """
+    page = _page(
+        days=(("Segunda", 2), ("Terça", 2)),
+        time_rows=[
+            [
+                H.time_cell("09:00"),
+                H.empty_cell(),
+                H.empty_cell(),
+                H.session_cell(),
+                H.empty_cell(),
+            ],
+            [
+                H.time_cell("10:00"),
+                H.empty_cell(),
+                H.empty_cell(),
+                H.empty_cell(),
+                H.empty_cell(),
+            ],
+        ],
+    )
+    (session,) = extract_sessions(page)
+    assert session["weekday"] == WeekDay.TUESDAY
+
+
+# ---------------------------------------------------------------------------
+# -- Gap 16: tipologia legend with an identical duplicate row is allowed
+# ---------------------------------------------------------------------------
+
+
+def test_tipologia_map_identical_duplicate_is_allowed() -> None:
+    """A repeated (code, class) pair collapses without raising (benign equal branch).
+
+    Only a *conflicting* duplicate (same class, different code) is an error; an
+    identical repeat deduplicates to a single mapping entry.
+    """
+    legend = H.tipologias_legend([("T", H.TIPOLOGIA_T), ("T", H.TIPOLOGIA_T)])
+    assert extract_tipologia_map(_soup(legend)) == {H.TIPOLOGIA_T: "T"}

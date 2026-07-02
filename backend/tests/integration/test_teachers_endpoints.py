@@ -15,6 +15,7 @@ via lookup dicts; the volatile ``timestamp`` is only checked for presence.
 
 import uuid
 
+import pytest
 from django.test import Client
 from sqlalchemy.orm import Session
 
@@ -128,6 +129,12 @@ def test_detail_unknown_teacher_returns_404(
     response = auth_client.get(_detail_url(project.pk, uuid.uuid7()))
     assert response.status_code == 404
     assert response.json()["error"] == "projects.teachers.not_found"
+
+
+def test_detail_unknown_project_returns_404(auth_client: Client, project: Project) -> None:
+    response = auth_client.get(_detail_url(project.pk + 1000, uuid.uuid7()))
+    assert response.status_code == 404
+    assert response.json()["error"] == "projects.not_found"
 
 
 def test_detail_returns_subjects_classes_blocks_and_red_blocks(
@@ -343,3 +350,22 @@ def test_detail_malformed_id_returns_404_and_401_body_checked(
     response = Client().get(_detail_url(project.pk, uuid.uuid7()))
     assert response.status_code == 401
     assert response.json()["error"] == "auth.not_authenticated"
+
+
+# ---------------------------------------------------------------------------
+# -- Read-only routes reject mutating verbs
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("method", ["post", "put", "patch", "delete"])
+def test_write_methods_return_405(
+    method: str,
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """Both views define only get(); every write verb falls through to 405."""
+    for url in (_list_url(project.pk), _detail_url(project.pk, uuid.uuid7())):
+        response = getattr(auth_client, method)(url)
+        assert response.status_code == 405
+        assert "GET" in response.headers["Allow"]
