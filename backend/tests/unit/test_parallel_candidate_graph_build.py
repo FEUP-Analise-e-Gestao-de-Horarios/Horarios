@@ -160,6 +160,28 @@ def test_pair_colliding_on_multiple_weeks_aggregates_sorted_weeks() -> None:
     assert edge.weeks == (W1, W2, W3)
 
 
+def test_edge_weeks_exclude_week_where_only_one_block_present() -> None:
+    """A week where only one of the pair is present is NOT on the edge.
+
+    A is at (MONDAY,9) on all three weeks; B only on W1 and W3. Both stay
+    eligible (each spans a single (weekday,start_time) slot), but they only
+    share a slot on W1 and W3, so the edge must carry (W1, W3) -- never W2.
+    """
+    rows = [
+        row(W1, WeekDay.MONDAY, 9, S1, A),
+        row(W2, WeekDay.MONDAY, 9, S1, A),
+        row(W3, WeekDay.MONDAY, 9, S1, A),
+        row(W1, WeekDay.MONDAY, 9, S1, B),
+        row(W3, WeekDay.MONDAY, 9, S1, B),
+    ]
+    components = build_candidate_components(rows)
+
+    assert len(components) == 1
+    assert components[0].block_ids == frozenset({A, B})
+    (edge,) = components[0].edges
+    assert edge.weeks == (W1, W3)
+
+
 @pytest.mark.parametrize(
     ("weeks", "expected"),
     [
@@ -236,6 +258,25 @@ def test_heterogeneous_block_dropped_partner_unpartnered(
         row(W1, WeekDay.MONDAY, 9, S1, A),
         row(W1, other_weekday, other_start, S1, A),
         row(W1, WeekDay.MONDAY, 9, S1, B),
+    ]
+    assert build_candidate_components(rows) == []
+
+
+def test_eligibility_drop_discards_a_real_multiweek_partnership() -> None:
+    """A block that genuinely partners B on some weeks is still dropped whole
+    once it also appears at a *different* slot on another week.
+
+    A collides with B at (MONDAY,9) on W1 and W3 -- a real partnership -- but on
+    W2 A moves to (TUESDAY,9). A therefore spans two distinct (weekday,start_time)
+    slots and is dropped entirely (the eligibility check keys on slot, ignoring
+    week), leaving B partnerless. The W1/W3 collision is discarded, not salvaged.
+    """
+    rows = [
+        row(W1, WeekDay.MONDAY, 9, S1, A),
+        row(W3, WeekDay.MONDAY, 9, S1, A),
+        row(W2, WeekDay.TUESDAY, 9, S1, A),
+        row(W1, WeekDay.MONDAY, 9, S1, B),
+        row(W3, WeekDay.MONDAY, 9, S1, B),
     ]
     assert build_candidate_components(rows) == []
 

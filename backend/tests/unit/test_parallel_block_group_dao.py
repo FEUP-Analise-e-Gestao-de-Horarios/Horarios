@@ -107,6 +107,22 @@ def test_create_fewer_than_two_distinct_raises_no_partial_write(
     assert _members(project_db) == []
 
 
+def test_create_preserves_first_seen_order(project_db) -> None:
+    """``dict.fromkeys`` dedup keeps first-seen order; rows insert in that order.
+
+    Passing ``[b, a, b]`` must stage exactly ``[b, a]`` (rowid/insertion order),
+    not the sorted or set-arbitrary order -- proving the documented ordering
+    contract, which the set-based dedup tests cannot observe.
+    """
+    dao = ParallelBlockGroupDAO(project_db)
+    a, b = uuid.uuid7(), uuid.uuid7()
+
+    dao.create([b, a, b])
+
+    ordered = [row.original_block_id for row in _members(project_db)]
+    assert ordered == [b, a]
+
+
 def test_create_accepts_one_shot_generator(project_db) -> None:
     """A one-shot generator is materialized once; two rows are staged."""
     dao = ParallelBlockGroupDAO(project_db)

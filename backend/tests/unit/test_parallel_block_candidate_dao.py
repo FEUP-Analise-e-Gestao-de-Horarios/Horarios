@@ -1164,6 +1164,61 @@ def test_get_all_groups_with_info_edges_filtered_when_endpoint_missing(
     assert group.edges == []
 
 
+def test_get_all_groups_with_info_edges_partially_filtered(
+    project_db: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Only edges touching a detail-less block drop; unrelated edges survive.
+
+    Triangle {a,b,c} on W_09_15 (edges a-b, a-c, b-c) plus a connector c-d on
+    W_09_22. Withholding d's detail drops node d and the single c-d edge, while
+    the three triangle edges -- none of which touch d -- must remain. This is
+    the mixed case: some edges filtered, some retained in one group.
+    """
+    subject = make_subject(project_db, commit=False)
+    year = subject.years[0]
+    id_a = UUID(int=1)
+    id_b = UUID(int=2)
+    id_c = UUID(int=3)
+    id_d = UUID(int=4)
+    class_a = make_class(project_db, year=year, commit=False)
+    class_b = make_class(project_db, year=year, commit=False)
+    class_c = make_class(project_db, year=year, commit=False)
+    class_d = make_class(project_db, year=year, commit=False)
+    _seed_block(project_db, subject=subject, class_row=class_a, weeks=[W_09_15], block_id=id_a)
+    _seed_block(project_db, subject=subject, class_row=class_b, weeks=[W_09_15], block_id=id_b)
+    _seed_block(
+        project_db,
+        subject=subject,
+        class_row=class_c,
+        weeks=[W_09_15, W_09_22],
+        block_id=id_c,
+    )
+    _seed_block(project_db, subject=subject, class_row=class_d, weeks=[W_09_22], block_id=id_d)
+    project_db.commit()
+
+    dao = ParallelBlockCandidateDAO(project_db)
+    real_details = dao._block_details
+
+    def omit_d(block_ids):
+        details, subjects = real_details(block_ids)
+        return {k: v for k, v in details.items() if k != id_d}, subjects
+
+    monkeypatch.setattr(dao, "_block_details", omit_d)
+
+    groups = dao.get_all_groups_with_info()
+    assert len(groups) == 1
+    group = groups[0]
+    node_ids = [node.original_block_id for node in group.nodes]
+    assert node_ids == [id_a, id_b, id_c]
+    assert id_d not in node_ids
+
+    edge_pairs = {(edge.source, edge.target) for edge in group.edges}
+    assert edge_pairs == {(id_a, id_b), (id_a, id_c), (id_b, id_c)}
+    # The c-d connector touched the withheld block and is gone; the triangle stays.
+    assert all(id_d not in pair for pair in edge_pairs)
+
+
 def test_get_all_groups_with_info_representative_weekday(project_db: Session) -> None:
     """The group's weekday comes from the lowest-id node's session."""
     subject = make_subject(project_db, commit=False)

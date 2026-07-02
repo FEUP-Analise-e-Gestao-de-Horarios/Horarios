@@ -174,6 +174,21 @@ def test_is_connected_subset_false_for_two_disjoint_pairs() -> None:
     assert component.is_connected_subset({A, B, C, D}) is False
 
 
+def test_is_connected_subset_false_two_members_no_path_between_them() -> None:
+    """Two members from opposite sides of a disjoint component are not connected.
+
+    Component {A,B,C,D} has only the edges A-B and C-D. Selecting {A, C} picks
+    two genuine members with no edge and no path between them, so the selection
+    is not connected -- distinct from the hinge case, which always has a third
+    node on the (severed) path.
+    """
+    component = _component(
+        {A, B, C, D},
+        (CandidateEdge(A, B, (W1,)), CandidateEdge(C, D, (W1,))),
+    )
+    assert component.is_connected_subset({A, C}) is False
+
+
 def test_is_connected_subset_ignores_partially_selected_edges() -> None:
     """Edges touching an unselected endpoint are dropped, isolating D."""
     component = _component(

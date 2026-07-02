@@ -148,6 +148,22 @@ def test_require_project_raises_keyerror_when_project_id_absent(db) -> None:
     assert excinfo.value.args == ("project_id",)
 
 
+def test_require_project_forwards_args_and_kwargs(project) -> None:
+    """Extra positional/keyword args are forwarded past the project guard verbatim."""
+    view = _View()
+
+    result = view.guarded_by_project(
+        _request(is_authenticated=True),
+        7,
+        project_id=project.pk,
+        extra="z",
+    )
+
+    assert result is SENTINEL
+    assert view.received == (7,)
+    assert view.received_kwargs == {"project_id": project.pk, "extra": "z"}
+
+
 def test_require_project_preserves_metadata_via_wraps() -> None:
     """``functools.wraps`` keeps the wrapped method's ``__name__``."""
     assert _View.guarded_by_project.__name__ == "guarded_by_project"

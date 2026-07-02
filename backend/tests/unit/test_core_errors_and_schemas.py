@@ -23,13 +23,26 @@ from django.http import JsonResponse
 from pydantic import ValidationError
 
 from src.core.errors import (
+    AlreadyAuthenticatedResponse,
     ApiError,
+    BadCredentialsResponse,
+    ClassNotFoundResponse,
+    DegreeNotFoundResponse,
     ErrorResponse,
     InvalidBodyResponse,
     InvalidJsonResponse,
+    InvalidOldPasswordResponse,
     NotAuthenticatedResponse,
     ParallelGroupInvalidCandidatesResponse,
+    PasswordPolicyViolationResponse,
+    ProjectCreateDuplicatedNameResponse,
+    ProjectCreateFailedResponse,
     ProjectNotFoundResponse,
+    ProjectRenameDuplicatedNameResponse,
+    RoomNotFoundResponse,
+    SubjectNotFoundResponse,
+    TeacherNotFoundResponse,
+    YearNotFoundResponse,
 )
 from src.core.schemas import SuccessResponse
 from src.projects.projects_db.schemas.parallel_candidates import (
@@ -200,6 +213,122 @@ _ERROR_HELPER_CASES = [
         "blocks 1,2 not adjacent",
         id="parallel_invalid_custom",
     ),
+    # -- Auth builders (fixed messages) --------------------------------
+    pytest.param(
+        AlreadyAuthenticatedResponse(),
+        400,
+        "auth.already_authenticated",
+        "Already authenticated.",
+        id="already_authenticated",
+    ),
+    pytest.param(
+        BadCredentialsResponse(),
+        401,
+        "auth.bad_credentials",
+        "Invalid username or password.",
+        id="bad_credentials",
+    ),
+    pytest.param(
+        InvalidOldPasswordResponse(),
+        401,
+        "auth.invalid_old_password",
+        "Incorrect old password.",
+        id="invalid_old_password",
+    ),
+    pytest.param(
+        PasswordPolicyViolationResponse("too short"),
+        400,
+        "auth.password_policy_violation",
+        "too short",
+        id="password_policy_custom_message",
+    ),
+    # -- Project builders (name interpolation + the sole 500) ----------
+    pytest.param(
+        ProjectCreateDuplicatedNameResponse("Foo"),
+        400,
+        "projects.create.duplicated_name",
+        "A project with the name 'Foo' already exists.",
+        id="project_create_duplicated_name_interpolated",
+    ),
+    pytest.param(
+        ProjectRenameDuplicatedNameResponse("Bar"),
+        400,
+        "projects.rename.duplicated_name",
+        "A project with the name 'Bar' already exists.",
+        id="project_rename_duplicated_name_interpolated",
+    ),
+    pytest.param(
+        ProjectCreateFailedResponse(),
+        500,
+        "projects.create.failed",
+        "Failed to create project.",
+        id="project_create_failed_500",
+    ),
+    # -- Entity not-found: 404 with a fixed message --------------------
+    pytest.param(
+        RoomNotFoundResponse(),
+        404,
+        "projects.rooms.not_found",
+        "Room not found.",
+        id="room_not_found",
+    ),
+    pytest.param(
+        TeacherNotFoundResponse(),
+        404,
+        "projects.teachers.not_found",
+        "Teacher not found.",
+        id="teacher_not_found",
+    ),
+    pytest.param(
+        DegreeNotFoundResponse(),
+        404,
+        "projects.degrees.not_found",
+        "Degree not found.",
+        id="degree_not_found",
+    ),
+    # -- Entity not-found: 404 with a default AND an overridable message
+    pytest.param(
+        YearNotFoundResponse(),
+        404,
+        "projects.years.not_found",
+        "Year not found.",
+        id="year_not_found_default",
+    ),
+    pytest.param(
+        YearNotFoundResponse("Year 7 not found."),
+        404,
+        "projects.years.not_found",
+        "Year 7 not found.",
+        id="year_not_found_custom",
+    ),
+    pytest.param(
+        SubjectNotFoundResponse(),
+        404,
+        "projects.subjects.not_found",
+        "Subject not found.",
+        id="subject_not_found_default",
+    ),
+    pytest.param(
+        SubjectNotFoundResponse("No such subject."),
+        404,
+        "projects.subjects.not_found",
+        "No such subject.",
+        id="subject_not_found_custom",
+    ),
+    pytest.param(
+        ClassNotFoundResponse(),
+        404,
+        "projects.classes.not_found",
+        "Class not found.",
+        id="class_not_found_default",
+    ),
+    pytest.param(
+        ClassNotFoundResponse("Class A1 not found."),
+        404,
+        "projects.classes.not_found",
+        "Class A1 not found.",
+        id="class_not_found_custom",
+    ),
 ]
 
 
@@ -210,28 +339,50 @@ def test_error_helper_status_code_message(
     code: str,
     message: str,
 ) -> None:
-    """Each parallel-blocks error helper returns the exact status/code/message."""
+    """Every error helper returns the exact status/code/message it promises."""
     assert response.status_code == status
     assert _decode(response) == {"error": code, "message": message}
 
 
-@pytest.mark.parametrize(
-    ("member", "wire"),
-    [
-        (ApiError.INVALID_BODY, "generic.invalid_body"),
-        (ApiError.INVALID_JSON, "generic.invalid_json"),
-        (ApiError.AUTH_NOT_AUTHENTICATED, "auth.not_authenticated"),
-        (ApiError.PROJECTS_NOT_FOUND, "projects.not_found"),
-        (
-            ApiError.PROJECTS_PARALLEL_GROUPS_INVALID_CANDIDATES,
-            "projects.parallel_groups.invalid_candidates",
-        ),
-    ],
-)
+# Every ``ApiError`` member paired with its expected wire string. A separate
+# test asserts this list covers the whole enum, so a new member added without a
+# case here fails loudly instead of going silently unverified.
+_API_ERROR_WIRE_CASES = [
+    (ApiError.INVALID_JSON, "generic.invalid_json"),
+    (ApiError.INVALID_BODY, "generic.invalid_body"),
+    (ApiError.AUTH_NOT_AUTHENTICATED, "auth.not_authenticated"),
+    (ApiError.AUTH_ALREADY_AUTHENTICATED, "auth.already_authenticated"),
+    (ApiError.AUTH_BAD_CREDENTIALS, "auth.bad_credentials"),
+    (ApiError.AUTH_INVALID_OLD_PASSWORD, "auth.invalid_old_password"),
+    (ApiError.AUTH_PASSWORD_POLICY_VIOLATION, "auth.password_policy_violation"),
+    (ApiError.PROJECTS_CREATE_DUPLICATED_NAME, "projects.create.duplicated_name"),
+    (ApiError.PROJECTS_CREATE_FAILED, "projects.create.failed"),
+    (ApiError.PROJECTS_NOT_FOUND, "projects.not_found"),
+    (ApiError.PROJECTS_RENAME_DUPLICATED_NAME, "projects.rename.duplicated_name"),
+    (ApiError.PROJECTS_ROOMS_NOT_FOUND, "projects.rooms.not_found"),
+    (ApiError.PROJECTS_TEACHERS_NOT_FOUND, "projects.teachers.not_found"),
+    (ApiError.PROJECTS_DEGREES_NOT_FOUND, "projects.degrees.not_found"),
+    (ApiError.PROJECTS_YEARS_NOT_FOUND, "projects.years.not_found"),
+    (ApiError.PROJECTS_SUBJECTS_NOT_FOUND, "projects.subjects.not_found"),
+    (ApiError.PROJECTS_CLASSES_NOT_FOUND, "projects.classes.not_found"),
+    (
+        ApiError.PROJECTS_PARALLEL_GROUPS_INVALID_CANDIDATES,
+        "projects.parallel_groups.invalid_candidates",
+    ),
+]
+
+
+@pytest.mark.parametrize(("member", "wire"), _API_ERROR_WIRE_CASES)
 def test_api_error_values_are_exact_wire_strings(member: ApiError, wire: str) -> None:
-    """``str()`` of each relevant ``ApiError`` member yields its wire string."""
+    """``str()`` of each ``ApiError`` member yields its wire string."""
     assert str(member) == wire
     assert member.value == wire
+
+
+def test_api_error_wire_string_cases_cover_every_member() -> None:
+    """The wire-string cases enumerate the whole enum, so none drifts uncovered."""
+    covered = {member for member, _ in _API_ERROR_WIRE_CASES}
+    assert covered == set(ApiError)
 
 
 # --------------------------------------------------------------------------- #
@@ -276,6 +427,22 @@ def test_success_response_list_of_models_dumps_to_dicts_with_native_ids() -> Non
     assert entry["group_id"] == group_id
     assert entry["block_ids"] == [block_a, block_b]
     assert all(isinstance(block, uuid.UUID) for block in entry["block_ids"])
+
+
+def test_success_response_single_nested_model_dumps_to_dict() -> None:
+    """A single (non-list) nested model in ``data`` dumps to a dict with native ids."""
+    group_id = uuid.uuid7()
+    block_a = uuid.uuid7()
+    block_b = uuid.uuid7()
+
+    dumped = SuccessResponse(
+        message="ok",
+        data=ParallelGroupResponse(group_id=group_id, block_ids=[block_a, block_b]),
+    ).model_dump()
+
+    assert isinstance(dumped["data"], dict)
+    assert dumped["data"]["group_id"] == group_id
+    assert dumped["data"]["block_ids"] == [block_a, block_b]
 
 
 def test_success_response_dump_is_django_json_serializable() -> None:

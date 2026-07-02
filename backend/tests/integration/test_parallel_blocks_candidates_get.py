@@ -10,6 +10,7 @@ route, including its decorator ordering and its no-trailing-slash contract.
 
 import datetime
 import uuid
+from collections.abc import Iterator
 from uuid import UUID
 
 import pytest
@@ -18,6 +19,8 @@ from sqlalchemy.orm import Session
 
 from src.projects.models import Project
 from src.projects.projects_db.dao.parallel_candidate_graph import _component_uuid
+from src.projects.projects_db.paths import general_db, project_dir
+from src.projects.projects_db.registry import evict_engine, init_engine
 from src.projects.projects_db.schemas.weekday import WeekDay
 from src.projects.views.schemas.parallel_blocks import ParallelCandidateGroupResponse
 from src.users.models import User
@@ -186,6 +189,59 @@ def test_candidates_with_trailing_slash_returns_404(
     assert response.status_code == 404
     # Contrast: the canonical no-slash route is reachable and returns 200.
     assert _get_candidates(auth_client, project.pk).status_code == 200
+
+
+@pytest.mark.parametrize("method", ["post", "put", "delete"])
+def test_candidates_unsupported_methods_return_405(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+    method: str,
+) -> None:
+    """The candidates view defines only ``get``; other methods fall through to 405."""
+    response = getattr(auth_client, method)(_candidates_url(project.pk))
+    assert response.status_code == 405
+
+
+@pytest.fixture
+def project_b(project: Project, settings, tmp_path) -> Iterator[Project]:
+    """A second project with its own empty per-project DB under the shared tmp path.
+
+    ``project`` (via ``project_db``) already points ``PROJECTS_DB_PATH`` at
+    ``tmp_path``; this provisions a distinct project row plus its own database
+    beneath the same root and evicts the engine on teardown.
+    """
+    settings.PROJECTS_DB_PATH = tmp_path
+    other = Project.objects.create(
+        name="Second Project",
+        url="https://example.com/other-schedule",
+        creator=project.creator,
+    )
+    db_path = general_db(other.pk)
+    project_dir(other.pk).mkdir(parents=True, exist_ok=True)
+    init_engine(db_path)
+    try:
+        yield other
+    finally:
+        evict_engine(db_path)
+
+
+def test_candidates_cross_project_isolation(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+    project_b: Project,
+) -> None:
+    """Project A has a candidate group; GET on empty project B returns none of it."""
+    subject = make_subject(project_db, commit=False)
+    make_parallel_candidate_pair(project_db, subject=subject)
+
+    # A has one candidate group; B's own DB is empty.
+    assert len(_get_candidates(auth_client, project.pk).json()["data"]) == 1
+
+    response = _get_candidates(auth_client, project_b.pk)
+    assert response.status_code == 200
+    assert response.json()["data"] == []
 
 
 # ---------------------------------------------------------------------------

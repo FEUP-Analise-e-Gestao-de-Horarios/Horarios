@@ -478,6 +478,57 @@ def test_same_reused_block_different_order_still_rolls_back(
 # ---------------------------------------------------------------------------
 # -- Entries skipped when too short (never counted, never a 400)
 # ---------------------------------------------------------------------------
+def test_lone_short_entry_clears_existing_and_flips_flag(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """A single sub-2 entry is the only entry: data 0, prior rows cleared, flag True.
+
+    The set-based guard (line 81) skips it in validation and the list-based guard
+    (line 93) skips it in the create loop, so ``assigned`` stays 0 -- yet
+    ``clear_all`` and the flag update still run. This drives the create-loop
+    ``continue`` as the sole reached entry, which every other skip test masks by
+    pairing it with a valid group (data 1).
+    """
+    seeded_group = uuid.uuid7()
+    x, y = uuid.uuid7(), uuid.uuid7()
+    make_group_member(project_db, group_id=seeded_group, original_block_id=x, commit=False)
+    make_group_member(project_db, group_id=seeded_group, original_block_id=y)
+
+    response = _post(auth_client, project.pk, {"groups": [_entry(uuid.uuid4(), [uuid.uuid7()])]})
+
+    assert response.status_code == 200
+    assert response.json()["data"] == 0
+    assert _groups_by_id(project_db) == {}  # the seeded x/y group was cleared
+    assert _flag(project.pk) is True
+
+
+def test_duplicate_block_within_single_entry_is_deduped_not_500(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """``block_ids=[a, b, a]`` (set of 2) passes validation and dedups in create.
+
+    The duplicate collapses via ``dict.fromkeys`` inside ``create`` rather than
+    hitting the UNIQUE constraint, so the entry saves a single {a, b} group
+    (data 1) instead of surfacing an IntegrityError as a 500.
+    """
+    subject = make_subject(project_db, commit=False)
+    a, b = make_parallel_candidate_pair(project_db, subject=subject)
+    cid = _component_uuid(subject.id, [a, b])
+
+    response = _post(auth_client, project.pk, {"groups": [_entry(cid, [a, b, a])]})
+
+    assert response.status_code == 200
+    assert response.json()["data"] == 1
+    groups = _groups_by_id(project_db)
+    assert len(groups) == 1
+    assert next(iter(groups.values())) == {a, b}
+    assert _flag(project.pk) is True
+
+
 def test_single_block_entry_skipped_not_counted(
     auth_client: Client,
     project: Project,
