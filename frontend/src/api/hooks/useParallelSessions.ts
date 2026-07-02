@@ -78,6 +78,7 @@ export interface UseParallelSessionsReturn {
 
   handleDegreeClick: (degree: DegreeOption) => void;
   handleYearToggle: (yearId: UUID) => void;
+  handleYearSelect: (yearId: UUID) => void;
   handleToggleNode: (candidateGroupId: UUID, blockId: UUID) => void;
   handleCreateGroup: (candidateGroupId: UUID) => void;
   handleRemoveGroup: (groupId: string) => void;
@@ -274,16 +275,15 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     [yearsWithCandidates],
   );
   useEffect(() => {
-    if (yearsWithCandidates.length === 0) return;
+    const firstYear = yearsWithCandidates[0];
+    if (!firstYear) return;
     const restored =
       restoredState?.degreeId === selectedDegree?.id ? restoredState?.yearIds : undefined;
     const allowed = new Set(yearsWithCandidates.map((y) => y.id));
+    const restoredYear = restored?.find((id) => allowed.has(id));
+    // Single-year selection: keep the restored year if still valid, else the first.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSelectedYearIds(
-      restored
-        ? new Set(restored.filter((id) => allowed.has(id)))
-        : new Set(yearsWithCandidates.map((y) => y.id)),
-    );
+    setSelectedYearIds(new Set([restoredYear ?? firstYear.id]));
     // Re-run when the set of candidate years changes (e.g. degree switch).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [yearsKey]);
@@ -380,6 +380,9 @@ export function useParallelSessions(): UseParallelSessionsReturn {
       return next;
     });
   };
+
+  // Single-year selection for the pill selector: replace the whole set.
+  const handleYearSelect = (yearId: UUID) => setSelectedYearIds(new Set([yearId]));
 
   const handleToggleNode = (candidateGroupId: UUID, blockId: UUID) => {
     if (assignedBlockIds.has(blockId)) return;
@@ -515,6 +518,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     setShowResetModal,
     handleDegreeClick,
     handleYearToggle,
+    handleYearSelect,
     handleToggleNode,
     handleCreateGroup,
     handleRemoveGroup,
