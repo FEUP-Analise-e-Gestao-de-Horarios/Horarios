@@ -13,6 +13,7 @@ import RoomDetailPage from "./pages/dashboard/RoomDetailPage";
 import SubjectDetailPage from "./pages/dashboard/SubjectDetailPage";
 import ClassDetailPage from "./pages/dashboard/ClassDetailPage";
 import ParallelClassesPage from "./pages/ParallelSessionsPage";
+
 // Paths here must match what Django delegates to spa_view in urls.py
 export const router = createBrowserRouter([
   { path: ROUTES.HOME, element: <HomePage />, loader: requireAuth },
