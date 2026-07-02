@@ -77,7 +77,7 @@ class ProjectParallelBlockGroupsView(View):
             }
 
             for entry in validated.groups:
-                blocks = set(entry.classes)
+                blocks = set(entry.block_ids)
                 if len(blocks) < 2:
                     continue
                 component = components.get(entry.candidate_group_id)
@@ -90,9 +90,9 @@ class ProjectParallelBlockGroupsView(View):
             assigned = 0
             try:
                 for entry in validated.groups:
-                    if len(entry.classes) < 2:
+                    if len(entry.block_ids) < 2:
                         continue
-                    dao.create(entry.classes)
+                    dao.create(entry.block_ids)
                     assigned += 1
             except ValueError as exc:
                 return InvalidBodyResponse(str(exc))

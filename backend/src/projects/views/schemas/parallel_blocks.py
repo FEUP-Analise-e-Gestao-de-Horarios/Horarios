@@ -12,7 +12,7 @@ from src.projects.views.schemas.shared import DegreeBase
 # -- Save parallel groups (request) ------------------------------------
 class ParallelGroupEntry(BaseModel):
     candidate_group_id: UUID
-    classes: list[UUID]
+    block_ids: list[UUID]
 
 
 class SaveParallelGroupMembersRequest(BaseModel):
