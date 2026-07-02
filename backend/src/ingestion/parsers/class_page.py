@@ -141,6 +141,10 @@ def extract_subjects(soup: BeautifulSoup) -> list[Subject]:
             )
 
         code_and_name, raw_acronym, number = cells[0], cells[1], cells[2]
+        if code_and_name.find(" - ") == -1:
+            raise ValueError(
+                f"Expected '<code> - <name>' format in subject cell, found: {code_and_name!r}",
+            )
         code, name = code_and_name.split(" - ", 1)
         number = int(number)
 
