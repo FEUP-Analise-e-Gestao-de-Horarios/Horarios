@@ -51,17 +51,17 @@ The backend has two independent databases, and the fixtures cover both.
 2. **Per-project SQLAlchemy SQLite file**, one per `Project.pk` under
    `settings.PROJECTS_DB_PATH`. This is where the timetable data lives (degrees,
    years, subjects, classes, sessions, parallel-block groups). Endpoints open
-   their *own* SQLAlchemy session against
+   their _own_ SQLAlchemy session against
    `paths.general_db(project_id)` at request time.
 
 ### Fixtures (`conftest.py`)
 
-| Fixture       | Gives you                                                        |
-| ------------- | --------------------------------------------------------------- |
-| `user`        | an active `users.User` (created via the custom manager)          |
-| `auth_client` | a `django.test.Client` already `force_login`-ed as `user`       |
+| Fixture       | Gives you                                                          |
+| ------------- | ------------------------------------------------------------------ |
+| `user`        | an active `users.User` (created via the custom manager)            |
+| `auth_client` | a `django.test.Client` already `force_login`-ed as `user`          |
 | `project`     | a `projects.Project` row owned by `user`; use `project.pk` in URLs |
-| `project_db`  | the per-project SQLAlchemy DB, provisioned + a live `Session`    |
+| `project_db`  | the per-project SQLAlchemy DB, provisioned + a live `Session`      |
 
 `project_db` is the key integration fixture. It:
 
