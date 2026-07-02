@@ -33,7 +33,7 @@ from src.projects.projects_db.models._secondary_tables import subject_years
 from src.projects.projects_db.schemas.weekday import WeekDay
 
 
-def _finish(session: Session, obj: object, *, commit: bool) -> object:
+def _finish[T](session: Session, obj: T, *, commit: bool) -> T:
     session.add(obj)
     if commit:
         session.commit()
@@ -52,7 +52,7 @@ def make_degree(
 ) -> Degree:
     """Insert a ``Degree`` row."""
     degree = Degree(id=id or uuid.uuid7(), acronym=acronym, name=name)
-    return _finish(session, degree, commit=commit)  # type: ignore[return-value]
+    return _finish(session, degree, commit=commit)
 
 
 def make_year(
@@ -67,7 +67,7 @@ def make_year(
     if degree is None:
         degree = make_degree(session, commit=False)
     year = Year(id=id or uuid.uuid7(), degree_id=degree.id, number=number)
-    return _finish(session, year, commit=commit)  # type: ignore[return-value]
+    return _finish(session, year, commit=commit)
 
 
 def make_subject(
@@ -128,7 +128,7 @@ def make_class(
         code=code if code is not None else f"C{class_id.int % 1_000_000}",
         shift=shift,
     )
-    return _finish(session, klass, commit=commit)  # type: ignore[return-value]
+    return _finish(session, klass, commit=commit)
 
 
 def make_session(
@@ -153,7 +153,7 @@ def make_session(
         type=type,
         original_block_id=original_block_id or uuid.uuid7(),
     )
-    return _finish(session, session_row, commit=commit)  # type: ignore[return-value]
+    return _finish(session, session_row, commit=commit)
 
 
 def make_session_class_subject(
@@ -170,7 +170,7 @@ def make_session_class_subject(
         class_id=class_row.id,
         subject_id=subject.id,
     )
-    return _finish(session, scs, commit=commit)  # type: ignore[return-value]
+    return _finish(session, scs, commit=commit)
 
 
 def make_group_member(
@@ -185,7 +185,7 @@ def make_group_member(
         parallel_block_group_id=group_id,
         original_block_id=original_block_id,
     )
-    return _finish(session, member, commit=commit)  # type: ignore[return-value]
+    return _finish(session, member, commit=commit)
 
 
 def make_parallel_candidate_pair(
