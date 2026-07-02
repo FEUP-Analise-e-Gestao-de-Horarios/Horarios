@@ -2,10 +2,10 @@ from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
+from src.projects.projects_db.models._secondary_tables import subject_years
 from src.projects.projects_db.models.class_ import Class
 from src.projects.projects_db.models.degree import Degree
 from src.projects.projects_db.models.session_class_subject import SessionClassSubject
-from src.projects.projects_db.models.subject import Subject
 from src.projects.projects_db.models.year import Year
 from src.projects.projects_db.schemas.degree import DegreeStats
 
@@ -49,8 +49,11 @@ class DegreeDAO(BaseDAO[Degree]):
             select(Year.degree_id, func.count().label("cnt")).group_by(Year.degree_id).subquery()
         )
         subjects_sq = (
-            select(Year.degree_id, func.count().label("cnt"))
-            .join(Subject, Subject.year_id == Year.id)
+            select(
+                Year.degree_id,
+                func.count(distinct(subject_years.c.subject_id)).label("cnt"),
+            )
+            .join(subject_years, subject_years.c.year_id == Year.id)
             .group_by(Year.degree_id)
             .subquery()
         )
@@ -65,8 +68,8 @@ class DegreeDAO(BaseDAO[Degree]):
                 Year.degree_id,
                 func.count(distinct(SessionClassSubject.session_id)).label("cnt"),
             )
-            .join(Subject, Subject.year_id == Year.id)
-            .join(SessionClassSubject, SessionClassSubject.subject_id == Subject.id)
+            .join(Class, Class.year_id == Year.id)
+            .join(SessionClassSubject, SessionClassSubject.class_id == Class.id)
             .group_by(Year.degree_id)
             .subquery()
         )

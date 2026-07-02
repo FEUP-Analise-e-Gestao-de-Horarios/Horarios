@@ -13,7 +13,14 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
 from src.config.settings import base
-from src.core.errors import ApiError, ErrorResponse, NotAuthenticatedResponse
+from src.core.errors import (
+    AlreadyAuthenticatedResponse,
+    BadCredentialsResponse,
+    InvalidJsonResponse,
+    InvalidOldPasswordResponse,
+    NotAuthenticatedResponse,
+    PasswordPolicyViolationResponse,
+)
 from src.login.tokens import generate_token
 from src.users.models import User
 
@@ -40,7 +47,7 @@ def login(request) -> JsonResponse:
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
-        return ErrorResponse(status=400, code=ApiError.INVALID_JSON, message="Invalid JSON.")
+        return InvalidJsonResponse()
 
     username = data.get("username", "")
     password = data.get("password", "")
@@ -50,11 +57,7 @@ def login(request) -> JsonResponse:
         django_login(request, user)
         return JsonResponse({"ok": True, "username": user.username})
 
-    return ErrorResponse(
-        status=401,
-        code=ApiError.AUTH_BAD_CREDENTIALS,
-        message="Invalid username or password.",
-    )
+    return BadCredentialsResponse()
 
 
 @require_POST
@@ -66,16 +69,12 @@ def logout(request) -> JsonResponse:
 @require_POST
 def forgot_password(request) -> JsonResponse:
     if request.user.is_authenticated:
-        return ErrorResponse(
-            status=400,
-            code=ApiError.AUTH_ALREADY_AUTHENTICATED,
-            message="Already authenticated.",
-        )
+        return AlreadyAuthenticatedResponse()
 
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
-        return ErrorResponse(status=400, code=ApiError.INVALID_JSON, message="Invalid JSON.")
+        return InvalidJsonResponse()
 
     email_addr = data.get("email", "")
 
@@ -111,17 +110,13 @@ def change_password(request) -> JsonResponse:
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
-        return ErrorResponse(status=400, code=ApiError.INVALID_JSON, message="Invalid JSON.")
+        return InvalidJsonResponse()
 
     old_password = data.get("old_password", "")
     new_password = data.get("new_password", "")
 
     if not request.user.check_password(old_password):
-        return ErrorResponse(
-            status=401,
-            code=ApiError.AUTH_INVALID_OLD_PASSWORD,
-            message="Incorrect old password.",
-        )
+        return InvalidOldPasswordResponse()
 
     form = PasswordChangeForm(
         user=request.user,
@@ -134,11 +129,7 @@ def change_password(request) -> JsonResponse:
 
     if not form.is_valid():
         errors = [e for error_list in form.errors.values() for e in error_list]
-        return ErrorResponse(
-            status=400,
-            code=ApiError.AUTH_PASSWORD_POLICY_VIOLATION,
-            message=errors[0],
-        )
+        return PasswordPolicyViolationResponse(errors[0])
 
     form.save()
     update_session_auth_hash(request, form.user)
