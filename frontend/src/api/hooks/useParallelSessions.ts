@@ -19,7 +19,7 @@ import { buildAdjacency, isConnectedSelection } from "@/components/parallel/para
 
 function parallelSaveErrorMessage(err: unknown): string {
   const code = err instanceof Error && "code" in err ? (err as ApiRequestError).code : undefined;
-  if (code === ApiError.PARALLEL_GROUPS_NOT_CANDIDATES) {
+  if (code === ApiError.PARALLEL_GROUPS_INVALID_CANDIDATES) {
     return "As turmas selecionadas não são candidatas a paralelas.";
   }
   return err instanceof Error ? err.message : "Erro ao guardar";
@@ -424,7 +424,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     if (!projectId || Number.isNaN(projectIdNum)) return;
     const payload = groups
       .filter((g) => g.blockIds.length >= 2)
-      .map((g) => ({ candidate_group_id: g.candidateGroupId, classes: g.blockIds }));
+      .map((g) => ({ candidate_group_id: g.candidateGroupId, block_ids: g.blockIds }));
     await api.post(`/api/projects/${projectIdNum}/parallel-blocks/groups/`, { groups: payload });
     sessionStorage.setItem(
       `parallelClasses-${projectId}`,
