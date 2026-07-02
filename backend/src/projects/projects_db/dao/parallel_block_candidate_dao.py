@@ -1,14 +1,16 @@
-import uuid
 from collections import defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
-from itertools import combinations
-from uuid import NAMESPACE_OID, UUID
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DBSession
 
+from src.projects.projects_db.dao.parallel_candidate_graph import (
+    CandidateComponent,
+    build_candidate_components,
+)
 from src.projects.projects_db.dao.queries.parallel_block_candidates import (
     block_details_stmt,
     block_weeks_stmt,
@@ -19,23 +21,13 @@ from src.projects.projects_db.schemas.parallel_candidates import (
     ParallelBlockCandidateClass,
     ParallelBlockCandidateDegree,
     ParallelBlockCandidateEdge,
-    ParallelBlockCandidateGroupResponse,
+    ParallelBlockCandidateGroup,
     ParallelBlockCandidateNode,
     ParallelBlockCandidateSession,
     ParallelBlockCandidateSubject,
     ParallelBlockCandidateYear,
 )
 from src.projects.projects_db.schemas.weekday import WeekDay
-
-
-def _component_uuid(block_ids: Iterable[UUID]) -> UUID:
-    """Deterministic id for a component, derived from its sorted member blocks.
-
-    Because the id changes whenever the component's membership changes, a stale
-    ``candidate_group_id`` submitted on save no longer matches any component and
-    is rejected.
-    """
-    return uuid.uuid5(NAMESPACE_OID, ",".join(str(block_id) for block_id in sorted(block_ids)))
 
 
 @dataclass(frozen=True)
@@ -50,96 +42,28 @@ class _YearDegree:
 
 
 @dataclass(frozen=True)
+class _SubjectInfo:
+    acronym: str
+    name: str
+
+
+@dataclass(frozen=True)
 class _BlockDetail:
     classes: list[ParallelBlockCandidateClass]
     session_type: str
     start_time: int
     duration: int
     weekday: WeekDay
-    subject_id: UUID
-    subject_acronym: str
-    subject_name: str
-    year_degrees: tuple[_YearDegree, ...]
-
-
-@dataclass(frozen=True)
-class _CandidateEdge:
-    """An undirected adjacency between two blocks, with the weeks they collide on.
-
-    ``block_a`` and ``block_b`` are sorted so each unordered pair has one
-    canonical edge; ``weeks`` are the (sorted) weeks both blocks share a slot.
-    """
-
-    block_a: UUID
-    block_b: UUID
-    weeks: tuple[date, ...]
-
-
-@dataclass(frozen=True)
-class CandidateComponent:
-    """A connected component of the parallel-candidate overlap graph."""
-
-    candidate_group_id: UUID
-    block_ids: frozenset[UUID]
-    edges: tuple[_CandidateEdge, ...]
-
-    def is_connected_subset(self, blocks: set[UUID]) -> bool:
-        """Whether ``blocks`` is a connected subgraph of this component.
-
-        A valid saved group is a connected selection: every block must be
-        reachable from any other through edges whose both endpoints are also
-        selected.
-        """
-        if len(blocks) < 2 or not blocks <= self.block_ids:
-            return False
-
-        adjacency: defaultdict[UUID, set[UUID]] = defaultdict(set)
-        for edge in self.edges:
-            if edge.block_a in blocks and edge.block_b in blocks:
-                adjacency[edge.block_a].add(edge.block_b)
-                adjacency[edge.block_b].add(edge.block_a)
-
-        start = next(iter(blocks))
-        seen = {start}
-        stack = [start]
-        while stack:
-            node = stack.pop()
-            for neighbor in adjacency[node]:
-                if neighbor not in seen:
-                    seen.add(neighbor)
-                    stack.append(neighbor)
-
-        return seen == blocks
-
-
-class _UnionFind:
-    """Disjoint-set forest with path compression, keyed by block id."""
-
-    def __init__(self) -> None:
-        self.parent: dict[UUID, UUID] = {}
-
-    def find(self, block_id: UUID) -> UUID:
-        self.parent.setdefault(block_id, block_id)
-        root = block_id
-        while self.parent[root] != root:
-            root = self.parent[root]
-        while self.parent[block_id] != root:
-            self.parent[block_id], block_id = root, self.parent[block_id]
-        return root
-
-    def union(self, block_a: UUID, block_b: UUID) -> None:
-        root_a, root_b = self.find(block_a), self.find(block_b)
-        if root_a != root_b:
-            self.parent[root_a] = root_b
+    year_degrees_by_subject: dict[UUID, tuple[_YearDegree, ...]]
 
 
 class ParallelBlockCandidateDAO:
     """Data access object for detected parallel block candidates.
 
-    Candidates are computed on every request as the connected components of an
-    overlap graph: blocks of the same subject that collide on at least one week
-    at the same weekday and start time. Nothing is persisted here; only
-    confirmed groups (``ParallelBlockGroupMember``) are stored.
+    Candidates are computed on every request as the connected components of a
+    per-subject overlap graph: blocks that collide on at least one week at the
+    same weekday and start time for a shared subject. Nothing is persisted
+    here; only confirmed groups (``ParallelBlockGroupMember``) are stored.
 
     Not a ``BaseDAO`` subclass: there is no persistent model to operate on.
     """
@@ -154,72 +78,26 @@ class ParallelBlockCandidateDAO:
     def get_candidate_components(self) -> list[CandidateComponent]:
         """Return the candidate groups as connected components with their edges."""
         rows = self.session.execute(candidate_slot_members_stmt()).all()
-
-        # A block only qualifies if every session under it starts at the same
-        # time. An edit that moves a single week to a different start_time
-        # leaves the block_id spanning a heterogeneous set of sessions; rather
-        # than represent it by an arbitrary start_time, drop it from candidate
-        # detection entirely.
-        start_times_by_block: defaultdict[UUID, set[int]] = defaultdict(set)
-        for _week, _weekday, start_time, _subject_id, block_id in rows:
-            start_times_by_block[block_id].add(start_time)
-        eligible_blocks = {
-            block_id
-            for block_id, start_times in start_times_by_block.items()
-            if len(start_times) == 1
-        }
-
-        # Blocks sharing a (week, weekday, start_time, subject) slot are mutually
-        # adjacent. Grouping per slot avoids a quadratic sessions self-join.
-        blocks_by_slot: defaultdict[tuple, set[UUID]] = defaultdict(set)
-        for week, weekday, start_time, subject_id, block_id in rows:
-            if block_id not in eligible_blocks:
-                continue
-            blocks_by_slot[(week, weekday, start_time, subject_id)].add(block_id)
-
-        union_find = _UnionFind()
-        weeks_by_edge: defaultdict[tuple[UUID, UUID], set] = defaultdict(set)
-        for (week, _weekday, _start_time, _subject_id), blocks in blocks_by_slot.items():
-            if len(blocks) < 2:
-                continue
-            for block_a, block_b in combinations(sorted(blocks), 2):
-                weeks_by_edge[(block_a, block_b)].add(week)
-                union_find.union(block_a, block_b)
-
-        blocks_by_root: defaultdict[UUID, set[UUID]] = defaultdict(set)
-        for block_id in list(union_find.parent):
-            blocks_by_root[union_find.find(block_id)].add(block_id)
-
-        edges_by_root: defaultdict[UUID, list[_CandidateEdge]] = defaultdict(list)
-        for (block_a, block_b), weeks in weeks_by_edge.items():
-            edge = _CandidateEdge(block_a, block_b, tuple(sorted(weeks)))
-            edges_by_root[union_find.find(block_a)].append(edge)
-
-        return [
-            CandidateComponent(
-                candidate_group_id=_component_uuid(block_ids),
-                block_ids=frozenset(block_ids),
-                edges=tuple(sorted(edges_by_root[root], key=lambda e: (e.block_a, e.block_b))),
-            )
-            for root, block_ids in blocks_by_root.items()
-        ]
+        return build_candidate_components(rows)
 
     # -------------------------------------------------------------------
     # -- Components with display info
     # -------------------------------------------------------------------
 
-    def get_all_groups_with_info(self) -> list[ParallelBlockCandidateGroupResponse]:
+    def get_all_groups_with_info(self) -> list[ParallelBlockCandidateGroup]:
         """Return all candidate groups with per-block session and degree info."""
         components = self.get_candidate_components()
         if not components:
             return []
 
-        all_block_ids = [block_id for component in components for block_id in component.block_ids]
-        details = self._block_details(all_block_ids)
+        all_block_ids = list(
+            {block_id for component in components for block_id in component.block_ids},
+        )
+        details, subjects = self._block_details(all_block_ids)
         weeks = self._block_weeks(all_block_ids)
         confirmed = self._confirmed_group_by_block(all_block_ids)
 
-        groups: list[ParallelBlockCandidateGroupResponse] = []
+        groups: list[ParallelBlockCandidateGroup] = []
         for component in components:
             nodes: list[ParallelBlockCandidateNode] = []
             for block_id in sorted(component.block_ids):
@@ -247,17 +125,20 @@ class ParallelBlockCandidateDAO:
 
             representative = details[nodes[0].original_block_id]
 
-            # Collect the year/degree rows present across the whole group, keyed
-            # by year id (each year row belongs to a single degree).
+            # Collect the year/degree rows present across the whole group for
+            # the component's subject, keyed by year id (each year row belongs
+            # to a single degree).
             years_by_id: dict[UUID, _YearDegree] = {}
             for node in nodes:
-                for year_degree in details[node.original_block_id].year_degrees:
+                block_year_degrees = details[node.original_block_id].year_degrees_by_subject
+                for year_degree in block_year_degrees.get(component.subject_id, ()):
                     years_by_id.setdefault(year_degree.year_id, year_degree)
 
+            subject_info = subjects[component.subject_id]
             subject = ParallelBlockCandidateSubject(
-                id=representative.subject_id,
-                acronym=representative.subject_acronym,
-                name=representative.subject_name,
+                id=component.subject_id,
+                acronym=subject_info.acronym,
+                name=subject_info.name,
                 years=[
                     ParallelBlockCandidateYear(
                         id=year_degree.year_id,
@@ -284,7 +165,7 @@ class ParallelBlockCandidateDAO:
                 if edge.block_a in details and edge.block_b in details
             ]
             groups.append(
-                ParallelBlockCandidateGroupResponse(
+                ParallelBlockCandidateGroup(
                     candidate_group_id=component.candidate_group_id,
                     subject=subject,
                     weekday=representative.weekday,
@@ -299,18 +180,24 @@ class ParallelBlockCandidateDAO:
     # -- Helpers
     # -------------------------------------------------------------------
 
-    def _block_details(self, block_ids: Sequence[UUID]) -> dict[UUID, _BlockDetail]:
+    def _block_details(
+        self,
+        block_ids: Sequence[UUID],
+    ) -> tuple[dict[UUID, _BlockDetail], dict[UUID, _SubjectInfo]]:
         rows = self.session.execute(block_details_stmt(block_ids)).all()
 
         classes: defaultdict[UUID, dict[UUID, tuple[str, UUID]]] = defaultdict(dict)
-        year_degrees: defaultdict[UUID, dict[UUID, _YearDegree]] = defaultdict(dict)
+        year_degrees: defaultdict[UUID, defaultdict[UUID, dict[UUID, _YearDegree]]] = defaultdict(
+            lambda: defaultdict(dict),
+        )
+        subjects: dict[UUID, _SubjectInfo] = {}
         representative = {}
         for row in rows:
             classes[row.original_block_id].setdefault(
                 row.class_id,
                 (row.class_code, row.year_id),
             )
-            year_degrees[row.original_block_id].setdefault(
+            year_degrees[row.original_block_id][row.subject_id].setdefault(
                 row.year_id,
                 _YearDegree(
                     year_id=row.year_id,
@@ -320,9 +207,13 @@ class ParallelBlockCandidateDAO:
                     degree_name=row.degree_name,
                 ),
             )
+            subjects.setdefault(
+                row.subject_id,
+                _SubjectInfo(acronym=row.subject_acronym, name=row.subject_name),
+            )
             representative.setdefault(row.original_block_id, row)
 
-        return {
+        details = {
             block_id: _BlockDetail(
                 classes=[
                     ParallelBlockCandidateClass(id=class_id, code=code, year_id=year_id)
@@ -335,13 +226,14 @@ class ParallelBlockCandidateDAO:
                 start_time=row.start_time,
                 duration=row.duration,
                 weekday=row.weekday,
-                subject_id=row.subject_id,
-                subject_acronym=row.subject_acronym,
-                subject_name=row.subject_name,
-                year_degrees=tuple(year_degrees[block_id].values()),
+                year_degrees_by_subject={
+                    subject_id: tuple(by_year.values())
+                    for subject_id, by_year in year_degrees[block_id].items()
+                },
             )
             for block_id, row in representative.items()
         }
+        return details, subjects
 
     def _block_weeks(self, block_ids: Sequence[UUID]) -> dict[UUID, tuple[date, date]]:
         rows = self.session.execute(block_weeks_stmt(block_ids)).all()
