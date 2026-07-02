@@ -71,8 +71,8 @@ class SubjectDAO(BaseDAO[Subject]):
     def get_with_years(self, subject_id: UUID) -> Subject | None:
         """Return a subject with its years (and each year's degree) eager-loaded.
 
-        Avoids the N+1 that serializing ``SubjectDetailResponse.years`` would
-        otherwise trigger when lazy-loading each year and its degree.
+        Avoids the N+1 that serializing the years (and their degrees) would
+        otherwise trigger when lazy-loading each one.
 
         Args:
             subject_id: UUID of the subject to retrieve.
