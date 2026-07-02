@@ -430,6 +430,119 @@ def test_get_candidate_components_adding_third_block_changes_id(project_db: Sess
     assert id_two != id_three
 
 
+# ----------------------------------------------------------------------
+# The collision key is (week, weekday, start_time, subject) *only*: the slot
+# query deliberately omits duration and session_type (they are selected only
+# for display in block_details). These lock that in -- blocks sharing a slot
+# collide regardless of duration or type, so a future change that folds either
+# into the key would fail here instead of silently altering detection.
+# ----------------------------------------------------------------------
+def test_get_candidate_components_collide_despite_different_duration(
+    project_db: Session,
+) -> None:
+    """Two blocks at the same slot but different durations still form one component."""
+    subject = make_subject(project_db, commit=False)
+    year = subject.years[0]
+    class_a = make_class(project_db, year=year, commit=False)
+    class_b = make_class(project_db, year=year, commit=False)
+    block_a = _seed_block(
+        project_db,
+        subject=subject,
+        class_row=class_a,
+        weeks=[W_09_15],
+        duration=2,
+    )
+    block_b = _seed_block(
+        project_db,
+        subject=subject,
+        class_row=class_b,
+        weeks=[W_09_15],
+        duration=4,
+    )
+    project_db.commit()
+
+    dao = ParallelBlockCandidateDAO(project_db)
+    components = dao.get_candidate_components()
+
+    assert len(components) == 1
+    assert components[0].block_ids == frozenset({block_a, block_b})
+    assert components[0].edges[0].weeks == (W_09_15,)
+
+
+def test_get_candidate_components_collide_despite_different_session_type(
+    project_db: Session,
+) -> None:
+    """A lecture (T) and a lab (P) at the same slot still form one component."""
+    subject = make_subject(project_db, commit=False)
+    year = subject.years[0]
+    class_a = make_class(project_db, year=year, commit=False)
+    class_b = make_class(project_db, year=year, commit=False)
+    block_a = _seed_block(
+        project_db,
+        subject=subject,
+        class_row=class_a,
+        weeks=[W_09_15],
+        session_type="T",
+    )
+    block_b = _seed_block(
+        project_db,
+        subject=subject,
+        class_row=class_b,
+        weeks=[W_09_15],
+        session_type="P",
+    )
+    project_db.commit()
+
+    dao = ParallelBlockCandidateDAO(project_db)
+    components = dao.get_candidate_components()
+
+    assert len(components) == 1
+    assert components[0].block_ids == frozenset({block_a, block_b})
+
+
+def test_get_candidate_components_block_eligible_despite_varying_duration(
+    project_db: Session,
+) -> None:
+    """A block whose duration varies across weeks keeps one (weekday, start_time)
+    slot, so it stays eligible and still partners.
+
+    Eligibility keys on (weekday, start_time) only: block_a runs MONDAY@9 for 2h
+    on w1 and 4h on w2 -- one slot, not two -- so it is not dropped as
+    heterogeneous and collides with block_b on w1.
+    """
+    subject = make_subject(project_db, commit=False)
+    year = subject.years[0]
+    class_a = make_class(project_db, year=year, commit=False)
+    class_b = make_class(project_db, year=year, commit=False)
+
+    block_a = uuid.uuid7()
+    _seed_block(
+        project_db,
+        subject=subject,
+        class_row=class_a,
+        weeks=[W_09_15],
+        duration=2,
+        block_id=block_a,
+    )
+    _seed_block(
+        project_db,
+        subject=subject,
+        class_row=class_a,
+        weeks=[W_09_22],
+        duration=4,
+        block_id=block_a,
+    )
+    block_b = _seed_block(project_db, subject=subject, class_row=class_b, weeks=[W_09_15])
+    project_db.commit()
+
+    dao = ParallelBlockCandidateDAO(project_db)
+    components = dao.get_candidate_components()
+
+    assert len(components) == 1
+    assert components[0].block_ids == frozenset({block_a, block_b})
+    assert components[0].edges[0].weeks == (W_09_15,)
+
+
 # ======================================================================
 # _block_details
 # ======================================================================
