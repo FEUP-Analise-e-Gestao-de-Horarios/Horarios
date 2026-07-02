@@ -29,6 +29,11 @@ pythonpath = ["."]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "--strict-markers"
+filterwarnings = [
+    "error",
+    # whitenoise warns when the staticfiles dir is absent; irrelevant under tests.
+    "ignore:No directory at:UserWarning",
+]
 
 [tool.ruff]
 src = ["."]
