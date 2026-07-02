@@ -55,9 +55,10 @@ export function usePreviewConflicts(projectId: string) {
   return useMutation({
     mutationFn: (body: ConflictPreviewRequest) =>
       api
-        .post<
-          ApiResponse<ConflictPreviewResponse>
-        >(`/api/projects/${projectId}/conflicts/preview`, body)
+        .post<ApiResponse<ConflictPreviewResponse>>(
+          `/api/projects/${projectId}/conflicts/preview`,
+          body,
+        )
         .then((r) => r.data),
   });
 }
@@ -91,9 +92,10 @@ export function useUpdateManyConflictTags(projectId: string) {
   return useMutation({
     mutationFn: (updates: UpdateManyConflictTagsRequest["updates"]) =>
       api
-        .patch<
-          ApiResponse<UpdateManyConflictTagsResponse>
-        >(`/api/projects/${projectId}/conflicts`, { updates })
+        .patch<ApiResponse<UpdateManyConflictTagsResponse>>(
+          `/api/projects/${projectId}/conflicts`,
+          { updates },
+        )
         .then((r) => r.data),
     onMutate: async (updates) => {
       await queryClient.cancelQueries({ queryKey: conflictsKey(projectId) });
