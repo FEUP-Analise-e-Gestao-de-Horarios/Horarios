@@ -79,6 +79,32 @@ def test_request_raises_on_http_error() -> None:
         scraper._request("boom")
 
 
+def test_request_concatenates_without_urljoin_normalization() -> None:
+    # _request does `self.base_url + path` with NO urljoin: a base_url without a
+    # trailing slash concatenates directly, so "https://x" + "menu" == "https://xmenu".
+    scraper, fake = _scraper(
+        "https://x",
+        {"https://xmenu": _FakeResponse("<html><body>ok</body></html>")},
+    )
+    scraper._request("menu")
+
+    (url, _timeout) = fake.calls[0]
+    assert url == "https://xmenu"
+
+
+def test_request_does_not_normalize_leading_slash_path() -> None:
+    # A leading-slash path is NOT collapsed against the base_url's own path;
+    # it is appended verbatim, producing a doubled slash rather than a reset.
+    scraper, fake = _scraper(
+        "https://x/base",
+        {"https://x/base/menu": _FakeResponse("<html><body>ok</body></html>")},
+    )
+    scraper._request("/menu")
+
+    (url, _timeout) = fake.calls[0]
+    assert url == "https://x/base/menu"
+
+
 # ---------------------------------------------------------------------------
 # -- read_menu
 # ---------------------------------------------------------------------------
@@ -99,6 +125,26 @@ def test_read_menu_fetches_root_then_menu_frame() -> None:
     assert [r["name"] for r in rooms] == ["B001"]
     # Two requests in order: the root page, then the menu frame it points at.
     assert [url for url, _ in fake.calls] == ["https://x/", "https://x/menu.html"]
+
+
+def test_read_menu_raises_when_menu_frame_fetch_fails() -> None:
+    # read_menu makes two sequential requests: the root frame page (ok) and then
+    # the extracted menu frame. A failure of the SECOND request must propagate
+    # and is not swallowed by the successful first request.
+    scraper, fake = _scraper(
+        "https://x/",
+        {
+            "https://x/": _FakeResponse(H.frame_page("menu.html")),
+            "https://x/menu.html": _FakeResponse("", status_ok=False),
+        },
+    )
+    with pytest.raises(requests.HTTPError):
+        scraper.read_menu()
+
+    # Both requests were attempted, in order, and the timeout is applied to the
+    # second (menu frame) call as well as the first.
+    assert [url for url, _ in fake.calls] == ["https://x/", "https://x/menu.html"]
+    assert fake.calls[1][1] == Scraper._DEFAULT_TIMEOUT
 
 
 # ---------------------------------------------------------------------------

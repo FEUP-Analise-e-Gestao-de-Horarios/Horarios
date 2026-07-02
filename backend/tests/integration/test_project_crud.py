@@ -377,3 +377,253 @@ def test_delete_removes_project_and_db(
     assert response.json()["message"] == "Project deleted successfully"
     assert Project.objects.filter(pk=project.pk).count() == 0
     assert not project_dir(project.pk).exists()
+
+
+# ---------------------------------------------------------------------------
+# -- Gap 1: rename with invalid characters exercises the regex branch
+# ---------------------------------------------------------------------------
+
+
+def test_rename_invalid_name_characters_returns_400(
+    auth_client: Client,
+    project: Project,
+) -> None:
+    """A short-but-illegal name reaches the ``field_validator`` regex branch.
+
+    ``test_rename_invalid_name_returns_400`` uses ``'x' * 31`` which is rejected
+    earlier by ``Field(max_length=30)``; ``'bad/name!'`` is length-valid so it
+    exercises the regex ``ValueError`` at ``schemas/project.py:60`` instead.
+    """
+    original_name = project.name
+    response = _rename(auth_client, project.pk, "bad/name!")
+
+    assert response.status_code == 400
+    assert response.json()["error"] == "generic.invalid_body"
+    # The illegal rename left the stored name untouched.
+    project.refresh_from_db()
+    assert project.name == original_name
+
+
+# ---------------------------------------------------------------------------
+# -- Gap 2: unsupported HTTP methods return 405
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("method", "url"),
+    [
+        # ProjectsView defines only get/post.
+        ("PATCH", _projects_url()),
+        ("DELETE", _projects_url()),
+        ("PUT", _projects_url()),
+        # ProjectView defines only get/patch/delete.
+        ("POST", _project_url(1)),
+        ("PUT", _project_url(1)),
+    ],
+)
+def test_unsupported_methods_return_405(
+    auth_client: Client,
+    method: str,
+    url: str,
+) -> None:
+    """Methods a view does not implement fall through to Django's 405."""
+    response = auth_client.generic(method, url)
+    assert response.status_code == 405
+
+
+# ---------------------------------------------------------------------------
+# -- Gap 3: missing required fields in POST/PATCH bodies
+# ---------------------------------------------------------------------------
+
+
+def test_create_missing_url_returns_400(
+    auth_client: Client,
+    no_ingestion_thread: list,
+    db_path: Path,
+) -> None:
+    response = _create(auth_client, name="No URL")
+    assert response.status_code == 400
+    assert response.json()["error"] == "generic.invalid_body"
+    assert Project.objects.count() == 0
+    assert no_ingestion_thread == []
+
+
+def test_create_missing_name_returns_400(
+    auth_client: Client,
+    no_ingestion_thread: list,
+    db_path: Path,
+) -> None:
+    response = _create(auth_client, url="https://example.com/s")
+    assert response.status_code == 400
+    assert response.json()["error"] == "generic.invalid_body"
+    assert Project.objects.count() == 0
+    assert no_ingestion_thread == []
+
+
+def test_rename_empty_body_returns_400(
+    auth_client: Client,
+    project: Project,
+) -> None:
+    """An empty PATCH body is missing the required ``name`` field."""
+    original_name = project.name
+    response = auth_client.patch(
+        _project_url(project.pk),
+        data=json.dumps({}),
+        content_type="application/json",
+    )
+    assert response.status_code == 400
+    assert response.json()["error"] == "generic.invalid_body"
+    project.refresh_from_db()
+    assert project.name == original_name
+
+
+def test_rename_empty_string_name_returns_400(
+    auth_client: Client,
+    project: Project,
+) -> None:
+    """An empty-string name fails the ``[...]+`` regex (needs >= 1 char)."""
+    original_name = project.name
+    response = _rename(auth_client, project.pk, "")
+    assert response.status_code == 400
+    assert response.json()["error"] == "generic.invalid_body"
+    project.refresh_from_db()
+    assert project.name == original_name
+
+
+# ---------------------------------------------------------------------------
+# -- Gap 4: creator is the authenticated user; failure path starts no thread
+# ---------------------------------------------------------------------------
+
+
+def test_create_sets_creator_to_request_user_and_rollback_starts_no_thread(
+    auth_client: Client,
+    user: User,
+    no_ingestion_thread: list,
+    db_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Success wires the creator to ``request.user``; a provision failure adds no thread."""
+    # -- Success path: the creator is exactly the authenticated user. -------
+    response = _create(auth_client, name="Owned", url="https://example.com/s")
+    assert response.status_code == 202
+    project = Project.objects.get(pk=response.json()["data"]["id"])
+    assert project.creator_id == user.pk
+    # Exactly one ingestion thread was wired up for the successful create.
+    assert len(no_ingestion_thread) == 1
+
+    # -- Rollback path: DB provisioning fails, so no new thread is started. --
+    def boom(_proj_id: int) -> None:
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr("src.projects.views.project.create_project_db", boom)
+    failure = _create(auth_client, name="Doomed", url="https://example.com/s")
+
+    assert failure.status_code == 500
+    assert failure.json()["error"] == "projects.create.failed"
+    assert Project.objects.filter(name="Doomed").count() == 0
+    # The failure path started no additional thread (still just the one above).
+    assert len(no_ingestion_thread) == 1
+
+
+# ---------------------------------------------------------------------------
+# -- Gap 5: parametrized accept/reject boundary for names and urls
+# ---------------------------------------------------------------------------
+
+
+# NOTE: ``' '`` (a single space) is intentionally absent from the invalid-name
+# table: the regex char class ``[a-zA-Z0-9_\-: ]+`` includes a space, so a
+# space-only name is *accepted* (length 1 <= 30). See the acceptance test below.
+@pytest.mark.parametrize(
+    "name",
+    [
+        "",  # empty: the ``+`` quantifier needs >= 1 char
+        "a" * 31,  # over Field(max_length=30)
+        "bad/name!",  # '/' and '!' not in the allowed set
+        "emoji\U0001f600",  # emoji not in the allowed set
+        "semi;colon",  # ';' not in the allowed set
+        "tab\tname",  # control char not in the allowed set
+        "new\nline",  # newline not in the allowed set
+        "dot.name",  # '.' not in the allowed set
+    ],
+)
+def test_create_rejects_invalid_names_parametrized(
+    auth_client: Client,
+    no_ingestion_thread: list,
+    db_path: Path,
+    name: str,
+) -> None:
+    response = _create(auth_client, name=name, url="https://example.com/s")
+    assert response.status_code == 400
+    assert response.json()["error"] == "generic.invalid_body"
+    assert Project.objects.count() == 0
+    assert no_ingestion_thread == []
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "not-a-url",  # no scheme/host
+        "ftp://x",  # HttpUrl allows only http/https
+        "javascript:alert(1)",  # non-http scheme
+        "http://",  # scheme without a host
+        "",  # empty
+        "example.com/s",  # missing scheme
+    ],
+)
+def test_create_rejects_invalid_urls_parametrized(
+    auth_client: Client,
+    no_ingestion_thread: list,
+    db_path: Path,
+    url: str,
+) -> None:
+    response = _create(auth_client, name="Valid Name", url=url)
+    assert response.status_code == 400
+    assert response.json()["error"] == "generic.invalid_body"
+    assert Project.objects.count() == 0
+    assert no_ingestion_thread == []
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "a",  # single letter
+        " ",  # single space is allowed by the char class
+        "a" * 30,  # exactly at the max_length boundary
+        "Valid Name",  # spaces allowed
+        "with_under-score",  # '_' and '-' allowed
+        "colon:name",  # ':' allowed
+        "MiEIC 2024",  # digits allowed
+    ],
+)
+def test_create_accepts_valid_names_parametrized(
+    auth_client: Client,
+    no_ingestion_thread: list,
+    db_path: Path,
+    name: str,
+) -> None:
+    """Names within the allowed char class and length are accepted (202)."""
+    response = _create(auth_client, name=name, url="https://example.com/s")
+    assert response.status_code == 202
+    assert response.json()["data"]["name"] == name
+    assert Project.objects.filter(name=name).count() == 1
+
+
+# ---------------------------------------------------------------------------
+# -- Gap 6: PATCH/DELETE unauthenticated return 401
+# ---------------------------------------------------------------------------
+
+
+def test_rename_unauthenticated_returns_401(db: None) -> None:
+    response = Client().patch(
+        _project_url(1),
+        data=json.dumps({"name": "Whatever"}),
+        content_type="application/json",
+    )
+    assert response.status_code == 401
+    assert response.json()["error"] == "auth.not_authenticated"
+
+
+def test_delete_unauthenticated_returns_401(db: None) -> None:
+    response = Client().delete(_project_url(1))
+    assert response.status_code == 401
+    assert response.json()["error"] == "auth.not_authenticated"

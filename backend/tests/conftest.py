@@ -86,3 +86,64 @@ def project_db(
     finally:
         session.close()
         evict_engine(db_path)
+
+
+@pytest.fixture
+def other_user(db: None) -> User:
+    """A second active ``users.User``, distinct from ``user``.
+
+    Access to a project is *not* scoped to its creator (``require_project`` only
+    checks existence), so this fixture exists to document that shared-access
+    behavior end to end — a logged-in non-owner can still reach the data.
+    """
+    return User.objects.create_user(
+        email="other@example.com",
+        username="other",
+        password="test-pass-1234",
+        is_active=True,
+    )
+
+
+@pytest.fixture
+def other_auth_client(other_user: User) -> Client:
+    """A Django test client logged in as ``other_user`` (a non-owner)."""
+    client = Client()
+    client.force_login(other_user)
+    return client
+
+
+@pytest.fixture
+def second_project(user: User) -> Project:
+    """A second ``projects.Project`` owned by ``user``; used for cross-project isolation."""
+    return Project.objects.create(
+        name="Second Project",
+        url="https://example.com/schedule-2",
+        creator=user,
+    )
+
+
+@pytest.fixture
+def second_project_db(
+    second_project: Project,
+    settings: SettingsWrapper,
+    tmp_path: Path,
+) -> Iterator[Session]:
+    """Provision a *second* per-project SQLAlchemy DB and yield a session for seeding.
+
+    Mirrors ``project_db`` but for ``second_project``, under the same
+    ``tmp_path`` root, so a test can seed two independent project databases and
+    assert that an id living in one never leaks into the other (each project has
+    its own SQLite file). Safe to use alongside ``project_db`` in one test.
+    """
+    settings.PROJECTS_DB_PATH = tmp_path
+
+    db_path = general_db(second_project.pk)
+    project_dir(second_project.pk).mkdir(parents=True, exist_ok=True)
+    init_engine(db_path)
+
+    session = get_session(db_path)
+    try:
+        yield session
+    finally:
+        session.close()
+        evict_engine(db_path)

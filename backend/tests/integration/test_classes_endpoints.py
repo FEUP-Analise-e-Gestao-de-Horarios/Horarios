@@ -14,6 +14,7 @@ sets; the volatile ``timestamp`` is only checked for presence.
 
 import uuid
 
+import pytest
 from django.test import Client
 from sqlalchemy.orm import Session
 
@@ -55,6 +56,31 @@ def test_list_unknown_project_returns_404(auth_client: Client, project: Project)
 def test_detail_unauthenticated_returns_401(project: Project, project_db: Session) -> None:
     response = Client().get(_detail_url(project.pk, uuid.uuid7()))
     assert response.status_code == 401
+
+
+def test_detail_unauthenticated_returns_auth_error_code(
+    project: Project,
+    project_db: Session,
+) -> None:
+    # Strengthens the status-only test above: a wrong-but-401 response must not pass.
+    response = Client().get(_detail_url(project.pk, uuid.uuid7()))
+    assert response.status_code == 401
+    assert response.json()["error"] == "auth.not_authenticated"
+
+
+@pytest.mark.parametrize("method", ["post", "put", "patch", "delete"])
+def test_write_methods_return_405(
+    method: str,
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    # Both views define only get(); every write verb falls through to Django's
+    # http_method_not_allowed. These endpoints are read-only.
+    for url in (_list_url(project.pk), _detail_url(project.pk, uuid.uuid7())):
+        response = getattr(auth_client, method)(url)
+        assert response.status_code == 405
+        assert "GET" in response.headers["Allow"]
 
 
 # ---------------------------------------------------------------------------
@@ -144,3 +170,24 @@ def test_detail_returns_year_degree_blocks_and_red_blocks(
     assert block["sessions"][0]["classes"][0]["code"] == "1LEIC01"
     # One red block.
     assert [rb["hour"] for rb in data["red_blocks"]] == [1000]
+
+
+def test_detail_empty_blocks_and_red_blocks(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    # A class with no sessions and no red blocks exercises the empty-collection
+    # path of WeekBlock.from_sessions and the schema's list defaults.
+    klass = make_class(project_db, code="1LEIC01")
+
+    response = auth_client.get(_detail_url(project.pk, klass.id))
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["code"] == "1LEIC01"
+    assert data["blocks"] == []
+    assert data["red_blocks"] == []
+    # The nested year/degree are still present.
+    assert data["year"]["id"] == str(klass.year_id)
+    assert data["year"]["degree"]["id"] == str(klass.year.degree_id)

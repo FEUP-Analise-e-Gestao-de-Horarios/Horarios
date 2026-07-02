@@ -28,6 +28,7 @@ from tests.factories import (
     make_subject,
     make_teacher,
     make_teacher_red_block,
+    make_year,
 )
 
 
@@ -189,3 +190,156 @@ def test_detail_returns_subjects_classes_blocks_and_red_blocks(
     red_block = data["red_blocks"][0]
     assert red_block["hour"] == 1400
     assert red_block["weekday"] == "tuesday"
+
+
+def test_detail_excludes_other_teachers_data(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    # A single shared year/degree so the two classes below do not both
+    # auto-create a degree with the same (unique) acronym.
+    year = make_year(project_db)
+
+    # Teacher A: own session carrying its own class + subject, plus its own red block.
+    teacher_a = make_teacher(project_db, acronym="AAA", name="Alpha", number=100)
+    class_a = make_class(project_db, year=year, code="1LEIC01")
+    subject_a = make_subject(project_db, year=year, acronym="SA", name="Subject A")
+    session_a = make_session(project_db)
+    make_session_class_subject(
+        project_db,
+        session_row=session_a,
+        class_row=class_a,
+        subject=subject_a,
+    )
+    link_session_teacher(project_db, session_row=session_a, teacher=teacher_a)
+    make_teacher_red_block(project_db, teacher=teacher_a, hour=1000, weekday=WeekDay.MONDAY)
+
+    # Teacher B: a completely distinct session/class/subject and its own red block.
+    teacher_b = make_teacher(project_db, acronym="BBB", name="Beta", number=200)
+    class_b = make_class(project_db, year=year, code="2LEIC02")
+    subject_b = make_subject(project_db, year=year, acronym="SB", name="Subject B")
+    session_b = make_session(project_db, start_time=14, weekday=WeekDay.FRIDAY)
+    make_session_class_subject(
+        project_db,
+        session_row=session_b,
+        class_row=class_b,
+        subject=subject_b,
+    )
+    link_session_teacher(project_db, session_row=session_b, teacher=teacher_b)
+    make_teacher_red_block(project_db, teacher=teacher_b, hour=1600, weekday=WeekDay.FRIDAY)
+
+    response = auth_client.get(_detail_url(project.pk, teacher_a.id))
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+
+    # Only A's subject/class/red block are present; none of B's leak in.
+    assert {s["id"] for s in data["subjects"]} == {str(subject_a.id)}
+    assert {c["id"] for c in data["classes"]} == {str(class_a.id)}
+    assert str(subject_b.id) not in {s["id"] for s in data["subjects"]}
+    assert str(class_b.id) not in {c["id"] for c in data["classes"]}
+
+    # Only A's session appears in the week blocks.
+    session_ids = {s["id"] for block in data["blocks"] for s in block["sessions"]}
+    assert session_ids == {str(session_a.id)}
+    assert str(session_b.id) not in session_ids
+
+    # Only A's red block (hour 1000, monday); B's (1600, friday) is excluded.
+    assert [(rb["hour"], rb["weekday"]) for rb in data["red_blocks"]] == [(1000, "monday")]
+
+
+# ---------------------------------------------------------------------------
+# -- List stats: distinct / coalesce branches
+# ---------------------------------------------------------------------------
+
+
+def test_list_counts_distinct_subjects_and_classes(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    # One teacher wired to two sessions. Both sessions teach the SAME subject but
+    # cover two different classes, and one class is repeated across the sessions.
+    # Without .distinct() the join fans out: subjects would count 3 and classes 3.
+    teacher = make_teacher(project_db, acronym="AAA", name="Alpha", number=100)
+    subject = make_subject(project_db, acronym="ONE", name="Only Subject")
+    year = subject.years[0]
+    class_1 = make_class(project_db, year=year, code="C1")
+    class_2 = make_class(project_db, year=year, code="C2")
+
+    session_1 = make_session(project_db, start_time=9)
+    make_session_class_subject(
+        project_db,
+        session_row=session_1,
+        class_row=class_1,
+        subject=subject,
+    )
+    link_session_teacher(project_db, session_row=session_1, teacher=teacher)
+
+    session_2 = make_session(project_db, start_time=11)
+    # session_2 repeats class_1 (same subject) AND introduces class_2.
+    make_session_class_subject(
+        project_db,
+        session_row=session_2,
+        class_row=class_1,
+        subject=subject,
+    )
+    make_session_class_subject(
+        project_db,
+        session_row=session_2,
+        class_row=class_2,
+        subject=subject,
+    )
+    link_session_teacher(project_db, session_row=session_2, teacher=teacher)
+
+    response = auth_client.get(_list_url(project.pk))
+
+    data = response.json()["data"]
+    assert data["count"] == 1
+    stats = data["teachers"][0]
+    assert stats["id"] == str(teacher.id)
+    assert stats["subjects"] == 1  # distinct subject
+    assert stats["classes"] == 2  # distinct classes C1, C2 (C1 repeated)
+    assert stats["sessions"] == 2  # distinct sessions
+
+
+def test_list_teacher_session_without_class_subject_counts(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    # Teacher linked to a session that has NO SessionClassSubject row: the
+    # outerjoin leaves subject_id/class_id NULL, so count(distinct) coalesces to
+    # 0 while the session itself is still counted once.
+    teacher = make_teacher(project_db, acronym="AAA", name="Alpha", number=100)
+    session_row = make_session(project_db)
+    link_session_teacher(project_db, session_row=session_row, teacher=teacher)
+
+    response = auth_client.get(_list_url(project.pk))
+
+    data = response.json()["data"]
+    assert data["count"] == 1
+    stats = data["teachers"][0]
+    assert stats["id"] == str(teacher.id)
+    assert stats["sessions"] == 1
+    assert stats["subjects"] == 0
+    assert stats["classes"] == 0
+    assert stats["red_blocks"] == 0
+
+
+def test_detail_malformed_id_returns_404_and_401_body_checked(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    # (1) A non-UUID path segment never matches the <uuid:teacher_id> converter,
+    # so it is a resolver 404 rather than the projects.teachers.not_found envelope.
+    response = auth_client.get(f"/api/projects/{project.pk}/teachers/not-a-uuid")
+    assert response.status_code == 404
+    assert b"projects.teachers.not_found" not in response.content
+
+    # (2) Detail without auth returns the standard auth envelope, not just a 401.
+    response = Client().get(_detail_url(project.pk, uuid.uuid7()))
+    assert response.status_code == 401
+    assert response.json()["error"] == "auth.not_authenticated"

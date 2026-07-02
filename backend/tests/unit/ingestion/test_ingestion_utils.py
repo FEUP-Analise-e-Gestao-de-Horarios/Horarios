@@ -105,3 +105,78 @@ def test_extract_teachers_flattens_across_pages() -> None:
 def test_extract_teachers_empty_when_no_pages_loaded() -> None:
     degrees = _degrees({"1LEIC01": ["a.html"]})
     assert extract_teachers_from_class_pages(degrees) == []
+
+
+def test_extract_teachers_keeps_duplicates_across_pages() -> None:
+    # One class with two pages that BOTH list teacher code 1, plus a second
+    # class page listing code 2. extract_teachers_from_class_pages is a plain
+    # flatten with no dedup, so the same code appearing on two pages must be
+    # preserved (dedup is a downstream responsibility). Also exercises the
+    # inner `for class_page in class_["pages"]` loop with >1 page per class.
+    degrees = _degrees({"1LEIC01": ["a.html", "b.html"], "1LEIC02": ["c.html"]})
+    scraper = _FakeScraper(
+        {
+            "a.html": _blank_page([{"code": 1, "acronym": "A", "name": "Alpha"}]),
+            "b.html": _blank_page([{"code": 1, "acronym": "A", "name": "Alpha"}]),
+            "c.html": _blank_page([{"code": 2, "acronym": "B", "name": "Beta"}]),
+        },
+    )
+    load_class_pages(degrees, scraper)  # type: ignore[arg-type]
+
+    teachers = extract_teachers_from_class_pages(degrees)
+
+    assert [t["code"] for t in teachers] == [1, 1, 2]
+
+
+def test_load_class_pages_iterates_all_degrees_and_years() -> None:
+    # The shared _degrees helper only ever builds one degree with one year, so
+    # the outer `for degree in degrees` / `for year in degree["years"]` loops
+    # run exactly once. Build two degrees, each with two years, each year with
+    # one class holding a single link, to prove the full 4-level nesting is
+    # walked in order (a dropped/reordered outer level would be caught here).
+    degrees: list[Degree] = [
+        {
+            "acronym": "LEIC",
+            "name": "Curso A",
+            "years": [
+                {
+                    "number": 1,
+                    "classes": [{"code": "A1", "links": ["a1.html"], "pages": []}],
+                },
+                {
+                    "number": 2,
+                    "classes": [{"code": "A2", "links": ["a2.html"], "pages": []}],
+                },
+            ],
+        },
+        {
+            "acronym": "MEIC",
+            "name": "Curso B",
+            "years": [
+                {
+                    "number": 1,
+                    "classes": [{"code": "B1", "links": ["b1.html"], "pages": []}],
+                },
+                {
+                    "number": 2,
+                    "classes": [{"code": "B2", "links": ["b2.html"], "pages": []}],
+                },
+            ],
+        },
+    ]
+    scraper = _FakeScraper(
+        {
+            "a1.html": _blank_page([]),
+            "a2.html": _blank_page([]),
+            "b1.html": _blank_page([]),
+            "b2.html": _blank_page([]),
+        },
+    )
+
+    load_class_pages(degrees, scraper)  # type: ignore[arg-type]
+
+    assert scraper.requested == ["a1.html", "a2.html", "b1.html", "b2.html"]
+    for degree in degrees:
+        for year in degree["years"]:
+            for class_ in year["classes"]:
+                assert len(class_["pages"]) == 1

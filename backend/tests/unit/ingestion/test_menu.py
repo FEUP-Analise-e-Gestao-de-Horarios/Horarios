@@ -253,3 +253,126 @@ def test_rooms_info_entry_without_anchor_is_skipped() -> None:
     ).find("li")
     rooms = extract_rooms_info(li)
     assert [r["name"] for r in rooms] == ["B002"]
+
+
+# ---------------------------------------------------------------------------
+# -- extract_sessions_info: malformed label / structural error branches
+# ---------------------------------------------------------------------------
+
+
+def _turmas_li_with_class_subtree(class_subtree: str):
+    """Wrap a raw turma-level ``class_subtree`` in a full degree>ano>plano tree.
+
+    Produces a Turmas ``<li>`` whose single degree (``LEIC - Curso``) has one
+    ``Ano 1`` whose plano ``<li>`` carries ``class_subtree`` as its turmas
+    ``<ul>`` body — so the parser descends all the way to the class level.
+    """
+    html = (
+        "<li><a>Turmas</a><ul>"
+        "<li><a>LEIC - Curso</a><ul>"
+        "<li><a>Ano 1</a><ul><li><ul>"
+        f"{class_subtree}"
+        "</ul></li></ul></li>"
+        "</ul></li>"
+        "</ul></li>"
+    )
+    return _soup(html).find("li")
+
+
+def test_sessions_info_degree_label_without_separator_raises() -> None:
+    # A degree anchor with no ' - ' separator is rejected with a descriptive
+    # error instead of an opaque "not enough values to unpack".
+    li = _soup("<li><a>Turmas</a><ul><li><a>LEIC</a></li></ul></li>").find("li")
+    with pytest.raises(ValueError, match="Malformed curso label"):
+        extract_sessions_info(li)
+
+    # A name that legitimately contains ' - ' still parses: split only once,
+    # acronym vs. the remainder (maxsplit=1), no "too many values" crash.
+    degree = H._degree_li("A", "B - C", [(1, (("1A01", ("w.html",)),))])
+    ok = _soup(f"<li><a>Turmas</a><ul>{degree}</ul></li>").find("li")
+    (parsed,) = extract_sessions_info(ok)
+    assert (parsed["acronym"], parsed["name"]) == ("A", "B - C")
+
+
+@pytest.mark.parametrize("year_label", ["Ano", "Ano X", "Ano ", "Primeiro", "1"])
+def test_sessions_info_malformed_year_number_raises(year_label: str) -> None:
+    # A year anchor that is not 'Ano <int>' is rejected descriptively rather
+    # than raising a raw IndexError ('Ano') or int() ValueError ('Ano X').
+    html = (
+        "<li><a>Turmas</a><ul>"
+        f"<li><a>LEIC - Curso</a><ul><li><a>{year_label}</a></li></ul></li>"
+        "</ul></li>"
+    )
+    with pytest.raises(ValueError, match="Malformed ano label"):
+        extract_sessions_info(_soup(html).find("li"))
+
+
+@pytest.mark.parametrize(
+    ("year_subtree", "expected"),
+    [
+        ("<li>no anchor</li>", "Could not find <a> in ano item"),
+        ("<li><a>Ano 1</a></li>", "plano <ul> for ano"),
+        ("<li><a>Ano 1</a><ul></ul></li>", "<li> in plano for ano"),
+    ],
+)
+def test_sessions_info_year_level_missing_elements_raise(
+    year_subtree: str,
+    expected: str,
+) -> None:
+    html = f"<li><a>Turmas</a><ul><li><a>LEIC - Curso</a><ul>{year_subtree}</ul></li></ul></li>"
+    with pytest.raises(ValueError, match=expected):
+        extract_sessions_info(_soup(html).find("li"))
+
+
+@pytest.mark.parametrize(
+    ("class_subtree", "expected"),
+    [
+        ("<li>no anchor</li>", "Could not find <a> in turma item"),
+        ("<li><a>1LEIC01</a></li>", "semanas <ul> for turma"),
+        (
+            "<li><a>1LEIC01</a><ul><li>no anchor</li></ul></li>",
+            "<a> in semana item for turma",
+        ),
+    ],
+)
+def test_sessions_info_class_and_week_level_missing_elements_raise(
+    class_subtree: str,
+    expected: str,
+) -> None:
+    li = _turmas_li_with_class_subtree(class_subtree)
+    with pytest.raises(ValueError, match=expected):
+        extract_sessions_info(li)
+
+
+def test_sessions_info_empty_degree_anchor_raises() -> None:
+    # An empty degree <a> (contents falsy) is rejected before the label split.
+    li = _soup("<li><a>Turmas</a><ul><li><a></a><ul></ul></li></ul></li>").find("li")
+    with pytest.raises(ValueError, match="Empty <a> contents in curso menu item"):
+        extract_sessions_info(li)
+
+
+# ---------------------------------------------------------------------------
+# -- extract_rooms_info: further error / skip branches
+# ---------------------------------------------------------------------------
+
+
+def test_rooms_info_timetable_link_without_href_raises() -> None:
+    # The timetable-link anchor exists but carries no href attribute.
+    li = _soup(
+        '<li><a>Salas</a><ul><li><a>B001</a><a class="timetable-link">h</a></li></ul></li>',
+    ).find("li")
+    with pytest.raises(ValueError, match="Timetable link has no href"):
+        extract_rooms_info(li)
+
+
+def test_rooms_info_empty_name_entry_is_skipped() -> None:
+    # A room whose name anchor is empty (and not a __cf_email__ span) is
+    # dropped rather than emitted with name=''. The valid B002 still parses.
+    li = _soup(
+        "<li><a>Salas</a><ul>"
+        '<li><a></a><a class="timetable-link" href="x.html">h</a></li>'
+        '<li><a>B002</a><a class="timetable-link" href="b002.html">h</a></li>'
+        "</ul></li>",
+    ).find("li")
+    rooms = extract_rooms_info(li)
+    assert [r["name"] for r in rooms] == ["B002"]

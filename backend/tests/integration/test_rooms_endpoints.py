@@ -14,6 +14,7 @@ sets or lookup dicts; the volatile ``timestamp`` is only checked for presence.
 
 import uuid
 
+import pytest
 from django.test import Client
 from sqlalchemy.orm import Session
 
@@ -26,6 +27,7 @@ from tests.factories import (
     make_session,
     make_session_class_subject,
     make_subject,
+    make_year,
 )
 
 
@@ -175,3 +177,125 @@ def test_detail_returns_blocks_and_red_blocks(
     # One red block.
     assert [rb["hour"] for rb in data["red_blocks"]] == [1000]
     assert data["red_blocks"][0]["weekday"] == "monday"
+
+
+def test_detail_excludes_other_rooms_blocks_and_red_blocks(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """Room detail is room-scoped: another room's sessions and red blocks are excluded."""
+    # A shared year (its degree acronym is unique) so both classes can reuse it.
+    year = make_year(project_db)
+
+    # Room A: its own linked session + red block.
+    room_a = make_room(project_db, name="A101")
+    klass_a = make_class(project_db, year=year, code="1LEIC0A")
+    subject_a = make_subject(project_db, year=year)
+    session_a = make_session(project_db)
+    make_session_class_subject(
+        project_db,
+        session_row=session_a,
+        class_row=klass_a,
+        subject=subject_a,
+    )
+    link_session_room(project_db, session_row=session_a, room=room_a)
+    make_room_red_block(project_db, room=room_a, hour=1000)
+
+    # Room B: its own linked session + red block, must never leak into A's detail.
+    room_b = make_room(project_db, name="B101")
+    klass_b = make_class(project_db, year=year, code="1LEIC0B")
+    subject_b = make_subject(project_db, year=year)
+    session_b = make_session(project_db)
+    make_session_class_subject(
+        project_db,
+        session_row=session_b,
+        class_row=klass_b,
+        subject=subject_b,
+    )
+    link_session_room(project_db, session_row=session_b, room=room_b)
+    make_room_red_block(project_db, room=room_b, hour=2000)
+
+    response = auth_client.get(_detail_url(project.pk, room_a.id))
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["id"] == str(room_a.id)
+    # Only room A's red block hour is present; room B's (2000) is excluded.
+    assert [rb["hour"] for rb in data["red_blocks"]] == [1000]
+    # Only room A's session appears in the blocks; room B's is excluded.
+    block_session_ids = {s["id"] for block in data["blocks"] for s in block["sessions"]}
+    assert block_session_ids == {str(session_a.id)}
+    # And every returned session is bound only to room A.
+    block_room_ids = {
+        r["id"] for block in data["blocks"] for s in block["sessions"] for r in s["rooms"]
+    }
+    assert block_room_ids == {str(room_a.id)}
+
+
+def test_detail_returns_all_red_blocks(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """The red_blocks relationship returns every seeded row, not just one."""
+    from src.projects.projects_db.schemas.weekday import WeekDay
+
+    room = make_room(project_db, name="B101")
+    seeded = {
+        (WeekDay.MONDAY, 900),
+        (WeekDay.WEDNESDAY, 1400),
+        (WeekDay.FRIDAY, 1700),
+    }
+    for weekday, hour in seeded:
+        make_room_red_block(project_db, room=room, hour=hour, weekday=weekday)
+
+    response = auth_client.get(_detail_url(project.pk, room.id))
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert len(data["red_blocks"]) == 3
+    returned = {(rb["weekday"], rb["hour"]) for rb in data["red_blocks"]}
+    assert returned == {(weekday.value, hour) for weekday, hour in seeded}
+
+
+# ---------------------------------------------------------------------------
+# -- Read-only routes reject mutating verbs
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("method", ["post", "put", "patch", "delete"])
+def test_list_and_detail_reject_non_get_methods(
+    method: str,
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """The GET-only rooms list/detail views refuse mutating verbs with 405."""
+    room = make_room(project_db, name="B101")
+
+    list_response = getattr(auth_client, method)(_list_url(project.pk))
+    assert list_response.status_code == 405
+
+    detail_response = getattr(auth_client, method)(_detail_url(project.pk, room.id))
+    assert detail_response.status_code == 405
+
+
+@pytest.mark.parametrize(
+    "url_builder",
+    [
+        lambda project: _list_url(project.pk),
+        lambda project: _detail_url(project.pk, uuid.uuid7()),
+        # The project *detail* view defines get/patch/delete but not post.
+        lambda project: f"/api/projects/{project.pk}",
+    ],
+)
+def test_write_methods_on_readonly_views_return_405(
+    url_builder,
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """A POST to any of these read-only/undefined-verb routes returns 405."""
+    response = auth_client.post(url_builder(project))
+    assert response.status_code == 405

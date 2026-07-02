@@ -120,6 +120,67 @@ def test_seeded_db_reports_each_count(
     }
 
 
+def test_seeded_db_reports_each_count_with_distinct_values(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    # Every entity count is a distinct integer (1..7) so each scalar-subquery
+    # label in ``get_overview`` is uniquely pinned: a swapped label (e.g.
+    # rooms<->classes) would fail here instead of slipping through on ties.
+
+    # degrees = 1
+    degree = make_degree(project_db)
+
+    # years = 2 (both hung off the one degree)
+    year = make_year(project_db, degree=degree, number=1)
+    make_year(project_db, degree=degree, number=2)
+
+    # subjects = 3
+    subject = make_subject(project_db, year=year)
+    make_subject(project_db, year=year)
+    make_subject(project_db, year=year)
+
+    # classes = 4
+    klass = make_class(project_db, year=year, code="1LEIC01")
+    make_class(project_db, year=year, code="1LEIC02")
+    make_class(project_db, year=year, code="1LEIC03")
+    make_class(project_db, year=year, code="1LEIC04")
+
+    # teachers = 5
+    for _ in range(5):
+        make_teacher(project_db)
+
+    # rooms = 6
+    for n in range(6):
+        make_room(project_db, name=f"B10{n}")
+
+    # sessions = 7 (one wired to a class/subject)
+    session_row = make_session(project_db)
+    for _ in range(6):
+        make_session(project_db)
+    make_session_class_subject(
+        project_db,
+        session_row=session_row,
+        class_row=klass,
+        subject=subject,
+    )
+
+    response = auth_client.get(_stats_url(project.pk))
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data == {
+        "degrees": 1,
+        "years": 2,
+        "subjects": 3,
+        "classes": 4,
+        "teachers": 5,
+        "rooms": 6,
+        "sessions": 7,
+    }
+
+
 def test_stats_envelope_carries_message_and_timestamp(
     auth_client: Client,
     project: Project,

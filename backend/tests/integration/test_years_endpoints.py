@@ -16,9 +16,11 @@ lookup dicts; the volatile ``timestamp`` is only checked for presence.
 import uuid
 
 from django.test import Client
+from sqlalchemy import insert
 from sqlalchemy.orm import Session
 
 from src.projects.models import Project
+from src.projects.projects_db.models._secondary_tables import subject_years
 from tests.factories import (
     make_class,
     make_degree,
@@ -108,6 +110,59 @@ def test_list_reports_subject_class_and_session_counts(
     assert by_number[2]["sessions"] == 0
 
 
+def test_list_shared_subject_counts_in_both_years_without_double_counting_sessions(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    # One subject taught in TWO years of the same degree, linked to each via the
+    # ``subject_years`` m2m. Its only session is attended by a class that lives
+    # in year A. This exercises the DAO's documented no-double-count branch:
+    # subjects are m2m-driven (counted in every year they are linked to), while
+    # sessions are class-driven (counted only in the year owning the class).
+    degree = make_degree(project_db)
+    year_a = make_year(project_db, degree=degree, number=1)
+    year_b = make_year(project_db, degree=degree, number=2)
+
+    subject = make_subject(project_db, year=year_a)
+    # Second m2m link so the same UC also belongs to year B.
+    project_db.execute(
+        insert(subject_years).values(subject_id=subject.id, year_id=year_b.id),
+    )
+    project_db.commit()
+
+    # The shared UC's session is attended by a class in year A only.
+    klass = make_class(project_db, year=year_a, code="1LEIC01")
+    session_row = make_session(project_db)
+    make_session_class_subject(
+        project_db,
+        session_row=session_row,
+        class_row=klass,
+        subject=subject,
+    )
+
+    response = auth_client.get(_list_url(project.pk))
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["count"] == 2
+    by_number = {y["number"]: y for y in data["years"]}
+
+    # The shared UC is counted once in EACH year it is linked to (not skipped,
+    # not merged) — one subject in year A and one in year B.
+    assert by_number[1]["subjects"] == 1
+    assert by_number[2]["subjects"] == 1
+
+    # Only year A owns a class; year B has none.
+    assert by_number[1]["classes"] == 1
+    assert by_number[2]["classes"] == 0
+
+    # Sessions are class-driven: the lone session belongs to year A and is NOT
+    # double-counted into year B despite the subject being shared across both.
+    assert by_number[1]["sessions"] == 1
+    assert by_number[2]["sessions"] == 0
+
+
 # ---------------------------------------------------------------------------
 # -- Detail
 # ---------------------------------------------------------------------------
@@ -183,3 +238,26 @@ def test_detail_returns_sorted_subjects_and_classes_with_counts(
     assert classes_by_code["1MEIC01"]["year_id"] == str(year.id)
     assert classes_by_code["1MEIC01"]["sessions"] == 1
     assert classes_by_code["2MEIC02"]["sessions"] == 0
+
+
+def test_detail_empty_subjects_and_classes(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    # A bare year with no subjects and no classes: the detail view still returns
+    # 200 with the year/degree fields and empty ``subjects``/``classes`` lists,
+    # covering the empty-sort branches of the view.
+    year = make_year(project_db, number=5)
+
+    response = auth_client.get(_detail_url(project.pk, year.id))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "timestamp" in body
+    data = body["data"]
+    assert data["id"] == str(year.id)
+    assert data["degree_id"] == str(year.degree_id)
+    assert data["number"] == 5
+    assert data["subjects"] == []
+    assert data["classes"] == []

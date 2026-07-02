@@ -351,3 +351,390 @@ def test_run_failure_marks_project_failed_and_reraises(
 def test_construct_unknown_project_raises(db: None) -> None:
     with pytest.raises(Project.DoesNotExist):
         IngestionManager(proj_id=999_999)
+
+
+# ---------------------------------------------------------------------------
+# -- Appended coverage tests
+# ---------------------------------------------------------------------------
+#
+# The default ``fake_scraper`` fixture drives an internally-consistent dataset
+# (see module docstring). The tests below need bespoke, sometimes deliberately
+# inconsistent, scrape data, so each patches ``manager_module.Scraper`` with a
+# subclass of ``_FakeScraper`` built by this small helper. The subclass inherits
+# the canned teacher/room pages and ``close`` recording; only ``read_menu`` and
+# ``get_class_page`` are overridden with the per-test data.
+
+
+MATH = {"code": "L.EIC002", "name": "Matemática", "acronym": "MATH", "number": 130}
+
+
+def _scraper_returning(degrees, pages_by_link, *, teacher_links=("t/abc.html",)):
+    """Build a ``_FakeScraper`` subclass returning the given menu/pages."""
+
+    class _S(_FakeScraper):
+        def read_menu(self):
+            import copy
+
+            return (list(teacher_links), copy.deepcopy(degrees), copy.deepcopy(_ROOMS))
+
+        def get_class_page(self, link: str):
+            import copy
+
+            return copy.deepcopy(pages_by_link[link])
+
+    return _S
+
+
+def _one_class_degree(code="1LEIC01", link="c1.html", *, number=1):
+    return [
+        {
+            "acronym": "LEIC",
+            "name": "Licenciatura em Engenharia Informatica",
+            "years": [
+                {
+                    "number": number,
+                    "classes": [{"code": code, "links": [link], "pages": []}],
+                },
+            ],
+        },
+    ]
+
+
+# -- 1. Same-week fingerprint clash -----------------------------------------
+
+
+def test_run_raises_when_two_sessions_share_fingerprint_in_same_week(
+    project: Project,
+    project_db: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Two *identical* single-class sessions on the same page: they share every
+    # fingerprinted field, so within each week they collide on the
+    # (week, original_block_id) invariant that _assign_block_ids enforces.
+    dup = _t_session("PROG", WeekDay.MONDAY, 900, 2, [123], ["1LEIC01"], ["B001"], "T")
+    page = {
+        "start_date": WEEK_1,
+        "end_date": WEEK_2,
+        "teachers": [{"code": 123, "acronym": "ABC", "name": "Ada"}],
+        "subjects": [PROG],
+        "sessions": [dict(dup), dict(dup)],
+        "red_blocks": [],
+    }
+    scraper = _scraper_returning(_one_class_degree(), {"c1.html": page})
+    monkeypatch.setattr(manager_module, "Scraper", scraper)
+
+    with (
+        pytest.raises(ValueError, match="share a content fingerprint"),
+        IngestionManager(proj_id=project.pk) as m,
+    ):
+        m.run()
+
+    project.refresh_from_db()
+    assert project.ingestion_failed_at is not None
+    assert project.ingestion_finished_at is None
+
+
+# -- 2. Unknown subject acronym in a session --------------------------------
+
+
+def test_run_raises_on_session_with_unknown_subject_acronym(
+    project: Project,
+    project_db: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The page resolves only PROG, but its session references acronym "XYZ".
+    page = {
+        "start_date": WEEK_1,
+        "end_date": WEEK_2,
+        "teachers": [{"code": 123, "acronym": "ABC", "name": "Ada"}],
+        "subjects": [PROG],
+        "sessions": [
+            _t_session("XYZ", WeekDay.MONDAY, 900, 2, [123], ["1LEIC01"], ["B001"], "T"),
+        ],
+        "red_blocks": [],
+    }
+    scraper = _scraper_returning(_one_class_degree(), {"c1.html": page})
+    monkeypatch.setattr(manager_module, "Scraper", scraper)
+
+    with (
+        pytest.raises(ValueError, match="Subject acronym XYZ"),
+        IngestionManager(proj_id=project.pk) as m,
+    ):
+        m.run()
+
+    project.refresh_from_db()
+    assert project.ingestion_failed_at is not None
+    assert project.ingestion_finished_at is None
+
+
+# -- 3. Subject shared across two years -------------------------------------
+
+
+def test_run_records_subject_shared_across_two_years(
+    project: Project,
+    project_db: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Two years, each with one class whose page lists the *same* subject (120).
+    # The second year must append its Year membership rather than overwrite.
+    degrees = [
+        {
+            "acronym": "LEIC",
+            "name": "Licenciatura em Engenharia Informatica",
+            "years": [
+                {"number": 1, "classes": [{"code": "1LEIC01", "links": ["c1.html"], "pages": []}]},
+                {"number": 2, "classes": [{"code": "2LEIC01", "links": ["c2.html"], "pages": []}]},
+            ],
+        },
+    ]
+    page1 = {
+        "start_date": WEEK_1,
+        "end_date": WEEK_2,
+        "teachers": [{"code": 123, "acronym": "ABC", "name": "Ada"}],
+        "subjects": [PROG],
+        "sessions": [
+            _t_session("PROG", WeekDay.MONDAY, 900, 2, [123], ["1LEIC01"], ["B001"], "T"),
+        ],
+        "red_blocks": [],
+    }
+    page2 = {
+        "start_date": WEEK_1,
+        "end_date": WEEK_2,
+        "teachers": [{"code": 123, "acronym": "ABC", "name": "Ada"}],
+        "subjects": [PROG],
+        "sessions": [
+            _t_session("PROG", WeekDay.MONDAY, 1100, 2, [123], ["2LEIC01"], ["B001"], "T"),
+        ],
+        "red_blocks": [],
+    }
+    scraper = _scraper_returning(degrees, {"c1.html": page1, "c2.html": page2})
+    monkeypatch.setattr(manager_module, "Scraper", scraper)
+
+    with IngestionManager(proj_id=project.pk) as m:
+        m.run()
+
+    db = _fresh_session(project.pk)
+    try:
+        # Exactly one subject row (cached by number 120), shared by both years.
+        assert db.scalar(select(func.count()).select_from(Subject)) == 1
+        subject = db.scalars(select(Subject).where(Subject.number == 120)).one()
+        year_numbers = {year.number for year in subject.years}
+        assert year_numbers == {1, 2}
+        assert len(subject.years) == 2
+    finally:
+        db.close()
+
+
+# -- 4. Multi-class reuse that remaps a differing subject -------------------
+
+
+def test_run_multiclass_reuse_remaps_differing_subject(
+    project: Project,
+    project_db: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Both classes share a TP@1600 session. 1LEIC01 maps it to PROG; when
+    # 1LEIC02's page reuses that session it references MATH instead, forcing the
+    # remap branch (manager.py:625) to overwrite the pre-registered PROG mapping.
+    degrees = [
+        {
+            "acronym": "LEIC",
+            "name": "Licenciatura em Engenharia Informatica",
+            "years": [
+                {
+                    "number": 1,
+                    "classes": [
+                        {"code": "1LEIC01", "links": ["c1.html"], "pages": []},
+                        {"code": "1LEIC02", "links": ["c2.html"], "pages": []},
+                    ],
+                },
+            ],
+        },
+    ]
+    page1 = {
+        "start_date": WEEK_1,
+        "end_date": WEEK_2,
+        "teachers": [{"code": 123, "acronym": "ABC", "name": "Ada"}],
+        "subjects": [PROG],
+        "sessions": [
+            _t_session(
+                "PROG",
+                WeekDay.MONDAY,
+                1600,
+                2,
+                [123],
+                ["1LEIC01", "1LEIC02"],
+                ["B001"],
+                "TP",
+            ),
+        ],
+        "red_blocks": [],
+    }
+    page2 = {
+        "start_date": WEEK_1,
+        "end_date": WEEK_2,
+        "teachers": [{"code": 123, "acronym": "ABC", "name": "Ada"}],
+        "subjects": [PROG, MATH],
+        "sessions": [
+            _t_session(
+                "MATH",
+                WeekDay.MONDAY,
+                1600,
+                2,
+                [123],
+                ["1LEIC01", "1LEIC02"],
+                ["B001"],
+                "TP",
+            ),
+        ],
+        "red_blocks": [],
+    }
+    scraper = _scraper_returning(degrees, {"c1.html": page1, "c2.html": page2})
+    monkeypatch.setattr(manager_module, "Scraper", scraper)
+
+    with IngestionManager(proj_id=project.pk) as m:
+        m.run()
+
+    db = _fresh_session(project.pk)
+    try:
+        prog = db.scalars(select(Subject).where(Subject.number == 120)).one()
+        math = db.scalars(select(Subject).where(Subject.number == 130)).one()
+        class_by_code = {c.code: c.id for c in db.scalars(select(Class)).all()}
+
+        shared = db.scalars(
+            select(SessionModel).where(SessionModel.start_time == 1600),
+        ).all()
+        assert len(shared) == 2  # one reused session per week
+
+        for session in shared:
+            mapping = {scs.class_id: scs.subject_id for scs in session.session_class_subjects}
+            # 1LEIC01 keeps PROG; 1LEIC02 was remapped to MATH.
+            assert mapping[class_by_code["1LEIC01"]] == prog.id
+            assert mapping[class_by_code["1LEIC02"]] == math.id
+    finally:
+        db.close()
+
+
+# -- 5. Distinct sequential shift assignment --------------------------------
+
+
+def test_run_assigns_distinct_sequential_shifts(
+    project: Project,
+    project_db: Session,
+    fake_scraper: list,
+) -> None:
+    with IngestionManager(proj_id=project.pk) as m:
+        m.run()
+
+    db = _fresh_session(project.pk)
+    try:
+        shifts = {c.code: c.shift for c in db.scalars(select(Class)).all()}
+        # Two disjoint T sessions -> the counter advances once per class, so the
+        # two classes get the distinct values 1 and 2 (order-independent).
+        assert shifts["1LEIC01"] != shifts["1LEIC02"]
+        assert {shifts["1LEIC01"], shifts["1LEIC02"]} == {1, 2}
+    finally:
+        db.close()
+
+
+# -- 6. Defensive ValueErrors on _ingest_sessions ---------------------------
+
+
+def test_ingest_sessions_raises_on_missing_year_class_and_page(
+    project: Project,
+    project_db: Session,
+    fake_scraper: list,
+) -> None:
+    # These branches are unreachable through the consistent pipeline, so drive
+    # _ingest_sessions directly with deliberately inconsistent lookup state.
+    with IngestionManager(proj_id=project.pk) as m:
+        # (a) year missing from year_entries.
+        m.year_entries = {}
+        m.class_entries = {}
+        degrees_missing_year = [
+            {"acronym": "LEIC", "name": "x", "years": [{"number": 1, "classes": []}]},
+        ]
+        with pytest.raises(ValueError, match="not found for degree"):
+            m._ingest_sessions(degrees_missing_year)
+
+        # (b) class code missing from class_entries.
+        m.year_entries = {("LEIC", 1): object()}
+        m.class_entries = {}
+        degrees_missing_class = [
+            {
+                "acronym": "LEIC",
+                "name": "x",
+                "years": [
+                    {"number": 1, "classes": [{"code": "NOPE", "links": [], "pages": []}]},
+                ],
+            },
+        ]
+        with pytest.raises(ValueError, match="Class NOPE not found"):
+            m._ingest_sessions(degrees_missing_class)
+
+        # (c) falsy first page (pages=[{}]) -> 'No pages found'.
+        m.year_entries = {("LEIC", 1): object()}
+        m.class_entries = {"1LEIC01": object()}
+        degrees_falsy_page = [
+            {
+                "acronym": "LEIC",
+                "name": "x",
+                "years": [
+                    {"number": 1, "classes": [{"code": "1LEIC01", "links": [], "pages": [{}]}]},
+                ],
+            },
+        ]
+        with pytest.raises(ValueError, match="No pages found"):
+            m._ingest_sessions(degrees_falsy_page)
+
+        # NOTE: an *empty* pages=[] never reaches the intended 'No pages found'
+        # ValueError -- class_["pages"][0] raises IndexError first. Surfaced here
+        # to pin the current (arguably fragile) behavior.
+        degrees_empty_pages = [
+            {
+                "acronym": "LEIC",
+                "name": "x",
+                "years": [
+                    {"number": 1, "classes": [{"code": "1LEIC01", "links": [], "pages": []}]},
+                ],
+            },
+        ]
+        with pytest.raises(IndexError):
+            m._ingest_sessions(degrees_empty_pages)
+
+
+# -- 7. Class-page-only teacher merged with empty red blocks ----------------
+
+
+def test_run_merges_classpage_only_teacher_with_empty_red_blocks(
+    project: Project,
+    project_db: Session,
+    fake_scraper: list,
+) -> None:
+    with IngestionManager(proj_id=project.pk) as m:
+        m.run()
+
+    db = _fresh_session(project.pk)
+    try:
+        # Teacher 456 appears only on 1LEIC01's class page (absent from the
+        # menu), so it is merged in with no red blocks.
+        merged = db.scalars(select(Teacher).where(Teacher.number == 456)).one()
+        assert merged.acronym == "DEF"
+        assert merged.name == "Duarte"
+        merged_blocks = db.scalar(
+            select(func.count())
+            .select_from(TeacherRedBlock)
+            .where(TeacherRedBlock.teacher_id == merged.id),
+        )
+        assert merged_blocks == 0
+
+        # The menu teacher 123 keeps its single red block (900, MONDAY).
+        menu_teacher = db.scalars(select(Teacher).where(Teacher.number == 123)).one()
+        menu_blocks = db.scalars(
+            select(TeacherRedBlock).where(TeacherRedBlock.teacher_id == menu_teacher.id),
+        ).all()
+        assert len(menu_blocks) == 1
+        assert menu_blocks[0].hour == 900
+        assert menu_blocks[0].weekday == WeekDay.MONDAY
+    finally:
+        db.close()
