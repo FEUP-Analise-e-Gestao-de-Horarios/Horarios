@@ -19,7 +19,7 @@ from src.projects.projects_db.schemas.parallel_candidates import (
     ParallelBlockCandidateClass,
     ParallelBlockCandidateDegree,
     ParallelBlockCandidateEdge,
-    ParallelBlockCandidateGroupResponse,
+    ParallelBlockCandidateGroup,
     ParallelBlockCandidateNode,
     ParallelBlockCandidateSession,
     ParallelBlockCandidateSubject,
@@ -208,7 +208,7 @@ class ParallelBlockCandidateDAO:
     # -- Components with display info
     # -------------------------------------------------------------------
 
-    def get_all_groups_with_info(self) -> list[ParallelBlockCandidateGroupResponse]:
+    def get_all_groups_with_info(self) -> list[ParallelBlockCandidateGroup]:
         """Return all candidate groups with per-block session and degree info."""
         components = self.get_candidate_components()
         if not components:
@@ -219,7 +219,7 @@ class ParallelBlockCandidateDAO:
         weeks = self._block_weeks(all_block_ids)
         confirmed = self._confirmed_group_by_block(all_block_ids)
 
-        groups: list[ParallelBlockCandidateGroupResponse] = []
+        groups: list[ParallelBlockCandidateGroup] = []
         for component in components:
             nodes: list[ParallelBlockCandidateNode] = []
             for block_id in sorted(component.block_ids):
@@ -284,7 +284,7 @@ class ParallelBlockCandidateDAO:
                 if edge.block_a in details and edge.block_b in details
             ]
             groups.append(
-                ParallelBlockCandidateGroupResponse(
+                ParallelBlockCandidateGroup(
                     candidate_group_id=component.candidate_group_id,
                     subject=subject,
                     weekday=representative.weekday,

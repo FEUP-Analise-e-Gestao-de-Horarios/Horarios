@@ -16,7 +16,10 @@ from src.projects.projects_db.dao.parallel_block_candidate_dao import ParallelBl
 from src.projects.projects_db.dao.parallel_block_group_dao import ParallelBlockGroupDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
-from src.projects.views.schemas.parallel_block_group_members import SaveParallelGroupMembersRequest
+from src.projects.views.schemas.parallel_blocks import (
+    ParallelCandidateGroupResponse,
+    SaveParallelGroupMembersRequest,
+)
 
 
 class ProjectParallelBlockCandidateView(View):
@@ -29,12 +32,12 @@ class ProjectParallelBlockCandidateView(View):
         with get_project_session(general_db(project_id)) as db_session:
             parallel_block_candidate_dao = ParallelBlockCandidateDAO(db_session)
 
-            result = parallel_block_candidate_dao.get_all_groups_with_info()
+            groups = parallel_block_candidate_dao.get_all_groups_with_info()
 
             return JsonResponse(
                 SuccessResponse(
                     message="Candidate parallel groups retrieved successfully",
-                    data=[group.model_dump(mode="json") for group in result],
+                    data=[ParallelCandidateGroupResponse.model_validate(group) for group in groups],
                 ).model_dump(),
             )
 

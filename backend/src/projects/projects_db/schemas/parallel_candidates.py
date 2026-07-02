@@ -84,7 +84,7 @@ class ParallelBlockCandidateEdge(BaseModel):
     weeks: list[date]
 
 
-class ParallelBlockCandidateGroupResponse(BaseModel):
+class ParallelBlockCandidateGroup(BaseModel):
     """A connected component of the parallel-candidate overlap graph.
 
     ``nodes`` are the blocks; ``edges`` are the undirected adjacencies (blocks
