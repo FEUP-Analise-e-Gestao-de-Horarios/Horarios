@@ -106,6 +106,7 @@ export default function DegreesTab({
               >
                 <Link
                   to={buildPath(ROUTES.DEGREE_DETAIL, { projectId, degreeId: degree.id })}
+                  data-copy-id={degree.id}
                   draggable={false}
                   aria-label={degree.name}
                   className="contents text-inherit no-underline [-webkit-user-drag:none]"

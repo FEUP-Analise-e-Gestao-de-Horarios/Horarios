@@ -47,10 +47,9 @@ class SessionDAO(BaseDAO[Session]):
                     options.append(selectinload(Session.rooms))
                 case cls.Include.SUBJECTS:
                     options.append(
-                        selectinload(Session.session_class_subjects)
-                        .joinedload(SessionClassSubject.subject)
-                        .joinedload(Subject.year)
-                        .joinedload(Year.degree),
+                        selectinload(Session.session_class_subjects).joinedload(
+                            SessionClassSubject.subject,
+                        ),
                     )
                 case cls.Include.CLASSES:
                     options.append(
@@ -257,8 +256,8 @@ class SessionDAO(BaseDAO[Session]):
         stmt = (
             select(Session)
             .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
-            .join(Subject, Subject.id == SessionClassSubject.subject_id)
-            .where(Subject.year_id == year_id)
+            .join(Class, Class.id == SessionClassSubject.class_id)
+            .where(Class.year_id == year_id)
             .distinct()
             .options(*self._load_options(includes))
         )
@@ -301,8 +300,8 @@ class SessionDAO(BaseDAO[Session]):
         year_session_ids = (
             select(Session.id)
             .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
-            .join(Subject, Subject.id == SessionClassSubject.subject_id)
-            .where(Subject.year_id == year_id)
+            .join(Class, Class.id == SessionClassSubject.class_id)
+            .where(Class.year_id == year_id)
         )
         if subject_ids:
             year_session_ids = year_session_ids.where(

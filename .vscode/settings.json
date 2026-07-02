@@ -18,6 +18,7 @@
     "appuser",
     "ASGI",
     "astral",
+    "beautifulsoup",
     "cabtitulo",
     "collectstatic",
     "csrftoken",

@@ -355,13 +355,12 @@ def _conflict_data_to_results(
         degrees: set[str] = set()
         for s in sessions:
             for cs in s.session_class_subjects:
-                # Prefer the class' degree, falling back to the subject's.
-                for owner in (cs.class_, cs.subject):
-                    year = getattr(owner, "year", None)
-                    degree = getattr(year, "degree", None)
-                    if degree is not None:
-                        degrees.add(degree.acronym)
-                        break
+                # A subject can span several years, so the degree is taken from
+                # the class' year rather than the subject's.
+                year = getattr(cs.class_, "year", None)
+                degree = getattr(year, "degree", None)
+                if degree is not None:
+                    degrees.add(degree.acronym)
 
         is_red_block = cid in data.redblock_conflict_ids
 

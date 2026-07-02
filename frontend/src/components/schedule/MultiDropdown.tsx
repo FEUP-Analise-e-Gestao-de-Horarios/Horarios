@@ -1,6 +1,7 @@
 import { useId } from "react";
 import DropdownShell from "./DropdownShell";
 import type { SubjectStyle } from "./subjectColors";
+import type { DropdownOption } from "./types";
 
 const PANEL_CLASS_DEFAULT =
   "w-[min(calc(100vw-1rem),18rem)] max-w-[min(calc(100vw-1rem),18rem)] max-h-64 overflow-x-hidden overflow-y-auto";
@@ -8,12 +9,6 @@ const PANEL_CLASS_FIT_CONTENT =
   "w-[min(calc(100vw-1rem),18rem)] max-w-[min(calc(100vw-1rem),18rem)] overflow-visible";
 const PANEL_CLASS_COMPACT =
   "w-[min(calc(100vw-1rem),10rem)] max-w-[min(calc(100vw-1rem),10rem)] max-h-64 overflow-x-hidden overflow-y-auto";
-
-type DropdownOption = {
-  value: string;
-  label: string;
-  secondaryText?: string;
-};
 
 interface MultiDropdownProps {
   label: string;

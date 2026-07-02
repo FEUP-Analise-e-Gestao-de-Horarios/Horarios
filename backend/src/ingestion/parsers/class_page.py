@@ -279,7 +279,7 @@ def extract_sessions(soup: BeautifulSoup) -> list[Session]:
 
     weekday_row = table_rows[3]
     weekday_colspan: dict[WeekDay, int] = {}
-    for i, day in enumerate(weekday_row.findChildren()):
+    for i, day in enumerate(weekday_row.find_all()):
         if i == 0:
             continue
         weekday_colspan[WeekDay(day.text)] = int(str(day.get("colspan") or 1))
@@ -335,7 +335,7 @@ def extract_sessions(soup: BeautifulSoup) -> list[Session]:
         if session_row is None:
             raise ValueError(f"Session block has no parent row: {session_block}")
 
-        time_cell = session_row.findChild()
+        time_cell = session_row.find()
         if time_cell is None:
             raise ValueError(f"Could not find time cell in session row: {session_row}")
 
