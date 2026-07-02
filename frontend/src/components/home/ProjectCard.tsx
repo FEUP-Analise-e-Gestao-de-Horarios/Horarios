@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useRenameProject, useDeleteProject } from "@/api/hooks/useProjects";
 import { ApiError } from "@/types/api";
 import type { Project } from "@/types/project/project";
+import { PROJECT_NAME_MAX_LENGTH, validateProjectName } from "@/utils/projectName";
 import { Pencil, Trash2, Check, X, Loader2 } from "lucide-react";
 
 interface ProjectCardProps {
@@ -107,6 +108,11 @@ export default function ProjectCard({ project }: ProjectCardProps) {
       return;
     }
     setRenameError(null);
+    const nameError = validateProjectName(editName);
+    if (nameError) {
+      setRenameError(nameError);
+      return;
+    }
     renameProject.mutate(
       { id: project.id, name: editName },
       {
@@ -187,6 +193,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
                   type="text"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
+                  maxLength={PROJECT_NAME_MAX_LENGTH}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleRename();
                     if (e.key === "Escape") {
