@@ -292,7 +292,7 @@ export default function ParallelClassesPage() {
                                     {formatTime(graphStartTime(graph))}
                                   </span>
                                   <span className="text-[11px] text-[#aaa]">
-                                    {graph.nodes.length} turmas
+                                    {graph.nodes.length} aulas
                                   </span>
                                   <div className="ml-auto flex items-center gap-2">
                                     {selection.size > 0 && (
@@ -340,7 +340,7 @@ export default function ParallelClassesPage() {
                           {selectedGraph.subject.name}
                         </span>
                         <span className="text-[11px] text-[#aaa] shrink-0">
-                          {selectedGraph.nodes.length} turmas
+                          {selectedGraph.nodes.length} aulas
                         </span>
                       </div>
                       {selectedValid ? (
