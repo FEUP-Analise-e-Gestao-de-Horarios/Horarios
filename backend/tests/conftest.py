@@ -12,9 +12,11 @@ Two data layers are exercised here (see ``tests/README.md``):
 """
 
 from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
 from django.test import Client
+from pytest_django.fixtures import SettingsWrapper
 from sqlalchemy.orm import Session
 
 from src.projects.models import Project
@@ -53,7 +55,11 @@ def project(user: User) -> Project:
 
 
 @pytest.fixture
-def project_db(project: Project, settings, tmp_path) -> Iterator[Session]:
+def project_db(
+    project: Project,
+    settings: SettingsWrapper,
+    tmp_path: Path,
+) -> Iterator[Session]:
     """Provision the per-project SQLAlchemy DB and yield a session for seeding.
 
     Steps:
