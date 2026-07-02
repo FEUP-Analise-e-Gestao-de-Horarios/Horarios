@@ -164,13 +164,6 @@ CREATE TABLE conflict_tags (
 -- Parallel blocks
 -----------------------------------------------------------
 
-CREATE TABLE parallel_block_candidates (
-    candidate_group_id  UUID NOT NULL,
-    original_block_id   UUID NOT NULL,
-
-    PRIMARY KEY (candidate_group_id, original_block_id)
-);
-
 CREATE TABLE parallel_block_group_members (
     parallel_block_group_id  UUID NOT NULL,
     original_block_id        UUID NOT NULL,

@@ -9,6 +9,10 @@ from src.projects.views.conflicts import (
     ProjectTagView,
 )
 from src.projects.views.degrees import ProjectDegreesView, ProjectDegreeView
+from src.projects.views.parallel_blocks import (
+    ProjectParallelBlockCandidateView,
+    ProjectParallelBlockGroupsView,
+)
 from src.projects.views.project import ProjectsView, ProjectView
 from src.projects.views.rooms import ProjectRoomsView, ProjectRoomView
 from src.projects.views.sessions import ProjectSessionsView
@@ -61,6 +65,11 @@ conflict_patterns = [
     path("/<uuid:conflict_id>", ProjectConflictView.as_view()),
 ]
 
+parallel_block_patterns = [
+    path("candidates", ProjectParallelBlockCandidateView.as_view()),
+    path("groups/", ProjectParallelBlockGroupsView.as_view()),
+]
+
 project_patterns = [
     path("", ProjectView.as_view()),
     path("/stats", ProjectStatsView.as_view()),
@@ -72,6 +81,7 @@ project_patterns = [
     path("/subjects/", include(subject_patterns)),
     path("/classes/", include(class_patterns)),
     path("/sessions/", include(session_patterns)),
+    path("/parallel-blocks/", include(parallel_block_patterns)),
 ]
 
 urlpatterns = [

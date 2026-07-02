@@ -37,7 +37,7 @@ class Project(models.Model):
     # Data
     name: TextField[str | Combinable, str] = TextField(unique=True)
     url: TextField[str | Combinable, str] = TextField()
-    has_selected_aulas_em_paralelo: BooleanField[bool | Combinable, bool] = BooleanField(
+    has_selected_parallel_sessions: BooleanField[bool | Combinable, bool] = BooleanField(
         default=False,
     )
 
