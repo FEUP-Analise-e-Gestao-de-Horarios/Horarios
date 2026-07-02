@@ -51,15 +51,15 @@ class ProjectParallelBlockGroupsView(View):
             dao = ParallelBlockGroupDAO(db_session)
             groups = dao.get_all_groups()
 
-        return JsonResponse(
-            SuccessResponse(
-                message="Parallel group members retrieved successfully",
-                data=[
-                    ParallelGroupResponse(group_id=group_id, block_ids=block_ids)
-                    for group_id, block_ids in groups.items()
-                ],
-            ).model_dump(),
-        )
+            return JsonResponse(
+                SuccessResponse(
+                    message="Parallel group members retrieved successfully",
+                    data=[
+                        ParallelGroupResponse(group_id=group_id, block_ids=block_ids)
+                        for group_id, block_ids in groups.items()
+                    ],
+                ).model_dump(),
+            )
 
     @require_auth
     @require_project
