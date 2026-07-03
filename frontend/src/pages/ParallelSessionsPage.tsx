@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { useParallelSessions } from "@/api/hooks/useParallelSessions";
 import { DAY_ORDER, type ParallelCandidateGraph } from "@/types/parallelSessions";
@@ -57,6 +57,11 @@ export default function ParallelClassesPage() {
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   // The subject whose candidates are listed in the left column.
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
+
+  // Horizontal scroll container of the selected-groups panel and the active
+  // subject's column within it, so selecting a subject scrolls it into view.
+  const groupsScrollRef = useRef<HTMLDivElement | null>(null);
+  const activeGroupColRef = useRef<HTMLDivElement | null>(null);
 
   const {
     degrees,
@@ -143,6 +148,18 @@ export default function ParallelClassesPage() {
       : (subjectNames[0] ?? null);
 
   const subjectGraphs = activeSubject ? (graphsBySubject.get(activeSubject) ?? []) : [];
+
+  // Bring the active subject's column into view when the selection changes.
+  useEffect(() => {
+    const container = groupsScrollRef.current;
+    const col = activeGroupColRef.current;
+    if (!container || !col) return;
+    const cRect = container.getBoundingClientRect();
+    const colRect = col.getBoundingClientRect();
+    const delta = colRect.left - cRect.left;
+    const target = container.scrollLeft + delta - (container.clientWidth - colRect.width) / 2;
+    container.scrollTo({ left: Math.max(0, target), behavior: "smooth" });
+  }, [activeSubject]);
 
   // The single selected year driving the candidate list.
   const activeYearId = yearsWithCandidates.find((y) => selectedYearIds.has(y.id))?.id ?? null;
@@ -475,84 +492,103 @@ export default function ParallelClassesPage() {
                 ) : groupViewsBySubject.size === 0 ? (
                   <p className="text-xs text-[#aaa] text-center py-8">Nenhum grupo criado ainda.</p>
                 ) : (
-                  <div className="flex flex-col gap-5">
+                  <div
+                    ref={groupsScrollRef}
+                    className="flex gap-4 overflow-x-auto [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300/60"
+                  >
                     {[...groupViewsBySubject.entries()]
                       .sort(([a], [b]) => a.localeCompare(b))
-                      .map(([subjName, items]) => (
-                        <div
-                          key={subjName}
-                          className="overflow-hidden rounded-2xl border border-[#d4d4d4] shadow-sm"
-                        >
-                          <div className="px-3 py-2 bg-[#e8e8e8] border-b border-[#d4d4d4]">
-                            <p className="text-[11px] font-bold tracking-widest uppercase text-[#444]">
-                              {subjName}
-                            </p>
-                          </div>
-                          <div className="flex flex-col gap-2 p-2">
-                            {items.map(({ group, weekday, startTime, blocks }) => {
-                              const day = dayConfig(weekday);
-                              const saved = savedGroupIds.has(group.id);
-                              return (
-                                <div
-                                  key={group.id}
-                                  className="overflow-hidden rounded-xl shadow-sm bg-white border border-[#e8e8e8]"
-                                >
+                      .map(([subjName, items]) => {
+                        const isActive = subjName === activeSubject;
+                        return (
+                          <div
+                            key={subjName}
+                            ref={isActive ? activeGroupColRef : undefined}
+                            className={`parallel-col-enter flex flex-col gap-1.5 transition-[flex-grow,min-width] duration-300 ease-out ${
+                              isActive ? "flex-[2.75] min-w-[340px]" : "flex-1 min-w-[210px]"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <p className="text-[11px] font-bold tracking-widest uppercase text-[#888]">
+                                {subjName}
+                              </p>
+                              <span className="text-[10px] font-semibold text-[#bbb] tabular-nums">
+                                {items.length}
+                              </span>
+                              <div className="flex-1 h-px bg-[#e0e0e0]" />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                              {items.map(({ group, weekday, startTime, blocks }) => {
+                                const day = dayConfig(weekday);
+                                const saved = savedGroupIds.has(group.id);
+                                return (
                                   <div
-                                    className={`px-3 py-1.5 flex items-center justify-between ${saved ? "bg-[#1e2028]" : "bg-emerald-200"}`}
+                                    key={group.id}
+                                    className={`flex items-stretch overflow-hidden rounded-lg border bg-white ${
+                                      saved ? "border-[#e4e4e4]" : "border-emerald-300"
+                                    }`}
                                   >
-                                    <div className="flex items-center gap-2">
-                                      <span
-                                        className={`text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded ${day.bg} ${day.text}`}
-                                      >
-                                        {day.short}
-                                      </span>
-                                      <span
-                                        className={`text-[11px] font-bold tabular-nums ${saved ? "text-gray-300" : "text-emerald-900"}`}
-                                      >
-                                        {formatTime(startTime)}
-                                      </span>
-                                    </div>
-                                    <button
-                                      onClick={() => handleRemoveGroup(group.id)}
-                                      className="flex items-center justify-center w-5 h-5 rounded bg-red-600 hover:bg-red-500 transition-colors text-white text-xs font-bold leading-none cursor-pointer"
-                                      title="Remover grupo"
-                                    >
-                                      ×
-                                    </button>
-                                  </div>
-                                  <div className="px-3 py-2 flex flex-col gap-1">
-                                    {blocks.map((block) => {
-                                      const typeStyle = sessionTypeStyle(block.type);
-                                      return (
-                                        <div
-                                          key={block.blockId}
-                                          className="flex items-center gap-1"
+                                    <div
+                                      className={`w-1 shrink-0 ${saved ? "bg-[#c8c8c8]" : "bg-emerald-400"}`}
+                                    />
+                                    <div className="flex-1 min-w-0 px-2.5 py-2">
+                                      <div className="flex items-center gap-2 mb-1.5">
+                                        <span
+                                          className={`text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded ${day.bg} ${day.text}`}
                                         >
-                                          <span
-                                            className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded ${typeStyle.bg} ${typeStyle.text}`}
-                                          >
-                                            {block.type}
-                                          </span>
-                                          <div className="flex flex-wrap gap-1">
-                                            {block.codes.map((code) => (
+                                          {day.short}
+                                        </span>
+                                        <span className="text-[12px] font-bold tabular-nums text-[#333]">
+                                          {formatTime(startTime)}
+                                        </span>
+                                        <span
+                                          className={`text-[10px] font-semibold ${saved ? "text-[#aaa]" : "text-emerald-600"}`}
+                                        >
+                                          {saved ? "Guardada" : "Nova"}
+                                        </span>
+                                        <button
+                                          onClick={() => handleRemoveGroup(group.id)}
+                                          className="ml-auto flex items-center justify-center w-5 h-5 rounded text-[#bbb] hover:bg-red-50 hover:text-red-600 transition-colors text-sm leading-none cursor-pointer"
+                                          title="Remover grupo"
+                                        >
+                                          ×
+                                        </button>
+                                      </div>
+                                      <div className="flex flex-col gap-1">
+                                        {blocks.map((block) => {
+                                          const typeStyle = sessionTypeStyle(block.type);
+                                          return (
+                                            <div
+                                              key={block.blockId}
+                                              className="flex items-center gap-1.5"
+                                            >
                                               <span
-                                                key={`${block.blockId}-${code}`}
-                                                className="rounded px-1.5 py-0.5 text-[11px] font-semibold bg-[#ffc107] text-[#222]"
+                                                className={`shrink-0 w-7 text-center text-[10px] font-bold px-1 py-0.5 rounded ${typeStyle.bg} ${typeStyle.text}`}
                                               >
-                                                {code}
+                                                {block.type}
                                               </span>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
+                                              <div className="flex flex-wrap gap-1">
+                                                {block.codes.map((code) => (
+                                                  <span
+                                                    key={`${block.blockId}-${code}`}
+                                                    className="rounded px-1.5 py-0.5 text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200"
+                                                  >
+                                                    {code}
+                                                  </span>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
                                   </div>
-                                </div>
-                              );
-                            })}
+                                );
+                              })}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                   </div>
                 )}
               </div>

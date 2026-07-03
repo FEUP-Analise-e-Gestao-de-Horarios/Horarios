@@ -343,12 +343,23 @@ export function useParallelSessions(): UseParallelSessionsReturn {
 
   // -- Side-panel group views -------------------------------------------
   const groupViewsBySubject = useMemo(() => {
-    const views: GroupView[] = groups.map((group) => {
+    const views: GroupView[] = [];
+    for (const group of groups) {
       const blocks = group.blockIds
         .map((id) => nodeIndex.get(id))
         .filter((e): e is { node: ParallelBlockNode; graph: ParallelCandidateGraph } => e != null);
+
+      // Mirror the candidate list: only show groups whose blocks touch a
+      // selected year (all years when none is selected).
+      if (
+        selectedYearIdSet.size > 0 &&
+        !blocks.some((e) => e.node.classes.some((c) => selectedYearIdSet.has(c.year_id)))
+      ) {
+        continue;
+      }
+
       const first = blocks[0];
-      return {
+      views.push({
         group,
         subjectName: first?.graph.subject.name ?? "Disciplina",
         weekday: first?.graph.weekday ?? "",
@@ -358,8 +369,8 @@ export function useParallelSessions(): UseParallelSessionsReturn {
           type: e.node.session.type,
           codes: e.node.classes.map((c) => c.code),
         })),
-      };
-    });
+      });
+    }
 
     const map = new Map<string, GroupView[]>();
     for (const view of views) {
@@ -374,7 +385,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
       );
     }
     return map;
-  }, [groups, nodeIndex]);
+  }, [groups, nodeIndex, selectedYearIdSet]);
 
   const savedGroupIds = useMemo(() => new Set(savedSnapshot.map((g) => g.id)), [savedSnapshot]);
 

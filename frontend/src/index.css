@@ -27,3 +27,22 @@
     animation: marquee-scroll var(--marquee-duration, 6s) linear infinite alternate;
   }
 }
+
+/* Entrance for a subject column in the selected-groups panel (parallel classes),
+   so a new subject fades/slides in when its first group is created. Opt-in via
+   reduced-motion so it only animates when motion is welcome. */
+@keyframes parallel-col-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .parallel-col-enter {
+    animation: parallel-col-enter 0.25s ease-out;
+  }
+}
