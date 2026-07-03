@@ -769,11 +769,11 @@ export default function ParallelClassesPage() {
                         Criar grupo ({selectedSelection.size})
                       </button>
                     ) : selectedSelection.size > 0 ? (
-                      <span className="shrink-0 text-[11px] text-[#bbb] font-medium whitespace-nowrap">
+                      <span className="shrink-0 py-1.5 text-[11px] text-[#bbb] font-medium whitespace-nowrap">
                         Liga ≥2 turmas adjacentes
                       </span>
                     ) : selectedAllAssigned ? (
-                      <span className="shrink-0 text-[11px] text-emerald-600 font-semibold whitespace-nowrap">
+                      <span className="shrink-0 py-1.5 text-[11px] text-emerald-600 font-semibold whitespace-nowrap">
                         Todas agrupadas
                       </span>
                     ) : selectedCanGroupAll ? (
@@ -787,7 +787,7 @@ export default function ParallelClassesPage() {
                         Agrupar todas ({selectedUnassignedCount})
                       </button>
                     ) : (
-                      <span className="shrink-0 text-[11px] text-[#bbb] font-medium whitespace-nowrap">
+                      <span className="shrink-0 py-1.5 text-[11px] text-[#bbb] font-medium whitespace-nowrap">
                         Clica em turmas ligadas
                       </span>
                     )}
