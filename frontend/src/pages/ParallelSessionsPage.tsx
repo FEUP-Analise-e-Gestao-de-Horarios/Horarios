@@ -53,10 +53,14 @@ function CandidatesLoadingSkeleton() {
 }
 
 export default function ParallelClassesPage() {
-  // The candidate whose graph is shown in the top-right panel.
-  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
-  // The subject whose candidates are listed in the left column.
-  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
+  // Per-subject memory of which candidate's graph is open, mirroring how the
+  // year is remembered per degree and the subject per year. Keeps a graph
+  // selected only while its subject is active, and restores it on return.
+  const [selectedCandidateBySubject, setSelectedCandidateBySubject] = useState<
+    Record<string, string | null>
+  >({});
+  // Per-year memory of the chosen subject.
+  const [selectedSubjectByYear, setSelectedSubjectByYear] = useState<Record<string, string>>({});
 
   // Horizontal scroll container of the selected-groups panel and the active
   // subject's column within it, so selecting a subject scrolls it into view.
@@ -148,14 +152,24 @@ export default function ParallelClassesPage() {
     return map;
   }, [visibleGraphs]);
 
-  // Resolve the effective subject: honour the user's pick when it still exists,
-  // otherwise fall back to the first one (e.g. after a degree/year change).
+  // The single selected year driving the candidate list.
+  const activeYearId = yearsWithCandidates.find((y) => selectedYearIds.has(y.id))?.id ?? null;
+
+  // Resolve the effective subject: the one remembered for the active year when it
+  // still exists, else the first available (e.g. after a degree/year change).
+  const rememberedSubject = activeYearId ? selectedSubjectByYear[activeYearId] : undefined;
   const activeSubject =
-    selectedSubject && subjectNames.includes(selectedSubject)
-      ? selectedSubject
+    rememberedSubject && subjectNames.includes(rememberedSubject)
+      ? rememberedSubject
       : (subjectNames[0] ?? null);
 
   const subjectGraphs = activeSubject ? (graphsBySubject.get(activeSubject) ?? []) : [];
+
+  // The open candidate, remembered per subject and constrained to it so a graph
+  // only stays selected while its subject is active.
+  const selectedCandidateId = activeSubject
+    ? (selectedCandidateBySubject[activeSubject] ?? null)
+    : null;
 
   // On subject change, jump the panel back to the top and bring the active
   // subject's column into horizontal view.
@@ -216,23 +230,31 @@ export default function ParallelClassesPage() {
     [groupIdByBlock, revealGroup],
   );
 
-  // Selecting a candidate that already has exactly one group jumps to it.
-  useEffect(() => {
-    if (!selectedCandidateId) return;
-    const ids = groupIdsByCandidate.get(selectedCandidateId);
-    if (ids && ids.length === 1) revealGroup(ids[0]!);
-    // Only react to the candidate selection itself, not later group edits.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCandidateId]);
+  // Remember the chosen subject for the active year.
+  const handleSelectSubject = (name: string) => {
+    if (activeYearId) setSelectedSubjectByYear((prev) => ({ ...prev, [activeYearId]: name }));
+  };
 
-  // The single selected year driving the candidate list.
-  const activeYearId = yearsWithCandidates.find((y) => selectedYearIds.has(y.id))?.id ?? null;
+  // Open/close a candidate's graph, remembered per subject. Opening one that
+  // already has exactly one group also jumps to that group.
+  const handleSelectCandidate = (candidateId: string) => {
+    if (!activeSubject) return;
+    const closing = selectedCandidateBySubject[activeSubject] === candidateId;
+    setSelectedCandidateBySubject((prev) => ({
+      ...prev,
+      [activeSubject]: closing ? null : candidateId,
+    }));
+    if (!closing) {
+      const ids = groupIdsByCandidate.get(candidateId);
+      if (ids && ids.length === 1) requestAnimationFrame(() => revealGroup(ids[0]!));
+    }
+  };
 
-  // The candidate currently driving the graph panel. Derived from visibleGraphs
-  // so a filter change that hides it collapses the panel to its empty state.
+  // The candidate currently driving the graph panel, resolved within the active
+  // subject so it collapses when its subject (or year) is no longer selected.
   const selectedGraph =
     (selectedCandidateId &&
-      visibleGraphs.find((g) => g.candidate_group_id === selectedCandidateId)) ||
+      subjectGraphs.find((g) => g.candidate_group_id === selectedCandidateId)) ||
     null;
   const selectedSelection = selectedGraph
     ? (selectionByGroup[selectedGraph.candidate_group_id] ?? EMPTY_SELECTION)
@@ -380,7 +402,7 @@ export default function ParallelClassesPage() {
                             <button
                               key={name}
                               type="button"
-                              onClick={() => setSelectedSubject(name)}
+                              onClick={() => handleSelectSubject(name)}
                               className={`rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors cursor-pointer ${
                                 isActive
                                   ? "border-[#8c2d19] bg-[#8c2d19] text-white"
@@ -428,9 +450,7 @@ export default function ParallelClassesPage() {
                         <button
                           key={graph.candidate_group_id}
                           type="button"
-                          onClick={() =>
-                            setSelectedCandidateId(isSelected ? null : graph.candidate_group_id)
-                          }
+                          onClick={() => handleSelectCandidate(graph.candidate_group_id)}
                           className={`flex w-full items-center gap-2 border-l-2 px-4 py-3 text-left transition-colors cursor-pointer ${
                             isSelected
                               ? "border-l-[#8c2d19] bg-[#8c2d19]/10"

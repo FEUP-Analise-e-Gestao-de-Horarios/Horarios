@@ -121,6 +121,8 @@ export function useParallelSessions(): UseParallelSessionsReturn {
   const [loadingYears, setLoadingYears] = useState(false);
   const [yearsError, setYearsError] = useState<string | null>(null);
   const [selectedYearIds, setSelectedYearIds] = useState<Set<UUID>>(new Set());
+  // Remembers the last year picked per degree, so returning to a degree restores it.
+  const yearByDegree = useRef<Record<string, UUID>>({});
 
   const [groups, setGroups] = useState<ParallelGroup[]>([]);
   const [savedSnapshot, setSavedSnapshot] = useState<ParallelGroup[]>([]);
@@ -282,13 +284,18 @@ export function useParallelSessions(): UseParallelSessionsReturn {
   useEffect(() => {
     const firstYear = yearsWithCandidates[0];
     if (!firstYear) return;
+    const allowed = new Set(yearsWithCandidates.map((y) => y.id));
+    // Prefer the year last picked for this degree, then a restored one, else the
+    // first — so returning to a degree restores the year you were on.
+    const remembered = selectedDegree ? yearByDegree.current[selectedDegree.id] : undefined;
     const restored =
       restoredState?.degreeId === selectedDegree?.id ? restoredState?.yearIds : undefined;
-    const allowed = new Set(yearsWithCandidates.map((y) => y.id));
     const restoredYear = restored?.find((id) => allowed.has(id));
-    // Single-year selection: keep the restored year if still valid, else the first.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSelectedYearIds(new Set([restoredYear ?? firstYear.id]));
+    const pick =
+      (remembered && allowed.has(remembered) ? remembered : undefined) ??
+      restoredYear ??
+      firstYear.id;
+    setSelectedYearIds(new Set([pick]));
     // Re-run when the set of candidate years changes (e.g. degree switch).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [yearsKey]);
@@ -412,8 +419,12 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     });
   };
 
-  // Single-year selection for the pill selector: replace the whole set.
-  const handleYearSelect = (yearId: UUID) => setSelectedYearIds(new Set([yearId]));
+  // Single-year selection for the pill selector: replace the whole set and
+  // remember it for the current degree.
+  const handleYearSelect = (yearId: UUID) => {
+    if (selectedDegree) yearByDegree.current[selectedDegree.id] = yearId;
+    setSelectedYearIds(new Set([yearId]));
+  };
 
   const handleToggleNode = (candidateGroupId: UUID, blockId: UUID) => {
     if (assignedBlockIds.has(blockId)) return;
