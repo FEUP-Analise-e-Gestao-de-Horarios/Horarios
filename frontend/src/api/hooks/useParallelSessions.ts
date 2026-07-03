@@ -1,6 +1,6 @@
 import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { ApiError, type ApiRequestError } from "@/types/api";
 import { ROUTES } from "@/routes";
@@ -100,9 +100,31 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     }
   });
 
-  const [graphs, setGraphs] = useState<ParallelCandidateGraph[]>([]);
-  const [loadingCandidates, setLoadingCandidates] = useState(false);
-  const [candidatesError, setCandidatesError] = useState<string | null>(null);
+  const projectIdNum = Number(projectId);
+  const candidatesEnabled = Boolean(projectId) && !Number.isNaN(projectIdNum);
+  const candidatesQuery = useQuery({
+    queryKey: queryKeys.projects.parallelCandidates(String(projectIdNum)),
+    queryFn: async () => {
+      const res = await api.get<SuccessResponse<ParallelCandidateGraph[]>>(
+        `/api/projects/${projectIdNum}/parallel-blocks/candidates`,
+      );
+      return res.data;
+    },
+    enabled: candidatesEnabled,
+    // The graph structure is stable for a session; groups are mutated locally
+    // and persisted separately, so never auto-refetch this payload.
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
+
+  const graphs = useMemo(() => candidatesQuery.data ?? [], [candidatesQuery.data]);
+  const loadingCandidates = candidatesQuery.isLoading;
+  const candidatesError = candidatesQuery.error
+    ? candidatesQuery.error instanceof Error
+      ? candidatesQuery.error.message
+      : "Failed to load parallel candidates"
+    : null;
 
   const [selectedDegree, setSelectedDegree] = useState<DegreeOption | null>(null);
   const [degreeYears, setDegreeYears] = useState<YearOption[]>([]);
@@ -129,63 +151,38 @@ export function useParallelSessions(): UseParallelSessionsReturn {
   // Count of outstanding save requests, to drive the `saving` flag.
   const inFlight = useRef(0);
 
-  const projectIdNum = useMemo(() => Number(projectId), [projectId]);
-
-  // -- Load all candidate graphs ----------------------------------------
+  // -- Seed confirmed groups from the loaded candidate payload ----------
+  // Runs once per project once the query resolves. Every node carries the
+  // confirmed_group_id it is saved under, so confirmed groups are fully
+  // derivable from the payload; drafts live only in local state.
+  const seededProjectRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!projectId || Number.isNaN(projectIdNum)) return;
+    if (loadingCandidates || !candidatesQuery.data) return;
+    const seedKey = String(projectIdNum);
+    if (seededProjectRef.current === seedKey) return;
+    seededProjectRef.current = seedKey;
 
-    let cancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLoadingCandidates(true);
-    setCandidatesError(null);
-
-    api
-      .get<SuccessResponse<ParallelCandidateGraph[]>>(
-        `/api/projects/${projectIdNum}/parallel-blocks/candidates`,
-      )
-      .then((res) => {
-        if (cancelled) return;
-        const loaded = res.data;
-        setGraphs(loaded);
-
-        // Reconstruct confirmed groups straight from the payload: every node
-        // carries the confirmed_group_id it is saved under.
-        const byConfirmed = new Map<string, ParallelGroup>();
-        for (const g of loaded) {
-          for (const node of g.nodes) {
-            if (!node.confirmed_group_id) continue;
-            const key = node.confirmed_group_id;
-            let grp = byConfirmed.get(key);
-            if (!grp) {
-              grp = {
-                id: key,
-                serverId: key,
-                candidateGroupId: g.candidate_group_id,
-                blockIds: [],
-                confirmed: true,
-              };
-              byConfirmed.set(key, grp);
-            }
-            grp.blockIds.push(node.original_block_id);
-          }
+    const byConfirmed = new Map<string, ParallelGroup>();
+    for (const g of candidatesQuery.data) {
+      for (const node of g.nodes) {
+        if (!node.confirmed_group_id) continue;
+        const key = node.confirmed_group_id;
+        let grp = byConfirmed.get(key);
+        if (!grp) {
+          grp = {
+            id: key,
+            serverId: key,
+            candidateGroupId: g.candidate_group_id,
+            blockIds: [],
+            confirmed: true,
+          };
+          byConfirmed.set(key, grp);
         }
-        setGroups([...byConfirmed.values()]);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setCandidatesError(
-          err instanceof Error ? err.message : "Failed to load parallel candidates",
-        );
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingCandidates(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [projectId, projectIdNum]);
+        grp.blockIds.push(node.original_block_id);
+      }
+    }
+    setGroups([...byConfirmed.values()]);
+  }, [candidatesQuery.data, loadingCandidates, projectIdNum]);
 
   // -- Degrees derived from the candidate payload -----------------------
   const degrees = useMemo<DegreeOption[]>(() => {
