@@ -20,16 +20,25 @@ from sqlalchemy.orm import Session
 
 from src.projects.projects_db.models import (
     Class,
+    ClassRedBlock,
     Degree,
     ParallelBlockGroupMember,
+    Room,
+    RoomRedBlock,
     SessionClassSubject,
     Subject,
+    Teacher,
+    TeacherRedBlock,
     Year,
 )
 from src.projects.projects_db.models import (
     Session as SessionModel,
 )
-from src.projects.projects_db.models._secondary_tables import subject_years
+from src.projects.projects_db.models._secondary_tables import (
+    session_rooms,
+    session_teachers,
+    subject_years,
+)
 from src.projects.projects_db.schemas.weekday import WeekDay
 
 
@@ -171,6 +180,153 @@ def make_session_class_subject(
         subject_id=subject.id,
     )
     return _finish(session, scs, commit=commit)
+
+
+def make_room(
+    session: Session,
+    *,
+    id: UUID | None = None,
+    name: str | None = None,
+    type: str | None = "Anf",
+    size: str | None = "Grandes",
+    seats: str | None = "99",
+    commit: bool = True,
+) -> Room:
+    """Insert a ``Room`` row.
+
+    ``name`` is globally unique; when omitted it is derived from a fresh uuid so
+    repeated calls never collide.
+    """
+    room_id = id or uuid.uuid7()
+    room = Room(
+        id=room_id,
+        name=name if name is not None else f"B{room_id.int % 1000:03d}",
+        type=type,
+        size=size,
+        seats=seats,
+    )
+    return _finish(session, room, commit=commit)
+
+
+def make_teacher(
+    session: Session,
+    *,
+    id: UUID | None = None,
+    number: int | None = None,
+    acronym: str = "ABC",
+    name: str = "Ada Berta Costa",
+    commit: bool = True,
+) -> Teacher:
+    """Insert a ``Teacher`` row.
+
+    ``number`` is globally unique; when omitted it is derived from a fresh uuid
+    so repeated calls never collide.
+    """
+    teacher_id = id or uuid.uuid7()
+    teacher = Teacher(
+        id=teacher_id,
+        number=number if number is not None else teacher_id.int % 1_000_000,
+        acronym=acronym,
+        name=name,
+    )
+    return _finish(session, teacher, commit=commit)
+
+
+def make_teacher_red_block(
+    session: Session,
+    *,
+    teacher: Teacher | None = None,
+    id: UUID | None = None,
+    hour: int = 900,
+    weekday: WeekDay = WeekDay.MONDAY,
+    commit: bool = True,
+) -> TeacherRedBlock:
+    """Insert one ``TeacherRedBlock`` row, creating a parent ``Teacher`` if none is given."""
+    if teacher is None:
+        teacher = make_teacher(session, commit=False)
+    block = TeacherRedBlock(
+        id=id or uuid.uuid7(),
+        teacher_id=teacher.id,
+        hour=hour,
+        weekday=weekday,
+    )
+    return _finish(session, block, commit=commit)
+
+
+def make_room_red_block(
+    session: Session,
+    *,
+    room: Room | None = None,
+    id: UUID | None = None,
+    hour: int = 900,
+    weekday: WeekDay = WeekDay.MONDAY,
+    commit: bool = True,
+) -> RoomRedBlock:
+    """Insert one ``RoomRedBlock`` row, creating a parent ``Room`` if none is given."""
+    if room is None:
+        room = make_room(session, commit=False)
+    block = RoomRedBlock(
+        id=id or uuid.uuid7(),
+        room_id=room.id,
+        hour=hour,
+        weekday=weekday,
+    )
+    return _finish(session, block, commit=commit)
+
+
+def make_class_red_block(
+    session: Session,
+    *,
+    class_row: Class | None = None,
+    id: UUID | None = None,
+    hour: int = 900,
+    weekday: WeekDay = WeekDay.MONDAY,
+    commit: bool = True,
+) -> ClassRedBlock:
+    """Insert one ``ClassRedBlock`` row, creating a parent ``Class`` if none is given."""
+    if class_row is None:
+        class_row = make_class(session, commit=False)
+    block = ClassRedBlock(
+        id=id or uuid.uuid7(),
+        class_id=class_row.id,
+        hour=hour,
+        weekday=weekday,
+    )
+    return _finish(session, block, commit=commit)
+
+
+def link_session_teacher(
+    session: Session,
+    *,
+    session_row: SessionModel,
+    teacher: Teacher,
+    commit: bool = True,
+) -> None:
+    """Associate a session with a teacher via the ``session_teachers`` m2m."""
+    session.execute(
+        session_teachers.insert().values(session_id=session_row.id, teacher_id=teacher.id),
+    )
+    if commit:
+        session.commit()
+    else:
+        session.flush()
+
+
+def link_session_room(
+    session: Session,
+    *,
+    session_row: SessionModel,
+    room: Room,
+    commit: bool = True,
+) -> None:
+    """Associate a session with a room via the ``session_rooms`` m2m."""
+    session.execute(
+        session_rooms.insert().values(session_id=session_row.id, room_id=room.id),
+    )
+    if commit:
+        session.commit()
+    else:
+        session.flush()
 
 
 def make_group_member(

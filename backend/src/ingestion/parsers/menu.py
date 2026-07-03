@@ -147,7 +147,12 @@ def extract_sessions_info(classes_menu: Tag) -> list[Degree]:
         if not degree_info:
             raise ValueError("Empty <a> contents in curso menu item")
 
-        degree_id, degree_name = str(degree_info[0]).split(" - ")
+        raw_degree = str(degree_info[0])
+        if raw_degree.find(" - ") == -1:
+            raise ValueError(
+                f"Malformed curso label {raw_degree!r}: expected '<acronym> - <name>'",
+            )
+        degree_id, degree_name = raw_degree.split(" - ", 1)
 
         child_ul = child.find("ul")
         if child_ul is None:
@@ -161,7 +166,13 @@ def extract_sessions_info(classes_menu: Tag) -> list[Degree]:
                     f"Could not find <a> in ano item for curso '{degree_id}'",
                 )
 
-            year_number = int(str(year_a.contents[0]).split(" ")[1])
+            raw_year = str(year_a.contents[0])
+            year_tokens = raw_year.split(" ")
+            if len(year_tokens) < 2 or not year_tokens[1].isdigit():
+                raise ValueError(
+                    f"Malformed ano label {raw_year!r}: expected 'Ano <number>'",
+                )
+            year_number = int(year_tokens[1])
 
             plan_ul = year.find("ul")
             if plan_ul is None:
