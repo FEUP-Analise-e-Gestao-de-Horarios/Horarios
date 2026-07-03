@@ -1,189 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronRight } from "lucide-react";
-import { type GroupView, useParallelSessions } from "@/api/hooks/useParallelSessions";
+import { useParallelSessions } from "@/api/hooks/useParallelSessions";
 import { DAY_ORDER, type ParallelCandidateGraph } from "@/types/parallelSessions";
-import ParallelGraph from "@/components/parallel/ParallelGraph";
-
-const DAY_CONFIG: Record<string, { short: string; bg: string; text: string }> = {
-  monday: { short: "SEG", bg: "bg-blue-500", text: "text-white" },
-  tuesday: { short: "TER", bg: "bg-emerald-500", text: "text-white" },
-  wednesday: { short: "QUA", bg: "bg-violet-500", text: "text-white" },
-  thursday: { short: "QUI", bg: "bg-orange-500", text: "text-white" },
-  friday: { short: "SEX", bg: "bg-rose-500", text: "text-white" },
-  saturday: { short: "SAB", bg: "bg-gray-500", text: "text-white" },
-};
-
-const SESSION_TYPE_CONFIG: Record<string, { bg: string; text: string }> = {
-  TP: { bg: "bg-blue-100", text: "text-blue-700" },
-  OT: { bg: "bg-violet-100", text: "text-violet-700" },
-  PL: { bg: "bg-emerald-100", text: "text-emerald-700" },
-  T: { bg: "bg-orange-100", text: "text-orange-700" },
-  S: { bg: "bg-rose-100", text: "text-rose-700" },
-};
-const SESSION_TYPE_DEFAULT = { bg: "bg-gray-100", text: "text-gray-600" };
-
-/** Stable empty selection so the graph panel keeps a referentially-stable prop. */
-const EMPTY_SELECTION: Set<string> = new Set();
-
-function sessionTypeStyle(type: string): { bg: string; text: string } {
-  return SESSION_TYPE_CONFIG[type] ?? SESSION_TYPE_DEFAULT;
-}
-
-function dayConfig(weekday: string) {
-  return DAY_CONFIG[weekday] ?? { short: "?", bg: "bg-gray-400", text: "text-white" };
-}
-
-function formatTime(t: number): string {
-  const s = String(t).padStart(4, "0");
-  return `${s.slice(0, 2)}:${s.slice(2)}`;
-}
-
-function graphStartTime(graph: ParallelCandidateGraph): number {
-  return graph.nodes[0]?.session.start_time ?? 0;
-}
-
-function CandidatesLoadingSkeleton() {
-  return (
-    <div className="flex flex-col gap-3">
-      {[1, 2, 3].map((i) => (
-        <div key={i} className="h-40 rounded-2xl bg-[#e8e8e8] animate-pulse" />
-      ))}
-    </div>
-  );
-}
-
-/**
- * A single group card in the "Selecionadas" panel, animated by its lifecycle:
- * a freshly-created card expands in shifted right with a green rail and only
- * slides back once the server confirms; a card being deleted turns its rail red
- * and shifts right, then — once confirmed — collapses out so the others slide
- * up into its place. The outer grid drives the height collapse (enter/leave)
- * and the rightward shift; the middle wrapper carries the reveal pulse.
- */
-function GroupCard({
-  view,
-  highlighted,
-  onRemove,
-  registerRef,
-}: {
-  view: GroupView;
-  highlighted: boolean;
-  onRemove: () => void;
-  registerRef: (el: HTMLDivElement | null) => void;
-}) {
-  const { group, weekday, startTime, blocks } = view;
-  const status = group.status;
-  const day = dayConfig(weekday);
-
-  // A freshly-created card appears in its normal place, then slides right on the
-  // next frame and holds there while its create confirms. `moved` gates that
-  // delay so the shift animates from rest instead of starting shifted. Two RAFs
-  // ensure the browser paints the un-shifted frame before the flip.
-  const [moved, setMoved] = useState(status !== "creating");
-  useEffect(() => {
-    if (moved) return;
-    let inner = 0;
-    const outer = requestAnimationFrame(() => {
-      inner = requestAnimationFrame(() => setMoved(true));
-    });
-    return () => {
-      cancelAnimationFrame(outer);
-      cancelAnimationFrame(inner);
-    };
-  }, [moved]);
-
-  // Pending cards (create confirming or delete confirming) hold shifted to the
-  // right; a settled "saved" card — and a confirmed-deleted card releasing on
-  // its way out — sit flush.
-  const shifted = status === "deleting" || (status === "creating" && moved);
-  // A confirmed-deleted card releases the shift, fades, and collapses its row so
-  // the others slide up into its place.
-  const open = status !== "leaving";
-  const leaving = status === "leaving";
-
-  const borderColor =
-    status === "deleting"
-      ? "border-red-400"
-      : status === "creating"
-        ? "border-emerald-300"
-        : "border-[#e4e4e4]";
-  const railColor =
-    status === "deleting"
-      ? "bg-red-400"
-      : status === "creating"
-        ? "bg-emerald-400"
-        : "bg-[#c8c8c8]";
-  // One-shot glow that plays when the card enters its pending state.
-  const glow = highlighted
-    ? "parallel-group-pulse"
-    : status === "creating"
-      ? "parallel-group-added"
-      : status === "deleting"
-        ? "parallel-group-removing"
-        : "";
-
-  return (
-    <div
-      ref={registerRef}
-      className={`grid transition-all ease-out ${leaving ? "duration-500" : "duration-300"} ${
-        open ? "grid-rows-[1fr] opacity-100 mb-1.5" : "grid-rows-[0fr] opacity-0 mb-0"
-      } ${shifted ? "translate-x-4" : "translate-x-0"}`}
-    >
-      <div className={`min-h-0 overflow-hidden rounded-lg ${glow}`}>
-        <div
-          className={`flex items-stretch overflow-hidden rounded-lg border bg-white transition-colors duration-300 ${borderColor}`}
-        >
-          <div className={`w-1 shrink-0 transition-colors duration-300 ${railColor}`} />
-          <div className="flex-1 min-w-0 px-2.5 py-2">
-            <div className="flex items-center gap-2 mb-1.5">
-              <span
-                className={`text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded ${day.bg} ${day.text}`}
-              >
-                {day.short}
-              </span>
-              <span className="text-[12px] font-bold tabular-nums text-[#333]">
-                {formatTime(startTime)}
-              </span>
-              <button
-                onClick={onRemove}
-                className="ml-auto flex items-center justify-center w-5 h-5 rounded text-[#bbb] hover:bg-red-50 hover:text-red-600 transition-colors text-sm leading-none cursor-pointer"
-                title="Remover grupo"
-              >
-                ×
-              </button>
-            </div>
-            <div className="flex flex-col gap-1">
-              {blocks.map((block) => {
-                const typeStyle = sessionTypeStyle(block.type);
-                return (
-                  <div key={block.blockId} className="group/codes flex items-center gap-1.5">
-                    <span
-                      className={`shrink-0 w-7 text-center text-[10px] font-bold px-1 py-0.5 rounded ${typeStyle.bg} ${typeStyle.text}`}
-                    >
-                      {block.type}
-                    </span>
-                    {/* Codes collapse to one line with a right-edge fade;
-                        hovering the row wraps them to reveal the full list. */}
-                    <div className="flex min-w-0 flex-1 flex-nowrap gap-1 overflow-hidden [mask-image:linear-gradient(to_right,black_calc(100%_-_20px),transparent)] [-webkit-mask-image:linear-gradient(to_right,black_calc(100%_-_20px),transparent)] group-hover/codes:flex-wrap group-hover/codes:overflow-visible group-hover/codes:[mask-image:none] group-hover/codes:[-webkit-mask-image:none]">
-                      {block.codes.map((code) => (
-                        <span
-                          key={`${block.blockId}-${code}`}
-                          className="shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200"
-                        >
-                          {code}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+import { EMPTY_SELECTION, graphStartTime } from "@/components/parallel/parallelDisplay";
+import ParallelHeader from "@/components/parallel/ParallelHeader";
+import SubjectSelectors from "@/components/parallel/SubjectSelectors";
+import CandidateList from "@/components/parallel/CandidateList";
+import GraphPanel from "@/components/parallel/GraphPanel";
+import SelectedGroupsPanel from "@/components/parallel/SelectedGroupsPanel";
+import ResetModal from "@/components/parallel/ResetModal";
+import FinishModal from "@/components/parallel/FinishModal";
+import StaleConfirmModal from "@/components/parallel/StaleConfirmModal";
 
 export default function ParallelClassesPage() {
   // Per-subject memory of which candidate's graph is open, mirroring how the
@@ -352,6 +178,12 @@ export default function ParallelClassesPage() {
     return map;
   }, [groupViewsBySubject]);
 
+  // Register/unregister a group card's element so it can be scrolled into view.
+  const registerGroupRef = useCallback((groupId: string, el: HTMLDivElement | null) => {
+    if (el) groupCardRefs.current.set(groupId, el);
+    else groupCardRefs.current.delete(groupId);
+  }, []);
+
   // Scroll a group card into view and play its one-shot "look here" pulse.
   const revealGroup = useCallback((groupId: string) => {
     const el = groupCardRefs.current.get(groupId);
@@ -461,7 +293,6 @@ export default function ParallelClassesPage() {
     ? (selectionByGroup[selectedGraph.candidate_group_id] ?? EMPTY_SELECTION)
     : EMPTY_SELECTION;
   const selectedValid = selectedGraph ? isSelectionValid(selectedGraph.candidate_group_id) : false;
-  const selectedDay = selectedGraph ? dayConfig(selectedGraph.weekday) : null;
   const selectedAllAssigned = selectedGraph
     ? selectedGraph.nodes.every((n) => assignedBlockIds.has(n.original_block_id))
     : false;
@@ -470,49 +301,28 @@ export default function ParallelClassesPage() {
     ? selectedGraph.nodes.filter((n) => !assignedBlockIds.has(n.original_block_id)).length
     : 0;
 
+  // Create a group (or group-all) from the graph panel, then scroll its new card
+  // into view once it has mounted.
+  const handleCreateGroupForSelected = () => {
+    if (!selectedGraph) return;
+    const id = handleCreateGroup(selectedGraph.candidate_group_id);
+    if (id) requestAnimationFrame(() => scrollGroupIntoView(id));
+  };
+  const handleGroupAllForSelected = () => {
+    if (!selectedGraph) return;
+    const id = handleGroupAll(selectedGraph.candidate_group_id);
+    if (id) requestAnimationFrame(() => scrollGroupIntoView(id));
+  };
+
   return (
     <div className="h-screen flex flex-col bg-[#f0eeeb]">
-      <header className="shrink-0 sticky top-0 z-50 px-6 py-3 bg-[#1e2028] flex items-center gap-2 w-full flex-wrap border-b border-gray-700">
-        <button
-          onClick={handleNavigateHome}
-          className="bg-[#8c2d19] text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap hover:bg-[#a33520] transition-colors cursor-pointer"
-        >
-          Início
-        </button>
-        <button
-          onClick={handleBack}
-          className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 transition-colors hover:border-gray-400 hover:bg-white/5 cursor-pointer"
-        >
-          Horário
-        </button>
-
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            onClick={handleReset}
-            disabled={saving}
-            className="bg-transparent text-red-400 font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-red-400 hover:bg-red-400/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-          >
-            Recomeçar
-          </button>
-          <button
-            type="button"
-            onClick={handleFinish}
-            disabled={saving}
-            aria-busy={saving}
-            className="bg-emerald-600 text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap text-center min-w-[110px] hover:bg-emerald-500 transition-colors disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
-          >
-            {saving ? (
-              <span className="flex h-5 items-center justify-center gap-1" aria-label="A guardar">
-                <span className="w-1.5 h-1.5 rounded-full bg-white animate-bounce [animation-delay:-0.3s]" />
-                <span className="w-1.5 h-1.5 rounded-full bg-white animate-bounce [animation-delay:-0.15s]" />
-                <span className="w-1.5 h-1.5 rounded-full bg-white animate-bounce" />
-              </span>
-            ) : (
-              "Terminar"
-            )}
-          </button>
-        </div>
-      </header>
+      <ParallelHeader
+        saving={saving}
+        onNavigateHome={handleNavigateHome}
+        onBack={handleBack}
+        onReset={handleReset}
+        onFinish={handleFinish}
+      />
 
       <div className="flex-1 overflow-hidden">
         <div className="h-full max-w-7xl mx-auto px-6 py-6 flex gap-6">
@@ -522,451 +332,94 @@ export default function ParallelClassesPage() {
               <h2 className="font-bold text-[#333] text-base">Candidatos a paralelas</h2>
             </div>
 
-            {/* Degree selector */}
-            {degreesError ? (
-              <p className="mb-3 shrink-0 text-xs text-red-600">{degreesError}</p>
-            ) : (
-              sortedDegrees.length > 0 && (
-                <div className="mb-3 shrink-0">
-                  <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-[#999]">
-                    Curso
-                  </p>
-                  <div className="flex flex-wrap gap-2 max-h-28 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300/60">
-                    {sortedDegrees.map((degree) => {
-                      const isActive = selectedDegree?.id === degree.id;
-                      const isConfirmed = confirmedDegreeIds.has(degree.id);
-                      return (
-                        <button
-                          key={degree.id}
-                          type="button"
-                          disabled={loadingDegrees}
-                          onClick={() => handleDegreeClick(degree)}
-                          className={`rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-                            isActive
-                              ? "border-[#b45309] bg-[#b45309] text-white"
-                              : isConfirmed
-                                ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                                : "border-[#e8e8e8] bg-white text-[#555] hover:border-[#d4d4d4] hover:bg-[#faf7f4]"
-                          }`}
-                        >
-                          {degree.acronym}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )
-            )}
+            <SubjectSelectors
+              degreesError={degreesError}
+              sortedDegrees={sortedDegrees}
+              loadingDegrees={loadingDegrees}
+              selectedDegree={selectedDegree}
+              confirmedDegreeIds={confirmedDegreeIds}
+              onDegreeClick={handleDegreeClick}
+              yearsWithCandidates={yearsWithCandidates}
+              activeYearId={activeYearId}
+              confirmedYearIds={confirmedYearIds}
+              onYearSelect={handleYearSelect}
+              subjectNames={subjectNames}
+              activeSubject={activeSubject}
+              subjectIdByName={subjectIdByName}
+              subjectAcronyms={subjectAcronyms}
+              confirmedSubjectIds={confirmedSubjectIds}
+              onSelectSubject={handleSelectSubject}
+            />
 
-            {selectedDegree && (
-              <>
-                <div className="mb-3 shrink-0 border-t border-[#e8e8e8]" />
-
-                {/* Year selector */}
-                {yearsWithCandidates.length > 0 && (
-                  <div className="mb-3 shrink-0">
-                    <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-[#999]">
-                      Ano
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {yearsWithCandidates.map((year) => {
-                        const isActive = activeYearId === year.id;
-                        const isConfirmed = confirmedYearIds.has(year.id);
-                        return (
-                          <button
-                            key={year.id}
-                            type="button"
-                            onClick={() => handleYearSelect(year.id)}
-                            className={`rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors cursor-pointer ${
-                              isActive
-                                ? "border-[#1e2028] bg-[#1e2028] text-white"
-                                : isConfirmed
-                                  ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                                  : "border-[#e8e8e8] bg-white text-[#555] hover:border-[#d4d4d4] hover:bg-[#faf7f4]"
-                            }`}
-                          >
-                            {year.number}º Ano
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {subjectNames.length > 0 && (
-                  <>
-                    <div className="mb-3 shrink-0 border-t border-[#e8e8e8]" />
-                    <div className="mb-3 shrink-0">
-                      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-[#999]">
-                        Cadeira
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {subjectNames.map((name) => {
-                          const isActive = activeSubject === name;
-                          const subjectId = subjectIdByName.get(name);
-                          const isConfirmed = subjectId
-                            ? confirmedSubjectIds.has(subjectId)
-                            : false;
-                          return (
-                            <button
-                              key={name}
-                              type="button"
-                              onClick={() => handleSelectSubject(name)}
-                              className={`rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors cursor-pointer ${
-                                isActive
-                                  ? "border-[#8c2d19] bg-[#8c2d19] text-white"
-                                  : isConfirmed
-                                    ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                                    : "border-[#e8e8e8] bg-white text-[#555] hover:border-[#d4d4d4] hover:bg-[#faf7f4]"
-                              }`}
-                            >
-                              {subjectAcronyms.get(name) ?? name}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                <div className="mb-3 shrink-0 border-t border-[#e8e8e8]" />
-              </>
-            )}
-            <div className="flex-1 overflow-y-auto pb-6 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300/60">
-              {loadingCandidates ? (
-                <CandidatesLoadingSkeleton />
-              ) : candidatesError ? (
-                <p className="text-sm text-red-600">{candidatesError}</p>
-              ) : graphsBySubject.size === 0 ? (
-                <p className="text-sm text-[#aaa]">
-                  {selectedDegree ? "Sem aulas em paralelo." : "Seleciona um curso para começar."}
-                </p>
-              ) : (
-                <div className="overflow-hidden rounded-2xl border border-[#e8e8e8] shadow-sm bg-white">
-                  {activeSubject && (
-                    <div className="flex items-center justify-between gap-2 px-4 py-2.5 bg-[#fafafa] border-b border-[#e8e8e8]">
-                      <p className="font-semibold text-[#222] text-sm truncate">{activeSubject}</p>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <button
-                          type="button"
-                          onClick={handleResetActiveSubject}
-                          disabled={activeSubjectGroupViews.length === 0 || saving}
-                          title="Apagar os grupos desta cadeira"
-                          className="rounded-md border border-[#e0e0e0] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#777] transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer disabled:hover:border-[#e0e0e0] disabled:hover:bg-white disabled:hover:text-[#777]"
-                        >
-                          Repor
-                        </button>
-                        {activeSubjectConfirmed ? (
-                          <button
-                            type="button"
-                            onClick={handleUnconfirmActiveSubject}
-                            disabled={saving}
-                            title="Clica para reabrir esta cadeira"
-                            className="group/confirm rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors cursor-pointer bg-emerald-100 text-emerald-700 hover:bg-red-100 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            <span className="group-hover/confirm:hidden">Confirmada</span>
-                            <span className="hidden group-hover/confirm:inline">Desmarcar</span>
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={handleConfirmActiveSubject}
-                            disabled={saving}
-                            className="rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors cursor-pointer bg-emerald-600 text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            Confirmar
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex flex-col divide-y divide-[#f0f0f0]">
-                    {subjectGraphs.map((graph) => {
-                      const day = dayConfig(graph.weekday);
-                      const selection =
-                        selectionByGroup[graph.candidate_group_id] ?? EMPTY_SELECTION;
-                      const allAssigned = graph.nodes.every((n) =>
-                        assignedBlockIds.has(n.original_block_id),
-                      );
-                      const groupCount =
-                        groupIdsByCandidate.get(graph.candidate_group_id)?.length ?? 0;
-                      const isSelected = selectedCandidateId === graph.candidate_group_id;
-                      return (
-                        <button
-                          key={graph.candidate_group_id}
-                          type="button"
-                          onClick={() => handleSelectCandidate(graph.candidate_group_id)}
-                          className={`flex w-full items-center gap-2 border-l-2 px-4 py-3 text-left transition-colors cursor-pointer ${
-                            isSelected
-                              ? "border-l-[#8c2d19] bg-[#8c2d19]/10"
-                              : "border-l-transparent hover:bg-[#faf7f4]"
-                          }`}
-                        >
-                          <span
-                            className={`text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-md ${day.bg} ${day.text}`}
-                          >
-                            {day.short}
-                          </span>
-                          <span className="font-bold text-[#333] tabular-nums text-sm">
-                            {formatTime(graphStartTime(graph))}
-                          </span>
-                          <div className="ml-auto flex items-center gap-2">
-                            {selection.size > 0 && (
-                              <span className="text-[11px] text-amber-600 font-semibold">
-                                {selection.size} sel.
-                              </span>
-                            )}
-                            {groupCount > 0 && (
-                              <span
-                                className={`text-[11px] font-semibold ${
-                                  allAssigned ? "text-emerald-600" : "text-violet-600"
-                                }`}
-                              >
-                                {groupCount} {groupCount === 1 ? "grupo" : "grupos"}
-                              </span>
-                            )}
-                            <span className="text-[11px] text-[#aaa]">
-                              {graph.nodes.length} aulas
-                            </span>
-                            <ChevronRight
-                              className={`w-4 h-4 shrink-0 transition-colors ${isSelected ? "text-[#8c2d19]" : "text-[#ccc]"}`}
-                            />
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
+            <CandidateList
+              loadingCandidates={loadingCandidates}
+              candidatesError={candidatesError}
+              hasSubjects={graphsBySubject.size > 0}
+              hasSelectedDegree={!!selectedDegree}
+              activeSubject={activeSubject}
+              activeSubjectGroupViews={activeSubjectGroupViews}
+              activeSubjectConfirmed={activeSubjectConfirmed}
+              saving={saving}
+              onResetActiveSubject={handleResetActiveSubject}
+              onUnconfirmActiveSubject={handleUnconfirmActiveSubject}
+              onConfirmActiveSubject={handleConfirmActiveSubject}
+              subjectGraphs={subjectGraphs}
+              selectionByGroup={selectionByGroup}
+              assignedBlockIds={assignedBlockIds}
+              groupIdsByCandidate={groupIdsByCandidate}
+              selectedCandidateId={selectedCandidateId}
+              onSelectCandidate={handleSelectCandidate}
+            />
           </div>
 
           {/* Right column: graph (top) + selected groups (bottom) */}
           <div className="flex-1 min-w-0 flex flex-col gap-4 min-h-0">
-            {/* Graph panel — populated by the selected candidate */}
-            <div className="flex-[38] min-h-0 flex flex-col overflow-hidden rounded-2xl border border-[#e8e8e8] shadow-sm bg-white">
-              {selectedGraph && selectedDay ? (
-                <>
-                  <div className="shrink-0 flex items-center justify-between gap-2 px-4 py-3 border-b border-[#e8e8e8] bg-[#fafafa]">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span
-                        className={`text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-md ${selectedDay.bg} ${selectedDay.text}`}
-                      >
-                        {selectedDay.short}
-                      </span>
-                      <span className="font-bold text-[#333] tabular-nums text-sm">
-                        {formatTime(graphStartTime(selectedGraph))}
-                      </span>
-                      <span className="font-semibold text-[#222] text-sm truncate">
-                        {selectedGraph.subject.name}
-                      </span>
-                      <span className="text-[11px] text-[#aaa] shrink-0">
-                        {selectedGraph.nodes.length} aulas
-                      </span>
-                    </div>
-                    {selectedValid ? (
-                      <button
-                        onClick={() => {
-                          const id = handleCreateGroup(selectedGraph.candidate_group_id);
-                          if (id) requestAnimationFrame(() => scrollGroupIntoView(id));
-                        }}
-                        className="shrink-0 bg-[#1e2028] text-white font-semibold px-3 py-1.5 rounded-lg text-[11px] hover:bg-[#2a2d37] transition-colors whitespace-nowrap cursor-pointer"
-                      >
-                        Criar grupo ({selectedSelection.size})
-                      </button>
-                    ) : selectedSelection.size > 0 ? (
-                      <span className="shrink-0 py-1.5 text-[11px] text-[#bbb] font-medium whitespace-nowrap">
-                        Liga ≥2 turmas adjacentes
-                      </span>
-                    ) : selectedAllAssigned ? (
-                      <span className="shrink-0 py-1.5 text-[11px] text-emerald-600 font-semibold whitespace-nowrap">
-                        Todas agrupadas
-                      </span>
-                    ) : selectedCanGroupAll ? (
-                      <button
-                        onClick={() => {
-                          const id = handleGroupAll(selectedGraph.candidate_group_id);
-                          if (id) requestAnimationFrame(() => scrollGroupIntoView(id));
-                        }}
-                        className="shrink-0 bg-[#1e2028] text-white font-semibold px-3 py-1.5 rounded-lg text-[11px] hover:bg-[#2a2d37] transition-colors whitespace-nowrap cursor-pointer"
-                      >
-                        Agrupar todas ({selectedUnassignedCount})
-                      </button>
-                    ) : (
-                      <span className="shrink-0 py-1.5 text-[11px] text-[#bbb] font-medium whitespace-nowrap">
-                        Clica em turmas ligadas
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex-1 min-h-0 overflow-hidden p-4">
-                    <ParallelGraph
-                      key={selectedGraph.candidate_group_id}
-                      graph={selectedGraph}
-                      selected={selectedSelection}
-                      assigned={assignedBlockIds}
-                      onToggleNode={(blockId) =>
-                        handleToggleNode(selectedGraph.candidate_group_id, blockId)
-                      }
-                      onTapAssigned={handleRevealGroup}
-                      sessionTypeStyle={sessionTypeStyle}
-                    />
-                  </div>
-                </>
-              ) : (
-                <div className="flex-1 flex items-center justify-center p-8">
-                  <p className="text-sm text-[#aaa] text-center">
-                    {loadingCandidates
-                      ? "A carregar candidatos…"
-                      : "Seleciona um candidato à esquerda para ver o grafo."}
-                  </p>
-                </div>
-              )}
-            </div>
+            <GraphPanel
+              selectedGraph={selectedGraph}
+              selectedSelection={selectedSelection}
+              selectedValid={selectedValid}
+              selectedAllAssigned={selectedAllAssigned}
+              selectedCanGroupAll={selectedCanGroupAll}
+              selectedUnassignedCount={selectedUnassignedCount}
+              assignedBlockIds={assignedBlockIds}
+              loadingCandidates={loadingCandidates}
+              onCreateGroup={handleCreateGroupForSelected}
+              onGroupAll={handleGroupAllForSelected}
+              onToggleNode={(blockId) =>
+                selectedGraph && handleToggleNode(selectedGraph.candidate_group_id, blockId)
+              }
+              onTapAssigned={handleRevealGroup}
+            />
 
-            {/* Selected groups panel */}
-            <div className="flex-[42] min-h-0 flex flex-col">
-              <h2 className="font-bold text-[#333] text-base mb-3 shrink-0">Selecionadas</h2>
-              <div className="flex-1 min-h-0">
-                {loadingCandidates ? (
-                  <CandidatesLoadingSkeleton />
-                ) : groupViewsBySubject.size === 0 ? (
-                  <p className="text-xs text-[#aaa] text-center py-8">Nenhum grupo criado ainda.</p>
-                ) : (
-                  <div
-                    ref={groupsScrollRef}
-                    className="flex h-full gap-4 overflow-auto pr-1 pb-2 [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300/60"
-                  >
-                    {[...groupViewsBySubject.entries()]
-                      .sort(([a], [b]) => a.localeCompare(b))
-                      .map(([subjName, items]) => {
-                        const isActive = subjName === activeSubject;
-                        return (
-                          <div
-                            key={subjName}
-                            ref={isActive ? activeGroupColRef : undefined}
-                            className={`parallel-col-enter flex flex-col transition-[flex-grow,min-width] duration-300 ease-out ${
-                              isActive ? "flex-[2.75] min-w-[340px]" : "flex-1 min-w-[210px]"
-                            }`}
-                          >
-                            {/* Pinned so the subject stays visible while its cards scroll under it. */}
-                            <div className="sticky top-0 z-10 flex items-center gap-2 bg-[#f0eeeb] pb-1.5">
-                              <p className="text-[11px] font-bold tracking-widest uppercase text-[#888]">
-                                {subjName}
-                              </p>
-                              <span className="text-[10px] font-semibold text-[#bbb] tabular-nums">
-                                {items.length}
-                              </span>
-                              <div className="flex-1 h-px bg-[#e0e0e0]" />
-                            </div>
-                            <div className="flex flex-col">
-                              {items.map((view) => (
-                                <GroupCard
-                                  key={view.group.id}
-                                  view={view}
-                                  highlighted={highlightedGroupId === view.group.id}
-                                  onRemove={() => handleRemoveGroup(view.group.id)}
-                                  registerRef={(el) => {
-                                    if (el) groupCardRefs.current.set(view.group.id, el);
-                                    else groupCardRefs.current.delete(view.group.id);
-                                  }}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })}
-                  </div>
-                )}
-              </div>
-            </div>
+            <SelectedGroupsPanel
+              loadingCandidates={loadingCandidates}
+              groupViewsBySubject={groupViewsBySubject}
+              activeSubject={activeSubject}
+              highlightedGroupId={highlightedGroupId}
+              onRemoveGroup={handleRemoveGroup}
+              scrollRef={groupsScrollRef}
+              activeColRef={activeGroupColRef}
+              registerGroupRef={registerGroupRef}
+            />
           </div>
         </div>
       </div>
 
       {showResetModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4">
-            <h3 className="font-bold text-[#222] text-base mb-1">Tens a certeza?</h3>
-            <p className="text-sm text-[#666] mb-6">
-              Todas as seleções guardadas serão apagadas. Esta ação não pode ser desfeita.
-            </p>
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={confirmReset}
-                className="bg-red-600 text-white font-semibold px-4 py-2 rounded-lg text-sm hover:bg-red-500 transition-colors cursor-pointer"
-              >
-                Recomeçar
-              </button>
-              <button
-                onClick={() => setShowResetModal(false)}
-                className="text-[#666] font-semibold px-4 py-2 rounded-lg text-sm hover:bg-gray-100 transition-colors cursor-pointer"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
+        <ResetModal onConfirm={confirmReset} onCancel={() => setShowResetModal(false)} />
       )}
 
       {showFinishModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
-            <h3 className="font-bold text-[#222] text-base mb-1">Ainda há anos por confirmar</h3>
-            <p className="text-sm text-[#666] mb-3">
-              Os seguintes anos ainda não foram confirmados:
-            </p>
-            <div className="mb-6 max-h-56 overflow-y-auto rounded-lg border border-[#eee] bg-[#fafafa] px-3 py-2 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300/60">
-              {unconfirmedByDegree.map(({ degree, years }) => (
-                <div key={degree.id} className="py-1">
-                  <span className="text-[13px] font-bold text-[#333]">{degree.acronym}</span>
-                  <span className="text-[13px] text-[#666]">
-                    {" — "}
-                    {years.map((y) => `${y.number}º`).join(", ")} ano
-                  </span>
-                </div>
-              ))}
-            </div>
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={finishAndConfirmAll}
-                className="bg-emerald-600 text-white font-semibold px-4 py-2 rounded-lg text-sm hover:bg-emerald-500 transition-colors cursor-pointer"
-              >
-                Confirmar tudo e terminar
-              </button>
-              <button
-                onClick={finishContinue}
-                className="border border-[#ddd] text-[#444] font-semibold px-4 py-2 rounded-lg text-sm hover:bg-gray-100 transition-colors cursor-pointer"
-              >
-                Continuar sem confirmar
-              </button>
-              <button
-                onClick={() => setShowFinishModal(false)}
-                className="text-[#666] font-semibold px-4 py-2 rounded-lg text-sm hover:bg-gray-100 transition-colors cursor-pointer"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
+        <FinishModal
+          unconfirmedByDegree={unconfirmedByDegree}
+          onConfirmAll={finishAndConfirmAll}
+          onContinue={finishContinue}
+          onCancel={() => setShowFinishModal(false)}
+        />
       )}
 
       {staleConfirmScope && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4">
-            <h3 className="font-bold text-[#222] text-base mb-1">Os candidatos mudaram</h3>
-            <p className="text-sm text-[#666] mb-6">
-              {staleConfirmScope === "all"
-                ? "Os candidatos a paralelas mudaram desde que a lista foi carregada, por isso não foi possível confirmar tudo. A lista foi atualizada, revê e confirma novamente."
-                : "Os candidatos a paralelas desta cadeira mudaram desde que a lista foi carregada, por isso a confirmação foi cancelada. A lista foi atualizada, verifica novamente e confirma."}
-            </p>
-            <button
-              onClick={() => setStaleConfirmScope(null)}
-              className="w-full bg-[#1e2028] text-white font-semibold px-4 py-2 rounded-lg text-sm hover:bg-[#2a2d37] transition-colors cursor-pointer"
-            >
-              Entendido
-            </button>
-          </div>
-        </div>
+        <StaleConfirmModal scope={staleConfirmScope} onDismiss={() => setStaleConfirmScope(null)} />
       )}
     </div>
   );
