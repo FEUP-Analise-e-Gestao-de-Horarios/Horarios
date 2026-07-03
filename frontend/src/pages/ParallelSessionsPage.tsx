@@ -688,6 +688,8 @@ export default function ParallelClassesPage() {
                       const allAssigned = graph.nodes.every((n) =>
                         assignedBlockIds.has(n.original_block_id),
                       );
+                      const groupCount =
+                        groupIdsByCandidate.get(graph.candidate_group_id)?.length ?? 0;
                       const isSelected = selectedCandidateId === graph.candidate_group_id;
                       return (
                         <button
@@ -714,9 +716,13 @@ export default function ParallelClassesPage() {
                                 {selection.size} sel.
                               </span>
                             )}
-                            {allAssigned && (
-                              <span className="text-[11px] text-emerald-600 font-semibold">
-                                Agrupadas
+                            {groupCount > 0 && (
+                              <span
+                                className={`text-[11px] font-semibold ${
+                                  allAssigned ? "text-emerald-600" : "text-violet-600"
+                                }`}
+                              >
+                                {groupCount} {groupCount === 1 ? "grupo" : "grupos"}
                               </span>
                             )}
                             <span className="text-[11px] text-[#aaa]">
