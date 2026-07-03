@@ -369,6 +369,10 @@ _API_ERROR_WIRE_CASES = [
         ApiError.PROJECTS_PARALLEL_GROUPS_INVALID_CANDIDATES,
         "projects.parallel_groups.invalid_candidates",
     ),
+    (
+        ApiError.PROJECTS_PARALLEL_GROUPS_NOT_FOUND,
+        "projects.parallel_groups.not_found",
+    ),
 ]
 
 

@@ -85,11 +85,17 @@ export interface YearOption {
 // -- Local selection model ----------------------------------------------
 /** A group the user has formed (or one loaded from the server). */
 export interface ParallelGroup {
-  /** Local id; for server-loaded groups this is the confirmed_group_id. */
+  /** Stable local id for this card's lifetime (React key, reveal target). */
   id: string;
+  /**
+   * The backend `parallel_block_group_id`, once the create request lands.
+   * Null while a just-created group's POST is still in flight. For
+   * server-loaded groups this equals the confirmed_group_id (and `id`).
+   */
+  serverId: UUID | null;
   candidateGroupId: UUID;
   blockIds: UUID[];
-  /** True when this group is already persisted on the server. */
+  /** True when this group is persisted on the server (serverId is set). */
   confirmed: boolean;
 }
 

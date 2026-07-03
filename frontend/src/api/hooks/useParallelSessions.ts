@@ -34,13 +34,6 @@ export interface GroupView {
   blocks: { blockId: UUID; type: string; codes: string[] }[];
 }
 
-function groupSignature(groups: ParallelGroup[]): string {
-  return groups
-    .map((g) => `${g.candidateGroupId}:${[...g.blockIds].sort().join(",")}`)
-    .sort()
-    .join("|");
-}
-
 export interface UseParallelSessionsReturn {
   degrees: DegreeOption[];
   loadingDegrees: boolean;
@@ -69,12 +62,10 @@ export interface UseParallelSessionsReturn {
   groupViewsBySubject: Map<string, GroupView[]>;
   savedGroupIds: Set<string>;
 
+  /** True while any create/delete request is in flight. */
   saving: boolean;
   saveStatus: { type: "success" | "error"; message: string } | null;
-  isDirty: boolean;
 
-  showUnsavedModal: boolean;
-  setShowUnsavedModal: Dispatch<SetStateAction<boolean>>;
   showResetModal: boolean;
   setShowResetModal: Dispatch<SetStateAction<boolean>>;
 
@@ -89,9 +80,6 @@ export interface UseParallelSessionsReturn {
   handleRemoveGroup: (groupId: string) => void;
   handleBack: () => void;
   handleNavigateHome: () => void;
-  handleSave: () => Promise<void>;
-  handleSaveAndExit: () => Promise<void>;
-  handleExitWithoutSaving: () => void;
   handleReset: () => void;
   confirmReset: () => void;
 }
@@ -125,7 +113,6 @@ export function useParallelSessions(): UseParallelSessionsReturn {
   const yearByDegree = useRef<Record<string, UUID>>({});
 
   const [groups, setGroups] = useState<ParallelGroup[]>([]);
-  const [savedSnapshot, setSavedSnapshot] = useState<ParallelGroup[]>([]);
   const [selectionByGroup, setSelectionByGroup] = useState<Record<UUID, Set<UUID>>>({});
 
   const [saving, setSaving] = useState(false);
@@ -133,9 +120,14 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     type: "success" | "error";
     message: string;
   } | null>(null);
-  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
-  const pendingRoute = useRef<string>("");
+
+  // In-flight create requests, keyed by local group id, resolving to the
+  // backend group id (or null on failure). A delete can await one so it can
+  // remove a group whose create round-trip has not landed yet.
+  const pendingCreates = useRef<Map<string, Promise<UUID | null>>>(new Map());
+  // Count of outstanding save requests, to drive the `saving` flag.
+  const inFlight = useRef(0);
 
   const projectIdNum = useMemo(() => Number(projectId), [projectId]);
 
@@ -168,6 +160,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
             if (!grp) {
               grp = {
                 id: key,
+                serverId: key,
                 candidateGroupId: g.candidate_group_id,
                 blockIds: [],
                 confirmed: true,
@@ -177,9 +170,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
             grp.blockIds.push(node.original_block_id);
           }
         }
-        const confirmed = [...byConfirmed.values()];
-        setGroups(confirmed);
-        setSavedSnapshot(confirmed);
+        setGroups([...byConfirmed.values()]);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -396,11 +387,11 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     return map;
   }, [groups, nodeIndex, selectedYearIdSet]);
 
-  const savedGroupIds = useMemo(() => new Set(savedSnapshot.map((g) => g.id)), [savedSnapshot]);
-
-  const savedSignature = useMemo(() => groupSignature(savedSnapshot), [savedSnapshot]);
-  const currentSignature = useMemo(() => groupSignature(groups), [groups]);
-  const isDirty = savedSignature !== currentSignature;
+  // Groups already persisted on the server (a create round-trip has landed).
+  const savedGroupIds = useMemo(
+    () => new Set(groups.filter((g) => g.confirmed).map((g) => g.id)),
+    [groups],
+  );
 
   const backRoute = ROUTES.SCHEDULE.replace(":projectId", projectId ?? "");
 
@@ -436,6 +427,76 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     });
   };
 
+  // -- Per-action persistence -------------------------------------------
+  // Every create/remove hits the backend immediately with an optimistic UI
+  // update that rolls back if the request fails.
+  const beginRequest = () => {
+    inFlight.current += 1;
+    setSaving(true);
+    setSaveStatus(null);
+  };
+  const endRequest = () => {
+    inFlight.current = Math.max(0, inFlight.current - 1);
+    if (inFlight.current === 0) setSaving(false);
+  };
+
+  // POST a freshly-created group; on success adopt its backend id, on failure
+  // drop the optimistic card. Registers the round-trip so a racing delete can
+  // await the resulting id.
+  const persistCreate = (localId: string, candidateGroupId: UUID, blockIds: UUID[]): void => {
+    beginRequest();
+    const request = api
+      .post<SuccessResponse<{ group_id: UUID }>>(
+        `/api/projects/${projectIdNum}/parallel-blocks/groups/`,
+        { candidate_group_id: candidateGroupId, block_ids: blockIds },
+      )
+      .then((res): UUID | null => {
+        const serverId = res.data.group_id;
+        setGroups((prev) =>
+          prev.map((g) => (g.id === localId ? { ...g, serverId, confirmed: true } : g)),
+        );
+        void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
+        setSaveStatus({ type: "success", message: "Guardado" });
+        return serverId;
+      })
+      .catch((err: unknown): null => {
+        setGroups((prev) => prev.filter((g) => g.id !== localId));
+        setSaveStatus({ type: "error", message: parallelSaveErrorMessage(err) });
+        return null;
+      })
+      .finally(() => {
+        pendingCreates.current.delete(localId);
+        endRequest();
+      });
+    pendingCreates.current.set(localId, request);
+  };
+
+  // DELETE a removed group; waits for an in-flight create so a just-created
+  // group can still be deleted. Restores the card if the request fails.
+  const persistDelete = async (group: ParallelGroup): Promise<void> => {
+    let serverId = group.serverId;
+    if (!serverId) {
+      const pending = pendingCreates.current.get(group.id);
+      serverId = pending ? await pending : null;
+    }
+    // Never persisted (its create failed, or is still gone): the optimistic
+    // removal already matches the server.
+    if (!serverId) return;
+
+    beginRequest();
+    try {
+      await api.delete(`/api/projects/${projectIdNum}/parallel-blocks/groups/${serverId}`);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
+      setSaveStatus({ type: "success", message: "Guardado" });
+    } catch (err) {
+      const restored: ParallelGroup = { ...group, serverId, confirmed: true };
+      setGroups((prev) => (prev.some((g) => g.id === group.id) ? prev : [...prev, restored]));
+      setSaveStatus({ type: "error", message: parallelSaveErrorMessage(err) });
+    } finally {
+      endRequest();
+    }
+  };
+
   const handleCreateGroup = (candidateGroupId: UUID): UUID | null => {
     const selection = selectionByGroup[candidateGroupId];
     if (!selection || selection.size < 2) return null;
@@ -443,8 +504,12 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     if (!adj || !isConnectedSelection(selection, adj)) return null;
     const blockIds = [...selection];
     const id = crypto.randomUUID();
-    setGroups((prev) => [...prev, { id, candidateGroupId, blockIds, confirmed: false }]);
+    setGroups((prev) => [
+      ...prev,
+      { id, serverId: null, candidateGroupId, blockIds, confirmed: false },
+    ]);
     setSelectionByGroup((prev) => ({ ...prev, [candidateGroupId]: new Set() }));
+    persistCreate(id, candidateGroupId, blockIds);
     return id;
   };
 
@@ -455,41 +520,39 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     const adj = adjacencyByGroup.get(candidateGroupId);
     if (!adj || !isConnectedSelection(new Set(blockIds), adj)) return null;
     const id = crypto.randomUUID();
-    setGroups((prev) => [...prev, { id, candidateGroupId, blockIds, confirmed: false }]);
+    setGroups((prev) => [
+      ...prev,
+      { id, serverId: null, candidateGroupId, blockIds, confirmed: false },
+    ]);
     setSelectionByGroup((prev) => ({ ...prev, [candidateGroupId]: new Set() }));
+    persistCreate(id, candidateGroupId, blockIds);
     return id;
   };
 
   const handleRemoveGroup = (groupId: string) => {
+    const group = groups.find((g) => g.id === groupId);
+    if (!group) return;
     setGroups((prev) => prev.filter((g) => g.id !== groupId));
+    void persistDelete(group);
   };
 
-  const handleBack = () => {
-    pendingRoute.current = backRoute;
-    if (isDirty) setShowUnsavedModal(true);
-    else void navigate(backRoute);
-  };
-
-  const handleNavigateHome = () => {
-    pendingRoute.current = ROUTES.HOME;
-    if (isDirty) setShowUnsavedModal(true);
-    else void navigate(ROUTES.HOME);
-  };
-
-  const performSave = async () => {
-    if (!projectId || Number.isNaN(projectIdNum)) return;
-    const payload = groups
-      .filter((g) => g.blockIds.length >= 2)
-      .map((g) => ({ candidate_group_id: g.candidateGroupId, block_ids: g.blockIds }));
-    await api.post(`/api/projects/${projectIdNum}/parallel-blocks/groups/`, { groups: payload });
+  // Remember the current degree/year so returning to the page restores it.
+  const rememberView = () => {
+    if (!projectId) return;
     sessionStorage.setItem(
       `parallelClasses-${projectId}`,
       JSON.stringify({ degreeId: selectedDegree?.id, yearIds: [...selectedYearIds] }),
     );
   };
 
-  const handleExitWithoutSaving = () => {
-    void navigate(pendingRoute.current || backRoute);
+  const handleBack = () => {
+    rememberView();
+    void navigate(backRoute);
+  };
+
+  const handleNavigateHome = () => {
+    rememberView();
+    void navigate(ROUTES.HOME);
   };
 
   const handleReset = () => {
@@ -499,8 +562,9 @@ export function useParallelSessions(): UseParallelSessionsReturn {
 
   const confirmReset = () => {
     if (!projectId || Number.isNaN(projectIdNum)) return;
+    rememberView();
     api
-      .post(`/api/projects/${projectIdNum}/parallel-blocks/groups/`, { groups: [] })
+      .delete(`/api/projects/${projectIdNum}/parallel-blocks/groups/`)
       .then(() => {
         void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
         window.location.reload();
@@ -512,37 +576,6 @@ export function useParallelSessions(): UseParallelSessionsReturn {
           message: err instanceof Error ? err.message : "Erro ao recomeçar",
         });
       });
-  };
-
-  const handleSave = async () => {
-    if (!isDirty) return;
-    setSaving(true);
-    setSaveStatus(null);
-    try {
-      await performSave();
-      void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
-      setSavedSnapshot(groups.map((g) => ({ ...g, confirmed: true })));
-      setSaveStatus({ type: "success", message: "Guardado com sucesso" });
-    } catch (err) {
-      setSaveStatus({ type: "error", message: parallelSaveErrorMessage(err) });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSaveAndExit = async () => {
-    setSaving(true);
-    setSaveStatus(null);
-    try {
-      await performSave();
-      void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
-      void navigate(pendingRoute.current || backRoute);
-    } catch (err) {
-      setShowUnsavedModal(false);
-      setSaveStatus({ type: "error", message: parallelSaveErrorMessage(err) });
-    } finally {
-      setSaving(false);
-    }
   };
 
   return {
@@ -565,9 +598,6 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     savedGroupIds,
     saving,
     saveStatus,
-    isDirty,
-    showUnsavedModal,
-    setShowUnsavedModal,
     showResetModal,
     setShowResetModal,
     handleDegreeClick,
@@ -579,9 +609,6 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     handleRemoveGroup,
     handleBack,
     handleNavigateHome,
-    handleSave,
-    handleSaveAndExit,
-    handleExitWithoutSaving,
     handleReset,
     confirmReset,
   };

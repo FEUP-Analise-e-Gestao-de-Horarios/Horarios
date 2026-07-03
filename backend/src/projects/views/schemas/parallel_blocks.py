@@ -9,14 +9,15 @@ from src.projects.projects_db.schemas.weekday import WeekDay
 from src.projects.views.schemas.shared import DegreeBase
 
 
-# -- Save parallel groups (request) ------------------------------------
-class ParallelGroupEntry(BaseModel):
+# -- Create one parallel group (request) -------------------------------
+class CreateParallelGroupRequest(BaseModel):
     candidate_group_id: UUID
     block_ids: list[UUID]
 
 
-class SaveParallelGroupMembersRequest(BaseModel):
-    groups: list[ParallelGroupEntry]
+# -- Created parallel group (response) ---------------------------------
+class CreatedParallelGroupResponse(BaseModel):
+    group_id: UUID
 
 
 # -- Confirmed parallel groups (response) ------------------------------

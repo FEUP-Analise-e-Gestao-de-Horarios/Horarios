@@ -95,8 +95,6 @@ export default function ParallelClassesPage() {
     savedGroupIds,
     saving,
     saveStatus,
-    showUnsavedModal,
-    setShowUnsavedModal,
     showResetModal,
     setShowResetModal,
     handleDegreeClick,
@@ -107,9 +105,6 @@ export default function ParallelClassesPage() {
     handleRemoveGroup,
     handleBack,
     handleNavigateHome,
-    handleSave,
-    handleSaveAndExit,
-    handleExitWithoutSaving,
     handleReset,
     confirmReset,
   } = useParallelSessions();
@@ -286,26 +281,25 @@ export default function ParallelClassesPage() {
         </button>
 
         <div className="ml-auto flex items-center gap-2">
-          {saveStatus && (
-            <span
-              className={`text-xs font-semibold ${saveStatus.type === "success" ? "text-green-400" : "text-red-400"}`}
-            >
-              {saveStatus.message}
-            </span>
-          )}
+          <span
+            className={`text-xs font-semibold ${
+              saving
+                ? "text-gray-400"
+                : saveStatus?.type === "success"
+                  ? "text-green-400"
+                  : saveStatus?.type === "error"
+                    ? "text-red-400"
+                    : "text-transparent"
+            }`}
+          >
+            {saving ? "A guardar…" : (saveStatus?.message ?? "")}
+          </span>
           <button
             onClick={handleReset}
             disabled={saving}
             className="bg-transparent text-red-400 font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-red-400 hover:bg-red-400/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             Recomeçar
-          </button>
-          <button
-            onClick={() => void handleSave()}
-            disabled={saving}
-            className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-          >
-            {saving ? "A guardar..." : "Guardar"}
           </button>
         </div>
       </header>
@@ -715,40 +709,6 @@ export default function ParallelClassesPage() {
               <button
                 onClick={() => setShowResetModal(false)}
                 className="text-[#666] font-semibold px-4 py-2 rounded-lg text-sm hover:bg-gray-100 transition-colors cursor-pointer"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showUnsavedModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4">
-            <h3 className="font-bold text-[#222] text-base mb-1">Tens mudanças por guardar</h3>
-            <p className="text-sm text-[#666] mb-6">
-              Se saíres sem guardar, as alterações feitas serão perdidas.
-            </p>
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={() => void handleSaveAndExit()}
-                disabled={saving}
-                className="bg-[#8c2d19] text-white font-semibold px-4 py-2 rounded-lg text-sm hover:bg-[#a33520] transition-colors disabled:opacity-50 cursor-pointer"
-              >
-                {saving ? "A guardar..." : "Guardar e sair"}
-              </button>
-              <button
-                onClick={handleExitWithoutSaving}
-                disabled={saving}
-                className="border border-red-400 text-red-500 font-semibold px-4 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors disabled:opacity-50 cursor-pointer"
-              >
-                Sair sem guardar
-              </button>
-              <button
-                onClick={() => setShowUnsavedModal(false)}
-                disabled={saving}
-                className="text-[#666] font-semibold px-4 py-2 rounded-lg text-sm hover:bg-gray-100 transition-colors disabled:opacity-50 cursor-pointer"
               >
                 Cancelar
               </button>
