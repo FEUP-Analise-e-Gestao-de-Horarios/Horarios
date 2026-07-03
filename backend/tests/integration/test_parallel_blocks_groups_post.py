@@ -8,10 +8,12 @@ after the request to observe what the endpoint committed.
 
 The confirmed-group create is *additive*: the endpoint validates one entry
 against the live candidate components, creates a single fresh group from its
-blocks, commits, and flips ``Project.has_selected_parallel_sessions`` to
-``True``. It never clears pre-existing groups -- a POST adds a new group
-alongside any others. Any validation failure returns before the commit, so no
-rows are written and prior groups survive untouched.
+blocks, and commits. It never clears pre-existing groups -- a POST adds a new
+group alongside any others. It does *not* touch
+``Project.has_selected_parallel_sessions``: that flag is only flipped when the
+user leaves via "Terminar" (the ``finish`` endpoint), never on a bare create.
+Any validation failure returns before the commit, so no rows are written and
+prior groups survive untouched.
 """
 
 import datetime
@@ -156,12 +158,12 @@ def _group_id_from(response) -> UUID:
 # ---------------------------------------------------------------------------
 # -- Happy paths
 # ---------------------------------------------------------------------------
-def test_happy_create_persists_rows_and_flips_flag(
+def test_happy_create_persists_rows_and_leaves_flag_untouched(
     auth_client: Client,
     project: Project,
     project_db: Session,
 ) -> None:
-    """One valid pair: data.group_id is a uuid, two rows in one group, flag True."""
+    """One valid pair: data.group_id is a uuid, two rows in one group, flag still False."""
     subject = make_subject(project_db, commit=False)
     a, b = make_parallel_candidate_pair(project_db, subject=subject)
     cid = _component_uuid(subject.id, [a, b])
@@ -175,7 +177,8 @@ def test_happy_create_persists_rows_and_flips_flag(
 
     groups = _groups_by_id(project_db)
     assert groups == {group_id: {a, b}}
-    assert _flag(project.pk) is True
+    # A bare create never marks the selection step done -- only "Terminar" does.
+    assert _flag(project.pk) is False
 
 
 def test_happy_create_visible_to_fresh_reader_via_get(
@@ -223,7 +226,7 @@ def test_post_is_additive_existing_group_survives(
 
     groups = _groups_by_id(project_db)
     assert groups == {seeded_group: {x, y}, new_group: {a, b}}
-    assert _flag(project.pk) is True
+    assert _flag(project.pk) is False
 
 
 def test_valid_create_of_connected_proper_subset(
@@ -239,7 +242,7 @@ def test_valid_create_of_connected_proper_subset(
     assert response.status_code == 200
     group_id = _group_id_from(response)
     assert _groups_by_id(project_db) == {group_id: {a, b}}
-    assert _flag(project.pk) is True
+    assert _flag(project.pk) is False
 
 
 def test_two_disjoint_subsets_via_two_posts_make_two_groups(
@@ -295,7 +298,7 @@ def test_two_disjoint_subsets_via_two_posts_make_two_groups(
 
     assert group_ab != group_cd
     assert _groups_by_id(project_db) == {group_ab: {a, b}, group_cd: {c, d}}
-    assert _flag(project.pk) is True
+    assert _flag(project.pk) is False
 
 
 def test_duplicate_block_within_body_is_deduped_not_500(
@@ -318,7 +321,7 @@ def test_duplicate_block_within_body_is_deduped_not_500(
     assert response.status_code == 200
     group_id = _group_id_from(response)
     assert _groups_by_id(project_db) == {group_id: {a, b}}
-    assert _flag(project.pk) is True
+    assert _flag(project.pk) is False
 
 
 # ---------------------------------------------------------------------------

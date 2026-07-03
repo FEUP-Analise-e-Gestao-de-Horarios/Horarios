@@ -12,6 +12,8 @@ import {
   type ParallelCandidateGraph,
   type ParallelGroup,
   type SuccessResponse,
+  type UnconfirmedDegree,
+  type UnconfirmedYear,
   type UUID,
   type YearOption,
 } from "@/types/parallelSessions";
@@ -91,7 +93,7 @@ export interface UseParallelSessionsReturn {
   /** True when every year with candidates (all degrees) is confirmed. */
   allYearsConfirmed: boolean;
   /** Degrees with unconfirmed years, for the finish prompt. */
-  unconfirmedByDegree: { degree: DegreeOption; years: YearOption[] }[];
+  unconfirmedByDegree: UnconfirmedDegree[];
 
   showFinishModal: boolean;
   setShowFinishModal: Dispatch<SetStateAction<boolean>>;
@@ -99,12 +101,14 @@ export interface UseParallelSessionsReturn {
   /** Which confirm was rejected as stale (drives the prompt copy), or null. */
   staleConfirmScope: "subject" | "all" | null;
   setStaleConfirmScope: Dispatch<SetStateAction<"subject" | "all" | null>>;
-  /** Terminar: leave if all confirmed, else open the finish prompt. */
+  /** Terminar: mark done and leave if all confirmed, else open the finish prompt. */
   handleFinish: () => void;
-  /** Confirm everything then leave for the schedule. */
+  /** Confirm everything, mark the step done, then leave for the schedule. */
   finishAndConfirmAll: () => void;
-  /** Leave for the schedule without confirming the rest. */
+  /** Mark the step done and leave without confirming the rest (won't be asked again). */
   finishContinue: () => void;
+  /** Leave for the schedule without marking the step done (asked again next time). */
+  finishLater: () => void;
 
   handleDegreeClick: (degree: DegreeOption) => void;
   handleYearToggle: (yearId: UUID) => void;
@@ -395,19 +399,33 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     return set;
   }, [yearsByDegree, confirmedYearIds]);
 
-  // Degrees with at least one unconfirmed year, for the finish prompt.
-  const unconfirmedByDegree = useMemo(() => {
-    const out: { degree: DegreeOption; years: YearOption[] }[] = [];
+  // subject id -> acronym, for labelling the pending rows in the finish prompt.
+  const subjectAcronymById = useMemo(() => {
+    const map = new Map<UUID, string>();
+    for (const g of graphs) map.set(g.subject.id, g.subject.acronym);
+    return map;
+  }, [graphs]);
+
+  // Degrees with at least one unconfirmed year, for the finish prompt. Each
+  // pending year carries the acronyms of the subjects still unconfirmed in it.
+  const unconfirmedByDegree = useMemo<UnconfirmedDegree[]>(() => {
+    const out: UnconfirmedDegree[] = [];
     for (const { degree, years } of yearsByDegree.values()) {
-      const pending = [...years.entries()]
+      const pending: UnconfirmedYear[] = [...years.entries()]
         .filter(([yearId]) => !confirmedYearIds.has(yearId))
-        .map(([id, number]) => ({ id, number }))
+        .map(([id, number]) => {
+          const subjects = [...(subjectsByYear.get(id) ?? [])]
+            .filter((sid) => !confirmedSubjectIds.has(sid))
+            .map((sid) => ({ id: sid, acronym: subjectAcronymById.get(sid) ?? "?" }))
+            .sort((a, b) => a.acronym.localeCompare(b.acronym));
+          return { id, number, subjects };
+        })
         .sort((a, b) => a.number - b.number);
       if (pending.length > 0) out.push({ degree, years: pending });
     }
     out.sort((a, b) => a.degree.acronym.localeCompare(b.degree.acronym));
     return out;
-  }, [yearsByDegree, confirmedYearIds]);
+  }, [yearsByDegree, confirmedYearIds, subjectsByYear, confirmedSubjectIds, subjectAcronymById]);
 
   const allYearsConfirmed = unconfirmedByDegree.length === 0;
 
@@ -738,20 +756,43 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     void navigate(ROUTES.HOME);
   };
 
-  // Finish: go straight to the schedule when every year (across all degrees) is
+  // Mark this project's parallel-selection step done, then leave for the
+  // schedule. Set on every Terminar exit (confirmed or not) so the home card
+  // stops routing back here; only leaves once the write lands.
+  const markSelectedAndLeave = () => {
+    if (!projectId || Number.isNaN(projectIdNum)) return;
+    beginRequest();
+    api
+      .post(`/api/projects/${projectIdNum}/parallel-blocks/finish`, {})
+      .then(() => {
+        // Refresh the project list so ProjectCard sees the updated flag.
+        void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
+        setShowFinishModal(false);
+        rememberView();
+        void navigate(backRoute);
+      })
+      .catch((err: unknown) => {
+        setSaveStatus({
+          type: "error",
+          message: err instanceof Error ? err.message : "Erro ao terminar",
+        });
+      })
+      .finally(endRequest);
+  };
+
+  // Finish: mark done and leave when every year (across all degrees) is
   // confirmed, otherwise open the prompt listing the years still pending.
   const handleFinish = () => {
     if (allYearsConfirmed) {
-      rememberView();
-      void navigate(backRoute);
+      markSelectedAndLeave();
     } else {
       setShowFinishModal(true);
     }
   };
 
-  // "Finish anyway": mark every current candidate confirmed, then leave. Sends
-  // the client's full candidate view so the server can reject a stale set; only
-  // navigates once the write lands.
+  // "Confirm all and finish": mark every current candidate confirmed, flag the
+  // step done, then leave. Sends the client's full candidate view so the server
+  // can reject a stale set; only navigates once both writes land.
   const finishAndConfirmAll = () => {
     if (!projectId || Number.isNaN(projectIdNum)) return;
     const candidateGroupIds = graphs.map((g) => g.candidate_group_id);
@@ -760,12 +801,15 @@ export function useParallelSessions(): UseParallelSessionsReturn {
       .post(`/api/projects/${projectIdNum}/parallel-blocks/confirmations/all`, {
         candidate_group_ids: candidateGroupIds,
       })
+      .then(() => api.post(`/api/projects/${projectIdNum}/parallel-blocks/finish`, {}))
       .then(() => {
         setConfirmedSubjectIds(new Set(graphs.map((g) => g.subject.id)));
         // Drop the cached candidates payload so its confirmed flags are refetched.
         void queryClient.invalidateQueries({
           queryKey: queryKeys.projects.parallelCandidates(String(projectIdNum)),
         });
+        // Refresh the project list so ProjectCard sees the updated flag.
+        void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
         setShowFinishModal(false);
         rememberView();
         void navigate(backRoute);
@@ -791,9 +835,16 @@ export function useParallelSessions(): UseParallelSessionsReturn {
       .finally(endRequest);
   };
 
-  // Continue to the schedule without confirming the rest, keeping the groups
-  // and confirmations already made.
+  // Finish without confirming the rest: still marks the step done, so the user
+  // won't be sent back here. Keeps the groups and confirmations already made.
   const finishContinue = () => {
+    markSelectedAndLeave();
+  };
+
+  // Continue later: leave for the schedule (like the Horário button) without
+  // marking the step done, so the home card routes back here next time.
+  const finishLater = () => {
+    setShowFinishModal(false);
     rememberView();
     void navigate(backRoute);
   };
@@ -806,10 +857,12 @@ export function useParallelSessions(): UseParallelSessionsReturn {
   const confirmReset = () => {
     if (!projectId || Number.isNaN(projectIdNum)) return;
     rememberView();
-    // Recomeçar clears both the confirmed groups and every subject confirmation.
+    // Recomeçar clears the confirmed groups, every subject confirmation, and the
+    // "selection done" flag, so the project starts the step over from scratch.
     Promise.all([
       api.delete(`/api/projects/${projectIdNum}/parallel-blocks/groups/`),
       api.delete(`/api/projects/${projectIdNum}/parallel-blocks/confirmations/`),
+      api.delete(`/api/projects/${projectIdNum}/parallel-blocks/finish`),
     ])
       .then(() => {
         void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
@@ -857,6 +910,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     handleFinish,
     finishAndConfirmAll,
     finishContinue,
+    finishLater,
     handleDegreeClick,
     handleYearToggle,
     handleYearSelect,

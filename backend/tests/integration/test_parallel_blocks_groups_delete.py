@@ -6,13 +6,14 @@ file, so seeded rows are committed before the request and re-read fresh
 (``expire_all``) afterwards.
 
 * ``DELETE /api/projects/<pk>/parallel-blocks/groups/`` -- clears *every*
-  confirmed member, returns the number of rows removed as ``data`` (a JSON
-  int), and flips ``Project.has_selected_parallel_sessions`` to ``True`` (even
-  on an empty DB).
+  confirmed member and returns the number of rows removed as ``data`` (a JSON
+  int). It does **not** touch ``Project.has_selected_parallel_sessions``: that
+  flag is only flipped when the user leaves via "Terminar" (the ``finish``
+  endpoint), never on a clear.
 * ``DELETE /api/projects/<pk>/parallel-blocks/groups/<group_id>`` -- deletes one
   group. ``data`` is ``null`` on success; a group id matching no member rows
-  yields 404 ``projects.parallel_groups.not_found``. It does **not** touch the
-  flag.
+  yields 404 ``projects.parallel_groups.not_found``. It also does **not** touch
+  the flag.
 
 Pure delete tests need no real candidates -- raw membership rows seeded via
 ``make_group_member`` are enough.
@@ -77,12 +78,12 @@ def _seed_group(db_session: Session, *, size: int = 2) -> tuple[UUID, set[UUID]]
 # ---------------------------------------------------------------------------
 # -- Clear-all: DELETE /groups/
 # ---------------------------------------------------------------------------
-def test_clear_all_removes_all_and_flips_flag(
+def test_clear_all_removes_all_and_leaves_flag_untouched(
     auth_client: Client,
     project: Project,
     project_db: Session,
 ) -> None:
-    """Two seeded groups: DELETE returns the row count, empties the table, flag True."""
+    """Two seeded groups: DELETE returns the row count, empties the table, flag still False."""
     _g1, blocks_1 = _seed_group(project_db, size=2)
     _g2, blocks_2 = _seed_group(project_db, size=3)
     total_rows = len(blocks_1) + len(blocks_2)
@@ -95,7 +96,8 @@ def test_clear_all_removes_all_and_flips_flag(
     assert isinstance(data, int)
     assert not isinstance(data, bool)
     assert _all_members(project_db) == []
-    assert _flag(project.pk) is True
+    # Clearing groups never marks the selection step done -- only "Terminar" does.
+    assert _flag(project.pk) is False
 
 
 def test_clear_all_on_empty_db_returns_zero(
@@ -103,13 +105,13 @@ def test_clear_all_on_empty_db_returns_zero(
     project: Project,
     project_db: Session,
 ) -> None:
-    """Clearing an already-empty DB -> 200, data 0, no rows, flag still flipped True."""
+    """Clearing an already-empty DB -> 200, data 0, no rows, flag still untouched."""
     response = auth_client.delete(_groups_url(project.pk))
 
     assert response.status_code == 200
     assert response.json()["data"] == 0
     assert _all_members(project_db) == []
-    assert _flag(project.pk) is True
+    assert _flag(project.pk) is False
 
 
 def test_clear_all_scoped_to_this_project(

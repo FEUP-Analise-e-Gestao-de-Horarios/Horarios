@@ -85,6 +85,17 @@ export interface YearOption {
   number: number;
 }
 
+/** A year still pending confirmation, with the subjects that hold it back. */
+export interface UnconfirmedYear extends YearOption {
+  subjects: { id: UUID; acronym: string }[];
+}
+
+/** A degree with at least one unconfirmed year, for the finish prompt. */
+export interface UnconfirmedDegree {
+  degree: DegreeOption;
+  years: UnconfirmedYear[];
+}
+
 // -- Local selection model ----------------------------------------------
 /**
  * The persistence lifecycle of a group card, which drives its animation:

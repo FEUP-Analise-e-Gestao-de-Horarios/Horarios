@@ -9,6 +9,7 @@ from src.projects.views.parallel_blocks import (
     ProjectParallelConfirmAllView,
     ProjectParallelConfirmationsView,
     ProjectParallelConfirmationView,
+    ProjectParallelFinishView,
 )
 from src.projects.views.project import ProjectsView, ProjectView
 from src.projects.views.rooms import ProjectRoomsView, ProjectRoomView
@@ -67,6 +68,7 @@ parallel_confirmation_patterns = [
 
 parallel_block_patterns = [
     path("candidates", ProjectParallelBlockCandidateView.as_view()),
+    path("finish", ProjectParallelFinishView.as_view()),
     path("groups/", include(parallel_block_group_patterns)),
     path("confirmations/", include(parallel_confirmation_patterns)),
 ]

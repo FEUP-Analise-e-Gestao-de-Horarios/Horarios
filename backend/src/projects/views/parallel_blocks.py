@@ -104,8 +104,6 @@ class ProjectParallelBlockGroupsView(View):
 
             db_session.commit()
 
-            Project.objects.filter(pk=project_id).update(has_selected_parallel_sessions=True)
-
             return JsonResponse(
                 SuccessResponse(
                     message="Parallel group created successfully",
@@ -122,8 +120,6 @@ class ProjectParallelBlockGroupsView(View):
             removed = dao.clear_all()
 
             db_session.commit()
-
-            Project.objects.filter(pk=project_id).update(has_selected_parallel_sessions=True)
 
             return JsonResponse(
                 SuccessResponse(
@@ -238,6 +234,41 @@ class ProjectParallelConfirmAllView(View):
                     data=ConfirmedCandidatesResponse(candidate_group_ids=sorted(candidate_ids)),
                 ).model_dump(),
             )
+
+
+class ProjectParallelFinishView(View):
+    """API endpoint: toggle the project's parallel-session "selection done" flag.
+
+    ``POST`` marks it done -- set when the user leaves via "Terminar" (regardless
+    of whether every subject was confirmed), so the home card stops routing back
+    to this step. ``DELETE`` clears it -- used by "Recomeçar" to start over.
+    """
+
+    @require_auth
+    @require_project
+    def post(self, request: HttpRequest, project_id: int) -> HttpResponse:
+
+        Project.objects.filter(pk=project_id).update(has_selected_parallel_sessions=True)
+
+        return JsonResponse(
+            SuccessResponse(
+                message="Parallel sessions marked as selected",
+                data=None,
+            ).model_dump(),
+        )
+
+    @require_auth
+    @require_project
+    def delete(self, request: HttpRequest, project_id: int) -> HttpResponse:
+
+        Project.objects.filter(pk=project_id).update(has_selected_parallel_sessions=False)
+
+        return JsonResponse(
+            SuccessResponse(
+                message="Parallel sessions selection reset",
+                data=None,
+            ).model_dump(),
+        )
 
 
 class ProjectParallelConfirmationView(View):

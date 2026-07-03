@@ -65,6 +65,7 @@ export default function ParallelClassesPage() {
     handleFinish,
     finishAndConfirmAll,
     finishContinue,
+    finishLater,
     handleDegreeClick,
     handleYearSelect,
     handleToggleNode,
@@ -414,6 +415,7 @@ export default function ParallelClassesPage() {
           unconfirmedByDegree={unconfirmedByDegree}
           onConfirmAll={finishAndConfirmAll}
           onContinue={finishContinue}
+          onContinueLater={finishLater}
           onCancel={() => setShowFinishModal(false)}
         />
       )}
