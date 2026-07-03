@@ -213,8 +213,6 @@ export default function ParallelClassesPage() {
     loadingDegrees,
     degreesError,
     selectedDegree,
-    loadingYears,
-    yearsError,
     selectedYearIds,
     yearsWithCandidates,
     loadingCandidates,
@@ -496,36 +494,31 @@ export default function ParallelClassesPage() {
                 <div className="mb-3 shrink-0 border-t border-[#e8e8e8]" />
 
                 {/* Year selector */}
-                {yearsError ? (
-                  <p className="mb-3 shrink-0 text-xs text-red-600">{yearsError}</p>
-                ) : (
-                  yearsWithCandidates.length > 0 && (
-                    <div className="mb-3 shrink-0">
-                      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-[#999]">
-                        Ano
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {yearsWithCandidates.map((year) => {
-                          const isActive = activeYearId === year.id;
-                          return (
-                            <button
-                              key={year.id}
-                              type="button"
-                              disabled={loadingYears}
-                              onClick={() => handleYearSelect(year.id)}
-                              className={`rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-                                isActive
-                                  ? "border-[#1e2028] bg-[#1e2028] text-white"
-                                  : "border-[#e8e8e8] bg-white text-[#555] hover:border-[#d4d4d4] hover:bg-[#faf7f4]"
-                              }`}
-                            >
-                              {year.number}º Ano
-                            </button>
-                          );
-                        })}
-                      </div>
+                {yearsWithCandidates.length > 0 && (
+                  <div className="mb-3 shrink-0">
+                    <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-[#999]">
+                      Ano
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {yearsWithCandidates.map((year) => {
+                        const isActive = activeYearId === year.id;
+                        return (
+                          <button
+                            key={year.id}
+                            type="button"
+                            onClick={() => handleYearSelect(year.id)}
+                            className={`rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors cursor-pointer ${
+                              isActive
+                                ? "border-[#1e2028] bg-[#1e2028] text-white"
+                                : "border-[#e8e8e8] bg-white text-[#555] hover:border-[#d4d4d4] hover:bg-[#faf7f4]"
+                            }`}
+                          >
+                            {year.number}º Ano
+                          </button>
+                        );
+                      })}
                     </div>
-                  )
+                  </div>
                 )}
 
                 {subjectNames.length > 0 && (

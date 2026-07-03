@@ -142,6 +142,7 @@ class ParallelBlockCandidateDAO:
                 years=[
                     ParallelBlockCandidateYear(
                         id=year_degree.year_id,
+                        number=year_degree.year_number,
                         degree=ParallelBlockCandidateDegree(
                             id=year_degree.degree_id,
                             acronym=year_degree.degree_acronym,

@@ -56,6 +56,7 @@ class ParallelBlockCandidateYear(BaseModel):
     """
 
     id: UUID
+    number: int
     degree: ParallelBlockCandidateDegree
 
 

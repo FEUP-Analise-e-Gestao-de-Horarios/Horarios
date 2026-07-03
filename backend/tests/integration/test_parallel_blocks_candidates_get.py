@@ -1022,6 +1022,8 @@ def test_subject_years_aggregate_dedup_and_ordered(
     assert [y["id"] for y in years] == [id_aaa, id_lei, id_zeb]
     for y in years:
         assert set(y["degree"]) == {"id", "acronym", "name"}
+    # Each year carries its number (used for labels/ordering on the client).
+    assert [y["number"] for y in years] == [1, 1, 2]
     degree_acronyms = [y["degree"]["acronym"] for y in years]
     assert degree_acronyms == ["AAA", "LEI", "ZEB"]
 

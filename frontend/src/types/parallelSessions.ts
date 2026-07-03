@@ -37,6 +37,7 @@ export interface ParallelDegree {
 
 export interface ParallelYear {
   id: UUID;
+  number: number;
   degree: ParallelDegree;
 }
 

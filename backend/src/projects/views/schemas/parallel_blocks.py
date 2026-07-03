@@ -58,6 +58,7 @@ class ParallelCandidateYear(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    number: int
     degree: DegreeBase
 
 

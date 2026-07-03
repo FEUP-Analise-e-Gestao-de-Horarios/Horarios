@@ -53,8 +53,6 @@ export interface UseParallelSessionsReturn {
   degreesError: string | null;
   selectedDegree: DegreeOption | null;
 
-  loadingYears: boolean;
-  yearsError: string | null;
   selectedYearIds: Set<UUID>;
   yearsWithCandidates: YearOption[];
 
@@ -139,9 +137,6 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     : null;
 
   const [selectedDegree, setSelectedDegree] = useState<DegreeOption | null>(null);
-  const [degreeYears, setDegreeYears] = useState<YearOption[]>([]);
-  const [loadingYears, setLoadingYears] = useState(false);
-  const [yearsError, setYearsError] = useState<string | null>(null);
   const [selectedYearIds, setSelectedYearIds] = useState<Set<UUID>>(new Set());
   // Remembers the last year picked per degree, so returning to a degree restores it.
   const yearByDegree = useRef<Record<string, UUID>>({});
@@ -225,37 +220,6 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     setSelectedDegree(fallback);
   }, [degrees, selectedDegree, restoredState]);
 
-  // -- Year numbers for the selected degree -----------------------------
-  useEffect(() => {
-    if (!selectedDegree || !projectId || Number.isNaN(projectIdNum)) return;
-
-    let cancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLoadingYears(true);
-    setYearsError(null);
-    setDegreeYears([]);
-
-    api
-      .get<SuccessResponse<{ years: YearOption[] }>>(
-        `/api/projects/${projectIdNum}/degrees/${selectedDegree.id}`,
-      )
-      .then((res) => {
-        if (cancelled) return;
-        setDegreeYears(res.data.years);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setYearsError(err instanceof Error ? err.message : "Failed to load years");
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingYears(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [projectId, projectIdNum, selectedDegree]);
-
   // Graphs that belong to the selected degree.
   const degreeGraphs = useMemo(
     () =>
@@ -265,16 +229,21 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     [graphs, selectedDegree],
   );
 
-  // Year rows of the selected degree that actually carry candidate blocks.
-  const yearsWithCandidates = useMemo(() => {
-    const yearIdsWithData = new Set<UUID>();
+  // Year rows of the selected degree, read straight off the candidate payload:
+  // every `subject.years` entry is a year the group is taught in, carrying its
+  // number for the label and ordering. No separate per-degree request needed.
+  const yearsWithCandidates = useMemo<YearOption[]>(() => {
+    if (!selectedDegree) return [];
+    const byId = new Map<UUID, YearOption>();
     for (const g of degreeGraphs) {
-      for (const node of g.nodes) {
-        for (const cls of node.classes) yearIdsWithData.add(cls.year_id);
+      for (const y of g.subject.years) {
+        if (y.degree.id === selectedDegree.id && !byId.has(y.id)) {
+          byId.set(y.id, { id: y.id, number: y.number });
+        }
       }
     }
-    return degreeYears.filter((y) => yearIdsWithData.has(y.id)).sort((a, b) => a.number - b.number);
-  }, [degreeGraphs, degreeYears]);
+    return [...byId.values()].sort((a, b) => a.number - b.number);
+  }, [degreeGraphs, selectedDegree]);
 
   // Default year selection to all years with candidates (or the restored set).
   const yearsKey = useMemo(
@@ -616,8 +585,6 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     loadingDegrees,
     degreesError,
     selectedDegree,
-    loadingYears,
-    yearsError,
     selectedYearIds,
     yearsWithCandidates,
     loadingCandidates,
