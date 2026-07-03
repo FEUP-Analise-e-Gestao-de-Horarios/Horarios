@@ -195,9 +195,9 @@ export default function ParallelClassesPage() {
   // Per-year memory of the chosen subject.
   const [selectedSubjectByYear, setSelectedSubjectByYear] = useState<Record<string, string>>({});
 
-  // Horizontal scroll container of the selected-groups panel and the active
-  // subject's column within it, so selecting a subject scrolls it into view.
-  const groupsPanelRef = useRef<HTMLDivElement | null>(null);
+  // The selected-groups scroll container (scrolls both axes: columns sideways,
+  // cards vertically under their pinned headers) and the active subject's column
+  // within it, so selecting a subject scrolls it into view.
   const groupsScrollRef = useRef<HTMLDivElement | null>(null);
   const activeGroupColRef = useRef<HTMLDivElement | null>(null);
 
@@ -300,15 +300,18 @@ export default function ParallelClassesPage() {
   // On subject change, jump the panel back to the top and bring the active
   // subject's column into horizontal view.
   useEffect(() => {
-    groupsPanelRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     const container = groupsScrollRef.current;
+    if (!container) return;
     const col = activeGroupColRef.current;
-    if (!container || !col) return;
+    if (!col) {
+      container.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
     const cRect = container.getBoundingClientRect();
     const colRect = col.getBoundingClientRect();
     const delta = colRect.left - cRect.left;
     const target = container.scrollLeft + delta - (container.clientWidth - colRect.width) / 2;
-    container.scrollTo({ left: Math.max(0, target), behavior: "smooth" });
+    container.scrollTo({ top: 0, left: Math.max(0, target), behavior: "smooth" });
   }, [activeSubject]);
 
   // Block id -> the id of the (shown) group it belongs to, for reveal-on-tap.
@@ -714,10 +717,7 @@ export default function ParallelClassesPage() {
             {/* Selected groups panel */}
             <div className="flex-[42] min-h-0 flex flex-col">
               <h2 className="font-bold text-[#333] text-base mb-3 shrink-0">Selecionadas</h2>
-              <div
-                ref={groupsPanelRef}
-                className="flex-1 overflow-y-auto pb-2 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300/60"
-              >
+              <div className="flex-1 min-h-0">
                 {loadingCandidates ? (
                   <CandidatesLoadingSkeleton />
                 ) : groupViewsBySubject.size === 0 ? (
@@ -725,7 +725,7 @@ export default function ParallelClassesPage() {
                 ) : (
                   <div
                     ref={groupsScrollRef}
-                    className="flex gap-4 overflow-x-auto [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300/60"
+                    className="flex h-full gap-4 overflow-auto pr-1 pb-2 [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300/60"
                   >
                     {[...groupViewsBySubject.entries()]
                       .sort(([a], [b]) => a.localeCompare(b))
@@ -735,11 +735,12 @@ export default function ParallelClassesPage() {
                           <div
                             key={subjName}
                             ref={isActive ? activeGroupColRef : undefined}
-                            className={`parallel-col-enter flex flex-col gap-1.5 transition-[flex-grow,min-width] duration-300 ease-out ${
+                            className={`parallel-col-enter flex flex-col transition-[flex-grow,min-width] duration-300 ease-out ${
                               isActive ? "flex-[2.75] min-w-[340px]" : "flex-1 min-w-[210px]"
                             }`}
                           >
-                            <div className="flex items-center gap-2">
+                            {/* Pinned so the subject stays visible while its cards scroll under it. */}
+                            <div className="sticky top-0 z-10 flex items-center gap-2 bg-[#f0eeeb] pb-1.5">
                               <p className="text-[11px] font-bold tracking-widest uppercase text-[#888]">
                                 {subjName}
                               </p>
