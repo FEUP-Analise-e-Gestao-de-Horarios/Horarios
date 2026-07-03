@@ -174,8 +174,9 @@ export default function ParallelGraph({
 
   // Easter egg: shaking a held node really hard plays a goat scream. The audio
   // lives at public/goat-scream.mp3; if it's missing, play() rejects and the
-  // gesture is simply silent. Built once on mount and preloaded so the first
-  // scream fires without a fetch delay.
+  // gesture is simply silent. A template element is preloaded once on mount so
+  // the first scream fires without a fetch delay; each trigger plays a fresh
+  // clone, so repeated shakes stack into a chorus instead of restarting.
   const goatRef = useRef<HTMLAudioElement | null>(null);
   useEffect(() => {
     const audio = new Audio(`${import.meta.env.BASE_URL}goat-scream.mp3`);
@@ -189,10 +190,11 @@ export default function ParallelGraph({
     };
   }, []);
   const playGoatScream = useCallback(() => {
-    const audio = goatRef.current;
-    if (!audio) return;
-    audio.currentTime = 0;
-    void audio.play().catch(() => {});
+    const template = goatRef.current;
+    if (!template) return;
+    const voice = template.cloneNode() as HTMLAudioElement;
+    voice.volume = template.volume;
+    void voice.play().catch(() => {});
   }, []);
 
   const { positions, draggingId, onNodePointerDown } = useForceSimulation(
