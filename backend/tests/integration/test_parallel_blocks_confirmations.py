@@ -21,6 +21,7 @@ import json
 import uuid
 from uuid import UUID
 
+import pytest
 from django.test import Client
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -339,3 +340,268 @@ def test_confirmations_unauthenticated_rejected(
     response = _post(Client(), _confirmations_url(project.pk), {"subject_id": str(uuid.uuid7())})
 
     assert response.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# -- Confirm-all: invalid body, empty candidate set, envelope
+# ---------------------------------------------------------------------------
+
+
+def test_confirm_all_invalid_body_rejected(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """A confirm-all body missing candidate_group_ids is rejected 400 before any write."""
+    make_parallel_candidate_pair(project_db)
+
+    response = _post(auth_client, _confirm_all_url(project.pk), {})
+
+    assert response.status_code == 400
+    assert response.json()["error"] == "generic.invalid_body"
+    assert _stored(project_db) == set()
+
+
+def test_confirm_all_with_no_candidates_is_empty_noop(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """Confirm-all against an empty candidate set (empty client view) stores nothing."""
+    response = _post(auth_client, _confirm_all_url(project.pk), _confirm_all_body([]))
+
+    assert response.status_code == 200
+    assert response.json()["data"]["candidate_group_ids"] == []
+    assert _stored(project_db) == set()
+
+
+def test_confirm_success_envelope_shape(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """The confirm envelope is {timestamp, message, data} with a sorted id list."""
+    subject = make_subject(project_db, commit=False)
+    a1, a2 = make_parallel_candidate_pair(project_db, subject=subject, start_time=9)
+    b1, b2 = make_parallel_candidate_pair(project_db, subject=subject, start_time=14)
+    comp_a = _component_uuid(subject.id, [a1, a2])
+    comp_b = _component_uuid(subject.id, [b1, b2])
+
+    response = _post(
+        auth_client,
+        _confirmations_url(project.pk),
+        _confirm_body(subject.id, [comp_a, comp_b]),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert set(payload) == {"timestamp", "message", "data"}
+    ids = payload["data"]["candidate_group_ids"]
+    assert ids == sorted([str(comp_a), str(comp_b)])
+    datetime.datetime.fromisoformat(payload["timestamp"])
+
+
+# ---------------------------------------------------------------------------
+# -- Unconfirm one subject: not-confirmed and unknown are 200 no-ops
+# ---------------------------------------------------------------------------
+
+
+def test_unconfirm_subject_not_confirmed_removes_nothing(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """DELETE on a subject that was never confirmed returns 200 with data 0."""
+    subject = make_subject(project_db, commit=False)
+    make_parallel_candidate_pair(project_db, subject=subject)
+
+    response = auth_client.delete(_confirmation_url(project.pk, subject.id))
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data == 0
+    assert isinstance(data, int) and not isinstance(data, bool)
+    assert _stored(project_db) == set()
+
+
+def test_unconfirm_unknown_subject_is_noop(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """DELETE on a subject id with no candidates returns 200 with data 0."""
+    make_parallel_candidate_pair(project_db)
+
+    response = auth_client.delete(_confirmation_url(project.pk, uuid.uuid7()))
+
+    assert response.status_code == 200
+    assert response.json()["data"] == 0
+
+
+def test_clear_all_confirmations_returns_int_count(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """DELETE / reports the number of rows removed as a JSON int, not a bool."""
+    a, b = uuid.uuid7(), uuid.uuid7()
+    make_confirmed_candidate(project_db, candidate_group_id=a, commit=False)
+    make_confirmed_candidate(project_db, candidate_group_id=b)
+
+    response = auth_client.delete(_confirmations_url(project.pk))
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data == 2
+    assert isinstance(data, int) and not isinstance(data, bool)
+
+
+# ---------------------------------------------------------------------------
+# -- Auth (401) across every confirmation verb
+# ---------------------------------------------------------------------------
+
+
+def test_confirm_all_unauthenticated_rejected(
+    project: Project,
+    project_db: Session,
+) -> None:
+    """Confirm-all from a fresh client is rejected 401 before any write."""
+    response = _post(Client(), _confirm_all_url(project.pk), _confirm_all_body([]))
+
+    assert response.status_code == 401
+    assert response.json()["error"] == "auth.not_authenticated"
+
+
+def test_clear_all_confirmations_unauthenticated_rejected(
+    project: Project,
+    project_db: Session,
+) -> None:
+    """Clear-all confirmations from a fresh client is rejected 401; nothing removed."""
+    make_confirmed_candidate(project_db, candidate_group_id=uuid.uuid7())
+
+    response = Client().delete(_confirmations_url(project.pk))
+
+    assert response.status_code == 401
+    assert response.json()["error"] == "auth.not_authenticated"
+    assert len(_stored(project_db)) == 1
+
+
+def test_unconfirm_subject_unauthenticated_rejected(
+    project: Project,
+    project_db: Session,
+) -> None:
+    """Unconfirm-subject from a fresh client is rejected 401."""
+    response = Client().delete(_confirmation_url(project.pk, uuid.uuid7()))
+
+    assert response.status_code == 401
+    assert response.json()["error"] == "auth.not_authenticated"
+
+
+# ---------------------------------------------------------------------------
+# -- Unknown project (404) across every confirmation verb
+# ---------------------------------------------------------------------------
+
+
+def test_confirm_unknown_project_returns_404(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """Confirm on a nonexistent project id -> 404 from require_project."""
+    response = _post(
+        auth_client,
+        _confirmations_url(project.pk + 1000),
+        _confirm_body(uuid.uuid7(), []),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"] == "projects.not_found"
+
+
+def test_confirm_all_unknown_project_returns_404(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """Confirm-all on a nonexistent project id -> 404 from require_project."""
+    response = _post(auth_client, _confirm_all_url(project.pk + 1000), _confirm_all_body([]))
+
+    assert response.status_code == 404
+    assert response.json()["error"] == "projects.not_found"
+
+
+def test_clear_all_confirmations_unknown_project_returns_404(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """Clear-all confirmations on a nonexistent project id -> 404."""
+    response = auth_client.delete(_confirmations_url(project.pk + 1000))
+
+    assert response.status_code == 404
+    assert response.json()["error"] == "projects.not_found"
+
+
+def test_unconfirm_subject_unknown_project_returns_404(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """Unconfirm-subject on a nonexistent project id -> 404."""
+    response = auth_client.delete(_confirmation_url(project.pk + 1000, uuid.uuid7()))
+
+    assert response.status_code == 404
+    assert response.json()["error"] == "projects.not_found"
+
+
+# ---------------------------------------------------------------------------
+# -- Method dispatch (405) and path-converter routing (404)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("method", ["get", "put"])
+def test_confirmations_collection_unsupported_methods_405(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+    method: str,
+) -> None:
+    """The confirmations collection defines only post/delete; get/put -> 405."""
+    response = getattr(auth_client, method)(_confirmations_url(project.pk))
+    assert response.status_code == 405
+
+
+@pytest.mark.parametrize("method", ["get", "put", "delete"])
+def test_confirm_all_unsupported_methods_405(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+    method: str,
+) -> None:
+    """The confirm-all view defines only post; other verbs -> 405."""
+    response = getattr(auth_client, method)(_confirm_all_url(project.pk))
+    assert response.status_code == 405
+
+
+@pytest.mark.parametrize("method", ["get", "post", "put"])
+def test_confirmation_subject_unsupported_methods_405(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+    method: str,
+) -> None:
+    """The per-subject view defines only delete; other verbs -> 405."""
+    response = getattr(auth_client, method)(_confirmation_url(project.pk, uuid.uuid7()))
+    assert response.status_code == 405
+
+
+def test_unconfirm_non_uuid_subject_id_does_not_match_route(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """A non-uuid subject_id fails the ``<uuid:subject_id>`` converter -> Django 404."""
+    response = auth_client.delete(
+        f"/api/projects/{project.pk}/parallel-blocks/confirmations/not-a-uuid",
+    )
+    assert response.status_code == 404

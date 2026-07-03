@@ -1714,3 +1714,67 @@ def test_get_all_groups_with_info_synthetic_single_node_dropped(
     monkeypatch.setattr(dao, "_confirmed_group_by_block", lambda block_ids: {})
 
     assert dao.get_all_groups_with_info() == []
+
+
+# ======================================================================
+# candidate_ids_for_subject / all_candidate_ids
+# ======================================================================
+def test_candidate_ids_for_subject_scopes_to_that_subject(project_db: Session) -> None:
+    """Each subject's candidate ids are exactly its own components', not another's."""
+    year = make_year(project_db, commit=False)
+    subject_a = make_subject(project_db, year=year, commit=False)
+    subject_b = make_subject(project_db, year=year, commit=False)
+    a1, a2 = make_parallel_candidate_pair(project_db, subject=subject_a, commit=False)
+    b1, b2 = make_parallel_candidate_pair(project_db, subject=subject_b, commit=False)
+    project_db.commit()
+
+    dao = ParallelBlockCandidateDAO(project_db)
+
+    assert dao.candidate_ids_for_subject(subject_a.id) == {_component_uuid(subject_a.id, {a1, a2})}
+    assert dao.candidate_ids_for_subject(subject_b.id) == {_component_uuid(subject_b.id, {b1, b2})}
+
+
+def test_candidate_ids_for_subject_collects_every_component(project_db: Session) -> None:
+    """A subject with two disjoint components returns both candidate ids."""
+    subject = make_subject(project_db, commit=False)
+    a1, a2 = make_parallel_candidate_pair(project_db, subject=subject, start_time=9, commit=False)
+    b1, b2 = make_parallel_candidate_pair(project_db, subject=subject, start_time=14, commit=False)
+    project_db.commit()
+
+    dao = ParallelBlockCandidateDAO(project_db)
+
+    assert dao.candidate_ids_for_subject(subject.id) == {
+        _component_uuid(subject.id, {a1, a2}),
+        _component_uuid(subject.id, {b1, b2}),
+    }
+
+
+def test_candidate_ids_for_subject_unknown_subject_is_empty(project_db: Session) -> None:
+    """A subject id with no components yields an empty set."""
+    make_parallel_candidate_pair(project_db)
+
+    dao = ParallelBlockCandidateDAO(project_db)
+    assert dao.candidate_ids_for_subject(uuid.uuid7()) == set()
+
+
+def test_all_candidate_ids_spans_every_subject(project_db: Session) -> None:
+    """all_candidate_ids unions the candidate ids of every subject's components."""
+    year = make_year(project_db, commit=False)
+    subject_a = make_subject(project_db, year=year, commit=False)
+    subject_b = make_subject(project_db, year=year, commit=False)
+    a1, a2 = make_parallel_candidate_pair(project_db, subject=subject_a, commit=False)
+    b1, b2 = make_parallel_candidate_pair(project_db, subject=subject_b, commit=False)
+    project_db.commit()
+
+    dao = ParallelBlockCandidateDAO(project_db)
+
+    assert dao.all_candidate_ids() == {
+        _component_uuid(subject_a.id, {a1, a2}),
+        _component_uuid(subject_b.id, {b1, b2}),
+    }
+
+
+def test_all_candidate_ids_empty_db_is_empty(project_db: Session) -> None:
+    """With no candidates at all, all_candidate_ids is empty."""
+    dao = ParallelBlockCandidateDAO(project_db)
+    assert dao.all_candidate_ids() == set()
