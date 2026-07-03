@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { useParallelSessions } from "@/api/hooks/useParallelSessions";
 import { DAY_ORDER, type ParallelCandidateGraph } from "@/types/parallelSessions";
@@ -60,8 +60,16 @@ export default function ParallelClassesPage() {
 
   // Horizontal scroll container of the selected-groups panel and the active
   // subject's column within it, so selecting a subject scrolls it into view.
+  const groupsPanelRef = useRef<HTMLDivElement | null>(null);
   const groupsScrollRef = useRef<HTMLDivElement | null>(null);
   const activeGroupColRef = useRef<HTMLDivElement | null>(null);
+
+  // The group card currently playing its "look here" pulse, plus per-card refs
+  // so we can scroll the matching card into view.
+  const [highlightedGroupId, setHighlightedGroupId] = useState<string | null>(null);
+  const groupCardRefs = useRef(new Map<string, HTMLDivElement>());
+  const highlightTimer = useRef<number | null>(null);
+  useEffect(() => () => window.clearTimeout(highlightTimer.current ?? undefined), []);
 
   const {
     degrees,
@@ -149,8 +157,10 @@ export default function ParallelClassesPage() {
 
   const subjectGraphs = activeSubject ? (graphsBySubject.get(activeSubject) ?? []) : [];
 
-  // Bring the active subject's column into view when the selection changes.
+  // On subject change, jump the panel back to the top and bring the active
+  // subject's column into horizontal view.
   useEffect(() => {
+    groupsPanelRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     const container = groupsScrollRef.current;
     const col = activeGroupColRef.current;
     if (!container || !col) return;
@@ -160,6 +170,60 @@ export default function ParallelClassesPage() {
     const target = container.scrollLeft + delta - (container.clientWidth - colRect.width) / 2;
     container.scrollTo({ left: Math.max(0, target), behavior: "smooth" });
   }, [activeSubject]);
+
+  // Block id -> the id of the (shown) group it belongs to, for reveal-on-tap.
+  const groupIdByBlock = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const items of groupViewsBySubject.values())
+      for (const view of items) for (const b of view.blocks) map.set(b.blockId, view.group.id);
+    return map;
+  }, [groupViewsBySubject]);
+
+  // Candidate id -> ids of the groups already carved out of it.
+  const groupIdsByCandidate = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const items of groupViewsBySubject.values())
+      for (const view of items) {
+        const arr = map.get(view.group.candidateGroupId);
+        if (arr) arr.push(view.group.id);
+        else map.set(view.group.candidateGroupId, [view.group.id]);
+      }
+    return map;
+  }, [groupViewsBySubject]);
+
+  // Scroll a group card into view and play its one-shot "look here" pulse.
+  const revealGroup = useCallback((groupId: string) => {
+    const el = groupCardRefs.current.get(groupId);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    window.clearTimeout(highlightTimer.current ?? undefined);
+    // Clear any current highlight, then start the pulse only after the smooth
+    // scroll has had time to land — otherwise it can finish before the card is
+    // on screen. Clearing first also restarts the CSS animation on a repeat.
+    setHighlightedGroupId(null);
+    highlightTimer.current = window.setTimeout(() => {
+      setHighlightedGroupId(groupId);
+      highlightTimer.current = window.setTimeout(() => setHighlightedGroupId(null), 800);
+    }, 380);
+  }, []);
+
+  // Tap on an already-grouped node reveals the group it belongs to.
+  const handleRevealGroup = useCallback(
+    (blockId: string) => {
+      const groupId = groupIdByBlock.get(blockId);
+      if (groupId) revealGroup(groupId);
+    },
+    [groupIdByBlock, revealGroup],
+  );
+
+  // Selecting a candidate that already has exactly one group jumps to it.
+  useEffect(() => {
+    if (!selectedCandidateId) return;
+    const ids = groupIdsByCandidate.get(selectedCandidateId);
+    if (ids && ids.length === 1) revealGroup(ids[0]!);
+    // Only react to the candidate selection itself, not later group edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCandidateId]);
 
   // The single selected year driving the candidate list.
   const activeYearId = yearsWithCandidates.find((y) => selectedYearIds.has(y.id))?.id ?? null;
@@ -433,7 +497,10 @@ export default function ParallelClassesPage() {
                     </div>
                     {selectedValid ? (
                       <button
-                        onClick={() => handleCreateGroup(selectedGraph.candidate_group_id)}
+                        onClick={() => {
+                          const id = handleCreateGroup(selectedGraph.candidate_group_id);
+                          if (id) requestAnimationFrame(() => revealGroup(id));
+                        }}
                         className="shrink-0 bg-[#1e2028] text-white font-semibold px-3 py-1.5 rounded-lg text-[11px] hover:bg-[#2a2d37] transition-colors whitespace-nowrap cursor-pointer"
                       >
                         Criar grupo ({selectedSelection.size})
@@ -448,7 +515,10 @@ export default function ParallelClassesPage() {
                       </span>
                     ) : selectedCanGroupAll ? (
                       <button
-                        onClick={() => handleGroupAll(selectedGraph.candidate_group_id)}
+                        onClick={() => {
+                          const id = handleGroupAll(selectedGraph.candidate_group_id);
+                          if (id) requestAnimationFrame(() => revealGroup(id));
+                        }}
                         className="shrink-0 bg-[#1e2028] text-white font-semibold px-3 py-1.5 rounded-lg text-[11px] hover:bg-[#2a2d37] transition-colors whitespace-nowrap cursor-pointer"
                       >
                         Agrupar todas ({selectedUnassignedCount})
@@ -468,6 +538,7 @@ export default function ParallelClassesPage() {
                       onToggleNode={(blockId) =>
                         handleToggleNode(selectedGraph.candidate_group_id, blockId)
                       }
+                      onTapAssigned={handleRevealGroup}
                       sessionTypeStyle={sessionTypeStyle}
                     />
                   </div>
@@ -486,7 +557,10 @@ export default function ParallelClassesPage() {
             {/* Selected groups panel */}
             <div className="flex-[2] min-h-0 flex flex-col">
               <h2 className="font-bold text-[#333] text-base mb-3 shrink-0">Selecionadas</h2>
-              <div className="flex-1 overflow-y-auto pb-2 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300/60">
+              <div
+                ref={groupsPanelRef}
+                className="flex-1 overflow-y-auto pb-2 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300/60"
+              >
                 {loadingCandidates ? (
                   <CandidatesLoadingSkeleton />
                 ) : groupViewsBySubject.size === 0 ? (
@@ -521,12 +595,17 @@ export default function ParallelClassesPage() {
                               {items.map(({ group, weekday, startTime, blocks }) => {
                                 const day = dayConfig(weekday);
                                 const saved = savedGroupIds.has(group.id);
+                                const highlighted = highlightedGroupId === group.id;
                                 return (
                                   <div
                                     key={group.id}
+                                    ref={(el) => {
+                                      if (el) groupCardRefs.current.set(group.id, el);
+                                      else groupCardRefs.current.delete(group.id);
+                                    }}
                                     className={`flex items-stretch overflow-hidden rounded-lg border bg-white ${
                                       saved ? "border-[#e4e4e4]" : "border-emerald-300"
-                                    }`}
+                                    } ${highlighted ? "parallel-group-pulse" : ""}`}
                                   >
                                     <div
                                       className={`w-1 shrink-0 ${saved ? "bg-[#c8c8c8]" : "bg-emerald-400"}`}

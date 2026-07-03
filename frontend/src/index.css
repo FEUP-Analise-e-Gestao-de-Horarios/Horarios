@@ -46,3 +46,35 @@
     animation: parallel-col-enter 0.25s ease-out;
   }
 }
+
+/* One-shot "look here" pulse for a group card in the selected-groups panel,
+   played when its group is revealed. A small rightward nudge plus a soft
+   brand-red glow (ring + shadow) that settles back — no scale, no lingering
+   outline. Rest state (0%/100%) is the card's normal look. */
+@keyframes parallel-group-pulse {
+  0% {
+    transform: translateX(0);
+    box-shadow: 0 0 0 0 rgba(140, 45, 25, 0);
+  }
+  35% {
+    transform: translateX(8px);
+    box-shadow:
+      0 0 0 4px rgba(140, 45, 25, 0.28),
+      0 8px 18px rgba(140, 45, 25, 0.18);
+  }
+  100% {
+    transform: translateX(0);
+    box-shadow: 0 0 0 0 rgba(140, 45, 25, 0);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .parallel-group-pulse {
+    animation: parallel-group-pulse 0.55s ease-out;
+  }
+}
+/* Motion-averse users get a brief static ring instead of the scale/glow. */
+@media (prefers-reduced-motion: reduce) {
+  .parallel-group-pulse {
+    box-shadow: 0 0 0 3px rgba(140, 45, 25, 0.35);
+  }
+}

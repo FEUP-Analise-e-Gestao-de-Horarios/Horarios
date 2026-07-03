@@ -10,6 +10,8 @@ interface ParallelGraphProps {
   /** Blocks already assigned to a (draft or confirmed) group — locked. */
   assigned: Set<UUID>;
   onToggleNode: (blockId: UUID) => void;
+  /** Tap on an already-grouped node — reveals its group in the side panel. */
+  onTapAssigned?: (blockId: UUID) => void;
   sessionTypeStyle: (type: string) => { bg: string; text: string };
 }
 
@@ -75,6 +77,7 @@ export default function ParallelGraph({
   selected,
   assigned,
   onToggleNode,
+  onTapAssigned,
   sessionTypeStyle,
 }: ParallelGraphProps) {
   const ids = useMemo(() => graph.nodes.map((n) => n.original_block_id), [graph.nodes]);
@@ -158,13 +161,15 @@ export default function ParallelGraph({
     return set;
   }, [selected, adjacency]);
 
-  // Toggle only fires on a tap (a press that didn't turn into a drag), and never
-  // for locked nodes — but every node can still be dragged around.
+  // A tap (a press that didn't turn into a drag) toggles a free node into the
+  // selection, or — for a locked node — reveals the group it already belongs to.
+  // Every node can still be dragged around regardless.
   const onTap = useCallback(
     (id: UUID) => {
-      if (!assigned.has(id)) onToggleNode(id);
+      if (assigned.has(id)) onTapAssigned?.(id);
+      else onToggleNode(id);
     },
-    [assigned, onToggleNode],
+    [assigned, onToggleNode, onTapAssigned],
   );
 
   const { positions, draggingId, onNodePointerDown } = useForceSimulation(
@@ -349,7 +354,7 @@ export default function ParallelGraph({
                 key={id}
                 type="button"
                 onPointerDown={(e) => onNodePointerDown(id, e)}
-                title={isAssigned ? "Já pertence a um grupo" : codes}
+                title={isAssigned ? "Já pertence a um grupo — clica para ver" : codes}
                 style={{
                   left: pos.x,
                   top: pos.y,

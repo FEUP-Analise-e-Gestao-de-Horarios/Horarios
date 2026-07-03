@@ -82,8 +82,10 @@ export interface UseParallelSessionsReturn {
   handleYearToggle: (yearId: UUID) => void;
   handleYearSelect: (yearId: UUID) => void;
   handleToggleNode: (candidateGroupId: UUID, blockId: UUID) => void;
-  handleCreateGroup: (candidateGroupId: UUID) => void;
-  handleGroupAll: (candidateGroupId: UUID) => void;
+  /** Create a group from the current selection; returns its id, or null if invalid. */
+  handleCreateGroup: (candidateGroupId: UUID) => UUID | null;
+  /** Group all still-free nodes of a component; returns its id, or null if invalid. */
+  handleGroupAll: (candidateGroupId: UUID) => UUID | null;
   handleRemoveGroup: (groupId: string) => void;
   handleBack: () => void;
   handleNavigateHome: () => void;
@@ -423,30 +425,28 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     });
   };
 
-  const handleCreateGroup = (candidateGroupId: UUID) => {
+  const handleCreateGroup = (candidateGroupId: UUID): UUID | null => {
     const selection = selectionByGroup[candidateGroupId];
-    if (!selection || selection.size < 2) return;
+    if (!selection || selection.size < 2) return null;
     const adj = adjacencyByGroup.get(candidateGroupId);
-    if (!adj || !isConnectedSelection(selection, adj)) return;
+    if (!adj || !isConnectedSelection(selection, adj)) return null;
     const blockIds = [...selection];
-    setGroups((prev) => [
-      ...prev,
-      { id: crypto.randomUUID(), candidateGroupId, blockIds, confirmed: false },
-    ]);
+    const id = crypto.randomUUID();
+    setGroups((prev) => [...prev, { id, candidateGroupId, blockIds, confirmed: false }]);
     setSelectionByGroup((prev) => ({ ...prev, [candidateGroupId]: new Set() }));
+    return id;
   };
 
   // Group every still-unassigned node of a component in one action.
-  const handleGroupAll = (candidateGroupId: UUID) => {
+  const handleGroupAll = (candidateGroupId: UUID): UUID | null => {
     const blockIds = unassignedBlockIds(candidateGroupId);
-    if (blockIds.length < 2) return;
+    if (blockIds.length < 2) return null;
     const adj = adjacencyByGroup.get(candidateGroupId);
-    if (!adj || !isConnectedSelection(new Set(blockIds), adj)) return;
-    setGroups((prev) => [
-      ...prev,
-      { id: crypto.randomUUID(), candidateGroupId, blockIds, confirmed: false },
-    ]);
+    if (!adj || !isConnectedSelection(new Set(blockIds), adj)) return null;
+    const id = crypto.randomUUID();
+    setGroups((prev) => [...prev, { id, candidateGroupId, blockIds, confirmed: false }]);
     setSelectionByGroup((prev) => ({ ...prev, [candidateGroupId]: new Set() }));
+    return id;
   };
 
   const handleRemoveGroup = (groupId: string) => {
