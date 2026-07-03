@@ -73,6 +73,7 @@ export default function ParallelClassesPage() {
     assignedBlockIds,
     selectionByGroup,
     isSelectionValid,
+    canGroupAll,
     groupViewsBySubject,
     savedGroupIds,
     saving,
@@ -85,6 +86,7 @@ export default function ParallelClassesPage() {
     handleYearSelect,
     handleToggleNode,
     handleCreateGroup,
+    handleGroupAll,
     handleRemoveGroup,
     handleBack,
     handleNavigateHome,
@@ -159,6 +161,10 @@ export default function ParallelClassesPage() {
   const selectedAllAssigned = selectedGraph
     ? selectedGraph.nodes.every((n) => assignedBlockIds.has(n.original_block_id))
     : false;
+  const selectedCanGroupAll = selectedGraph ? canGroupAll(selectedGraph.candidate_group_id) : false;
+  const selectedUnassignedCount = selectedGraph
+    ? selectedGraph.nodes.filter((n) => !assignedBlockIds.has(n.original_block_id)).length
+    : 0;
 
   return (
     <div className="h-screen flex flex-col bg-[#f0eeeb]">
@@ -423,6 +429,13 @@ export default function ParallelClassesPage() {
                       <span className="shrink-0 text-[11px] text-emerald-600 font-semibold whitespace-nowrap">
                         Todas agrupadas
                       </span>
+                    ) : selectedCanGroupAll ? (
+                      <button
+                        onClick={() => handleGroupAll(selectedGraph.candidate_group_id)}
+                        className="shrink-0 bg-[#1e2028] text-white font-semibold px-3 py-1.5 rounded-lg text-[11px] hover:bg-[#2a2d37] transition-colors whitespace-nowrap cursor-pointer"
+                      >
+                        Agrupar todas ({selectedUnassignedCount})
+                      </button>
                     ) : (
                       <span className="shrink-0 text-[11px] text-[#bbb] font-medium whitespace-nowrap">
                         Clica em turmas ligadas

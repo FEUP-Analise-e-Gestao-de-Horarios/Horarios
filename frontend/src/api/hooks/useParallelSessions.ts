@@ -63,6 +63,8 @@ export interface UseParallelSessionsReturn {
   selectionByGroup: Record<UUID, Set<UUID>>;
   /** Whether the current selection for a component is a valid (connected, ≥2) group. */
   isSelectionValid: (candidateGroupId: UUID) => boolean;
+  /** Whether all still-unassigned nodes of a component form a valid group. */
+  canGroupAll: (candidateGroupId: UUID) => boolean;
 
   groupViewsBySubject: Map<string, GroupView[]>;
   savedGroupIds: Set<string>;
@@ -81,6 +83,7 @@ export interface UseParallelSessionsReturn {
   handleYearSelect: (yearId: UUID) => void;
   handleToggleNode: (candidateGroupId: UUID, blockId: UUID) => void;
   handleCreateGroup: (candidateGroupId: UUID) => void;
+  handleGroupAll: (candidateGroupId: UUID) => void;
   handleRemoveGroup: (groupId: string) => void;
   handleBack: () => void;
   handleNavigateHome: () => void;
@@ -323,6 +326,21 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     return isConnectedSelection(selection, adj);
   };
 
+  // Block ids of a component still free to be grouped (not already assigned).
+  const unassignedBlockIds = (candidateGroupId: UUID): UUID[] => {
+    const graph = graphs.find((g) => g.candidate_group_id === candidateGroupId);
+    if (!graph) return [];
+    return graph.nodes.map((n) => n.original_block_id).filter((id) => !assignedBlockIds.has(id));
+  };
+
+  const canGroupAll = (candidateGroupId: UUID): boolean => {
+    const blockIds = unassignedBlockIds(candidateGroupId);
+    if (blockIds.length < 2) return false;
+    const adj = adjacencyByGroup.get(candidateGroupId);
+    if (!adj) return false;
+    return isConnectedSelection(new Set(blockIds), adj);
+  };
+
   // -- Side-panel group views -------------------------------------------
   const groupViewsBySubject = useMemo(() => {
     const views: GroupView[] = groups.map((group) => {
@@ -400,6 +418,19 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     const adj = adjacencyByGroup.get(candidateGroupId);
     if (!adj || !isConnectedSelection(selection, adj)) return;
     const blockIds = [...selection];
+    setGroups((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), candidateGroupId, blockIds, confirmed: false },
+    ]);
+    setSelectionByGroup((prev) => ({ ...prev, [candidateGroupId]: new Set() }));
+  };
+
+  // Group every still-unassigned node of a component in one action.
+  const handleGroupAll = (candidateGroupId: UUID) => {
+    const blockIds = unassignedBlockIds(candidateGroupId);
+    if (blockIds.length < 2) return;
+    const adj = adjacencyByGroup.get(candidateGroupId);
+    if (!adj || !isConnectedSelection(new Set(blockIds), adj)) return;
     setGroups((prev) => [
       ...prev,
       { id: crypto.randomUUID(), candidateGroupId, blockIds, confirmed: false },
@@ -507,6 +538,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     assignedBlockIds,
     selectionByGroup,
     isSelectionValid,
+    canGroupAll,
     groupViewsBySubject,
     savedGroupIds,
     saving,
@@ -521,6 +553,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     handleYearSelect,
     handleToggleNode,
     handleCreateGroup,
+    handleGroupAll,
     handleRemoveGroup,
     handleBack,
     handleNavigateHome,
