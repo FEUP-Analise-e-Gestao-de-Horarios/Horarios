@@ -83,6 +83,15 @@ export interface YearOption {
 }
 
 // -- Local selection model ----------------------------------------------
+/**
+ * The persistence lifecycle of a group card, which drives its animation:
+ * - `creating`: optimistically added, POST in flight (green, shifted right).
+ * - `saved`: confirmed on the server (settled, gray).
+ * - `deleting`: removal requested, DELETE in flight (red, shifted right).
+ * - `leaving`: deletion confirmed, collapsing out before it is dropped.
+ */
+export type ParallelGroupStatus = "creating" | "saved" | "deleting" | "leaving";
+
 /** A group the user has formed (or one loaded from the server). */
 export interface ParallelGroup {
   /** Stable local id for this card's lifetime (React key, reveal target). */
@@ -95,8 +104,7 @@ export interface ParallelGroup {
   serverId: UUID | null;
   candidateGroupId: UUID;
   blockIds: UUID[];
-  /** True when this group is persisted on the server (serverId is set). */
-  confirmed: boolean;
+  status: ParallelGroupStatus;
 }
 
 export const DAY_ORDER: Record<string, number> = {

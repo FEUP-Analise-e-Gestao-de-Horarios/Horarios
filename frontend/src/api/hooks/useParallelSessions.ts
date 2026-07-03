@@ -17,6 +17,19 @@ import {
 } from "@/types/parallelSessions";
 import { buildAdjacency, isConnectedSelection } from "@/components/parallel/parallelGraph";
 
+/** How long a confirmed-deleted card releases, fades, and collapses out before
+ * it is dropped from the list. Kept just above the CSS leave duration (500ms)
+ * so the row has finished animating away before it unmounts. */
+const GROUP_LEAVE_MS = 520;
+
+/** Minimum time a card holds in its pending (shifted + glowing) state before it
+ * releases, so a fast backend still lets the create/delete animation play out
+ * fully instead of snapping. Matches the CSS glow duration (0.55s). */
+const GROUP_MIN_HOLD_MS = 550;
+
+const delay = (ms: number): Promise<void> =>
+  new Promise((resolve) => window.setTimeout(resolve, ms));
+
 function parallelSaveErrorMessage(err: unknown): string {
   const code = err instanceof Error && "code" in err ? (err as ApiRequestError).code : undefined;
   if (code === ApiError.PARALLEL_GROUPS_INVALID_CANDIDATES) {
@@ -60,7 +73,6 @@ export interface UseParallelSessionsReturn {
   canGroupAll: (candidateGroupId: UUID) => boolean;
 
   groupViewsBySubject: Map<string, GroupView[]>;
-  savedGroupIds: Set<string>;
 
   /** True while any create/delete request is in flight. */
   saving: boolean;
@@ -174,7 +186,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
             serverId: key,
             candidateGroupId: g.candidate_group_id,
             blockIds: [],
-            confirmed: true,
+            status: "saved",
           };
           byConfirmed.set(key, grp);
         }
@@ -384,12 +396,6 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     return map;
   }, [groups, nodeIndex, selectedYearIdSet]);
 
-  // Groups already persisted on the server (a create round-trip has landed).
-  const savedGroupIds = useMemo(
-    () => new Set(groups.filter((g) => g.confirmed).map((g) => g.id)),
-    [groups],
-  );
-
   const backRoute = ROUTES.SCHEDULE.replace(":projectId", projectId ?? "");
 
   // -- Handlers ---------------------------------------------------------
@@ -442,18 +448,28 @@ export function useParallelSessions(): UseParallelSessionsReturn {
   // await the resulting id.
   const persistCreate = (localId: string, candidateGroupId: UUID, blockIds: UUID[]): void => {
     beginRequest();
-    const request = api
-      .post<SuccessResponse<{ group_id: UUID }>>(
+    // Hold the "added" animation for at least GROUP_MIN_HOLD_MS even if the POST
+    // returns sooner, so the card's slide-and-glow always plays out.
+    const request = Promise.all([
+      api.post<SuccessResponse<{ group_id: UUID }>>(
         `/api/projects/${projectIdNum}/parallel-blocks/groups/`,
         { candidate_group_id: candidateGroupId, block_ids: blockIds },
-      )
-      .then((res): UUID | null => {
+      ),
+      delay(GROUP_MIN_HOLD_MS),
+    ])
+      .then(([res]): UUID | null => {
         const serverId = res.data.group_id;
+        // Adopt the backend id and settle to "saved" — unless a delete already
+        // moved this card to "deleting" while the create was in flight, in
+        // which case keep that status so the delete can carry on.
         setGroups((prev) =>
-          prev.map((g) => (g.id === localId ? { ...g, serverId, confirmed: true } : g)),
+          prev.map((g) =>
+            g.id === localId
+              ? { ...g, serverId, status: g.status === "creating" ? "saved" : g.status }
+              : g,
+          ),
         );
         void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
-        setSaveStatus({ type: "success", message: "Guardado" });
         return serverId;
       })
       .catch((err: unknown): null => {
@@ -468,26 +484,42 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     pendingCreates.current.set(localId, request);
   };
 
-  // DELETE a removed group; waits for an in-flight create so a just-created
-  // group can still be deleted. Restores the card if the request fails.
+  // DELETE a group the user asked to remove (it is already showing its
+  // "deleting" state). Waits for an in-flight create so a just-created group
+  // can still be deleted. Only once the server confirms does the card collapse
+  // out and get dropped; a failure settles it back to "saved".
   const persistDelete = async (group: ParallelGroup): Promise<void> => {
-    let serverId = group.serverId;
-    if (!serverId) {
-      const pending = pendingCreates.current.get(group.id);
-      serverId = pending ? await pending : null;
-    }
-    // Never persisted (its create failed, or is still gone): the optimistic
-    // removal already matches the server.
-    if (!serverId) return;
-
     beginRequest();
     try {
-      await api.delete(`/api/projects/${projectIdNum}/parallel-blocks/groups/${serverId}`);
+      let serverId = group.serverId;
+      if (!serverId) {
+        const pending = pendingCreates.current.get(group.id);
+        serverId = pending ? await pending : null;
+      }
+      // Its create never landed (failed / nothing on the server): just drop it.
+      if (!serverId) {
+        setGroups((prev) => prev.filter((g) => g.id !== group.id));
+        return;
+      }
+
+      // Hold the "removing" animation for at least GROUP_MIN_HOLD_MS even if the
+      // DELETE returns sooner, so the card's slide-and-glow always plays out.
+      await Promise.all([
+        api.delete(`/api/projects/${projectIdNum}/parallel-blocks/groups/${serverId}`),
+        delay(GROUP_MIN_HOLD_MS),
+      ]);
       void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
-      setSaveStatus({ type: "success", message: "Guardado" });
+
+      // Confirmed: play the collapse-out, then drop the row once it settles so
+      // the remaining cards slide up into its place.
+      setGroups((prev) => prev.map((g) => (g.id === group.id ? { ...g, status: "leaving" } : g)));
+      window.setTimeout(() => {
+        setGroups((prev) => prev.filter((g) => g.id !== group.id));
+      }, GROUP_LEAVE_MS);
     } catch (err) {
-      const restored: ParallelGroup = { ...group, serverId, confirmed: true };
-      setGroups((prev) => (prev.some((g) => g.id === group.id) ? prev : [...prev, restored]));
+      // Failed: settle the card back to its saved resting state (releases the
+      // red border and rightward shift).
+      setGroups((prev) => prev.map((g) => (g.id === group.id ? { ...g, status: "saved" } : g)));
       setSaveStatus({ type: "error", message: parallelSaveErrorMessage(err) });
     } finally {
       endRequest();
@@ -503,7 +535,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     const id = crypto.randomUUID();
     setGroups((prev) => [
       ...prev,
-      { id, serverId: null, candidateGroupId, blockIds, confirmed: false },
+      { id, serverId: null, candidateGroupId, blockIds, status: "creating" },
     ]);
     setSelectionByGroup((prev) => ({ ...prev, [candidateGroupId]: new Set() }));
     persistCreate(id, candidateGroupId, blockIds);
@@ -519,7 +551,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     const id = crypto.randomUUID();
     setGroups((prev) => [
       ...prev,
-      { id, serverId: null, candidateGroupId, blockIds, confirmed: false },
+      { id, serverId: null, candidateGroupId, blockIds, status: "creating" },
     ]);
     setSelectionByGroup((prev) => ({ ...prev, [candidateGroupId]: new Set() }));
     persistCreate(id, candidateGroupId, blockIds);
@@ -529,7 +561,11 @@ export function useParallelSessions(): UseParallelSessionsReturn {
   const handleRemoveGroup = (groupId: string) => {
     const group = groups.find((g) => g.id === groupId);
     if (!group) return;
-    setGroups((prev) => prev.filter((g) => g.id !== groupId));
+    // Already on its way out — don't restart the delete.
+    if (group.status === "deleting" || group.status === "leaving") return;
+    // Flag the card for deletion (red border + rightward shift); the row is only
+    // dropped once the server confirms, inside persistDelete.
+    setGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, status: "deleting" } : g)));
     void persistDelete(group);
   };
 
@@ -592,7 +628,6 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     isSelectionValid,
     canGroupAll,
     groupViewsBySubject,
-    savedGroupIds,
     saving,
     saveStatus,
     showResetModal,

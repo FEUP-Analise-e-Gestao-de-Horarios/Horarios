@@ -78,3 +78,42 @@
     box-shadow: 0 0 0 3px rgba(140, 45, 25, 0.35);
   }
 }
+
+/* Glow played once when a group card enters its pending state and holds shifted
+   to the right: emerald while a create is confirming, red while a delete is.
+   Glow only — the rightward shift is a separate transform transition — so it
+   never fights the hold-position. */
+@keyframes parallel-group-glow-emerald {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+  35% {
+    box-shadow:
+      0 0 0 4px rgba(16, 185, 129, 0.3),
+      0 8px 18px rgba(16, 185, 129, 0.18);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+@keyframes parallel-group-glow-red {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+  35% {
+    box-shadow:
+      0 0 0 4px rgba(239, 68, 68, 0.3),
+      0 8px 18px rgba(239, 68, 68, 0.18);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .parallel-group-added {
+    animation: parallel-group-glow-emerald 0.55s ease-out;
+  }
+  .parallel-group-removing {
+    animation: parallel-group-glow-red 0.55s ease-out;
+  }
+}
