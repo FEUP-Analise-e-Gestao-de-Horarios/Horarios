@@ -21,7 +21,11 @@ from src.core.validation import (
     validate_query_params,
     validate_request_body,
 )
-from src.projects.views.schemas.parallel_blocks import CreateParallelGroupRequest
+from src.projects.views.schemas.parallel_blocks import (
+    ConfirmAllRequest,
+    ConfirmSubjectRequest,
+    CreateParallelGroupRequest,
+)
 
 
 # A throwaway nested-list schema, used only to exercise the generic validation
@@ -317,3 +321,146 @@ def test_create_request_rejects_non_uuid_fields(payload: dict, expected_loc: tup
 
     locs = [err["loc"] for err in exc_info.value.errors()]
     assert expected_loc in locs
+
+
+def test_create_request_ignores_unknown_fields() -> None:
+    """Unknown keys are dropped, not rejected (the schema does not forbid extras)."""
+    model = CreateParallelGroupRequest.model_validate(
+        {
+            "candidate_group_id": str(uuid.uuid7()),
+            "block_ids": [str(uuid.uuid7())],
+            "bogus": 1,
+        },
+    )
+
+    assert not hasattr(model, "bogus")
+
+
+# --------------------------------------------------------------------------
+# ConfirmSubjectRequest schema behavior
+# --------------------------------------------------------------------------
+def test_confirm_subject_request_round_trips_from_json() -> None:
+    """A confirm-subject request survives a JSON -> model -> JSON round-trip."""
+    subject_id = uuid.uuid7()
+    c1, c2 = uuid.uuid7(), uuid.uuid7()
+    raw = json.dumps(
+        {
+            "subject_id": str(subject_id),
+            "candidate_group_ids": [str(c1), str(c2)],
+        },
+    )
+
+    model = ConfirmSubjectRequest.model_validate_json(raw)
+
+    assert isinstance(model.subject_id, UUID)
+    assert model.subject_id == subject_id
+    assert model.candidate_group_ids == [c1, c2]
+    assert all(isinstance(cid, UUID) for cid in model.candidate_group_ids)
+    assert ConfirmSubjectRequest.model_validate_json(model.model_dump_json()) == model
+
+
+def test_confirm_subject_request_allows_empty_candidate_ids() -> None:
+    """An empty candidate list is accepted (an empty confirm has real semantics)."""
+    model = ConfirmSubjectRequest(subject_id=uuid.uuid7(), candidate_group_ids=[])
+
+    assert model.candidate_group_ids == []
+
+
+@pytest.mark.parametrize("missing", ["subject_id", "candidate_group_ids"])
+def test_confirm_subject_request_requires_both_fields(missing: str) -> None:
+    """Omitting a required field raises a ValidationError located at that field."""
+    payload: dict = {
+        "subject_id": str(uuid.uuid7()),
+        "candidate_group_ids": [str(uuid.uuid7())],
+    }
+    del payload[missing]
+
+    with pytest.raises(Exception) as exc_info:
+        ConfirmSubjectRequest.model_validate(payload)
+
+    errors = exc_info.value.errors()
+    assert errors[0]["loc"] == (missing,)
+    assert errors[0]["type"] == "missing"
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected_loc"),
+    [
+        (
+            {"subject_id": "xyz", "candidate_group_ids": []},
+            ("subject_id",),
+        ),
+        (
+            {"subject_id": str(uuid.uuid7()), "candidate_group_ids": ["not-a-uuid"]},
+            ("candidate_group_ids", 0),
+        ),
+    ],
+)
+def test_confirm_subject_request_rejects_non_uuid_fields(
+    payload: dict,
+    expected_loc: tuple,
+) -> None:
+    """Non-UUID values raise a ValidationError with the offending field's loc."""
+    with pytest.raises(Exception) as exc_info:
+        ConfirmSubjectRequest.model_validate(payload)
+
+    locs = [err["loc"] for err in exc_info.value.errors()]
+    assert expected_loc in locs
+
+
+def test_confirm_subject_request_rejects_non_list_candidate_ids() -> None:
+    """A scalar where a list is expected is a validation error, not a coercion."""
+    with pytest.raises(Exception) as exc_info:
+        ConfirmSubjectRequest.model_validate(
+            {"subject_id": str(uuid.uuid7()), "candidate_group_ids": str(uuid.uuid7())},
+        )
+
+    assert exc_info.value.errors()[0]["loc"] == ("candidate_group_ids",)
+
+
+# --------------------------------------------------------------------------
+# ConfirmAllRequest schema behavior
+# --------------------------------------------------------------------------
+def test_confirm_all_request_round_trips_from_json() -> None:
+    """A confirm-all request survives a JSON -> model -> JSON round-trip."""
+    c1, c2 = uuid.uuid7(), uuid.uuid7()
+    raw = json.dumps({"candidate_group_ids": [str(c1), str(c2)]})
+
+    model = ConfirmAllRequest.model_validate_json(raw)
+
+    assert model.candidate_group_ids == [c1, c2]
+    assert all(isinstance(cid, UUID) for cid in model.candidate_group_ids)
+    assert ConfirmAllRequest.model_validate_json(model.model_dump_json()) == model
+
+
+def test_confirm_all_request_allows_empty_candidate_ids() -> None:
+    """An empty candidate list is accepted (confirm-all over an empty candidate set)."""
+    model = ConfirmAllRequest(candidate_group_ids=[])
+
+    assert model.candidate_group_ids == []
+
+
+def test_confirm_all_request_requires_candidate_ids() -> None:
+    """Omitting candidate_group_ids raises a ValidationError at that field."""
+    with pytest.raises(Exception) as exc_info:
+        ConfirmAllRequest.model_validate({})
+
+    errors = exc_info.value.errors()
+    assert errors[0]["loc"] == ("candidate_group_ids",)
+    assert errors[0]["type"] == "missing"
+
+
+def test_confirm_all_request_rejects_non_uuid_element() -> None:
+    """A non-UUID element is located at its list index."""
+    with pytest.raises(Exception) as exc_info:
+        ConfirmAllRequest.model_validate({"candidate_group_ids": ["not-a-uuid"]})
+
+    assert ("candidate_group_ids", 0) in [err["loc"] for err in exc_info.value.errors()]
+
+
+def test_confirm_all_request_rejects_non_list() -> None:
+    """A scalar where a list is expected is rejected, not coerced."""
+    with pytest.raises(Exception) as exc_info:
+        ConfirmAllRequest.model_validate({"candidate_group_ids": str(uuid.uuid7())})
+
+    assert exc_info.value.errors()[0]["loc"] == ("candidate_group_ids",)

@@ -112,3 +112,61 @@ def test_mixed_subjects_only_full_ones_survive(project_db) -> None:
 
     assert result == {full}
     assert ParallelConfirmedCandidateDAO(project_db).get_all() == {f1, f2}
+
+
+def test_two_fully_confirmed_subjects_both_survive_union_kept(project_db) -> None:
+    """Two independently-full subjects are both reported; kept ids are their union."""
+    subject_x, subject_y = uuid.uuid7(), uuid.uuid7()
+    x1, x2 = uuid.uuid7(), uuid.uuid7()
+    y1, y2 = uuid.uuid7(), uuid.uuid7()
+    for cid in (x1, x2, y1, y2):
+        make_confirmed_candidate(project_db, candidate_group_id=cid, commit=False)
+
+    dao = ParallelBlockCandidateDAO(project_db)
+    result = dao.reconcile_confirmed_subjects(
+        [
+            _component(subject_x, x1),
+            _component(subject_x, x2),
+            _component(subject_y, y1),
+            _component(subject_y, y2),
+        ],
+    )
+
+    # Neither full subject is dropped and no kept id is over-pruned.
+    assert result == {subject_x, subject_y}
+    assert ParallelConfirmedCandidateDAO(project_db).get_all() == {x1, x2, y1, y2}
+
+
+def test_stored_matches_all_candidates_is_noop(project_db) -> None:
+    """When the stored set already equals every candidate, reconcile deletes nothing."""
+    subject = uuid.uuid7()
+    c1, c2 = uuid.uuid7(), uuid.uuid7()
+    make_confirmed_candidate(project_db, candidate_group_id=c1, commit=False)
+    make_confirmed_candidate(project_db, candidate_group_id=c2, commit=False)
+
+    dao = ParallelBlockCandidateDAO(project_db)
+    result = dao.reconcile_confirmed_subjects([_component(subject, c1), _component(subject, c2)])
+
+    assert result == {subject}
+    # No valid row was deleted.
+    assert ParallelConfirmedCandidateDAO(project_db).get_all() == {c1, c2}
+
+
+def test_confirmed_subject_with_shrunk_candidate_set_prunes_gone_id(project_db) -> None:
+    """A still-confirmed subject that lost a candidate keeps the live id, prunes the gone one.
+
+    Distinct from the orphan case: ``c2`` still belongs to *this* subject in the
+    stored set, but the subject no longer emits a component for it, so its live
+    candidate set is ``{c1}`` -- fully confirmed -- and ``c2`` is pruned.
+    """
+    subject = uuid.uuid7()
+    c1, c2 = uuid.uuid7(), uuid.uuid7()
+    make_confirmed_candidate(project_db, candidate_group_id=c1, commit=False)
+    make_confirmed_candidate(project_db, candidate_group_id=c2, commit=False)
+
+    dao = ParallelBlockCandidateDAO(project_db)
+    # Only c1 is a current candidate of the subject now.
+    result = dao.reconcile_confirmed_subjects([_component(subject, c1)])
+
+    assert result == {subject}
+    assert ParallelConfirmedCandidateDAO(project_db).get_all() == {c1}

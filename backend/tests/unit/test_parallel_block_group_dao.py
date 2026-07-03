@@ -427,6 +427,107 @@ def test_clear_all_then_recreate_reusing_cleared_block_succeeds(project_db) -> N
 
 
 # ---------------------------------------------------------------------------
+# -- delete_group
+# ---------------------------------------------------------------------------
+
+
+def test_delete_group_existing_removes_its_members_returns_true(project_db) -> None:
+    """Deleting an existing group returns True and drops all of its member rows."""
+    dao = ParallelBlockGroupDAO(project_db)
+    g = uuid.uuid7()
+    a, b = uuid.uuid7(), uuid.uuid7()
+    make_group_member(project_db, group_id=g, original_block_id=a)
+    make_group_member(project_db, group_id=g, original_block_id=b)
+
+    assert dao.delete_group(g) is True
+    assert dao.get_all_groups() == {}
+
+
+def test_delete_group_unknown_returns_false_and_touches_nothing(project_db) -> None:
+    """A group id with no member rows returns False and leaves every row intact."""
+    dao = ParallelBlockGroupDAO(project_db)
+    g = uuid.uuid7()
+    a, b = uuid.uuid7(), uuid.uuid7()
+    make_group_member(project_db, group_id=g, original_block_id=a)
+    make_group_member(project_db, group_id=g, original_block_id=b)
+
+    assert dao.delete_group(uuid.uuid7()) is False
+
+    result = dao.get_all_groups()
+    assert set(result) == {g}
+    assert set(result[g]) == {a, b}
+
+
+def test_delete_group_scoped_leaves_sibling_group_intact(project_db) -> None:
+    """delete_group removes only the named group; a sibling group survives whole."""
+    dao = ParallelBlockGroupDAO(project_db)
+    g1, g2 = uuid.uuid7(), uuid.uuid7()
+    a, b, c, d = (uuid.uuid7() for _ in range(4))
+    make_group_member(project_db, group_id=g1, original_block_id=a)
+    make_group_member(project_db, group_id=g1, original_block_id=b)
+    make_group_member(project_db, group_id=g2, original_block_id=c)
+    make_group_member(project_db, group_id=g2, original_block_id=d)
+
+    assert dao.delete_group(g1) is True
+
+    result = dao.get_all_groups()
+    assert set(result) == {g2}
+    assert set(result[g2]) == {c, d}
+
+
+def test_delete_group_return_is_real_bool_not_int(project_db) -> None:
+    """The truthy result is a genuine ``bool`` (``rowcount > 0``), not an int count."""
+    dao = ParallelBlockGroupDAO(project_db)
+    g = uuid.uuid7()
+    make_group_member(project_db, group_id=g, original_block_id=uuid.uuid7())
+    make_group_member(project_db, group_id=g, original_block_id=uuid.uuid7())
+
+    result = dao.delete_group(g)
+    assert isinstance(result, bool)
+
+
+def test_delete_group_rollback_restores_commit_is_durable(project_db, project) -> None:
+    """delete_group only stages a DELETE: rollback restores rows; commit persists it."""
+    dao = ParallelBlockGroupDAO(project_db)
+    g = uuid.uuid7()
+    a, b = uuid.uuid7(), uuid.uuid7()
+    make_group_member(project_db, group_id=g, original_block_id=a)
+    make_group_member(project_db, group_id=g, original_block_id=b)  # committed
+
+    # Staged delete, then discarded -> the two committed rows come back.
+    assert dao.delete_group(g) is True
+    project_db.rollback()
+    assert _block_ids(project_db) == {a, b}
+
+    # Now delete for real and commit; a fresh session observes zero rows.
+    assert dao.delete_group(g) is True
+    project_db.commit()
+
+    other = get_session(general_db(project.pk))
+    try:
+        assert other.scalars(select(ParallelBlockGroupMember)).all() == []
+    finally:
+        other.close()
+
+
+def test_delete_group_then_reuse_freed_block_in_create(project_db) -> None:
+    """A block freed by delete_group can be re-grouped without a UNIQUE conflict."""
+    dao = ParallelBlockGroupDAO(project_db)
+    g = uuid.uuid7()
+    a, b = uuid.uuid7(), uuid.uuid7()
+    make_group_member(project_db, group_id=g, original_block_id=a)
+    make_group_member(project_db, group_id=g, original_block_id=b)
+
+    dao.delete_group(g)
+    c = uuid.uuid7()
+    g_new = dao.create([a, c])  # reuse a, previously grouped
+
+    result = dao.get_all_groups()
+    assert set(result) == {g_new}
+    assert set(result[g_new]) == {a, c}
+
+
+# ---------------------------------------------------------------------------
 # -- full lifecycle
 # ---------------------------------------------------------------------------
 

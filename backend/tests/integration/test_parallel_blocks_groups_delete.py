@@ -23,6 +23,7 @@ import datetime
 import uuid
 from uuid import UUID
 
+import pytest
 from django.test import Client
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -308,3 +309,36 @@ def test_non_uuid_group_id_path_does_not_match_route(
     """A non-uuid group_id fails the ``<uuid:group_id>`` converter -> Django 404."""
     response = auth_client.delete(_group_url(project.pk, "not-a-uuid"))
     assert response.status_code == 404
+
+
+def test_delete_one_scoped_to_this_project(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+    second_project: Project,
+    second_project_db: Session,
+) -> None:
+    """A group id living only in project B is unknown to A -> 404, B untouched."""
+    gb, blocks_b = _seed_group(second_project_db, size=2)
+
+    response = auth_client.delete(_group_url(project.pk, gb))
+
+    assert response.status_code == 404
+    assert response.json()["error"] == "projects.parallel_groups.not_found"
+    # Project B still holds the group; A's request never reached B's file.
+    assert _groups_by_id(second_project_db) == {gb: blocks_b}
+
+
+@pytest.mark.parametrize("method", ["get", "post", "put"])
+def test_delete_one_unsupported_methods_405(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+    method: str,
+) -> None:
+    """The single-group route defines only delete; other verbs -> 405."""
+    group_id, _ = _seed_group(project_db, size=2)
+
+    response = getattr(auth_client, method)(_group_url(project.pk, group_id))
+
+    assert response.status_code == 405

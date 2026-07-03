@@ -27,11 +27,15 @@ from src.projects.projects_db.dao.parallel_candidate_graph import (
     CandidateComponent,
     _component_uuid,
 )
+from src.projects.projects_db.dao.parallel_confirmed_candidate_dao import (
+    ParallelConfirmedCandidateDAO,
+)
 from src.projects.projects_db.models._secondary_tables import subject_years
 from src.projects.projects_db.schemas.weekday import WeekDay
 from src.projects.views.schemas.parallel_blocks import ParallelCandidateGroupResponse
 from tests.factories import (
     make_class,
+    make_confirmed_candidate,
     make_degree,
     make_group_member,
     make_parallel_candidate_pair,
@@ -1226,6 +1230,155 @@ def test_get_all_groups_with_info_confirmed_multi_group(project_db: Session) -> 
     assert by_id[ids[1]].confirmed_group_id == group1
     assert by_id[ids[2]].confirmed_group_id == group2
     assert by_id[ids[3]].confirmed_group_id == group2
+
+
+# ======================================================================
+# get_all_groups_with_info: subject.confirmed (reconcile-driven flag)
+# ======================================================================
+#
+# NOTE: ``subject.confirmed`` is a *different* concept from the
+# ``node.confirmed_group_id`` tests above. The latter reflects a
+# ``ParallelBlockGroupMember`` row; ``subject.confirmed`` is derived at read time
+# by reconciling the stored ``ParallelConfirmedCandidate`` set against the fresh
+# candidate components.
+
+
+def test_get_all_groups_with_info_subject_confirmed_true_when_all_stored(
+    project_db: Session,
+) -> None:
+    """A subject is confirmed when every one of its candidate components is stored."""
+    subject = make_subject(project_db, commit=False)
+    block_a, block_b = make_parallel_candidate_pair(project_db, subject=subject, commit=False)
+    candidate_id = _component_uuid(subject.id, [block_a, block_b])
+    make_confirmed_candidate(project_db, candidate_group_id=candidate_id)
+
+    groups = ParallelBlockCandidateDAO(project_db).get_all_groups_with_info()
+
+    assert len(groups) == 1
+    assert groups[0].subject.confirmed is True
+
+
+def test_get_all_groups_with_info_subject_confirmed_false_by_default(
+    project_db: Session,
+) -> None:
+    """With nothing stored, the subject flag is explicitly False (the schema default)."""
+    make_parallel_candidate_pair(project_db)
+
+    groups = ParallelBlockCandidateDAO(project_db).get_all_groups_with_info()
+
+    assert len(groups) == 1
+    assert groups[0].subject.confirmed is False
+
+
+def test_get_all_groups_with_info_subject_confirmed_false_when_partial(
+    project_db: Session,
+) -> None:
+    """A subject with two components, only one stored, is not confirmed (and is pruned)."""
+    subject = make_subject(project_db, commit=False)
+    a1, a2 = make_parallel_candidate_pair(project_db, subject=subject, start_time=9, commit=False)
+    b1, b2 = make_parallel_candidate_pair(project_db, subject=subject, start_time=14, commit=False)
+    comp_a = _component_uuid(subject.id, [a1, a2])
+    _ = _component_uuid(subject.id, [b1, b2])
+    # Store only one of the subject's two components.
+    make_confirmed_candidate(project_db, candidate_group_id=comp_a)
+
+    dao = ParallelBlockCandidateDAO(project_db)
+    groups = dao.get_all_groups_with_info()
+
+    # Both components are still returned, but the subject is not confirmed...
+    assert {g.subject.confirmed for g in groups} == {False}
+    # ...and the partial stored id has been pruned as a read-time side effect.
+    assert ParallelConfirmedCandidateDAO(project_db).get_all() == set()
+
+
+def test_get_all_groups_with_info_reconcile_prunes_orphan_on_read(
+    project_db: Session,
+) -> None:
+    """Reading prunes a stored id that matches no current candidate, keeping live ones."""
+    subject = make_subject(project_db, commit=False)
+    block_a, block_b = make_parallel_candidate_pair(project_db, subject=subject, commit=False)
+    candidate_id = _component_uuid(subject.id, [block_a, block_b])
+    orphan = uuid.uuid7()
+    make_confirmed_candidate(project_db, candidate_group_id=candidate_id, commit=False)
+    make_confirmed_candidate(project_db, candidate_group_id=orphan)
+
+    dao = ParallelBlockCandidateDAO(project_db)
+    groups = dao.get_all_groups_with_info()
+
+    assert groups[0].subject.confirmed is True
+    # The orphan is gone; only the live, fully-confirmed id survives.
+    assert ParallelConfirmedCandidateDAO(project_db).get_all() == {candidate_id}
+
+
+def test_get_all_groups_with_info_empty_components_still_prunes_orphans(
+    project_db: Session,
+) -> None:
+    """With no candidates at all, reconciliation still clears every orphaned stored row."""
+    make_confirmed_candidate(project_db, candidate_group_id=uuid.uuid7(), commit=False)
+    make_confirmed_candidate(project_db, candidate_group_id=uuid.uuid7())
+
+    dao = ParallelBlockCandidateDAO(project_db)
+    groups = dao.get_all_groups_with_info()
+
+    assert groups == []
+    assert ParallelConfirmedCandidateDAO(project_db).get_all() == set()
+
+
+# ======================================================================
+# get_all_groups_with_info: year.number
+# ======================================================================
+
+
+def test_get_all_groups_with_info_year_number_reflects_seeded_number(
+    project_db: Session,
+) -> None:
+    """The emitted year ``number`` is the real seeded value, not a hardcoded 1."""
+    year = make_year(project_db, number=3, commit=False)
+    subject = make_subject(project_db, year=year, commit=False)
+    make_parallel_candidate_pair(project_db, subject=subject, commit=False)
+    project_db.commit()
+
+    groups = ParallelBlockCandidateDAO(project_db).get_all_groups_with_info()
+
+    assert len(groups) == 1
+    assert [y.number for y in groups[0].subject.years] == [3]
+
+
+def test_get_all_groups_with_info_year_number_spans_multiple_years(
+    project_db: Session,
+) -> None:
+    """A subject taught across two years surfaces each year with its own number."""
+    degree = make_degree(project_db, commit=False)
+    year1 = make_year(project_db, degree=degree, number=1, commit=False)
+    year2 = make_year(project_db, degree=degree, number=2, commit=False)
+    subject = make_subject(project_db, year=year1, commit=False)
+    class1 = make_class(project_db, year=year1, commit=False)
+    class2 = make_class(project_db, year=year2, commit=False)
+
+    # Two blocks sharing one slot for the same subject, each taught in a
+    # different year -> the component's subject spans both years.
+    block_a, block_b = uuid.uuid7(), uuid.uuid7()
+    for block_id, class_row in ((block_a, class1), (block_b, class2)):
+        session_row = make_session(
+            project_db,
+            week=W_09_15,
+            original_block_id=block_id,
+            commit=False,
+        )
+        make_session_class_subject(
+            project_db,
+            session_row=session_row,
+            class_row=class_row,
+            subject=subject,
+            commit=False,
+        )
+    project_db.commit()
+
+    groups = ParallelBlockCandidateDAO(project_db).get_all_groups_with_info()
+
+    assert len(groups) == 1
+    number_by_year = {y.id: y.number for y in groups[0].subject.years}
+    assert number_by_year == {year1.id: 1, year2.id: 2}
 
 
 def test_get_all_groups_with_info_edges_filtered_when_endpoint_missing(

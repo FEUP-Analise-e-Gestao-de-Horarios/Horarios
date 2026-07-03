@@ -65,6 +65,11 @@ def _post(client: Client, url: str, body: object | None = None):
     return client.post(url, data=json.dumps(body or {}), content_type="application/json")
 
 
+def _post_raw(client: Client, url: str, raw: str):
+    """POST an already-serialized (possibly falsy or malformed) JSON body verbatim."""
+    return client.post(url, data=raw, content_type="application/json")
+
+
 def _confirm_body(subject_id: UUID, candidate_group_ids: list[UUID]) -> dict[str, object]:
     """Body for the confirm-subject endpoint, with the client's candidate view."""
     return {
@@ -605,3 +610,356 @@ def test_unconfirm_non_uuid_subject_id_does_not_match_route(
         f"/api/projects/{project.pk}/parallel-blocks/confirmations/not-a-uuid",
     )
     assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# -- Cross-project isolation: every mutating verb touches only its own DB
+# ---------------------------------------------------------------------------
+
+
+def test_confirm_subject_scoped_to_this_project(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+    second_project: Project,
+    second_project_db: Session,
+) -> None:
+    """Confirming a subject in project A never touches project B's confirmations."""
+    subject_a = make_subject(project_db, commit=False)
+    a1, a2 = make_parallel_candidate_pair(project_db, subject=subject_a)
+    comp_a = _component_uuid(subject_a.id, [a1, a2])
+    b_conf = uuid.uuid7()
+    make_confirmed_candidate(second_project_db, candidate_group_id=b_conf)
+
+    response = _post(
+        auth_client,
+        _confirmations_url(project.pk),
+        _confirm_body(subject_a.id, [comp_a]),
+    )
+
+    assert response.status_code == 200
+    assert _stored(project_db) == {comp_a}
+    # Project B's own file is untouched.
+    assert _stored(second_project_db) == {b_conf}
+
+
+def test_confirm_all_scoped_to_this_project(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+    second_project: Project,
+    second_project_db: Session,
+) -> None:
+    """Confirm-all in project A never touches project B's confirmations."""
+    subject_a = _make_subject_with_degree(project_db)
+    a1, a2 = make_parallel_candidate_pair(project_db, subject=subject_a)
+    comp_a = _component_uuid(subject_a.id, [a1, a2])
+    b_conf = uuid.uuid7()
+    make_confirmed_candidate(second_project_db, candidate_group_id=b_conf)
+
+    response = _post(auth_client, _confirm_all_url(project.pk), _confirm_all_body([comp_a]))
+
+    assert response.status_code == 200
+    assert _stored(project_db) == {comp_a}
+    assert _stored(second_project_db) == {b_conf}
+
+
+def test_clear_all_confirmations_scoped_to_this_project(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+    second_project: Project,
+    second_project_db: Session,
+) -> None:
+    """Clearing project A's confirmations leaves project B's intact."""
+    make_confirmed_candidate(project_db, candidate_group_id=uuid.uuid7())
+    b_conf = uuid.uuid7()
+    make_confirmed_candidate(second_project_db, candidate_group_id=b_conf)
+
+    response = auth_client.delete(_confirmations_url(project.pk))
+
+    assert response.status_code == 200
+    assert _stored(project_db) == set()
+    assert _stored(second_project_db) == {b_conf}
+
+
+def test_unconfirm_subject_scoped_to_this_project(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+    second_project: Project,
+    second_project_db: Session,
+) -> None:
+    """Unconfirming a subject in project A leaves project B's confirmations intact."""
+    subject_a = make_subject(project_db, commit=False)
+    a1, a2 = make_parallel_candidate_pair(project_db, subject=subject_a)
+    comp_a = _component_uuid(subject_a.id, [a1, a2])
+    make_confirmed_candidate(project_db, candidate_group_id=comp_a)
+    b_conf = uuid.uuid7()
+    make_confirmed_candidate(second_project_db, candidate_group_id=b_conf)
+
+    response = auth_client.delete(_confirmation_url(project.pk, subject_a.id))
+
+    assert response.status_code == 200
+    assert _stored(project_db) == set()
+    assert _stored(second_project_db) == {b_conf}
+
+
+# ---------------------------------------------------------------------------
+# -- Idempotency: repeating a mutation never 500s and converges
+# ---------------------------------------------------------------------------
+
+
+def test_confirm_subject_twice_is_idempotent(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """Confirming the same subject twice returns 200 both times (no UNIQUE 500)."""
+    subject = make_subject(project_db, commit=False)
+    a1, a2 = make_parallel_candidate_pair(project_db, subject=subject)
+    comp = _component_uuid(subject.id, [a1, a2])
+
+    first = _post(auth_client, _confirmations_url(project.pk), _confirm_body(subject.id, [comp]))
+    second = _post(auth_client, _confirmations_url(project.pk), _confirm_body(subject.id, [comp]))
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.json()["data"]["candidate_group_ids"] == [str(comp)]
+    assert _stored(project_db) == {comp}
+
+
+def test_confirm_all_twice_is_idempotent(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """Confirm-all repeated returns 200 both times and stores each id once."""
+    subject = _make_subject_with_degree(project_db)
+    a1, a2 = make_parallel_candidate_pair(project_db, subject=subject)
+    comp = _component_uuid(subject.id, [a1, a2])
+
+    first = _post(auth_client, _confirm_all_url(project.pk), _confirm_all_body([comp]))
+    second = _post(auth_client, _confirm_all_url(project.pk), _confirm_all_body([comp]))
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert _stored(project_db) == {comp}
+
+
+def test_clear_all_confirmations_twice_second_is_zero(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """A second clear-all reports 0 rows removed (idempotent)."""
+    make_confirmed_candidate(project_db, candidate_group_id=uuid.uuid7())
+
+    first = auth_client.delete(_confirmations_url(project.pk))
+    second = auth_client.delete(_confirmations_url(project.pk))
+
+    assert first.json()["data"] == 1
+    assert second.status_code == 200
+    assert second.json()["data"] == 0
+
+
+# ---------------------------------------------------------------------------
+# -- Confirm-all: success payload + more stale shapes
+# ---------------------------------------------------------------------------
+
+
+def test_confirm_all_success_data_is_sorted_ids(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """The confirm-all success payload echoes every stored id, sorted as strings."""
+    subject_a = _make_subject_with_degree(project_db)
+    subject_b = _make_subject_with_degree(project_db)
+    a1, a2 = make_parallel_candidate_pair(project_db, subject=subject_a)
+    b1, b2 = make_parallel_candidate_pair(project_db, subject=subject_b)
+    comp_a = _component_uuid(subject_a.id, [a1, a2])
+    comp_b = _component_uuid(subject_b.id, [b1, b2])
+
+    response = _post(
+        auth_client,
+        _confirm_all_url(project.pk),
+        _confirm_all_body([comp_a, comp_b]),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["candidate_group_ids"] == sorted([str(comp_a), str(comp_b)])
+
+
+def test_confirm_subject_empty_view_against_live_candidates_rejected(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """An empty client view for a subject that HAS live candidates is stale -> 409."""
+    subject = make_subject(project_db, commit=False)
+    make_parallel_candidate_pair(project_db, subject=subject)
+
+    response = _post(auth_client, _confirmations_url(project.pk), _confirm_body(subject.id, []))
+
+    assert response.status_code == 409
+    assert response.json()["error"] == "projects.parallel_confirmation.stale"
+    assert _stored(project_db) == set()
+
+
+def test_confirm_subject_superset_view_rejected(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """A client view carrying an extra id beyond the live set is stale -> 409."""
+    subject = make_subject(project_db, commit=False)
+    a1, a2 = make_parallel_candidate_pair(project_db, subject=subject)
+    comp = _component_uuid(subject.id, [a1, a2])
+
+    response = _post(
+        auth_client,
+        _confirmations_url(project.pk),
+        _confirm_body(subject.id, [comp, uuid.uuid7()]),
+    )
+
+    assert response.status_code == 409
+    assert _stored(project_db) == set()
+
+
+def test_confirm_all_superset_view_rejected(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """Confirm-all with an extra id beyond the live set is stale -> 409."""
+    subject = _make_subject_with_degree(project_db)
+    a1, a2 = make_parallel_candidate_pair(project_db, subject=subject)
+    comp = _component_uuid(subject.id, [a1, a2])
+
+    response = _post(
+        auth_client,
+        _confirm_all_url(project.pk),
+        _confirm_all_body([comp, uuid.uuid7()]),
+    )
+
+    assert response.status_code == 409
+    assert _stored(project_db) == set()
+
+
+def test_unconfirm_subject_removes_all_its_components_count(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """Unconfirming a subject with two components reports both rows removed (count 2)."""
+    subject = make_subject(project_db, commit=False)
+    a1, a2 = make_parallel_candidate_pair(project_db, subject=subject, start_time=9)
+    b1, b2 = make_parallel_candidate_pair(project_db, subject=subject, start_time=14)
+    comp_a = _component_uuid(subject.id, [a1, a2])
+    comp_b = _component_uuid(subject.id, [b1, b2])
+    _post(
+        auth_client,
+        _confirmations_url(project.pk),
+        _confirm_body(subject.id, [comp_a, comp_b]),
+    )
+    assert _stored(project_db) == {comp_a, comp_b}
+
+    response = auth_client.delete(_confirmation_url(project.pk, subject.id))
+
+    assert response.status_code == 200
+    assert response.json()["data"] == 2
+    assert _stored(project_db) == set()
+
+
+# ---------------------------------------------------------------------------
+# -- Body-validation matrix for the confirmation POST endpoints
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("raw_body", ["[]", "5", '"a string"', "{not valid json"])
+def test_confirm_subject_non_object_or_malformed_body_rejected(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+    raw_body: str,
+) -> None:
+    """A non-object or malformed confirm-subject body -> 400, nothing stored."""
+    response = _post_raw(auth_client, _confirmations_url(project.pk), raw_body)
+
+    assert response.status_code == 400
+    assert response.json()["error"] == "generic.invalid_body"
+    assert _stored(project_db) == set()
+
+
+@pytest.mark.parametrize("raw_body", ["[]", "5", '"a string"', "{not valid json"])
+def test_confirm_all_non_object_or_malformed_body_rejected(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+    raw_body: str,
+) -> None:
+    """A non-object or malformed confirm-all body -> 400, nothing stored."""
+    response = _post_raw(auth_client, _confirm_all_url(project.pk), raw_body)
+
+    assert response.status_code == 400
+    assert response.json()["error"] == "generic.invalid_body"
+    assert _stored(project_db) == set()
+
+
+def test_confirm_subject_missing_candidate_ids_rejected(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """Omitting candidate_group_ids -> 400 naming the field, nothing stored."""
+    response = _post(
+        auth_client,
+        _confirmations_url(project.pk),
+        {"subject_id": str(uuid.uuid7())},
+    )
+
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload["error"] == "generic.invalid_body"
+    assert "candidate_group_ids" in payload["message"]
+    assert _stored(project_db) == set()
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"subject_id": "not-a-uuid", "candidate_group_ids": []},
+        {"subject_id": str(uuid.uuid7()), "candidate_group_ids": ["also-bad"]},
+    ],
+    ids=["bad_subject_id", "bad_candidate_id"],
+)
+def test_confirm_subject_non_uuid_fields_rejected(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+    body: dict,
+) -> None:
+    """Non-UUID subject_id or candidate id -> 400 invalid_body, nothing stored."""
+    response = _post(auth_client, _confirmations_url(project.pk), body)
+
+    assert response.status_code == 400
+    assert response.json()["error"] == "generic.invalid_body"
+    assert _stored(project_db) == set()
+
+
+def test_confirm_all_non_uuid_candidate_id_rejected(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """A non-UUID id in the confirm-all body -> 400 invalid_body, nothing stored."""
+    response = _post(
+        auth_client,
+        _confirm_all_url(project.pk),
+        {"candidate_group_ids": ["not-a-uuid"]},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"] == "generic.invalid_body"
+    assert _stored(project_db) == set()

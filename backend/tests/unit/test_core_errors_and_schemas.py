@@ -33,7 +33,9 @@ from src.core.errors import (
     InvalidJsonResponse,
     InvalidOldPasswordResponse,
     NotAuthenticatedResponse,
+    ParallelConfirmationStaleResponse,
     ParallelGroupInvalidCandidatesResponse,
+    ParallelGroupNotFoundResponse,
     PasswordPolicyViolationResponse,
     ProjectCreateDuplicatedNameResponse,
     ProjectCreateFailedResponse,
@@ -57,8 +59,12 @@ from src.projects.projects_db.schemas.parallel_candidates import (
 )
 from src.projects.projects_db.schemas.weekday import WeekDay
 from src.projects.views.schemas.parallel_blocks import (
+    ConfirmedCandidatesResponse,
+    CreatedParallelGroupResponse,
     ParallelCandidateGroupResponse,
     ParallelCandidateNode,
+    ParallelCandidateSubject,
+    ParallelCandidateYear,
     ParallelGroupResponse,
 )
 
@@ -213,6 +219,34 @@ _ERROR_HELPER_CASES = [
         "projects.parallel_groups.invalid_candidates",
         "blocks 1,2 not adjacent",
         id="parallel_invalid_custom",
+    ),
+    pytest.param(
+        ParallelGroupNotFoundResponse(),
+        404,
+        "projects.parallel_groups.not_found",
+        "Parallel group not found.",
+        id="parallel_group_not_found_default",
+    ),
+    pytest.param(
+        ParallelGroupNotFoundResponse("no such group"),
+        404,
+        "projects.parallel_groups.not_found",
+        "no such group",
+        id="parallel_group_not_found_custom",
+    ),
+    pytest.param(
+        ParallelConfirmationStaleResponse(),
+        409,
+        "projects.parallel_confirmation.stale",
+        "The subject's candidates changed since the list was loaded.",
+        id="parallel_confirmation_stale_default",
+    ),
+    pytest.param(
+        ParallelConfirmationStaleResponse("moved on"),
+        409,
+        "projects.parallel_confirmation.stale",
+        "moved on",
+        id="parallel_confirmation_stale_custom",
     ),
     # -- Auth builders (fixed messages) --------------------------------
     pytest.param(
@@ -513,6 +547,9 @@ def test_candidate_group_response_maps_from_dao_group_via_from_attributes() -> N
     assert response.weekday == WeekDay.MONDAY
     assert response.subject.id == group.subject.id
     assert response.subject.years[0].degree.acronym == "LEI"
+    assert response.subject.years[0].number == 1
+    # No confirmation supplied -> the flag defaults to False through the mapping.
+    assert response.subject.confirmed is False
 
     node = response.nodes[0]
     assert node.original_block_id == group.nodes[0].original_block_id
@@ -562,6 +599,94 @@ def test_view_candidate_node_requires_confirmed_group_id_on_dict() -> None:
     # The DAO node defaults the field and validates fine on the same omission.
     dao_node = ParallelBlockCandidateNode.model_validate(payload)
     assert dao_node.confirmed_group_id is None
+
+
+def test_candidate_group_response_surfaces_confirmed_subject_true() -> None:
+    """A DAO subject's ``confirmed=True`` flows through to the view schema."""
+    group = _make_dao_group()
+    confirmed_subject = group.subject.model_copy(update={"confirmed": True})
+    group = group.model_copy(update={"subject": confirmed_subject})
+
+    response = ParallelCandidateGroupResponse.model_validate(group)
+
+    assert response.subject.confirmed is True
+
+
+def test_subject_schemas_default_confirmed_to_false() -> None:
+    """Both the DAO and view subject schemas default ``confirmed`` to False when omitted."""
+    dao_subject = ParallelBlockCandidateSubject(
+        id=uuid.uuid7(),
+        acronym="PROG",
+        name="Programação",
+        years=[],
+    )
+    assert dao_subject.confirmed is False
+
+    view_subject = ParallelCandidateSubject(
+        id=uuid.uuid7(),
+        acronym="PROG",
+        name="Programação",
+        years=[],
+    )
+    assert view_subject.confirmed is False
+
+
+@pytest.mark.parametrize(
+    "schema",
+    [ParallelBlockCandidateYear, ParallelCandidateYear],
+    ids=["dao", "view"],
+)
+def test_year_schema_requires_number(schema: type) -> None:
+    """``number`` has no default on either year schema: omitting it is a missing error."""
+    payload = {
+        "id": uuid.uuid7(),
+        "degree": {"id": uuid.uuid7(), "acronym": "LEI", "name": "Lic"},
+    }
+
+    with pytest.raises(ValidationError) as excinfo:
+        schema.model_validate(payload)
+
+    assert any(
+        error["type"] == "missing" and error["loc"] == ("number",)
+        for error in excinfo.value.errors()
+    )
+
+
+# --------------------------------------------------------------------------- #
+# CreatedParallelGroupResponse / ConfirmedCandidatesResponse                  #
+# --------------------------------------------------------------------------- #
+def test_created_parallel_group_response_dump_shape() -> None:
+    """The created-group response exposes exactly ``group_id`` as a native UUID."""
+    group_id = uuid.uuid7()
+
+    dumped = CreatedParallelGroupResponse(group_id=group_id).model_dump()
+
+    assert set(dumped) == {"group_id"}
+    assert isinstance(dumped["group_id"], uuid.UUID)
+    # DjangoJSONEncoder renders the UUID as a string; it re-validates.
+    encoded = json.loads(json.dumps(dumped, cls=DjangoJSONEncoder))
+    assert encoded["group_id"] == str(group_id)
+    assert CreatedParallelGroupResponse.model_validate(dumped).group_id == group_id
+
+
+def test_confirmed_candidates_response_dump_shape_and_order() -> None:
+    """The response exposes ``candidate_group_ids`` as native UUIDs, order preserved."""
+    c1, c2 = uuid.uuid7(), uuid.uuid7()
+
+    dumped = ConfirmedCandidatesResponse(candidate_group_ids=[c1, c2]).model_dump()
+
+    assert set(dumped) == {"candidate_group_ids"}
+    assert dumped["candidate_group_ids"] == [c1, c2]
+    assert all(isinstance(cid, uuid.UUID) for cid in dumped["candidate_group_ids"])
+    encoded = json.loads(json.dumps(dumped, cls=DjangoJSONEncoder))
+    assert encoded["candidate_group_ids"] == [str(c1), str(c2)]
+
+
+def test_confirmed_candidates_response_empty_list_dumps_empty() -> None:
+    """An empty confirmation set dumps to an empty list (not null / missing)."""
+    dumped = ConfirmedCandidatesResponse(candidate_group_ids=[]).model_dump()
+
+    assert dumped == {"candidate_group_ids": []}
 
 
 # --------------------------------------------------------------------------- #

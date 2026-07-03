@@ -727,3 +727,59 @@ def test_error_path_leaves_flag_unchanged_when_already_true(
     assert response.status_code == 400
     assert response.json()["error"] == "projects.parallel_groups.invalid_candidates"
     assert _flag(project.pk) is True
+
+
+# ---------------------------------------------------------------------------
+# -- Idempotency and cross-project isolation
+# ---------------------------------------------------------------------------
+def test_double_post_same_pair_second_rejected_via_reuse_guard(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """POSTing the same valid pair twice: the second is rejected end-to-end.
+
+    The first POST commits {a, b} into a confirmed group; the second then trips
+    the "blocks already belong to a confirmed group" guard -> 400, and exactly
+    one group survives (no duplicate, no 500).
+    """
+    subject = make_subject(project_db, commit=False)
+    a, b = make_parallel_candidate_pair(project_db, subject=subject)
+    cid = _component_uuid(subject.id, [a, b])
+
+    first = _post(auth_client, project.pk, _body(cid, [a, b]))
+    assert first.status_code == 200
+    group_id = _group_id_from(first)
+
+    second = _post(auth_client, project.pk, _body(cid, [a, b]))
+
+    assert second.status_code == 400
+    assert second.json()["error"] == "generic.invalid_body"
+    # Still exactly the one group the first POST created.
+    assert _groups_by_id(project_db) == {group_id: {a, b}}
+
+
+def test_post_create_scoped_to_this_project(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+    second_project: Project,
+    second_project_db: Session,
+) -> None:
+    """Creating a group in project A writes only to A's DB; B's groups are untouched."""
+    seeded_group = uuid.uuid7()
+    x, y = uuid.uuid7(), uuid.uuid7()
+    make_group_member(second_project_db, group_id=seeded_group, original_block_id=x, commit=False)
+    make_group_member(second_project_db, group_id=seeded_group, original_block_id=y)
+
+    subject = make_subject(project_db, commit=False)
+    a, b = make_parallel_candidate_pair(project_db, subject=subject)
+    cid = _component_uuid(subject.id, [a, b])
+
+    response = _post(auth_client, project.pk, _body(cid, [a, b]))
+
+    assert response.status_code == 200
+    group_id = _group_id_from(response)
+    assert _groups_by_id(project_db) == {group_id: {a, b}}
+    # Project B's own file is untouched.
+    assert _groups_by_id(second_project_db) == {seeded_group: {x, y}}
