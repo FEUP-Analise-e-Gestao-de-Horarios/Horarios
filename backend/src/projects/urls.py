@@ -6,6 +6,9 @@ from src.projects.views.parallel_blocks import (
     ProjectParallelBlockCandidateView,
     ProjectParallelBlockGroupsView,
     ProjectParallelBlockGroupView,
+    ProjectParallelConfirmAllView,
+    ProjectParallelConfirmationsView,
+    ProjectParallelConfirmationView,
 )
 from src.projects.views.project import ProjectsView, ProjectView
 from src.projects.views.rooms import ProjectRoomsView, ProjectRoomView
@@ -56,9 +59,16 @@ parallel_block_group_patterns = [
     path("<uuid:group_id>", ProjectParallelBlockGroupView.as_view()),
 ]
 
+parallel_confirmation_patterns = [
+    path("", ProjectParallelConfirmationsView.as_view()),
+    path("all", ProjectParallelConfirmAllView.as_view()),
+    path("<uuid:subject_id>", ProjectParallelConfirmationView.as_view()),
+]
+
 parallel_block_patterns = [
     path("candidates", ProjectParallelBlockCandidateView.as_view()),
     path("groups/", include(parallel_block_group_patterns)),
+    path("confirmations/", include(parallel_confirmation_patterns)),
 ]
 
 project_patterns = [

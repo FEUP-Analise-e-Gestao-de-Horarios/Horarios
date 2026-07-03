@@ -88,7 +88,7 @@ def _make_dao_group(
         acronym="LEI",
         name="Licenciatura em Engenharia Informática",
     )
-    year = ParallelBlockCandidateYear(id=uuid.uuid7(), degree=degree)
+    year = ParallelBlockCandidateYear(id=uuid.uuid7(), number=1, degree=degree)
     subject = ParallelBlockCandidateSubject(
         id=uuid.uuid7(),
         acronym="PROG",
@@ -140,6 +140,7 @@ def _candidate_response_dict(weekday: object) -> dict[str, object]:
             "years": [
                 {
                     "id": year_id,
+                    "number": 1,
                     "degree": {"id": uuid.uuid7(), "acronym": "LEI", "name": "Lic"},
                 },
             ],
@@ -372,6 +373,10 @@ _API_ERROR_WIRE_CASES = [
     (
         ApiError.PROJECTS_PARALLEL_GROUPS_NOT_FOUND,
         "projects.parallel_groups.not_found",
+    ),
+    (
+        ApiError.PROJECTS_PARALLEL_CONFIRMATION_STALE,
+        "projects.parallel_confirmation.stale",
     ),
 ]
 

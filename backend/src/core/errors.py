@@ -32,6 +32,7 @@ class ApiError(StrEnum):
     # Projects - Parallel groups
     PROJECTS_PARALLEL_GROUPS_INVALID_CANDIDATES = "projects.parallel_groups.invalid_candidates"
     PROJECTS_PARALLEL_GROUPS_NOT_FOUND = "projects.parallel_groups.not_found"
+    PROJECTS_PARALLEL_CONFIRMATION_STALE = "projects.parallel_confirmation.stale"
 
 
 def ErrorResponse(*, status: int, code: ApiError, message: str) -> JsonResponse:
@@ -188,5 +189,15 @@ def ParallelGroupNotFoundResponse(message: str = "Parallel group not found.") ->
     return ErrorResponse(
         status=404,
         code=ApiError.PROJECTS_PARALLEL_GROUPS_NOT_FOUND,
+        message=message,
+    )
+
+
+def ParallelConfirmationStaleResponse(
+    message: str = "The subject's candidates changed since the list was loaded.",
+) -> JsonResponse:
+    return ErrorResponse(
+        status=409,
+        code=ApiError.PROJECTS_PARALLEL_CONFIRMATION_STALE,
         message=message,
     )

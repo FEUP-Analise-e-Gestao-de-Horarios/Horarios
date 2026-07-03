@@ -45,6 +45,8 @@ export interface ParallelSubject {
   id: UUID;
   acronym: string;
   name: string;
+  /** True when every one of this subject's candidates has been confirmed. */
+  confirmed: boolean;
   /** Only the year/degree combinations present in this group. */
   years: ParallelYear[];
 }

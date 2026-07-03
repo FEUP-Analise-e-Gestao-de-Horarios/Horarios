@@ -15,6 +15,7 @@ export const ApiError = {
   // Parallel groups
   PARALLEL_GROUPS_INVALID_CANDIDATES: "projects.parallel_groups.invalid_candidates",
   PARALLEL_GROUPS_NOT_FOUND: "projects.parallel_groups.not_found",
+  PARALLEL_CONFIRMATION_STALE: "projects.parallel_confirmation.stale",
 
   // Generic
   INVALID_JSON: "generic.invalid_json",

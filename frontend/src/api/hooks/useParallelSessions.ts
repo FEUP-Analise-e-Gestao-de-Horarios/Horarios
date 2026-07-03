@@ -79,6 +79,33 @@ export interface UseParallelSessionsReturn {
   showResetModal: boolean;
   setShowResetModal: Dispatch<SetStateAction<boolean>>;
 
+  /** Subject ids the user has marked reviewed/confirmed. */
+  confirmedSubjectIds: Set<UUID>;
+  /** Year ids all of whose subjects are confirmed (across every degree). */
+  confirmedYearIds: Set<UUID>;
+  /** Degree ids all of whose years are confirmed. */
+  confirmedDegreeIds: Set<UUID>;
+  /** Confirm a subject; resolves false (rolled back) if the request was rejected. */
+  confirmSubject: (subjectId: UUID) => Promise<boolean>;
+  unconfirmSubject: (subjectId: UUID) => void;
+  /** True when every year with candidates (all degrees) is confirmed. */
+  allYearsConfirmed: boolean;
+  /** Degrees with unconfirmed years, for the finish prompt. */
+  unconfirmedByDegree: { degree: DegreeOption; years: YearOption[] }[];
+
+  showFinishModal: boolean;
+  setShowFinishModal: Dispatch<SetStateAction<boolean>>;
+  /** Shown when a confirm was rejected as stale; the list has been refetched. */
+  /** Which confirm was rejected as stale (drives the prompt copy), or null. */
+  staleConfirmScope: "subject" | "all" | null;
+  setStaleConfirmScope: Dispatch<SetStateAction<"subject" | "all" | null>>;
+  /** Terminar: leave if all confirmed, else open the finish prompt. */
+  handleFinish: () => void;
+  /** Confirm everything then leave for the schedule. */
+  finishAndConfirmAll: () => void;
+  /** Leave for the schedule without confirming the rest. */
+  finishContinue: () => void;
+
   handleDegreeClick: (degree: DegreeOption) => void;
   handleYearToggle: (yearId: UUID) => void;
   handleYearSelect: (yearId: UUID) => void;
@@ -150,6 +177,15 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     message: string;
   } | null>(null);
   const [showResetModal, setShowResetModal] = useState(false);
+  const [showFinishModal, setShowFinishModal] = useState(false);
+  // Set when a confirm is rejected because the candidates changed under the
+  // user; the list is refetched and this prompts a re-check. The scope drives
+  // the prompt copy: a single subject vs. the finish-all action.
+  const [staleConfirmScope, setStaleConfirmScope] = useState<"subject" | "all" | null>(null);
+
+  // Subjects the user has marked reviewed. Seeded from the payload (a subject is
+  // confirmed when all its candidates are) and then mutated optimistically.
+  const [confirmedSubjectIds, setConfirmedSubjectIds] = useState<Set<UUID>>(new Set());
 
   // In-flight create requests, keyed by local group id, resolving to the
   // backend group id (or null on failure). A delete can await one so it can
@@ -170,7 +206,9 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     seededProjectRef.current = seedKey;
 
     const byConfirmed = new Map<string, ParallelGroup>();
+    const confirmedSubjects = new Set<UUID>();
     for (const g of candidatesQuery.data) {
+      if (g.subject.confirmed) confirmedSubjects.add(g.subject.id);
       for (const node of g.nodes) {
         if (!node.confirmed_group_id) continue;
         const key = node.confirmed_group_id;
@@ -189,6 +227,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
       }
     }
     setGroups([...byConfirmed.values()]);
+    setConfirmedSubjectIds(confirmedSubjects);
   }, [candidatesQuery.data, loadingCandidates, projectIdNum]);
 
   // -- Degrees derived from the candidate payload -----------------------
@@ -295,6 +334,82 @@ export function useParallelSessions(): UseParallelSessionsReturn {
   }, [graphs]);
 
   const assignedBlockIds = useMemo(() => new Set(groups.flatMap((g) => g.blockIds)), [groups]);
+
+  // -- Confirmation roll-up (subject -> year -> degree) -----------------
+  // A year is confirmed once every subject taught in it is confirmed; a degree
+  // once every one of its years is. All computed across the whole payload (every
+  // degree), so the finish check can span degrees the user never opened.
+
+  // year id -> the subject ids that have candidates in that year.
+  const subjectsByYear = useMemo(() => {
+    const map = new Map<UUID, Set<UUID>>();
+    for (const g of graphs) {
+      for (const y of g.subject.years) {
+        let set = map.get(y.id);
+        if (!set) {
+          set = new Set();
+          map.set(y.id, set);
+        }
+        set.add(g.subject.id);
+      }
+    }
+    return map;
+  }, [graphs]);
+
+  // degree -> its year rows (id + number), across the whole payload.
+  const yearsByDegree = useMemo(() => {
+    const map = new Map<UUID, { degree: DegreeOption; years: Map<UUID, number> }>();
+    for (const g of graphs) {
+      for (const y of g.subject.years) {
+        let entry = map.get(y.degree.id);
+        if (!entry) {
+          entry = {
+            degree: { id: y.degree.id, name: y.degree.name, acronym: y.degree.acronym },
+            years: new Map(),
+          };
+          map.set(y.degree.id, entry);
+        }
+        entry.years.set(y.id, y.number);
+      }
+    }
+    return map;
+  }, [graphs]);
+
+  const confirmedYearIds = useMemo(() => {
+    const set = new Set<UUID>();
+    for (const [yearId, subjectIds] of subjectsByYear) {
+      if (subjectIds.size > 0 && [...subjectIds].every((id) => confirmedSubjectIds.has(id))) {
+        set.add(yearId);
+      }
+    }
+    return set;
+  }, [subjectsByYear, confirmedSubjectIds]);
+
+  const confirmedDegreeIds = useMemo(() => {
+    const set = new Set<UUID>();
+    for (const [degreeId, { years }] of yearsByDegree) {
+      if (years.size > 0 && [...years.keys()].every((id) => confirmedYearIds.has(id))) {
+        set.add(degreeId);
+      }
+    }
+    return set;
+  }, [yearsByDegree, confirmedYearIds]);
+
+  // Degrees with at least one unconfirmed year, for the finish prompt.
+  const unconfirmedByDegree = useMemo(() => {
+    const out: { degree: DegreeOption; years: YearOption[] }[] = [];
+    for (const { degree, years } of yearsByDegree.values()) {
+      const pending = [...years.entries()]
+        .filter(([yearId]) => !confirmedYearIds.has(yearId))
+        .map(([id, number]) => ({ id, number }))
+        .sort((a, b) => a.number - b.number);
+      if (pending.length > 0) out.push({ degree, years: pending });
+    }
+    out.sort((a, b) => a.degree.acronym.localeCompare(b.degree.acronym));
+    return out;
+  }, [yearsByDegree, confirmedYearIds]);
+
+  const allYearsConfirmed = unconfirmedByDegree.length === 0;
 
   const isSelectionValid = (candidateGroupId: UUID): boolean => {
     const selection = selectionByGroup[candidateGroupId];
@@ -538,6 +653,72 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     void persistDelete(group);
   };
 
+  // -- Confirmation persistence -----------------------------------------
+  // Confirm/unconfirm a whole subject: the server resolves the subject's
+  // current candidate ids and stores/removes them. Optimistic, rolling back on
+  // failure. A pure "reviewed" flag — independent of whether groups were made.
+  // Resolves true when the confirm landed, false when it was rejected (rolled
+  // back) — so the caller can undo any optimistic UI (e.g. the auto-jump).
+  const confirmSubject = (subjectId: UUID): Promise<boolean> => {
+    if (!projectId || Number.isNaN(projectIdNum)) return Promise.resolve(false);
+    // The candidate ids we currently show for this subject; the server rejects
+    // the confirm if this no longer matches its live set.
+    const candidateGroupIds = graphs
+      .filter((g) => g.subject.id === subjectId)
+      .map((g) => g.candidate_group_id);
+    setConfirmedSubjectIds((prev) => new Set(prev).add(subjectId));
+    beginRequest();
+    return api
+      .post(`/api/projects/${projectIdNum}/parallel-blocks/confirmations/`, {
+        subject_id: subjectId,
+        candidate_group_ids: candidateGroupIds,
+      })
+      .then(() => true)
+      .catch((err: unknown) => {
+        setConfirmedSubjectIds((prev) => {
+          const next = new Set(prev);
+          next.delete(subjectId);
+          return next;
+        });
+        const code =
+          err instanceof Error && "code" in err ? (err as ApiRequestError).code : undefined;
+        if (code === ApiError.PARALLEL_CONFIRMATION_STALE) {
+          // The list is out of date: pull a fresh copy and tell the user to recheck.
+          void queryClient.invalidateQueries({
+            queryKey: queryKeys.projects.parallelCandidates(String(projectIdNum)),
+          });
+          setStaleConfirmScope("subject");
+        } else {
+          setSaveStatus({
+            type: "error",
+            message: err instanceof Error ? err.message : "Erro ao confirmar",
+          });
+        }
+        return false;
+      })
+      .finally(endRequest);
+  };
+
+  const unconfirmSubject = (subjectId: UUID) => {
+    if (!projectId || Number.isNaN(projectIdNum)) return;
+    setConfirmedSubjectIds((prev) => {
+      const next = new Set(prev);
+      next.delete(subjectId);
+      return next;
+    });
+    beginRequest();
+    api
+      .delete(`/api/projects/${projectIdNum}/parallel-blocks/confirmations/${subjectId}`)
+      .catch((err: unknown) => {
+        setConfirmedSubjectIds((prev) => new Set(prev).add(subjectId));
+        setSaveStatus({
+          type: "error",
+          message: err instanceof Error ? err.message : "Erro ao repor",
+        });
+      })
+      .finally(endRequest);
+  };
+
   // Remember the current degree/year so returning to the page restores it.
   const rememberView = () => {
     if (!projectId) return;
@@ -557,6 +738,66 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     void navigate(ROUTES.HOME);
   };
 
+  // Finish: go straight to the schedule when every year (across all degrees) is
+  // confirmed, otherwise open the prompt listing the years still pending.
+  const handleFinish = () => {
+    if (allYearsConfirmed) {
+      rememberView();
+      void navigate(backRoute);
+    } else {
+      setShowFinishModal(true);
+    }
+  };
+
+  // "Finish anyway": mark every current candidate confirmed, then leave. Sends
+  // the client's full candidate view so the server can reject a stale set; only
+  // navigates once the write lands.
+  const finishAndConfirmAll = () => {
+    if (!projectId || Number.isNaN(projectIdNum)) return;
+    const candidateGroupIds = graphs.map((g) => g.candidate_group_id);
+    beginRequest();
+    api
+      .post(`/api/projects/${projectIdNum}/parallel-blocks/confirmations/all`, {
+        candidate_group_ids: candidateGroupIds,
+      })
+      .then(() => {
+        setConfirmedSubjectIds(new Set(graphs.map((g) => g.subject.id)));
+        // Drop the cached candidates payload so its confirmed flags are refetched.
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.projects.parallelCandidates(String(projectIdNum)),
+        });
+        setShowFinishModal(false);
+        rememberView();
+        void navigate(backRoute);
+      })
+      .catch((err: unknown) => {
+        const code =
+          err instanceof Error && "code" in err ? (err as ApiRequestError).code : undefined;
+        if (code === ApiError.PARALLEL_CONFIRMATION_STALE) {
+          // Candidates changed under us: refetch and prompt a re-check instead
+          // of leaving with an incomplete confirmation.
+          void queryClient.invalidateQueries({
+            queryKey: queryKeys.projects.parallelCandidates(String(projectIdNum)),
+          });
+          setShowFinishModal(false);
+          setStaleConfirmScope("all");
+        } else {
+          setSaveStatus({
+            type: "error",
+            message: err instanceof Error ? err.message : "Erro ao confirmar",
+          });
+        }
+      })
+      .finally(endRequest);
+  };
+
+  // Continue to the schedule without confirming the rest, keeping the groups
+  // and confirmations already made.
+  const finishContinue = () => {
+    rememberView();
+    void navigate(backRoute);
+  };
+
   const handleReset = () => {
     if (!projectId || Number.isNaN(projectIdNum)) return;
     setShowResetModal(true);
@@ -565,8 +806,11 @@ export function useParallelSessions(): UseParallelSessionsReturn {
   const confirmReset = () => {
     if (!projectId || Number.isNaN(projectIdNum)) return;
     rememberView();
-    api
-      .delete(`/api/projects/${projectIdNum}/parallel-blocks/groups/`)
+    // Recomeçar clears both the confirmed groups and every subject confirmation.
+    Promise.all([
+      api.delete(`/api/projects/${projectIdNum}/parallel-blocks/groups/`),
+      api.delete(`/api/projects/${projectIdNum}/parallel-blocks/confirmations/`),
+    ])
       .then(() => {
         void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
         window.location.reload();
@@ -599,6 +843,20 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     saveStatus,
     showResetModal,
     setShowResetModal,
+    confirmedSubjectIds,
+    confirmedYearIds,
+    confirmedDegreeIds,
+    confirmSubject,
+    unconfirmSubject,
+    allYearsConfirmed,
+    unconfirmedByDegree,
+    showFinishModal,
+    setShowFinishModal,
+    staleConfirmScope,
+    setStaleConfirmScope,
+    handleFinish,
+    finishAndConfirmAll,
+    finishContinue,
     handleDegreeClick,
     handleYearToggle,
     handleYearSelect,

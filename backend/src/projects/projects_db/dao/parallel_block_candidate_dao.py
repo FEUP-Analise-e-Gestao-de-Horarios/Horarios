@@ -11,6 +11,9 @@ from src.projects.projects_db.dao.parallel_candidate_graph import (
     CandidateComponent,
     build_candidate_components,
 )
+from src.projects.projects_db.dao.parallel_confirmed_candidate_dao import (
+    ParallelConfirmedCandidateDAO,
+)
 from src.projects.projects_db.dao.queries.parallel_block_candidates import (
     block_details_stmt,
     block_weeks_stmt,
@@ -80,6 +83,53 @@ class ParallelBlockCandidateDAO:
         rows = self.session.execute(candidate_slot_members_stmt()).all()
         return build_candidate_components(rows)
 
+    def candidate_ids_for_subject(self, subject_id: UUID) -> set[UUID]:
+        """The current candidate group ids of one subject's components."""
+        return {
+            component.candidate_group_id
+            for component in self.get_candidate_components()
+            if component.subject_id == subject_id
+        }
+
+    def all_candidate_ids(self) -> set[UUID]:
+        """The current candidate group ids across every subject."""
+        return {component.candidate_group_id for component in self.get_candidate_components()}
+
+    # -------------------------------------------------------------------
+    # -- Confirmation reconciliation
+    # -------------------------------------------------------------------
+
+    def reconcile_confirmed_subjects(self, components: list[CandidateComponent]) -> set[UUID]:
+        """Return the subject ids whose every current candidate is confirmed.
+
+        A subject counts as confirmed only when *all* of its current candidate
+        components appear in the stored confirmed set. As a side effect the
+        stored set is pruned to exactly the ids of fully-confirmed subjects:
+        this drops both stale ids no longer produced by any component and the
+        partial ids of a subject that is only some-confirmed, so a subject can
+        never silently reappear as confirmed after its blocks change.
+
+        The caller is responsible for committing the session.
+        """
+        confirmed_dao = ParallelConfirmedCandidateDAO(self.session)
+        stored = confirmed_dao.get_all()
+        if not stored:
+            return set()
+
+        candidates_by_subject: defaultdict[UUID, set[UUID]] = defaultdict(set)
+        for component in components:
+            candidates_by_subject[component.subject_id].add(component.candidate_group_id)
+
+        confirmed_subject_ids: set[UUID] = set()
+        keep: set[UUID] = set()
+        for subject_id, candidate_ids in candidates_by_subject.items():
+            if candidate_ids <= stored:
+                confirmed_subject_ids.add(subject_id)
+                keep |= candidate_ids
+
+        confirmed_dao.retain_only(keep)
+        return confirmed_subject_ids
+
     # -------------------------------------------------------------------
     # -- Components with display info
     # -------------------------------------------------------------------
@@ -87,6 +137,10 @@ class ParallelBlockCandidateDAO:
     def get_all_groups_with_info(self) -> list[ParallelBlockCandidateGroup]:
         """Return all candidate groups with per-block session and degree info."""
         components = self.get_candidate_components()
+        # Reconcile stored confirmations against the fresh components (prunes
+        # stale/partial ids) even when nothing is left, so orphaned rows are
+        # cleared once a subject's candidates disappear entirely.
+        confirmed_subject_ids = self.reconcile_confirmed_subjects(components)
         if not components:
             return []
 
@@ -139,6 +193,7 @@ class ParallelBlockCandidateDAO:
                 id=component.subject_id,
                 acronym=subject_info.acronym,
                 name=subject_info.name,
+                confirmed=component.subject_id in confirmed_subject_ids,
                 years=[
                     ParallelBlockCandidateYear(
                         id=year_degree.year_id,

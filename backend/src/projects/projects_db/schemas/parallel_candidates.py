@@ -64,11 +64,14 @@ class ParallelBlockCandidateSubject(BaseModel):
     """The subject shared by every block in a candidate group.
 
     ``years`` lists only the year/degree combinations present in this group.
+    ``confirmed`` is True when every one of the subject's current candidate
+    components has been reviewed/confirmed by the user.
     """
 
     id: UUID
     acronym: str
     name: str
+    confirmed: bool = False
     years: list[ParallelBlockCandidateYear]
 
 

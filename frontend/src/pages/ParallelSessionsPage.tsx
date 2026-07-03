@@ -226,6 +226,19 @@ export default function ParallelClassesPage() {
     saving,
     showResetModal,
     setShowResetModal,
+    confirmedSubjectIds,
+    confirmedYearIds,
+    confirmedDegreeIds,
+    confirmSubject,
+    unconfirmSubject,
+    unconfirmedByDegree,
+    showFinishModal,
+    setShowFinishModal,
+    staleConfirmScope,
+    setStaleConfirmScope,
+    handleFinish,
+    finishAndConfirmAll,
+    finishContinue,
     handleDegreeClick,
     handleYearSelect,
     handleToggleNode,
@@ -273,6 +286,13 @@ export default function ParallelClassesPage() {
   const subjectAcronyms = useMemo(() => {
     const map = new Map<string, string>();
     for (const g of visibleGraphs) map.set(g.subject.name, g.subject.acronym);
+    return map;
+  }, [visibleGraphs]);
+
+  // Full subject name -> subject id, to key confirmation off the selector pills.
+  const subjectIdByName = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const g of visibleGraphs) map.set(g.subject.name, g.subject.id);
     return map;
   }, [visibleGraphs]);
 
@@ -371,6 +391,51 @@ export default function ParallelClassesPage() {
     if (activeYearId) setSelectedSubjectByYear((prev) => ({ ...prev, [activeYearId]: name }));
   };
 
+  const activeSubjectId = activeSubject ? (subjectIdByName.get(activeSubject) ?? null) : null;
+  const activeSubjectConfirmed = activeSubjectId ? confirmedSubjectIds.has(activeSubjectId) : false;
+  // The groups already created for the active subject (in the current year).
+  const activeSubjectGroupViews = activeSubject
+    ? (groupViewsBySubject.get(activeSubject) ?? [])
+    : [];
+
+  // Confirm the active subject, then jump the selector to the next subject that
+  // is still unconfirmed (searching forward from the current one, then wrapping).
+  // If the confirm is rejected, the optimistic jump is reverted.
+  const handleConfirmActiveSubject = () => {
+    if (!activeSubject || !activeSubjectId) return;
+    const prevSubject = activeSubject;
+    const yearId = activeYearId;
+    const confirmedNow = new Set(confirmedSubjectIds).add(activeSubjectId);
+    const idx = subjectNames.indexOf(activeSubject);
+    const ordered = [...subjectNames.slice(idx + 1), ...subjectNames.slice(0, idx)];
+    const next = ordered.find((name) => {
+      const id = subjectIdByName.get(name);
+      return id && !confirmedNow.has(id);
+    });
+    void confirmSubject(activeSubjectId).then((ok) => {
+      // On failure undo the jump, but only if the user hasn't since moved on.
+      if (!ok && next && yearId) {
+        setSelectedSubjectByYear((prev) =>
+          prev[yearId] === next ? { ...prev, [yearId]: prevSubject } : prev,
+        );
+      }
+    });
+    if (next && yearId) {
+      setSelectedSubjectByYear((prev) => ({ ...prev, [yearId]: next }));
+    }
+  };
+
+  // Repor: drop every group already formed for the active subject.
+  const handleResetActiveSubject = () => {
+    for (const view of activeSubjectGroupViews) handleRemoveGroup(view.group.id);
+  };
+
+  // Undo confirmation (fired by clicking the confirmed button, which reddens on
+  // hover to signal the destructive action).
+  const handleUnconfirmActiveSubject = () => {
+    if (activeSubjectId) unconfirmSubject(activeSubjectId);
+  };
+
   // Open/close a candidate's graph, remembered per subject. Opening one that
   // already has exactly one group also jumps to that group.
   const handleSelectCandidate = (candidateId: string) => {
@@ -431,6 +496,7 @@ export default function ParallelClassesPage() {
           </button>
           <button
             type="button"
+            onClick={handleFinish}
             disabled={saving}
             aria-busy={saving}
             className="bg-emerald-600 text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap text-center min-w-[110px] hover:bg-emerald-500 transition-colors disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
@@ -468,6 +534,7 @@ export default function ParallelClassesPage() {
                   <div className="flex flex-wrap gap-2 max-h-28 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300/60">
                     {sortedDegrees.map((degree) => {
                       const isActive = selectedDegree?.id === degree.id;
+                      const isConfirmed = confirmedDegreeIds.has(degree.id);
                       return (
                         <button
                           key={degree.id}
@@ -477,7 +544,9 @@ export default function ParallelClassesPage() {
                           className={`rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                             isActive
                               ? "border-[#b45309] bg-[#b45309] text-white"
-                              : "border-[#e8e8e8] bg-white text-[#555] hover:border-[#d4d4d4] hover:bg-[#faf7f4]"
+                              : isConfirmed
+                                ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                                : "border-[#e8e8e8] bg-white text-[#555] hover:border-[#d4d4d4] hover:bg-[#faf7f4]"
                           }`}
                         >
                           {degree.acronym}
@@ -502,6 +571,7 @@ export default function ParallelClassesPage() {
                     <div className="flex flex-wrap gap-2">
                       {yearsWithCandidates.map((year) => {
                         const isActive = activeYearId === year.id;
+                        const isConfirmed = confirmedYearIds.has(year.id);
                         return (
                           <button
                             key={year.id}
@@ -510,7 +580,9 @@ export default function ParallelClassesPage() {
                             className={`rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors cursor-pointer ${
                               isActive
                                 ? "border-[#1e2028] bg-[#1e2028] text-white"
-                                : "border-[#e8e8e8] bg-white text-[#555] hover:border-[#d4d4d4] hover:bg-[#faf7f4]"
+                                : isConfirmed
+                                  ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                                  : "border-[#e8e8e8] bg-white text-[#555] hover:border-[#d4d4d4] hover:bg-[#faf7f4]"
                             }`}
                           >
                             {year.number}º Ano
@@ -531,6 +603,10 @@ export default function ParallelClassesPage() {
                       <div className="flex flex-wrap gap-2">
                         {subjectNames.map((name) => {
                           const isActive = activeSubject === name;
+                          const subjectId = subjectIdByName.get(name);
+                          const isConfirmed = subjectId
+                            ? confirmedSubjectIds.has(subjectId)
+                            : false;
                           return (
                             <button
                               key={name}
@@ -539,7 +615,9 @@ export default function ParallelClassesPage() {
                               className={`rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors cursor-pointer ${
                                 isActive
                                   ? "border-[#8c2d19] bg-[#8c2d19] text-white"
-                                  : "border-[#e8e8e8] bg-white text-[#555] hover:border-[#d4d4d4] hover:bg-[#faf7f4]"
+                                  : isConfirmed
+                                    ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                                    : "border-[#e8e8e8] bg-white text-[#555] hover:border-[#d4d4d4] hover:bg-[#faf7f4]"
                               }`}
                             >
                               {subjectAcronyms.get(name) ?? name}
@@ -566,8 +644,40 @@ export default function ParallelClassesPage() {
               ) : (
                 <div className="overflow-hidden rounded-2xl border border-[#e8e8e8] shadow-sm bg-white">
                   {activeSubject && (
-                    <div className="px-4 py-2.5 bg-[#fafafa] border-b border-[#e8e8e8]">
-                      <p className="font-semibold text-[#222] text-sm">{activeSubject}</p>
+                    <div className="flex items-center justify-between gap-2 px-4 py-2.5 bg-[#fafafa] border-b border-[#e8e8e8]">
+                      <p className="font-semibold text-[#222] text-sm truncate">{activeSubject}</p>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={handleResetActiveSubject}
+                          disabled={activeSubjectGroupViews.length === 0 || saving}
+                          title="Apagar os grupos desta cadeira"
+                          className="rounded-md border border-[#e0e0e0] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#777] transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer disabled:hover:border-[#e0e0e0] disabled:hover:bg-white disabled:hover:text-[#777]"
+                        >
+                          Repor
+                        </button>
+                        {activeSubjectConfirmed ? (
+                          <button
+                            type="button"
+                            onClick={handleUnconfirmActiveSubject}
+                            disabled={saving}
+                            title="Clica para reabrir esta cadeira"
+                            className="group/confirm rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors cursor-pointer bg-emerald-100 text-emerald-700 hover:bg-red-100 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <span className="group-hover/confirm:hidden">Confirmada</span>
+                            <span className="hidden group-hover/confirm:inline">Desmarcar</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleConfirmActiveSubject}
+                            disabled={saving}
+                            className="rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors cursor-pointer bg-emerald-600 text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            Confirmar
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
                   <div className="flex flex-col divide-y divide-[#f0f0f0]">
@@ -788,6 +898,67 @@ export default function ParallelClassesPage() {
                 Cancelar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showFinishModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
+            <h3 className="font-bold text-[#222] text-base mb-1">Ainda há anos por confirmar</h3>
+            <p className="text-sm text-[#666] mb-3">
+              Os seguintes anos ainda não foram confirmados:
+            </p>
+            <div className="mb-6 max-h-56 overflow-y-auto rounded-lg border border-[#eee] bg-[#fafafa] px-3 py-2 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300/60">
+              {unconfirmedByDegree.map(({ degree, years }) => (
+                <div key={degree.id} className="py-1">
+                  <span className="text-[13px] font-bold text-[#333]">{degree.acronym}</span>
+                  <span className="text-[13px] text-[#666]">
+                    {" — "}
+                    {years.map((y) => `${y.number}º`).join(", ")} ano
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={finishAndConfirmAll}
+                className="bg-emerald-600 text-white font-semibold px-4 py-2 rounded-lg text-sm hover:bg-emerald-500 transition-colors cursor-pointer"
+              >
+                Confirmar tudo e terminar
+              </button>
+              <button
+                onClick={finishContinue}
+                className="border border-[#ddd] text-[#444] font-semibold px-4 py-2 rounded-lg text-sm hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                Continuar sem confirmar
+              </button>
+              <button
+                onClick={() => setShowFinishModal(false)}
+                className="text-[#666] font-semibold px-4 py-2 rounded-lg text-sm hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {staleConfirmScope && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4">
+            <h3 className="font-bold text-[#222] text-base mb-1">Os candidatos mudaram</h3>
+            <p className="text-sm text-[#666] mb-6">
+              {staleConfirmScope === "all"
+                ? "Os candidatos a paralelas mudaram desde que a lista foi carregada, por isso não foi possível confirmar tudo. A lista foi atualizada, revê e confirma novamente."
+                : "Os candidatos a paralelas desta cadeira mudaram desde que a lista foi carregada, por isso a confirmação foi cancelada. A lista foi atualizada, verifica novamente e confirma."}
+            </p>
+            <button
+              onClick={() => setStaleConfirmScope(null)}
+              className="w-full bg-[#1e2028] text-white font-semibold px-4 py-2 rounded-lg text-sm hover:bg-[#2a2d37] transition-colors cursor-pointer"
+            >
+              Entendido
+            </button>
           </div>
         </div>
       )}

@@ -23,6 +23,7 @@ from src.projects.projects_db.models import (
     ClassRedBlock,
     Degree,
     ParallelBlockGroupMember,
+    ParallelConfirmedCandidate,
     Room,
     RoomRedBlock,
     SessionClassSubject,
@@ -342,6 +343,17 @@ def make_group_member(
         original_block_id=original_block_id,
     )
     return _finish(session, member, commit=commit)
+
+
+def make_confirmed_candidate(
+    session: Session,
+    *,
+    candidate_group_id: UUID,
+    commit: bool = True,
+) -> ParallelConfirmedCandidate:
+    """Mark one candidate group id as confirmed."""
+    row = ParallelConfirmedCandidate(candidate_group_id=candidate_group_id)
+    return _finish(session, row, commit=commit)
 
 
 def make_parallel_candidate_pair(

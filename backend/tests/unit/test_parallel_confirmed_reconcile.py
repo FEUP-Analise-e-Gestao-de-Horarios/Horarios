@@ -1,0 +1,114 @@
+"""Unit tests for ``ParallelBlockCandidateDAO.reconcile_confirmed_subjects``.
+
+Reconciliation is the heart of the confirmation feature: a subject counts as
+confirmed only when *every* one of its current candidate components is stored,
+and the stored set is pruned to exactly the ids of fully-confirmed subjects on
+every read. Components are constructed directly here (no slot seeding needed)
+since reconciliation only reads each component's ``candidate_group_id`` and
+``subject_id``.
+"""
+
+import uuid
+
+from src.projects.projects_db.dao.parallel_block_candidate_dao import ParallelBlockCandidateDAO
+from src.projects.projects_db.dao.parallel_candidate_graph import CandidateComponent
+from src.projects.projects_db.dao.parallel_confirmed_candidate_dao import (
+    ParallelConfirmedCandidateDAO,
+)
+from tests.factories import make_confirmed_candidate
+
+
+def _component(subject_id: uuid.UUID, candidate_group_id: uuid.UUID) -> CandidateComponent:
+    return CandidateComponent(
+        candidate_group_id=candidate_group_id,
+        subject_id=subject_id,
+        block_ids=frozenset(),
+        edges=(),
+    )
+
+
+def test_no_stored_confirmations_returns_empty(project_db) -> None:
+    """With nothing stored, no subject is confirmed and nothing is written."""
+    dao = ParallelBlockCandidateDAO(project_db)
+    subject = uuid.uuid7()
+    components = [_component(subject, uuid.uuid7())]
+
+    assert dao.reconcile_confirmed_subjects(components) == set()
+    assert ParallelConfirmedCandidateDAO(project_db).get_all() == set()
+
+
+def test_fully_confirmed_subject_is_reported_and_kept(project_db) -> None:
+    """A subject with all its candidates stored is confirmed; ids survive."""
+    subject = uuid.uuid7()
+    c1, c2 = uuid.uuid7(), uuid.uuid7()
+    make_confirmed_candidate(project_db, candidate_group_id=c1, commit=False)
+    make_confirmed_candidate(project_db, candidate_group_id=c2, commit=False)
+
+    dao = ParallelBlockCandidateDAO(project_db)
+    result = dao.reconcile_confirmed_subjects([_component(subject, c1), _component(subject, c2)])
+
+    assert result == {subject}
+    assert ParallelConfirmedCandidateDAO(project_db).get_all() == {c1, c2}
+
+
+def test_partial_subject_is_not_confirmed_and_pruned(project_db) -> None:
+    """A subject with only some candidates stored is unconfirmed; its id is pruned."""
+    subject = uuid.uuid7()
+    c1, c2 = uuid.uuid7(), uuid.uuid7()
+    # Only one of the subject's two current candidates is stored.
+    make_confirmed_candidate(project_db, candidate_group_id=c1, commit=False)
+
+    dao = ParallelBlockCandidateDAO(project_db)
+    result = dao.reconcile_confirmed_subjects([_component(subject, c1), _component(subject, c2)])
+
+    assert result == set()
+    assert ParallelConfirmedCandidateDAO(project_db).get_all() == set()
+
+
+def test_orphan_stored_id_is_pruned(project_db) -> None:
+    """A stored id matching no current component is deleted."""
+    subject = uuid.uuid7()
+    live = uuid.uuid7()
+    orphan = uuid.uuid7()
+    make_confirmed_candidate(project_db, candidate_group_id=live, commit=False)
+    make_confirmed_candidate(project_db, candidate_group_id=orphan, commit=False)
+
+    dao = ParallelBlockCandidateDAO(project_db)
+    result = dao.reconcile_confirmed_subjects([_component(subject, live)])
+
+    assert result == {subject}
+    assert ParallelConfirmedCandidateDAO(project_db).get_all() == {live}
+
+
+def test_no_components_prunes_all_stored(project_db) -> None:
+    """When candidates disappear entirely, every stored id is an orphan."""
+    make_confirmed_candidate(project_db, candidate_group_id=uuid.uuid7(), commit=False)
+    make_confirmed_candidate(project_db, candidate_group_id=uuid.uuid7(), commit=False)
+
+    dao = ParallelBlockCandidateDAO(project_db)
+
+    assert dao.reconcile_confirmed_subjects([]) == set()
+    assert ParallelConfirmedCandidateDAO(project_db).get_all() == set()
+
+
+def test_mixed_subjects_only_full_ones_survive(project_db) -> None:
+    """One fully-confirmed subject is kept while a partial neighbour is pruned."""
+    full = uuid.uuid7()
+    partial = uuid.uuid7()
+    f1, f2 = uuid.uuid7(), uuid.uuid7()
+    p1, p2 = uuid.uuid7(), uuid.uuid7()
+    for cid in (f1, f2, p1):  # partial: only p1 stored, p2 missing
+        make_confirmed_candidate(project_db, candidate_group_id=cid, commit=False)
+
+    dao = ParallelBlockCandidateDAO(project_db)
+    result = dao.reconcile_confirmed_subjects(
+        [
+            _component(full, f1),
+            _component(full, f2),
+            _component(partial, p1),
+            _component(partial, p2),
+        ],
+    )
+
+    assert result == {full}
+    assert ParallelConfirmedCandidateDAO(project_db).get_all() == {f1, f2}
