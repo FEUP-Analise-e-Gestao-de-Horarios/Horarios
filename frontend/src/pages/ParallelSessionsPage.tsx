@@ -94,7 +94,6 @@ export default function ParallelClassesPage() {
     groupViewsBySubject,
     savedGroupIds,
     saving,
-    saveStatus,
     showResetModal,
     setShowResetModal,
     handleDegreeClick,
@@ -281,25 +280,28 @@ export default function ParallelClassesPage() {
         </button>
 
         <div className="ml-auto flex items-center gap-2">
-          <span
-            className={`text-xs font-semibold ${
-              saving
-                ? "text-gray-400"
-                : saveStatus?.type === "success"
-                  ? "text-green-400"
-                  : saveStatus?.type === "error"
-                    ? "text-red-400"
-                    : "text-transparent"
-            }`}
-          >
-            {saving ? "A guardar…" : (saveStatus?.message ?? "")}
-          </span>
           <button
             onClick={handleReset}
             disabled={saving}
             className="bg-transparent text-red-400 font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-red-400 hover:bg-red-400/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             Recomeçar
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            aria-busy={saving}
+            className="bg-emerald-600 text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap text-center min-w-[110px] hover:bg-emerald-500 transition-colors disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
+          >
+            {saving ? (
+              <span className="flex h-5 items-center justify-center gap-1" aria-label="A guardar">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-bounce [animation-delay:-0.3s]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-bounce [animation-delay:-0.15s]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-bounce" />
+              </span>
+            ) : (
+              "Terminar"
+            )}
           </button>
         </div>
       </header>
@@ -633,11 +635,6 @@ export default function ParallelClassesPage() {
                                         </span>
                                         <span className="text-[12px] font-bold tabular-nums text-[#333]">
                                           {formatTime(startTime)}
-                                        </span>
-                                        <span
-                                          className={`text-[10px] font-semibold ${saved ? "text-[#aaa]" : "text-emerald-600"}`}
-                                        >
-                                          {saved ? "Guardada" : "Nova"}
                                         </span>
                                         <button
                                           onClick={() => handleRemoveGroup(group.id)}
