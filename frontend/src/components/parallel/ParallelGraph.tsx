@@ -163,13 +163,14 @@ export default function ParallelGraph({
 
   // A tap (a press that didn't turn into a drag) toggles a free node into the
   // selection, or — for a locked node — reveals the group it already belongs to.
-  // Every node can still be dragged around regardless.
+  // Dimmed nodes (outside the active frontier) can't join the group, so a tap on
+  // them is a no-op. Every node can still be dragged around regardless.
   const onTap = useCallback(
     (id: UUID) => {
       if (assigned.has(id)) onTapAssigned?.(id);
-      else onToggleNode(id);
+      else if (active === null || active.has(id)) onToggleNode(id);
     },
-    [assigned, onToggleNode, onTapAssigned],
+    [assigned, onToggleNode, onTapAssigned, active],
   );
 
   // Easter egg: shaking a held node really hard plays a goat scream. The audio
