@@ -639,18 +639,20 @@ export default function ParallelClassesPage() {
                                           return (
                                             <div
                                               key={block.blockId}
-                                              className="flex items-center gap-1.5"
+                                              className="group/codes flex items-center gap-1.5"
                                             >
                                               <span
                                                 className={`shrink-0 w-7 text-center text-[10px] font-bold px-1 py-0.5 rounded ${typeStyle.bg} ${typeStyle.text}`}
                                               >
                                                 {block.type}
                                               </span>
-                                              <div className="flex flex-wrap gap-1">
+                                              {/* Codes collapse to one line with a right-edge fade;
+                                                  hovering the row wraps them to reveal the full list. */}
+                                              <div className="flex min-w-0 flex-1 flex-nowrap gap-1 overflow-hidden [mask-image:linear-gradient(to_right,black_calc(100%_-_20px),transparent)] [-webkit-mask-image:linear-gradient(to_right,black_calc(100%_-_20px),transparent)] group-hover/codes:flex-wrap group-hover/codes:overflow-visible group-hover/codes:[mask-image:none] group-hover/codes:[-webkit-mask-image:none]">
                                                 {block.codes.map((code) => (
                                                   <span
                                                     key={`${block.blockId}-${code}`}
-                                                    className="rounded px-1.5 py-0.5 text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200"
+                                                    className="shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200"
                                                   >
                                                     {code}
                                                   </span>
