@@ -172,6 +172,29 @@ export default function ParallelGraph({
     [assigned, onToggleNode, onTapAssigned],
   );
 
+  // Easter egg: shaking a held node really hard plays a goat scream. The audio
+  // lives at public/goat-scream.mp3; if it's missing, play() rejects and the
+  // gesture is simply silent. Built once on mount and preloaded so the first
+  // scream fires without a fetch delay.
+  const goatRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    const audio = new Audio(`${import.meta.env.BASE_URL}goat-scream.mp3`);
+    audio.volume = 0.75;
+    audio.preload = "auto";
+    audio.load();
+    goatRef.current = audio;
+    return () => {
+      audio.pause();
+      goatRef.current = null;
+    };
+  }, []);
+  const playGoatScream = useCallback(() => {
+    const audio = goatRef.current;
+    if (!audio) return;
+    audio.currentTime = 0;
+    void audio.play().catch(() => {});
+  }, []);
+
   const { positions, draggingId, onNodePointerDown } = useForceSimulation(
     ids,
     graph.edges,
@@ -180,6 +203,7 @@ export default function ParallelGraph({
     selected,
     onTap,
     containerRef,
+    playGoatScream,
   );
 
   // Entrance burst: nodes pop in sequence once the graph mounts.

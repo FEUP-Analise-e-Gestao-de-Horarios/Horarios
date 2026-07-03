@@ -28,6 +28,17 @@ const MARGIN = 44;
 /** Pointer travel (px) under which a press counts as a tap, not a drag. */
 const TAP_SLOP = 4;
 
+// Shake-to-scream easter egg: whip a held node hard enough back and forth and
+// something plays. "Hard" = several fast direction reversals in a short window.
+/** A move shorter than this (px between events) is too gentle to count. */
+const SHAKE_MIN_STEP = 6;
+/** Rolling window (ms) over which reversals are tallied. */
+const SHAKE_WINDOW = 800;
+/** Reversals within the window that make a shake count as "really hard". */
+const SHAKE_REVERSALS = 4;
+/** Minimum gap (ms) between triggers, so one frenzy fires exactly once. */
+const SHAKE_COOLDOWN = 1200;
+
 interface Layout {
   initial: Map<UUID, NodePosition>;
   width: number;
@@ -75,6 +86,7 @@ export function useForceSimulation(
   selected: Set<UUID>,
   onTap: (id: UUID) => void,
   containerRef: RefObject<HTMLElement | null>,
+  onShake?: () => void,
 ): ForceSimulation {
   const [positions, setPositions] = useState<Map<UUID, NodePosition>>(
     () => new Map(layout.initial),
@@ -86,6 +98,18 @@ export function useForceSimulation(
   const runningRef = useRef(false);
   const onTapRef = useRef(onTap);
   onTapRef.current = onTap;
+  const onShakeRef = useRef(onShake);
+  onShakeRef.current = onShake;
+  // Gesture state for the shake detector: last pointer position, last movement
+  // vector (to spot direction reversals), reversal timestamps, and a cooldown.
+  const shakeRef = useRef({
+    lastX: 0,
+    lastY: 0,
+    vx: 0,
+    vy: 0,
+    reversals: [] as number[],
+    lastFired: 0,
+  });
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
   const radiiRef = useRef(radii);
@@ -347,6 +371,13 @@ export function useForceSimulation(
       }
       s.dragIdx = idx;
       pressRef.current = { id, clientX: e.clientX, clientY: e.clientY, moved: false };
+      // Reset the shake gesture for this new grab (keep the cooldown running).
+      const sh = shakeRef.current;
+      sh.lastX = e.clientX;
+      sh.lastY = e.clientY;
+      sh.vx = 0;
+      sh.vy = 0;
+      sh.reversals.length = 0;
       setDraggingId(id);
       kick();
     },
@@ -363,6 +394,32 @@ export function useForceSimulation(
       if (press && !press.moved) {
         if (Math.hypot(e.clientX - press.clientX, e.clientY - press.clientY) > TAP_SLOP) {
           press.moved = true;
+        }
+      }
+      // Shake detector: a fast move roughly opposite the previous fast move is a
+      // reversal; enough reversals in the window fires the scream (once, then a
+      // cooldown). Gentle dragging never reverses hard enough to count.
+      if (onShakeRef.current) {
+        const sh = shakeRef.current;
+        const now = performance.now();
+        const dx = e.clientX - sh.lastX;
+        const dy = e.clientY - sh.lastY;
+        sh.lastX = e.clientX;
+        sh.lastY = e.clientY;
+        if (Math.hypot(dx, dy) >= SHAKE_MIN_STEP) {
+          if (dx * sh.vx + dy * sh.vy < 0) {
+            sh.reversals.push(now);
+            while (sh.reversals.length && now - sh.reversals[0]! > SHAKE_WINDOW) {
+              sh.reversals.shift();
+            }
+            if (sh.reversals.length >= SHAKE_REVERSALS && now - sh.lastFired > SHAKE_COOLDOWN) {
+              sh.lastFired = now;
+              sh.reversals.length = 0;
+              onShakeRef.current();
+            }
+          }
+          sh.vx = dx;
+          sh.vy = dy;
         }
       }
       const pt = pointFromEvent(e.clientX, e.clientY);
