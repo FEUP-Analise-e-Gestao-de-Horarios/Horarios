@@ -1,4 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import {
+  exporterConflictsOpenStorageKey,
+  exporterSelectedConflictStorageKey,
+} from "@/utils/exporter/pageState";
 
 function readSessionBoolean(key: string, fallback: boolean): boolean {
   if (typeof window === "undefined") return fallback;
@@ -8,8 +12,8 @@ function readSessionBoolean(key: string, fallback: boolean): boolean {
 }
 
 export default function useExporterNavigationState(projectId: string) {
-  const conflictsOpenStorageKey = `exporter-conflicts-open:${projectId}`;
-  const selectedConflictStorageKey = `exporter-selected-conflict:${projectId}`;
+  const conflictsOpenStorageKey = exporterConflictsOpenStorageKey(projectId);
+  const selectedConflictStorageKey = exporterSelectedConflictStorageKey(projectId);
   const [highlightedAnchor, setHighlightedAnchor] = useState<string | null>(null);
   const [highlightedConflictAnchor, setHighlightedConflictAnchor] = useState<string | null>(null);
   const [isConflictsOpen, setIsConflictsOpen] = useState(() =>

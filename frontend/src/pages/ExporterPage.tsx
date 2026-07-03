@@ -3,6 +3,12 @@ import { useParams } from "react-router-dom";
 import { useProject, useProjectExport } from "@/api/hooks/useDashboard";
 import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
 import ExportStatusSection from "@/components/exporter/ExportStatusSection";
+import {
+  exporterScrollStorageKey,
+  exporterSelectedConflictStorageKey,
+  parseStoredScrollTop,
+  shouldRestoreExporterScroll,
+} from "@/utils/exporter/pageState";
 
 export default function ExporterPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -11,21 +17,25 @@ export default function ExporterPage() {
   const restoredScrollProjectRef = useRef<string | null>(null);
   const project = useProject(id);
   const exportResult = useProjectExport(id);
-  const scrollStorageKey = `exporter-scroll-top:${id}`;
-  const selectedConflictStorageKey = `exporter-selected-conflict:${id}`;
+  const scrollStorageKey = exporterScrollStorageKey(id);
+  const selectedConflictStorageKey = exporterSelectedConflictStorageKey(id);
 
   useEffect(() => {
-    if (!id || restoredScrollProjectRef.current === id) return;
-    if (window.sessionStorage.getItem(selectedConflictStorageKey) !== null) return;
-
-    const savedScrollTop = window.sessionStorage.getItem(scrollStorageKey);
-    if (savedScrollTop === null) return;
-
-    const parsedScrollTop = Number(savedScrollTop);
-    if (Number.isNaN(parsedScrollTop)) return;
+    const hasSelectedConflict = window.sessionStorage.getItem(selectedConflictStorageKey) !== null;
+    const parsedScrollTop = parseStoredScrollTop(window.sessionStorage.getItem(scrollStorageKey));
+    if (
+      !shouldRestoreExporterScroll({
+        projectId: id,
+        restoredProjectId: restoredScrollProjectRef.current,
+        hasSelectedConflict,
+        savedScrollTop: parsedScrollTop,
+      })
+    ) {
+      return;
+    }
 
     window.requestAnimationFrame(() => {
-      mainRef.current?.scrollTo({ top: parsedScrollTop });
+      mainRef.current?.scrollTo({ top: parsedScrollTop ?? 0 });
       restoredScrollProjectRef.current = id;
     });
   }, [id, scrollStorageKey, selectedConflictStorageKey, project.data, exportResult.data]);

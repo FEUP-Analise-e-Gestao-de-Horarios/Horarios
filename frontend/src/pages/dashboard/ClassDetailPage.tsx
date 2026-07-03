@@ -6,12 +6,14 @@ import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
 import SessionPopup from "@/components/dashboard/SessionPopup";
 import WeekGrid, { type WeekGridEvent } from "@/components/dashboard/WeekGrid";
 import type { SessionResponse, WeekBlockResponse } from "@/types/project/sessions";
-import { findWeekBlockIndex, formatBlockLabel } from "@/utils/date";
+import { formatBlockLabel } from "@/utils/date";
 import {
+  findTargetWeekBlockIndex,
+  parseConflictSessionIds,
   parseConflictWeeks,
   weekBlockButtonClass,
   weekBlockHasConflict,
-} from "@/utils/exporter/conflictNavigation";
+} from "@/utils/exporter/dashboardNavigation";
 
 export default function ClassDetailPage() {
   const { projectId, classId } = useParams<{ projectId: string; classId: string }>();
@@ -19,16 +21,14 @@ export default function ClassDetailPage() {
   const pid = projectId ?? "";
   const cid = classId ?? "";
   const targetWeek = searchParams.get("week");
-  const highlightedEventIds = new Set(
-    (searchParams.get("conflictSessions") ?? "").split(",").filter(Boolean),
-  );
+  const highlightedEventIds = parseConflictSessionIds(searchParams);
   const conflictWeeks = parseConflictWeeks(searchParams);
 
   const project = useProject(pid);
   const { data, isLoading, isError } = useProjectClass(pid, cid);
 
   const blocks: WeekBlockResponse[] = data?.blocks ?? [];
-  const targetBlockIdx = findWeekBlockIndex(blocks, targetWeek);
+  const targetBlockIdx = findTargetWeekBlockIndex(blocks, targetWeek);
   const [selectedBlockIdx, setSelectedBlockIdx] = useState(0);
   const [selectedSession, setSelectedSession] = useState<SessionResponse | null>(null);
   const [prevCid, setPrevCid] = useState(cid);

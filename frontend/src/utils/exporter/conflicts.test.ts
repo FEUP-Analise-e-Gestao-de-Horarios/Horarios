@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildConflictSessionIds,
   buildConflictLookup,
+  conflictAulasCount,
   conflictCardAnchorId,
   teacherConflictName,
 } from "@/utils/exporter/conflicts";
@@ -33,10 +35,21 @@ const payload: ProjectExportPayload = {
       start_time: 1000,
       duration: 2,
       collisions: 2,
-      session_ids: ["019e-bbbb"],
+      session_ids: ["019e-bbbb", "019ebbbb"],
     },
   ],
-  classes_conflicts: [],
+  classes_conflicts: [
+    {
+      class_id: "class-1",
+      class_code: "1LEIC01",
+      week: "2026-01-05",
+      weekday: "wednesday",
+      start_time: 1130,
+      duration: 2,
+      collisions: 2,
+      session_ids: ["019e-cccc", "019e-dddd"],
+    },
+  ],
   modification_steps: [],
 };
 
@@ -55,6 +68,17 @@ describe("buildConflictLookup", () => {
   });
 });
 
+describe("buildConflictSessionIds", () => {
+  it("collects normalized unique session ids from all conflict lists", () => {
+    expect(Array.from(buildConflictSessionIds(payload)).sort()).toEqual([
+      "019eaaaa",
+      "019ebbbb",
+      "019ecccc",
+      "019edddd",
+    ]);
+  });
+});
+
 describe("conflict anchors and URLs", () => {
   it("keeps conflict anchors and query params stable", () => {
     const conflict = payload.rooms_conflicts[0];
@@ -68,6 +92,19 @@ describe("conflict anchors and URLs", () => {
     expect(withConflictParams("/rooms/room-1", conflict)).toBe(
       "/rooms/room-1?week=2026-01-05&conflictSessions=019e-aaaa&conflictWeeks=2026-01-12%2C2026-01-05",
     );
+  });
+});
+
+describe("conflictAulasCount", () => {
+  it("derives aulas count from unique sessions divided by weeks", () => {
+    expect(conflictAulasCount(payload.teacher_conflicts[0]!)).toBe(1);
+    expect(
+      conflictAulasCount({
+        ...payload.rooms_conflicts[0]!,
+        weeks: ["2026-01-05", "2026-01-12"],
+        session_ids: ["session-1", "session-2", "session-3", "session-4"],
+      }),
+    ).toBe(2);
   });
 });
 

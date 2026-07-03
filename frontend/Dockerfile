@@ -2,8 +2,8 @@ FROM node:26-alpine
 
 WORKDIR /workspace/frontend
 
-COPY package*.json ./
-RUN npm ci
+COPY package*.json .npmrc ./
+RUN npm ci --include=optional
 
 COPY . .
 

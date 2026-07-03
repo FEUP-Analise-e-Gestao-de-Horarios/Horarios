@@ -57,6 +57,18 @@ describe("compactExportToProjectExportPayload", () => {
           ["TEST (TEST001)"],
         ],
         [
+          "teacher",
+          "teacher1",
+          "2026-01-05",
+          ["2026-01-05"],
+          "monday",
+          830,
+          2,
+          2,
+          ["session1", "session2"],
+          ["TEST (TEST001)"],
+        ],
+        [
           "class",
           "class1",
           "2026-01-05",
@@ -120,6 +132,13 @@ describe("compactExportToProjectExportPayload", () => {
     expect(expanded.classes_conflicts[0]).toMatchObject({
       class_id: "class1",
       class_code: "1LEIC01",
+      subject_labels: ["TEST (TEST001)"],
+    });
+    expect(expanded.teacher_conflicts[0]).toMatchObject({
+      teacher_id: "teacher1",
+      teacher_number: 7,
+      teacher_acronym: "ABC",
+      teacher_name: "Alice Example",
       subject_labels: ["TEST (TEST001)"],
     });
   });
@@ -200,5 +219,41 @@ describe("compactExportToProjectExportPayload", () => {
     };
 
     expect(compactExportToProjectExportPayload(expanded)).toBe(expanded);
+  });
+
+  it("falls back to resource ids when compact entities are missing", () => {
+    const expanded = compactExportToProjectExportPayload({
+      format: "compact_export_v1",
+      entities: {
+        rooms: {},
+        teachers: {},
+        classes: {},
+        subjects: {},
+        sessions: {},
+      },
+      added_removed_sessions: { added: [], removed: [] },
+      conflicts: [
+        [
+          "teacher",
+          "teacher-missing",
+          "2026-01-05",
+          undefined,
+          "monday",
+          830,
+          2,
+          2,
+          ["session-missing"],
+        ],
+      ],
+      modification_steps: [],
+    });
+
+    expect(expanded.teacher_conflicts[0]).toMatchObject({
+      teacher_id: "teacher-missing",
+      teacher_number: 0,
+      teacher_acronym: "teacher-missing",
+      teacher_name: "teacher-missing",
+      subject_labels: [],
+    });
   });
 });

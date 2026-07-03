@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import type { Weekday } from "@/types/project/weekday";
+import { hasHighlightedSession } from "@/utils/exporter/dashboardNavigation";
 
 export interface WeekGridEvent {
   id: string;
@@ -260,7 +261,9 @@ export default function WeekGrid({
         {placedEvents.map(({ ev, col, rowStart, span, lane, laneCount }) => {
           const style = styleForType(ev.type);
           const clickable = !!onEventClick;
-          const isHighlighted = highlightedEventIds?.has(ev.id) ?? false;
+          const isHighlighted = highlightedEventIds
+            ? hasHighlightedSession(ev.id, highlightedEventIds)
+            : false;
           return (
             <button
               key={`e-${ev.id}`}

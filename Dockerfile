@@ -5,8 +5,8 @@ FROM node:26-alpine AS frontend-builder
 
 WORKDIR /workspace
 
-COPY frontend/package*.json ./frontend/
-RUN cd frontend && npm ci
+COPY frontend/package*.json frontend/.npmrc ./frontend/
+RUN cd frontend && npm ci --include=optional
 
 COPY frontend/ ./frontend/
 

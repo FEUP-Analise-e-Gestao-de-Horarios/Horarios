@@ -13,7 +13,7 @@ jobs:
         with:
           node-version: "24"
       - uses: astral-sh/setup-uv@v7
-      - run: cd frontend && npm install
+      - run: cd frontend && npm install --include=optional
       - run: uvx pre-commit run frontend-typecheck --all-files
 
   frontend-lint:
@@ -25,7 +25,7 @@ jobs:
         with:
           node-version: "24"
       - uses: astral-sh/setup-uv@v7
-      - run: cd frontend && npm install
+      - run: cd frontend && npm install --include=optional
       - run: uvx pre-commit run frontend-lint --all-files
 
   frontend-format:
@@ -37,5 +37,5 @@ jobs:
         with:
           node-version: "24"
       - uses: astral-sh/setup-uv@v7
-      - run: cd frontend && npm install
+      - run: cd frontend && npm install --include=optional
       - run: uvx pre-commit run frontend-format --all-files

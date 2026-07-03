@@ -11,7 +11,7 @@ run_with_local_npm() {
     cd "$frontend_dir"
 
     if [ ! -f node_modules/.package-lock.json ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then
-        npm ci
+        npm ci --include=optional
     fi
 
     npm run "$script_name"
@@ -24,7 +24,7 @@ run_with_docker() {
         -w /workspace/frontend \
         node:25-alpine \
         sh -lc \
-        'if [ ! -f node_modules/.package-lock.json ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then npm ci; fi; npm run "$1"' \
+        'if [ ! -f node_modules/.package-lock.json ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then npm ci --include=optional; fi; npm run "$1"' \
         sh "$script_name"
 }
 

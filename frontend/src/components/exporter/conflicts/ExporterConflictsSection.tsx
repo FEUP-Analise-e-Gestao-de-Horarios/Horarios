@@ -7,9 +7,11 @@ import type {
 import { ExportSection } from "@/components/exporter/ExportSection";
 import ConflictRows from "@/components/exporter/conflicts/ConflictRows";
 import { conflictCardAnchorId, teacherConflictName } from "@/utils/exporter/conflicts";
-import { withConflictParams } from "@/utils/exporter/formatters";
-import { ROUTES } from "@/routes";
-import { buildPath } from "@/utils/routes";
+import {
+  buildClassConflictHref,
+  buildRoomConflictHref,
+  buildTeacherConflictHref,
+} from "@/utils/exporter/conflictLinks";
 
 export default function ExporterConflictsSection({
   data,
@@ -45,15 +47,7 @@ export default function ExporterConflictsSection({
             getName={(row) => row.room_name}
             getAnchorId={(row, index) => conflictCardAnchorId("room", row, index)}
             highlightedAnchor={highlightedAnchor}
-            getHref={(row) =>
-              withConflictParams(
-                buildPath(ROUTES.ROOM_DETAIL, {
-                  projectId,
-                  roomId: row.room_id,
-                }),
-                row,
-              )
-            }
+            getHref={(row) => buildRoomConflictHref(projectId, row)}
             onCardClick={onCardClick}
           />
         </div>
@@ -66,15 +60,7 @@ export default function ExporterConflictsSection({
             getName={teacherConflictName}
             getAnchorId={(row, index) => conflictCardAnchorId("teacher", row, index)}
             highlightedAnchor={highlightedAnchor}
-            getHref={(row) =>
-              withConflictParams(
-                buildPath(ROUTES.TEACHER_DETAIL, {
-                  projectId,
-                  teacherId: row.teacher_id,
-                }),
-                row,
-              )
-            }
+            getHref={(row) => buildTeacherConflictHref(projectId, row)}
             onCardClick={onCardClick}
           />
         </div>
@@ -87,15 +73,7 @@ export default function ExporterConflictsSection({
             getName={(row) => row.class_code}
             getAnchorId={(row, index) => conflictCardAnchorId("class", row, index)}
             highlightedAnchor={highlightedAnchor}
-            getHref={(row) =>
-              withConflictParams(
-                buildPath(ROUTES.CLASS_DETAIL, {
-                  projectId,
-                  classId: row.class_id,
-                }),
-                row,
-              )
-            }
+            getHref={(row) => buildClassConflictHref(projectId, row)}
             onCardClick={onCardClick}
           />
         </div>
