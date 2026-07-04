@@ -37,22 +37,33 @@ export function useParallelConfirmations(params: {
   // the prompt copy: a single subject vs. the finish-all action.
   const [staleConfirmScope, setStaleConfirmScope] = useState<"subject" | "all" | null>(null);
 
+  // Server truth: the subject ids the payload currently reports as confirmed. A
+  // subject is confirmed when every one of its candidates is (carried on
+  // `subject.confirmed`).
+  const serverConfirmedSubjectIds = useMemo(() => {
+    const set = new Set<UUID>();
+    if (!candidatesData) return set;
+    for (const g of candidatesData) {
+      if (g.subject.confirmed) set.add(g.subject.id);
+    }
+    return set;
+  }, [candidatesData]);
+
   // -- Seed confirmed subjects from the loaded candidate payload --------
-  // Runs once per project once the query resolves; a subject is confirmed when
-  // every one of its candidates is (carried on `subject.confirmed`).
-  const seededProjectRef = useRef<string | null>(null);
+  // Re-derives the local set whenever the *content* of the server-confirmed set
+  // changes (keyed per project). Keying on content — not on the query's identity
+  // — means an unrelated refetch can't clobber an in-flight optimistic confirm/
+  // unconfirm (the server flags are unchanged, so the signature matches and we
+  // skip), while a stale-confirm invalidation, which does change those flags,
+  // re-applies server truth as intended.
+  const seededSignatureRef = useRef<string | null>(null);
   useEffect(() => {
     if (loadingCandidates || !candidatesData) return;
-    const seedKey = String(projectIdNum);
-    if (seededProjectRef.current === seedKey) return;
-    seededProjectRef.current = seedKey;
-
-    const confirmedSubjects = new Set<UUID>();
-    for (const g of candidatesData) {
-      if (g.subject.confirmed) confirmedSubjects.add(g.subject.id);
-    }
-    setConfirmedSubjectIds(confirmedSubjects);
-  }, [candidatesData, loadingCandidates, projectIdNum]);
+    const signature = `${projectIdNum}:${[...serverConfirmedSubjectIds].sort().join(",")}`;
+    if (seededSignatureRef.current === signature) return;
+    seededSignatureRef.current = signature;
+    setConfirmedSubjectIds(new Set(serverConfirmedSubjectIds));
+  }, [candidatesData, loadingCandidates, projectIdNum, serverConfirmedSubjectIds]);
 
   // -- Confirmation roll-up (subject -> year -> degree) -----------------
   // A year is confirmed once every subject taught in it is confirmed; a degree
