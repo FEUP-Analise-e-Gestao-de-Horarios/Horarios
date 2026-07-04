@@ -1,6 +1,7 @@
 import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { api } from "@/api/client";
 import { ApiError, type ApiRequestError } from "@/types/api";
 import { ROUTES } from "@/routes";
@@ -76,7 +77,6 @@ export interface UseParallelSessionsReturn {
 
   /** True while any create/delete request is in flight. */
   saving: boolean;
-  saveStatus: { type: "success" | "error"; message: string } | null;
 
   showResetModal: boolean;
   setShowResetModal: Dispatch<SetStateAction<boolean>>;
@@ -175,10 +175,6 @@ export function useParallelSessions(): UseParallelSessionsReturn {
   const [selectionByGroup, setSelectionByGroup] = useState<Record<UUID, Set<UUID>>>({});
 
   const [saving, setSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
   const [showResetModal, setShowResetModal] = useState(false);
   const [showFinishModal, setShowFinishModal] = useState(false);
   // Set when a confirm is rejected because the candidates changed under the
@@ -528,7 +524,6 @@ export function useParallelSessions(): UseParallelSessionsReturn {
   const beginRequest = () => {
     inFlight.current += 1;
     setSaving(true);
-    setSaveStatus(null);
   };
   const endRequest = () => {
     inFlight.current = Math.max(0, inFlight.current - 1);
@@ -566,7 +561,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
       })
       .catch((err: unknown): null => {
         setGroups((prev) => prev.filter((g) => g.id !== localId));
-        setSaveStatus({ type: "error", message: parallelSaveErrorMessage(err) });
+        toast.error(parallelSaveErrorMessage(err));
         return null;
       })
       .finally(() => {
@@ -612,7 +607,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
       // Failed: settle the card back to its saved resting state (releases the
       // red border and rightward shift).
       setGroups((prev) => prev.map((g) => (g.id === group.id ? { ...g, status: "saved" } : g)));
-      setSaveStatus({ type: "error", message: parallelSaveErrorMessage(err) });
+      toast.error(parallelSaveErrorMessage(err));
     } finally {
       endRequest();
     }
@@ -697,10 +692,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
           });
           setStaleConfirmScope("subject");
         } else {
-          setSaveStatus({
-            type: "error",
-            message: err instanceof Error ? err.message : "Erro ao confirmar",
-          });
+          toast.error(err instanceof Error ? err.message : "Erro ao confirmar");
         }
         return false;
       })
@@ -719,10 +711,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
       .delete(`/api/projects/${projectIdNum}/parallel-blocks/confirmations/${subjectId}`)
       .catch((err: unknown) => {
         setConfirmedSubjectIds((prev) => new Set(prev).add(subjectId));
-        setSaveStatus({
-          type: "error",
-          message: err instanceof Error ? err.message : "Erro ao repor",
-        });
+        toast.error(err instanceof Error ? err.message : "Erro ao repor");
       })
       .finally(endRequest);
   };
@@ -762,10 +751,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
         void navigate(backRoute);
       })
       .catch((err: unknown) => {
-        setSaveStatus({
-          type: "error",
-          message: err instanceof Error ? err.message : "Erro ao terminar",
-        });
+        toast.error(err instanceof Error ? err.message : "Erro ao terminar");
       })
       .finally(endRequest);
   };
@@ -816,10 +802,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
           setShowFinishModal(false);
           setStaleConfirmScope("all");
         } else {
-          setSaveStatus({
-            type: "error",
-            message: err instanceof Error ? err.message : "Erro ao confirmar",
-          });
+          toast.error(err instanceof Error ? err.message : "Erro ao confirmar");
         }
       })
       .finally(endRequest);
@@ -860,10 +843,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
       })
       .catch((err: unknown) => {
         setShowResetModal(false);
-        setSaveStatus({
-          type: "error",
-          message: err instanceof Error ? err.message : "Erro ao recomeçar",
-        });
+        toast.error(err instanceof Error ? err.message : "Erro ao recomeçar");
       });
   };
 
@@ -883,7 +863,6 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     canGroupAll,
     groupViewsBySubject,
     saving,
-    saveStatus,
     showResetModal,
     setShowResetModal,
     confirmedSubjectIds,
