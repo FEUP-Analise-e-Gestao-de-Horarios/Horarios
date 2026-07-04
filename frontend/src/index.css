@@ -135,6 +135,36 @@
   height: 16px;
   margin-right: 2px;
 }
+/* Parallel-selection reminder: a clean, neutral card — monochrome, no accent
+   colors — set apart from the saturated per-type toasts since it's a gentle
+   nudge, not an alert. Two-class / attribute selectors so these win the
+   source-order tie against sonner's own [data-styled] base rules. */
+.app-toast.app-toast-reminder {
+  background: #18181b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fafafa;
+  padding: 13px 15px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+.app-toast.app-toast-reminder [data-icon] {
+  color: #a1a1aa;
+}
+.app-toast.app-toast-reminder [data-title] {
+  font-weight: 600;
+}
+.app-toast.app-toast-reminder [data-description] {
+  color: #a1a1aa;
+}
+.app-toast.app-toast-reminder [data-button] {
+  background: #fafafa;
+  color: #18181b;
+  font-weight: 600;
+  border-radius: 7px;
+}
+.app-toast.app-toast-reminder [data-button]:hover {
+  background: #e4e4e7;
+}
 .app-toast[data-type="error"] {
   background: #b1160f;
   border: 1px solid #7f0d08;
