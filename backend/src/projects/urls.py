@@ -56,19 +56,19 @@ parallel_block_patterns = [
 ]
 
 project_patterns = [
-    path("", ProjectView.as_view()),
-    path("/stats", ProjectStatsView.as_view()),
-    path("/rooms/", include(room_patterns)),
-    path("/teachers/", include(teacher_patterns)),
-    path("/degrees/", include(degree_patterns)),
-    path("/years/", include(year_patterns)),
-    path("/subjects/", include(subject_patterns)),
-    path("/classes/", include(class_patterns)),
-    path("/sessions/", include(session_patterns)),
-    path("/parallel-blocks/", include(parallel_block_patterns)),
+    path("stats", ProjectStatsView.as_view()),
+    path("rooms/", include(room_patterns)),
+    path("teachers/", include(teacher_patterns)),
+    path("degrees/", include(degree_patterns)),
+    path("years/", include(year_patterns)),
+    path("subjects/", include(subject_patterns)),
+    path("classes/", include(class_patterns)),
+    path("sessions/", include(session_patterns)),
+    path("parallel-blocks/", include(parallel_block_patterns)),
 ]
 
 urlpatterns = [
     path("", ProjectsView.as_view()),
-    path("<int:project_id>", include(project_patterns)),
+    path("<int:project_id>", ProjectView.as_view()),
+    path("<int:project_id>/", include(project_patterns)),
 ]
