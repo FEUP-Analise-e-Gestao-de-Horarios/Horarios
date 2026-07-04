@@ -111,7 +111,6 @@ export interface UseParallelSessionsReturn {
   finishLater: () => void;
 
   handleDegreeClick: (degree: DegreeOption) => void;
-  handleYearToggle: (yearId: UUID) => void;
   handleYearSelect: (yearId: UUID) => void;
   handleToggleNode: (candidateGroupId: UUID, blockId: UUID) => void;
   /** Create a group from the current selection; returns its id, or null if invalid. */
@@ -504,15 +503,6 @@ export function useParallelSessions(): UseParallelSessionsReturn {
   const handleDegreeClick = (degree: DegreeOption) => {
     setSelectedDegree((prev) => (prev?.id === degree.id ? prev : degree));
     setSelectionByGroup({});
-  };
-
-  const handleYearToggle = (yearId: UUID) => {
-    setSelectedYearIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(yearId)) next.delete(yearId);
-      else next.add(yearId);
-      return next;
-    });
   };
 
   // Single-year selection for the pill selector: replace the whole set and
@@ -912,7 +902,6 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     finishContinue,
     finishLater,
     handleDegreeClick,
-    handleYearToggle,
     handleYearSelect,
     handleToggleNode,
     handleCreateGroup,
