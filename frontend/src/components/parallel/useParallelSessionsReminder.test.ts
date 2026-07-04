@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Project } from "@/types/project/project";
-import { shouldRemindParallelSelection } from "./useParallelSessionsReminder";
+import { isProjectProcessing, shouldRemindParallelSelection } from "./useParallelSessionsReminder";
 
 function makeProject(overrides: Partial<Project> = {}): Project {
   return {
@@ -42,5 +42,33 @@ describe("shouldRemindParallelSelection", () => {
 
   it("stays quiet when there is no project yet", () => {
     expect(shouldRemindParallelSelection(undefined)).toBe(false);
+  });
+});
+
+describe("isProjectProcessing", () => {
+  it("is processing while ingestion has started but not finished or failed", () => {
+    expect(isProjectProcessing(makeProject({ ingestion_finished_at: null }))).toBe(true);
+  });
+
+  it("is not processing once ingestion has finished", () => {
+    expect(isProjectProcessing(makeProject())).toBe(false);
+  });
+
+  it("is not processing before ingestion has started", () => {
+    expect(
+      isProjectProcessing(makeProject({ ingestion_started_at: null, ingestion_finished_at: null })),
+    ).toBe(false);
+  });
+
+  it("is not processing once ingestion has failed", () => {
+    expect(
+      isProjectProcessing(
+        makeProject({ ingestion_finished_at: null, ingestion_failed_at: "2026-01-01T00:05:00Z" }),
+      ),
+    ).toBe(false);
+  });
+
+  it("is not processing when there is no project yet", () => {
+    expect(isProjectProcessing(undefined)).toBe(false);
   });
 });

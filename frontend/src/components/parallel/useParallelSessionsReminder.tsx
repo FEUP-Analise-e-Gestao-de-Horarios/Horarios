@@ -10,6 +10,16 @@ import { buildPath } from "@/utils/routes";
 // refreshes the same reminder instead of stacking a second one.
 const REMINDER_TOAST_ID = "parallel-sessions-reminder";
 
+/** A project mid-ingestion: started, but not yet finished or failed. */
+export function isProjectProcessing(project: Project | undefined): project is Project {
+  return (
+    !!project &&
+    !!project.ingestion_started_at &&
+    !project.ingestion_finished_at &&
+    !project.ingestion_failed_at
+  );
+}
+
 /**
  * Whether a loaded project warrants the parallel-selection nudge: its ingestion
  * has finished (so there is something to select, and the schedule page won't
@@ -25,6 +35,11 @@ export function shouldRemindParallelSelection(project: Project | undefined): pro
  * a project's schedule is viewed — with an action that jumps to the selection
  * page. Fires once per project per mount so refetches don't re-toast.
  *
+ * When the dashboard watches a project finish ingesting live (it polls while
+ * processing), the toast reads as a completion — "ready now" — rather than the
+ * passive "you still haven't selected" nudge shown when landing on a project
+ * that was already finished.
+ *
  * Rendered as a plain (default-type) toast so it wears the shared neutral card
  * with a monochrome icon, rather than a coloured per-type accent — this is a
  * gentle nudge, not an alert.
@@ -32,18 +47,38 @@ export function shouldRemindParallelSelection(project: Project | undefined): pro
 export function useParallelSessionsReminder(project: Project | undefined) {
   const navigate = useNavigate();
   const remindedProjectId = useRef<number | null>(null);
+  // Which project we've watched ingest this mount, so finishing it live reads as
+  // a completion rather than the passive revisit nudge.
+  const watchedIngestingId = useRef<number | null>(null);
 
   useEffect(() => {
+    if (isProjectProcessing(project)) {
+      watchedIngestingId.current = project.id;
+    }
+
     if (!shouldRemindParallelSelection(project)) return;
     // A refetch hands back a new object reference; keep it to one toast per project.
     if (remindedProjectId.current === project.id) return;
     remindedProjectId.current = project.id;
 
-    toast("Aulas em paralelo", {
+    const justFinished = watchedIngestingId.current === project.id;
+    const { title, description, duration } = justFinished
+      ? {
+          title: "Projeto pronto",
+          description: "O processamento terminou. Já podes selecionar as aulas em paralelo.",
+          duration: 6000,
+        }
+      : {
+          title: "Aulas em paralelo",
+          description: "Ainda não selecionaste as aulas em paralelo deste projeto.",
+          duration: 4500,
+        };
+
+    toast(title, {
       id: REMINDER_TOAST_ID,
-      description: "Ainda não selecionaste as aulas em paralelo deste projeto.",
+      description,
       icon: <Layers size={16} strokeWidth={2.25} aria-hidden />,
-      duration: 4500,
+      duration,
       action: {
         label: "Selecionar",
         onClick: () =>
