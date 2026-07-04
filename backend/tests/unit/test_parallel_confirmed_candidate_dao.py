@@ -131,7 +131,9 @@ def test_remove_unknown_ids_returns_zero_and_keeps_rows(project_db) -> None:
     a, b = uuid.uuid7(), uuid.uuid7()
     dao.add([a, b])
 
-    assert dao.remove([uuid.uuid7(), uuid.uuid7()]) == 0
+    unknown_ids = [uuid.uuid7(), uuid.uuid7()]
+    removed = dao.remove(unknown_ids)
+    assert removed == 0
     assert dao.get_all() == {a, b}
 
 
