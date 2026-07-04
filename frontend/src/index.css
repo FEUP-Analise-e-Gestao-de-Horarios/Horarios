@@ -120,11 +120,11 @@
 
 /* Sonner toast styling: one clean, neutral card for every toast — now and in
    future — with the type signalled by a coloured icon instead of a saturated
-   fill (no close button; toasts auto-dismiss). The card surface, border, text
-   and the resulting monochrome action button are driven through sonner's own
-   CSS variables, so its base rules apply them with no specificity fight; the
-   rest uses class+attribute selectors that win the source-order tie against
-   sonner's [data-sonner-toast] base rules. */
+   fill, plus a small close button. The card surface, border, text and the
+   resulting monochrome action button are driven through sonner's own CSS
+   variables, so its base rules apply them with no specificity fight; the rest
+   uses class+attribute selectors that win the source-order tie against sonner's
+   [data-sonner-toast] base rules. */
 .app-toast {
   /* Dark graphite card. It reads clearly because the Toaster is offset below
      the app's dark #1e2028 navbar (see main.tsx) so toasts land on the cream
@@ -169,6 +169,37 @@
 }
 .app-toast[data-sonner-toast] [data-button]:hover {
   background: #e4e4e7;
+}
+/* Tiny white close in the top-right corner. sonner defaults it to the top-left
+   and — under theme="dark" — paints it in --normal-bg (identical to the card, so
+   it disappears). The extra [data-styled] attribute lifts this selector's
+   specificity to match that rule, `right`/`left` are set directly (sonner's
+   position vars can't be flipped via `unset`, which just re-inherits), and a
+   light translucent chip keeps it legible against the dark card. */
+.app-toast[data-sonner-toast][data-styled="true"] [data-close-button] {
+  top: 0;
+  left: auto;
+  right: 0;
+  transform: translate(-7px, 7px);
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fafafa;
+  opacity: 1;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.app-toast[data-sonner-toast][data-styled="true"] [data-close-button] svg {
+  width: 13px;
+  height: 13px;
+}
+.app-toast[data-sonner-toast][data-styled="true"] [data-close-button]:hover {
+  background: rgba(255, 255, 255, 0.24);
+  color: #fff;
 }
 /* Type accent: colour the icon on the shared neutral card. */
 .app-toast[data-type="error"] [data-icon] {

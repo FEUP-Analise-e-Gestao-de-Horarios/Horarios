@@ -17,7 +17,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         position="top-right"
         theme="dark"
         offset={{ top: 76 }}
-        toastOptions={{ className: "app-toast" }}
+        closeButton
+        toastOptions={{ className: "app-toast", closeButtonAriaLabel: "Fechar" }}
         style={{ "--width": "300px" } as React.CSSProperties}
       />
     </QueryClientProvider>
