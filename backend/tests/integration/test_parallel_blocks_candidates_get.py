@@ -408,7 +408,9 @@ def test_edge_shape_for_single_shared_week(
 
     response = _get_candidates(auth_client, project.pk)
 
-    edges = response.json()["data"][0]["edges"]
+    payload = response.json()
+    assert len(payload["data"]) == 1
+    edges = payload["data"][0]["edges"]
     assert len(edges) == 1
     edge = edges[0]
     assert edge["source"] == str(block_a)
@@ -430,7 +432,9 @@ def test_weekday_and_dates_serialized_as_strings(
 
     response = _get_candidates(auth_client, project.pk)
 
-    group = response.json()["data"][0]
+    payload = response.json()
+    assert len(payload["data"]) == 1
+    group = payload["data"][0]
     assert group["weekday"] == "wednesday"
     assert isinstance(group["weekday"], str)
     for node in group["nodes"]:
@@ -461,7 +465,9 @@ def test_representative_weekday_and_alias_roundtrip(
 
     response = _get_candidates(auth_client, project.pk)
 
-    group = response.json()["data"][0]
+    payload = response.json()
+    assert len(payload["data"]) == 1
+    group = payload["data"][0]
     assert group["weekday"] == expected_wire
     for node in group["nodes"]:
         assert node["session"] == {"type": "T", "start_time": 14, "duration": 2}
@@ -502,7 +508,9 @@ def test_multi_week_collision_aggregates_sorted_edge_and_spans_nodes(
 
     response = _get_candidates(auth_client, project.pk)
 
-    group = response.json()["data"][0]
+    payload = response.json()
+    assert len(payload["data"]) == 1
+    group = payload["data"][0]
     edge = group["edges"][0]
     assert edge["source"] == str(block_a)
     assert edge["target"] == str(block_b)
@@ -766,7 +774,9 @@ def test_confirmed_group_id_on_every_confirmed_node(
     response = _get_candidates(auth_client, project.pk)
 
     assert response.status_code == 200
-    nodes = response.json()["data"][0]["nodes"]
+    payload = response.json()
+    assert len(payload["data"]) == 1
+    nodes = payload["data"][0]["nodes"]
     assert all(n["confirmed_group_id"] == str(group_id) for n in nodes)
 
 
@@ -783,7 +793,9 @@ def test_confirmed_group_id_null_for_unconfirmed_mixed_in_group(
 
     response = _get_candidates(auth_client, project.pk)
 
-    nodes = {n["original_block_id"]: n for n in response.json()["data"][0]["nodes"]}
+    payload = response.json()
+    assert len(payload["data"]) == 1
+    nodes = {n["original_block_id"]: n for n in payload["data"][0]["nodes"]}
     assert nodes[str(block_a)]["confirmed_group_id"] == str(group_id)
     assert nodes[str(block_b)]["confirmed_group_id"] is None
 
@@ -865,7 +877,9 @@ def test_nodes_sorted_by_block_id_regardless_of_insertion_order(
 
     response = _get_candidates(auth_client, project.pk)
 
-    node_ids = [n["original_block_id"] for n in response.json()["data"][0]["nodes"]]
+    payload = response.json()
+    assert len(payload["data"]) == 1
+    node_ids = [n["original_block_id"] for n in payload["data"][0]["nodes"]]
     assert node_ids == [str(i) for i in ids]
 
 
@@ -1016,7 +1030,9 @@ def test_subject_years_aggregate_dedup_and_ordered(
 
     response = _get_candidates(auth_client, project.pk)
 
-    group = response.json()["data"][0]
+    payload = response.json()
+    assert len(payload["data"]) == 1
+    group = payload["data"][0]
     years = group["subject"]["years"]
     # Dedup: year_lei appears once despite being on both blocks.
     assert [y["id"] for y in years] == [id_aaa, id_lei, id_zeb]
@@ -1146,7 +1162,9 @@ def test_classes_within_node_sorted_by_code(
 
     response = _get_candidates(auth_client, project.pk)
 
-    nodes = {n["original_block_id"]: n for n in response.json()["data"][0]["nodes"]}
+    payload = response.json()
+    assert len(payload["data"]) == 1
+    nodes = {n["original_block_id"]: n for n in payload["data"][0]["nodes"]}
     classes = nodes[str(block1)]["classes"]
     codes = [c["code"] for c in classes]
     assert codes == ["C-AA", "C-ZZ"]
@@ -1171,8 +1189,12 @@ def test_candidate_group_id_deterministic_across_gets(
     subject_id = subject.id
     block_a, block_b = make_parallel_candidate_pair(project_db, subject=subject)
 
-    first = _get_candidates(auth_client, project.pk).json()["data"][0]
-    second = _get_candidates(auth_client, project.pk).json()["data"][0]
+    first_payload = _get_candidates(auth_client, project.pk).json()
+    second_payload = _get_candidates(auth_client, project.pk).json()
+    assert len(first_payload["data"]) == 1
+    assert len(second_payload["data"]) == 1
+    first = first_payload["data"][0]
+    second = second_payload["data"][0]
 
     expected = _expected_group_id(subject_id, [block_a, block_b])
     assert first["candidate_group_id"] == second["candidate_group_id"] == expected
@@ -1335,7 +1357,9 @@ def test_edge_endpoints_are_subset_of_node_ids(
 
     response = _get_candidates(auth_client, project.pk)
 
-    group = response.json()["data"][0]
+    payload = response.json()
+    assert len(payload["data"]) == 1
+    group = payload["data"][0]
     node_ids = {n["original_block_id"] for n in group["nodes"]}
     for edge in group["edges"]:
         assert edge["source"] in node_ids

@@ -8,7 +8,10 @@ since reconciliation only reads each component's ``candidate_group_id`` and
 ``subject_id``.
 """
 
+import random
 import uuid
+
+import pytest
 
 from src.projects.projects_db.dao.parallel_block_candidate_dao import ParallelBlockCandidateDAO
 from src.projects.projects_db.dao.parallel_candidate_graph import CandidateComponent
@@ -170,3 +173,64 @@ def test_confirmed_subject_with_shrunk_candidate_set_prunes_gone_id(project_db) 
 
     assert result == {subject}
     assert ParallelConfirmedCandidateDAO(project_db).get_all() == {c1}
+
+
+@pytest.mark.parametrize("n_subjects", [1, 3, 5, 10])
+def test_reconcile_invariant_over_many_subjects(project_db, n_subjects: int) -> None:
+    """Property-style check of the reconcile invariant over a generated input.
+
+    Deterministically (fixed seed) builds ``n_subjects`` subjects, each with a
+    random non-empty candidate id set, stores a random subset of all those ids
+    plus a couple of orphan ids, then asserts the invariant *independently* of
+    the DAO implementation:
+
+    * the returned subject ids are exactly those whose full candidate set is a
+      subset of the stored set;
+    * the stored set after the call equals the union of those fully-confirmed
+      subjects' candidate ids (stale and partial ids pruned, survivors kept).
+
+    Orphan stored ids (belonging to no component) are always added, so pruning
+    is exercised in every parametrization; the per-id coin flip additionally
+    produces partial subjects for the larger cases.
+    """
+    rng = random.Random(1234 + n_subjects)
+
+    # Build subjects, each with a fresh random candidate id set.
+    candidates_by_subject: dict[uuid.UUID, set[uuid.UUID]] = {}
+    for _ in range(n_subjects):
+        subject_id = uuid.uuid4()
+        n_candidates = rng.randint(1, 4)
+        candidates_by_subject[subject_id] = {uuid.uuid4() for _ in range(n_candidates)}
+
+    all_candidate_ids = {cid for cids in candidates_by_subject.values() for cid in cids}
+
+    # Store a random subset of the real candidate ids...
+    stored = {cid for cid in all_candidate_ids if rng.random() < 0.5}
+    # ...plus orphan ids that belong to no component, to force pruning.
+    orphans = {uuid.uuid4() for _ in range(2)}
+    stored |= orphans
+
+    for cid in stored:
+        make_confirmed_candidate(project_db, candidate_group_id=cid, commit=False)
+
+    components = [
+        _component(subject_id, cid)
+        for subject_id, cids in candidates_by_subject.items()
+        for cid in cids
+    ]
+
+    # Independently-computed expectation.
+    expected_confirmed = {
+        subject_id for subject_id, cids in candidates_by_subject.items() if cids <= stored
+    }
+    expected_keep = {
+        cid for subject_id in expected_confirmed for cid in candidates_by_subject[subject_id]
+    }
+
+    dao = ParallelBlockCandidateDAO(project_db)
+    result = dao.reconcile_confirmed_subjects(components)
+
+    assert result == expected_confirmed
+    assert ParallelConfirmedCandidateDAO(project_db).get_all() == expected_keep
+    # Pruning was genuinely exercised: the orphans never survive.
+    assert orphans.isdisjoint(ParallelConfirmedCandidateDAO(project_db).get_all())

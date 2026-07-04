@@ -12,6 +12,9 @@ file), so these tests need no seeded project data; they only assert the flag
 transition and the usual auth/project/method guards.
 """
 
+import datetime
+
+import pytest
 from django.test import Client
 
 from src.projects.models import Project
@@ -107,9 +110,103 @@ def test_unknown_project_finish_returns_404(auth_client: Client, project: Projec
     assert response.json()["error"] == "projects.not_found"
 
 
-def test_wrong_http_method_returns_405(auth_client: Client, project: Project) -> None:
-    """GET on the finish route -> 405; the flag stays False."""
-    response = auth_client.get(_finish_url(project.pk))
+def test_unknown_project_reset_returns_404(auth_client: Client, project: Project) -> None:
+    """DELETE reset on a nonexistent project id -> 404 from require_project."""
+    response = auth_client.delete(_finish_url(project.pk + 1000))
+
+    assert response.status_code == 404
+    assert response.json()["error"] == "projects.not_found"
+
+
+@pytest.mark.parametrize("method", ["get", "put", "patch"])
+def test_wrong_http_method_returns_405(
+    auth_client: Client,
+    project: Project,
+    method: str,
+) -> None:
+    """The finish route defines only post/delete; other verbs -> 405, flag untouched."""
+    response = getattr(auth_client, method)(_finish_url(project.pk))
 
     assert response.status_code == 405
     assert _flag(project.pk) is False
+
+
+# ---------------------------------------------------------------------------
+# -- Cross-project isolation
+# ---------------------------------------------------------------------------
+def test_finish_post_scoped_to_this_project(
+    auth_client: Client,
+    project: Project,
+    second_project: Project,
+) -> None:
+    """POST finish on project A flips only A's flag; project B stays False."""
+    assert _flag(project.pk) is False
+    assert _flag(second_project.pk) is False
+
+    response = auth_client.post(_finish_url(project.pk))
+
+    assert response.status_code == 200
+    assert _flag(project.pk) is True
+    # Project B's own flag is untouched.
+    assert _flag(second_project.pk) is False
+
+
+def test_finish_delete_scoped_to_this_project(
+    auth_client: Client,
+    project: Project,
+    second_project: Project,
+) -> None:
+    """With both flags True, DELETE on project A clears only A; project B stays True."""
+    assert auth_client.post(_finish_url(project.pk)).status_code == 200
+    assert auth_client.post(_finish_url(second_project.pk)).status_code == 200
+    assert _flag(project.pk) is True
+    assert _flag(second_project.pk) is True
+
+    response = auth_client.delete(_finish_url(project.pk))
+
+    assert response.status_code == 200
+    assert _flag(project.pk) is False
+    # Project B's own flag is untouched.
+    assert _flag(second_project.pk) is True
+
+
+# ---------------------------------------------------------------------------
+# -- Envelope shape and body handling
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize(
+    ("method", "message"),
+    [
+        ("post", "Parallel sessions marked as selected"),
+        ("delete", "Parallel sessions selection reset"),
+    ],
+)
+def test_finish_post_envelope_shape(
+    auth_client: Client,
+    project: Project,
+    method: str,
+    message: str,
+) -> None:
+    """Both verbs return the standard {timestamp, message, data} envelope with data null."""
+    response = getattr(auth_client, method)(_finish_url(project.pk))
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert set(payload) == {"timestamp", "message", "data"}
+    assert payload["data"] is None
+    assert payload["message"] == message
+    datetime.datetime.fromisoformat(payload["timestamp"])
+
+
+def test_finish_ignores_request_body(auth_client: Client, project: Project) -> None:
+    """Finish performs no body validation: a malformed body still 200s and flips the flag."""
+    assert _flag(project.pk) is False
+
+    response = auth_client.post(
+        _finish_url(project.pk),
+        data="{not json",
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"] is None
+    assert _flag(project.pk) is True

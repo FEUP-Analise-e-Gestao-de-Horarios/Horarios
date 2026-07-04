@@ -379,13 +379,15 @@ def test_cross_project_isolation(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.parametrize("method", ["put", "patch"])
 def test_unsupported_method_returns_405(
     auth_client: Client,
     project: Project,
     project_db: Session,
+    method: str,
 ) -> None:
-    """The collection view defines get/post/delete; PUT falls through to 405."""
-    response = auth_client.put(_groups_url(project.pk))
+    """The collection view defines get/post/delete; PUT and PATCH fall through to 405."""
+    response = getattr(auth_client, method)(_groups_url(project.pk))
     assert response.status_code == 405
 
 

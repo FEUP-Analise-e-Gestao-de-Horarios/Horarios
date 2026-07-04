@@ -28,11 +28,19 @@ from sqlalchemy.orm import Session
 
 from src.projects.models import Project
 from src.projects.projects_db.dao.parallel_candidate_graph import _component_uuid
-from src.projects.projects_db.models import ParallelConfirmedCandidate
+from src.projects.projects_db.models import (
+    ParallelBlockGroupMember,
+    ParallelConfirmedCandidate,
+    Subject,
+)
 from tests.factories import (
+    make_class,
     make_confirmed_candidate,
     make_degree,
+    make_group_member,
     make_parallel_candidate_pair,
+    make_session,
+    make_session_class_subject,
     make_subject,
     make_year,
 )
@@ -98,6 +106,45 @@ def _make_subject_with_degree(session: Session):
     degree = make_degree(session, acronym=next(_ACRONYM_POOL), commit=False)
     year = make_year(session, degree=degree, commit=False)
     return make_subject(session, year=year, commit=False)
+
+
+def _add_block_to_subject_slot(session: Session, subject: Subject, *, start_time: int = 9) -> UUID:
+    """Attach one more block to a subject's existing candidate slot; return its id.
+
+    The new block shares the pair's default ``(week, weekday, start_time)`` slot,
+    so all blocks in that slot collapse into a single, larger component whose
+    ``candidate_group_id`` differs from the smaller one stored before.
+    """
+    year = subject.years[0]
+    class_row = make_class(session, year=year, commit=False)
+    block_id = uuid.uuid7()
+    session_row = make_session(
+        session,
+        start_time=start_time,
+        original_block_id=block_id,
+        commit=False,
+    )
+    make_session_class_subject(
+        session,
+        session_row=session_row,
+        class_row=class_row,
+        subject=subject,
+    )
+    return block_id
+
+
+def _flag(project_id: int) -> bool:
+    """Reload the Django ``Project`` and return its parallel-selection flag."""
+    return Project.objects.get(pk=project_id).has_selected_parallel_sessions
+
+
+def _group_members(db_session: Session) -> set[tuple[UUID, UUID]]:
+    """Every confirmed-group membership as ``(group_id, original_block_id)`` pairs."""
+    db_session.expire_all()
+    return {
+        (row.parallel_block_group_id, row.original_block_id)
+        for row in db_session.scalars(select(ParallelBlockGroupMember)).all()
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -341,10 +388,14 @@ def test_confirmations_unauthenticated_rejected(
     project: Project,
     project_db: Session,
 ) -> None:
-    """A fresh client is rejected 401 on the confirm endpoint."""
+    """A fresh client is rejected 401 on the confirm endpoint; nothing stored."""
+    stored = uuid.uuid7()
+    make_confirmed_candidate(project_db, candidate_group_id=stored)
+
     response = _post(Client(), _confirmations_url(project.pk), {"subject_id": str(uuid.uuid7())})
 
     assert response.status_code == 401
+    assert _stored(project_db) == {stored}
 
 
 # ---------------------------------------------------------------------------
@@ -385,24 +436,35 @@ def test_confirm_success_envelope_shape(
     project: Project,
     project_db: Session,
 ) -> None:
-    """The confirm envelope is {timestamp, message, data} with a sorted id list."""
+    """The confirm envelope is {timestamp, message, data} with a sorted id list.
+
+    Three disjoint components are submitted in reverse-sorted order to prove the
+    server sorts them itself rather than echoing the client's order.
+    """
     subject = make_subject(project_db, commit=False)
     a1, a2 = make_parallel_candidate_pair(project_db, subject=subject, start_time=9)
     b1, b2 = make_parallel_candidate_pair(project_db, subject=subject, start_time=14)
-    comp_a = _component_uuid(subject.id, [a1, a2])
-    comp_b = _component_uuid(subject.id, [b1, b2])
+    c1, c2 = make_parallel_candidate_pair(project_db, subject=subject, start_time=16)
+    comps = [
+        _component_uuid(subject.id, [a1, a2]),
+        _component_uuid(subject.id, [b1, b2]),
+        _component_uuid(subject.id, [c1, c2]),
+    ]
+    sorted_ids = sorted(str(comp) for comp in comps)
+    shuffled = [UUID(cid) for cid in sorted_ids[::-1]]
 
     response = _post(
         auth_client,
         _confirmations_url(project.pk),
-        _confirm_body(subject.id, [comp_a, comp_b]),
+        _confirm_body(subject.id, shuffled),
     )
 
     assert response.status_code == 200
     payload = response.json()
     assert set(payload) == {"timestamp", "message", "data"}
     ids = payload["data"]["candidate_group_ids"]
-    assert ids == sorted([str(comp_a), str(comp_b)])
+    assert ids == sorted_ids
+    assert ids != sorted_ids[::-1]  # a non-trivial ordering was actually applied
     datetime.datetime.fromisoformat(payload["timestamp"])
 
 
@@ -470,11 +532,15 @@ def test_confirm_all_unauthenticated_rejected(
     project: Project,
     project_db: Session,
 ) -> None:
-    """Confirm-all from a fresh client is rejected 401 before any write."""
+    """Confirm-all from a fresh client is rejected 401 before any write; nothing stored."""
+    stored = uuid.uuid7()
+    make_confirmed_candidate(project_db, candidate_group_id=stored)
+
     response = _post(Client(), _confirm_all_url(project.pk), _confirm_all_body([]))
 
     assert response.status_code == 401
     assert response.json()["error"] == "auth.not_authenticated"
+    assert _stored(project_db) == {stored}
 
 
 def test_clear_all_confirmations_unauthenticated_rejected(
@@ -773,22 +839,29 @@ def test_confirm_all_success_data_is_sorted_ids(
     project: Project,
     project_db: Session,
 ) -> None:
-    """The confirm-all success payload echoes every stored id, sorted as strings."""
-    subject_a = _make_subject_with_degree(project_db)
-    subject_b = _make_subject_with_degree(project_db)
-    a1, a2 = make_parallel_candidate_pair(project_db, subject=subject_a)
-    b1, b2 = make_parallel_candidate_pair(project_db, subject=subject_b)
-    comp_a = _component_uuid(subject_a.id, [a1, a2])
-    comp_b = _component_uuid(subject_b.id, [b1, b2])
+    """The confirm-all success payload echoes every stored id, sorted as strings.
+
+    Three subjects' components are submitted in reverse-sorted order so an
+    order-preserving bug can't slip through: the server must re-sort them.
+    """
+    subjects = [_make_subject_with_degree(project_db) for _ in range(3)]
+    comps = [
+        _component_uuid(subject.id, list(make_parallel_candidate_pair(project_db, subject=subject)))
+        for subject in subjects
+    ]
+    sorted_ids = sorted(str(comp) for comp in comps)
+    shuffled = [UUID(cid) for cid in sorted_ids[::-1]]
 
     response = _post(
         auth_client,
         _confirm_all_url(project.pk),
-        _confirm_all_body([comp_a, comp_b]),
+        _confirm_all_body(shuffled),
     )
 
     assert response.status_code == 200
-    assert response.json()["data"]["candidate_group_ids"] == sorted([str(comp_a), str(comp_b)])
+    ids = response.json()["data"]["candidate_group_ids"]
+    assert ids == sorted_ids
+    assert ids != sorted_ids[::-1]  # a non-trivial ordering was actually applied
 
 
 def test_confirm_subject_empty_view_against_live_candidates_rejected(
@@ -962,4 +1035,202 @@ def test_confirm_all_non_uuid_candidate_id_rejected(
 
     assert response.status_code == 400
     assert response.json()["error"] == "generic.invalid_body"
+    assert _stored(project_db) == set()
+
+
+# ---------------------------------------------------------------------------
+# -- DELETE-vs-POST guard asymmetry: unconfirm removes by the *live* id
+# ---------------------------------------------------------------------------
+
+
+def test_unconfirm_subject_ignores_stale_view_no_409(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """DELETE /<subject_id> has no stale guard: it removes by the live id only.
+
+    Unlike the POST confirm endpoints, unconfirm never returns 409. After the
+    subject's live candidate id shifts (a third block joins the slot), the stale
+    stored id no longer matches the live one, so the delete removes nothing (0)
+    and leaves the stale row untouched.
+    """
+    subject = make_subject(project_db, commit=False)
+    block_a, block_b = make_parallel_candidate_pair(project_db, subject=subject)
+    comp_ab = _component_uuid(subject.id, [block_a, block_b])
+    _post(auth_client, _confirmations_url(project.pk), _confirm_body(subject.id, [comp_ab]))
+    assert _stored(project_db) == {comp_ab}
+
+    # A third colliding block grows the component: the live id is now {a,b,c}.
+    block_c = _add_block_to_subject_slot(project_db, subject)
+    comp_abc = _component_uuid(subject.id, [block_a, block_b, block_c])
+    assert comp_abc != comp_ab
+
+    response = auth_client.delete(_confirmation_url(project.pk, subject.id))
+
+    assert response.status_code == 200  # never 409, even though the view is stale
+    assert response.json()["data"] == 0  # the live {a,b,c} id matched no stored row
+    assert _stored(project_db) == {comp_ab}  # the stale {a,b} row survives unchanged
+
+
+# ---------------------------------------------------------------------------
+# -- Confirmation ops never touch the separate "finish" flag
+# ---------------------------------------------------------------------------
+
+
+def test_confirmation_ops_leave_finish_flag_untouched(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """No confirmation verb flips ``has_selected_parallel_sessions`` (a separate flag).
+
+    Only "Terminar" (the finish endpoint) sets that flag; confirm-subject,
+    confirm-all, clear-all, and unconfirm-subject must leave it False throughout.
+    """
+    subject = _make_subject_with_degree(project_db)
+    a1, a2 = make_parallel_candidate_pair(project_db, subject=subject)
+    comp = _component_uuid(subject.id, [a1, a2])
+
+    assert _flag(project.pk) is False
+
+    # confirm-subject
+    _post(auth_client, _confirmations_url(project.pk), _confirm_body(subject.id, [comp]))
+    assert _flag(project.pk) is False
+
+    # confirm-all
+    _post(auth_client, _confirm_all_url(project.pk), _confirm_all_body([comp]))
+    assert _flag(project.pk) is False
+
+    # unconfirm-subject
+    auth_client.delete(_confirmation_url(project.pk, subject.id))
+    assert _flag(project.pk) is False
+
+    # clear-all
+    auth_client.delete(_confirmations_url(project.pk))
+    assert _flag(project.pk) is False
+
+
+# ---------------------------------------------------------------------------
+# -- Confirming one subject never confirms a sibling
+# ---------------------------------------------------------------------------
+
+
+def test_confirm_subject_leaves_sibling_subject_unconfirmed(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """Confirming subject A stores only A's component; sibling B stays unconfirmed."""
+    subject_a = _make_subject_with_degree(project_db)
+    subject_b = _make_subject_with_degree(project_db)
+    a1, a2 = make_parallel_candidate_pair(project_db, subject=subject_a)
+    make_parallel_candidate_pair(project_db, subject=subject_b)
+    comp_a = _component_uuid(subject_a.id, [a1, a2])
+
+    response = _post(
+        auth_client,
+        _confirmations_url(project.pk),
+        _confirm_body(subject_a.id, [comp_a]),
+    )
+
+    assert response.status_code == 200
+    assert _stored(project_db) == {comp_a}
+    flags = _confirmed_by_subject(auth_client, project.pk)
+    assert flags == {str(subject_a.id): True, str(subject_b.id): False}
+
+
+# ---------------------------------------------------------------------------
+# -- Cross-table isolation: confirmations never touch confirmed-group members
+# ---------------------------------------------------------------------------
+
+
+def test_clear_all_confirmations_leaves_group_members_intact(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """DELETE / clears confirmations but never the separate group-member table."""
+    group_id = uuid.uuid7()
+    members = {(group_id, uuid.uuid7()), (group_id, uuid.uuid7())}
+    for gid, block_id in members:
+        make_group_member(project_db, group_id=gid, original_block_id=block_id, commit=False)
+    make_confirmed_candidate(project_db, candidate_group_id=uuid.uuid7())
+
+    response = auth_client.delete(_confirmations_url(project.pk))
+
+    assert response.status_code == 200
+    assert _stored(project_db) == set()
+    # The confirmed-group membership rows are a different table -- untouched.
+    assert _group_members(project_db) == members
+
+
+def test_confirm_subject_leaves_group_members_intact(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """Confirming a subject never adds to or removes from the group-member table."""
+    group_id = uuid.uuid7()
+    members = {(group_id, uuid.uuid7()), (group_id, uuid.uuid7())}
+    for gid, block_id in members:
+        make_group_member(project_db, group_id=gid, original_block_id=block_id, commit=False)
+    subject = make_subject(project_db, commit=False)
+    a1, a2 = make_parallel_candidate_pair(project_db, subject=subject)
+    comp = _component_uuid(subject.id, [a1, a2])
+
+    response = _post(
+        auth_client,
+        _confirmations_url(project.pk),
+        _confirm_body(subject.id, [comp]),
+    )
+
+    assert response.status_code == 200
+    assert _stored(project_db) == {comp}
+    assert _group_members(project_db) == members
+
+
+# ---------------------------------------------------------------------------
+# -- Confirm-all over a range of subject counts
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("n_subjects", [3, 5])
+def test_confirm_all_confirms_every_subject_n_subjects(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+    n_subjects: int,
+) -> None:
+    """Confirm-all with the full live id set stores every subject's component."""
+    subjects = [_make_subject_with_degree(project_db) for _ in range(n_subjects)]
+    comps = {
+        _component_uuid(subject.id, list(make_parallel_candidate_pair(project_db, subject=subject)))
+        for subject in subjects
+    }
+
+    response = _post(auth_client, _confirm_all_url(project.pk), _confirm_all_body(list(comps)))
+
+    assert response.status_code == 200
+    assert _stored(project_db) == comps
+    assert set(_confirmed_by_subject(auth_client, project.pk).values()) == {True}
+
+
+def test_confirm_all_omitting_one_subject_is_stale(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """Confirm-all whose body drops one subject's id is stale -> 409, nothing stored."""
+    subjects = [_make_subject_with_degree(project_db) for _ in range(3)]
+    comps = [
+        _component_uuid(subject.id, list(make_parallel_candidate_pair(project_db, subject=subject)))
+        for subject in subjects
+    ]
+
+    # Drop the last subject's id: the client's view no longer matches the live set.
+    response = _post(auth_client, _confirm_all_url(project.pk), _confirm_all_body(comps[:-1]))
+
+    assert response.status_code == 409
+    assert response.json()["error"] == "projects.parallel_confirmation.stale"
     assert _stored(project_db) == set()

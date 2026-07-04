@@ -28,9 +28,13 @@ from sqlalchemy.orm import Session
 
 from src.projects.models import Project
 from src.projects.projects_db.dao.parallel_candidate_graph import _component_uuid
-from src.projects.projects_db.models import ParallelBlockGroupMember
+from src.projects.projects_db.models import (
+    ParallelBlockGroupMember,
+    ParallelConfirmedCandidate,
+)
 from tests.factories import (
     make_class,
+    make_confirmed_candidate,
     make_group_member,
     make_parallel_candidate_pair,
     make_session,
@@ -155,6 +159,54 @@ def _group_id_from(response) -> UUID:
     return UUID(response.json()["data"]["group_id"])
 
 
+def _confirmed_ids(db_session: Session) -> set[UUID]:
+    """Read the confirmed-candidate table through a fresh view of committed state."""
+    db_session.expire_all()
+    return set(db_session.scalars(select(ParallelConfirmedCandidate.candidate_group_id)).all())
+
+
+def _make_clique_component(
+    db_session: Session,
+    *,
+    size: int = 4,
+) -> tuple[UUID, list[UUID]]:
+    """Seed a ``size``-block clique component of one subject and return its ids.
+
+    Every block shares the *same* ``(week, weekday, start_time, subject)`` slot,
+    so ``build_candidate_components`` wires all pairs as edges: the component is
+    a complete graph and therefore *every* 2+ subset is a connected subgraph.
+
+    Returns ``(cid, block_ids)`` where ``cid`` is the ``_component_uuid`` over
+    all members and ``block_ids`` is the sorted member list.
+    """
+    subject = make_subject(db_session, commit=False)
+    year = subject.years[0]
+
+    block_ids: list[UUID] = []
+    for _ in range(size):
+        class_row = make_class(db_session, year=year, commit=False)
+        block_id = uuid.uuid7()
+        session_row = make_session(
+            db_session,
+            week=WEEK_1,
+            start_time=9,
+            original_block_id=block_id,
+            commit=False,
+        )
+        make_session_class_subject(
+            db_session,
+            session_row=session_row,
+            class_row=class_row,
+            subject=subject,
+            commit=False,
+        )
+        block_ids.append(block_id)
+
+    db_session.commit()
+    cid = _component_uuid(subject.id, block_ids)
+    return cid, sorted(block_ids)
+
+
 # ---------------------------------------------------------------------------
 # -- Happy paths
 # ---------------------------------------------------------------------------
@@ -243,6 +295,54 @@ def test_valid_create_of_connected_proper_subset(
     group_id = _group_id_from(response)
     assert _groups_by_id(project_db) == {group_id: {a, b}}
     assert _flag(project.pk) is False
+
+
+@pytest.mark.parametrize("size", [2, 3, 4])
+def test_valid_create_over_subset_sizes_persists_exact_members(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+    size: int,
+) -> None:
+    """A connected subset of any size in a 4-clique saves exactly those members.
+
+    The clique's every 2+ subset is connected, so posting the first ``size``
+    blocks always validates and persists precisely that member set -- exercising
+    the create happy path beyond the size-2 pairs the other tests use.
+    """
+    cid, block_ids = _make_clique_component(project_db, size=4)
+    subset = block_ids[:size]
+
+    response = _post(auth_client, project.pk, _body(cid, subset))
+
+    assert response.status_code == 200
+    group_id = _group_id_from(response)
+    groups = _groups_by_id(project_db)
+    assert groups == {group_id: set(subset)}
+    assert len(groups[group_id]) == size
+    assert _flag(project.pk) is False
+
+
+def test_create_leaves_confirmed_candidates_untouched(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """A successful create never touches the separate confirmed-candidate table."""
+    seeded_confirmed = uuid.uuid7()
+    make_confirmed_candidate(project_db, candidate_group_id=seeded_confirmed)
+
+    subject = make_subject(project_db, commit=False)
+    a, b = make_parallel_candidate_pair(project_db, subject=subject)
+    cid = _component_uuid(subject.id, [a, b])
+
+    response = _post(auth_client, project.pk, _body(cid, [a, b]))
+
+    assert response.status_code == 200
+    group_id = _group_id_from(response)
+    assert _groups_by_id(project_db) == {group_id: {a, b}}
+    # The confirmations table is a different concern; the create left it alone.
+    assert _confirmed_ids(project_db) == {seeded_confirmed}
 
 
 def test_two_disjoint_subsets_via_two_posts_make_two_groups(
@@ -564,6 +664,27 @@ def test_non_object_json_body_rejected(
     assert payload["error"] == "generic.invalid_body"
     assert payload["message"] == "Input should be an object"
     assert _all_members(project_db) == []
+
+
+@pytest.mark.parametrize("raw_body", ["[]", "5", '"a string"', "{not valid json"])
+def test_non_object_or_malformed_body_matrix_rejected(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+    raw_body: str,
+) -> None:
+    """The full non-object/malformed matrix -> 400 invalid_body, nothing written.
+
+    Mirrors the confirmation endpoints' matrix so the groups POST shares the
+    same contract across empty lists, bare scalars, JSON strings, and malformed
+    JSON -- each rejected before any DB mutation.
+    """
+    response = _post(auth_client, project.pk, raw_body)
+
+    assert response.status_code == 400
+    assert response.json()["error"] == "generic.invalid_body"
+    assert _all_members(project_db) == []
+    assert _flag(project.pk) is False
 
 
 def test_missing_candidate_group_id_rejected(

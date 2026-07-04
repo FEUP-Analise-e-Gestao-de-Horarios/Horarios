@@ -1324,6 +1324,35 @@ def test_get_all_groups_with_info_empty_components_still_prunes_orphans(
     assert ParallelConfirmedCandidateDAO(project_db).get_all() == set()
 
 
+def test_get_all_groups_with_info_confirmed_flag_per_subject_when_mixed(
+    project_db: Session,
+) -> None:
+    """With two subjects rendered together, ``subject.confirmed`` is per-subject.
+
+    Only subject A's candidate id is stored, so in the *same* result A's group
+    must be confirmed while B's must not -- the per-subject flag is otherwise
+    only exercised one subject at a time.
+    """
+    year = make_year(project_db, commit=False)
+    subject_a = make_subject(project_db, year=year, commit=False)
+    subject_b = make_subject(project_db, year=year, commit=False)
+    a1, a2 = make_parallel_candidate_pair(project_db, subject=subject_a, commit=False)
+    make_parallel_candidate_pair(project_db, subject=subject_b, commit=False)
+    # Store only subject A's candidate id as confirmed.
+    make_confirmed_candidate(
+        project_db,
+        candidate_group_id=_component_uuid(subject_a.id, [a1, a2]),
+    )
+
+    dao = ParallelBlockCandidateDAO(project_db)
+    groups = dao.get_all_groups_with_info()
+
+    assert len(groups) == 2
+    by_subject = {g.subject.id: g for g in groups}
+    assert by_subject[subject_a.id].subject.confirmed is True
+    assert by_subject[subject_b.id].subject.confirmed is False
+
+
 # ======================================================================
 # get_all_groups_with_info: year.number
 # ======================================================================

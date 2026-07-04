@@ -29,8 +29,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.projects.models import Project
-from src.projects.projects_db.models import ParallelBlockGroupMember
-from tests.factories import make_group_member
+from src.projects.projects_db.models import (
+    ParallelBlockGroupMember,
+    ParallelConfirmedCandidate,
+)
+from tests.factories import make_confirmed_candidate, make_group_member
 
 
 # ---------------------------------------------------------------------------
@@ -63,6 +66,12 @@ def _groups_by_id(db_session: Session) -> dict[UUID, set[UUID]]:
 def _flag(project_id: int) -> bool:
     """Reload the Django ``Project`` and return its parallel-selection flag."""
     return Project.objects.get(pk=project_id).has_selected_parallel_sessions
+
+
+def _confirmed_ids(db_session: Session) -> set[UUID]:
+    """Read the confirmed-candidate table through a fresh view of committed state."""
+    db_session.expire_all()
+    return set(db_session.scalars(select(ParallelConfirmedCandidate.candidate_group_id)).all())
 
 
 def _seed_group(db_session: Session, *, size: int = 2) -> tuple[UUID, set[UUID]]:
@@ -152,6 +161,28 @@ def test_clear_all_envelope_shape_and_int_data(
     assert not isinstance(payload["data"], bool)
     assert isinstance(payload["message"], str) and payload["message"]
     datetime.datetime.fromisoformat(payload["timestamp"])
+
+
+def test_clear_all_groups_leaves_confirmed_candidates_intact(
+    auth_client: Client,
+    project: Project,
+    project_db: Session,
+) -> None:
+    """Clearing every group empties memberships but never touches confirmations.
+
+    Group members and confirmed candidates live in separate tables; the
+    group clear-all must operate on its own table alone.
+    """
+    _g1, _blocks_1 = _seed_group(project_db, size=2)
+    seeded_confirmed = uuid.uuid7()
+    make_confirmed_candidate(project_db, candidate_group_id=seeded_confirmed)
+
+    response = auth_client.delete(_groups_url(project.pk))
+
+    assert response.status_code == 200
+    assert _all_members(project_db) == []
+    # The confirmations table is a different concern; the clear left it alone.
+    assert _confirmed_ids(project_db) == {seeded_confirmed}
 
 
 # ---------------------------------------------------------------------------
