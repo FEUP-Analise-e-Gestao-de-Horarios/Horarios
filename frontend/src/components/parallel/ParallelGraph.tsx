@@ -381,7 +381,11 @@ export default function ParallelGraph({
                   key={`${a}-${b}-${i}`}
                   style={{
                     opacity: appear ? (edgeActive ? 1 : 0.18) : 0,
-                    transition: "opacity 240ms ease",
+                    // Longhand instead of the `transition` shorthand: React warns
+                    // when a shorthand and `transitionDelay` mix on one element.
+                    transitionProperty: "opacity",
+                    transitionDuration: "240ms",
+                    transitionTimingFunction: "ease",
                     transitionDelay: `${appear ? 0 : delay}ms`,
                   }}
                 >
@@ -463,10 +467,14 @@ export default function ParallelGraph({
                   filter: isDimmed ? "grayscale(1)" : undefined,
                   transform: `translate(-50%, -50%) scale(${appear ? (isDragging ? 1.08 : 1) : 0.4})`,
                   // Position is driven by the physics loop, so it must not transition;
-                  // only the entrance/drag scale, opacity and dimming animate.
-                  transition: appear
-                    ? "transform 120ms ease, opacity 220ms ease, filter 220ms ease"
-                    : "opacity 220ms ease, transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1)",
+                  // only the entrance/drag scale, opacity and dimming animate. Written
+                  // longhand because React warns when the `transition` shorthand and
+                  // `transitionDelay` mix on one element.
+                  transitionProperty: appear ? "transform, opacity, filter" : "opacity, transform",
+                  transitionDuration: appear ? "120ms, 220ms, 220ms" : "220ms, 260ms",
+                  transitionTimingFunction: appear
+                    ? "ease"
+                    : "ease, cubic-bezier(0.34, 1.56, 0.64, 1)",
                   transitionDelay: appear ? "0ms" : `${i * STAGGER}ms`,
                   cursor: isDragging ? "grabbing" : isAssigned ? "grab" : "grab",
                   zIndex: isDragging ? 10 : undefined,
