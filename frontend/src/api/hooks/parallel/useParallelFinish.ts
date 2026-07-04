@@ -16,6 +16,7 @@ import type { SavingControls } from "./useSaving";
 export function useParallelFinish(params: {
   projectId: string | undefined;
   projectIdNum: number;
+  projectValid: boolean;
   graphs: ParallelCandidateGraph[];
   allYearsConfirmed: boolean;
   rememberView: () => void;
@@ -26,6 +27,7 @@ export function useParallelFinish(params: {
   const {
     projectId,
     projectIdNum,
+    projectValid,
     graphs,
     allYearsConfirmed,
     rememberView,
@@ -55,7 +57,7 @@ export function useParallelFinish(params: {
   // schedule. Set on every Terminar exit (confirmed or not) so the home card
   // stops routing back here; only leaves once the write lands.
   const markSelectedAndLeave = () => {
-    if (!projectId || Number.isNaN(projectIdNum)) return;
+    if (!projectValid) return;
     beginRequest();
     api
       .post(`/api/projects/${projectIdNum}/parallel-blocks/finish`, {})
@@ -86,7 +88,7 @@ export function useParallelFinish(params: {
   // step done, then leave. Sends the client's full candidate view so the server
   // can reject a stale set; only navigates once both writes land.
   const finishAndConfirmAll = () => {
-    if (!projectId || Number.isNaN(projectIdNum)) return;
+    if (!projectValid) return;
     const candidateGroupIds = graphs.map((g) => g.candidate_group_id);
     beginRequest();
     api
@@ -137,12 +139,12 @@ export function useParallelFinish(params: {
   };
 
   const handleReset = () => {
-    if (!projectId || Number.isNaN(projectIdNum)) return;
+    if (!projectValid) return;
     setShowResetModal(true);
   };
 
   const confirmReset = () => {
-    if (!projectId || Number.isNaN(projectIdNum)) return;
+    if (!projectValid) return;
     rememberView();
     // Recomeçar clears the confirmed groups, every subject confirmation, and the
     // "selection done" flag, so the project starts the step over from scratch.

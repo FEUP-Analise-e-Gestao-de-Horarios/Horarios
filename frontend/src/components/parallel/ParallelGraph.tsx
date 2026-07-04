@@ -337,6 +337,7 @@ export default function ParallelGraph({
       >
         <GraphInspector
           graph={graph}
+          nodeById={nodeById}
           hovered={hovered}
           selected={selected}
           assigned={assigned}

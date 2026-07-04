@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { useRenameProject, useDeleteProject } from "@/api/hooks/useProjects";
 import { ApiError } from "@/types/api";
 import type { Project } from "@/types/project/project";
+import { ROUTES } from "@/routes";
+import { buildPath } from "@/utils/routes";
 import { PROJECT_NAME_MAX_LENGTH, validateProjectName } from "@/utils/projectName";
 import { Pencil, Trash2, Check, X, Loader2 } from "lucide-react";
 
@@ -95,11 +97,12 @@ export default function ProjectCard({ project }: ProjectCardProps) {
   function handleCardClick() {
     if (isReady) {
       if (!project.has_selected_parallel_sessions) {
-        void navigate(`/projects/${project.id}/parallel-sessions`);
+        void navigate(buildPath(ROUTES.PARALLEL_SESSIONS, { projectId: String(project.id) }));
       } else {
-        void navigate(`/projects/${project.id}`);
+        void navigate(buildPath(ROUTES.SCHEDULE, { projectId: String(project.id) }));
       }
-    } else if (isProcessing) void navigate(`/projects/${project.id}/dashboard`);
+    } else if (isProcessing)
+      void navigate(buildPath(ROUTES.DASHBOARD, { projectId: String(project.id) }));
   }
 
   useEffect(() => {

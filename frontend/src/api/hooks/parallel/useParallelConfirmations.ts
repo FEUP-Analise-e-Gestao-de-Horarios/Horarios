@@ -18,14 +18,14 @@ import type { SavingControls } from "./useSaving";
  * (subject → year → degree) computed across the whole payload, plus the
  * optimistic confirm/unconfirm writes and the stale-confirm prompt scope. */
 export function useParallelConfirmations(params: {
-  projectId: string | undefined;
   projectIdNum: number;
+  projectValid: boolean;
   candidatesData: ParallelCandidateGraph[] | undefined;
   loadingCandidates: boolean;
   graphs: ParallelCandidateGraph[];
   saving: SavingControls;
 }) {
-  const { projectId, projectIdNum, candidatesData, loadingCandidates, graphs } = params;
+  const { projectIdNum, projectValid, candidatesData, loadingCandidates, graphs } = params;
   const { beginRequest, endRequest } = params.saving;
   const queryClient = useQueryClient();
 
@@ -151,7 +151,7 @@ export function useParallelConfirmations(params: {
   // Resolves true when the confirm landed, false when it was rejected (rolled
   // back) — so the caller can undo any optimistic UI (e.g. the auto-jump).
   const confirmSubject = (subjectId: UUID): Promise<boolean> => {
-    if (!projectId || Number.isNaN(projectIdNum)) return Promise.resolve(false);
+    if (!projectValid) return Promise.resolve(false);
     // The candidate ids we currently show for this subject; the server rejects
     // the confirm if this no longer matches its live set.
     const candidateGroupIds = graphs
@@ -186,7 +186,7 @@ export function useParallelConfirmations(params: {
   };
 
   const unconfirmSubject = (subjectId: UUID) => {
-    if (!projectId || Number.isNaN(projectIdNum)) return;
+    if (!projectValid) return;
     setConfirmedSubjectIds((prev) => {
       const next = new Set(prev);
       next.delete(subjectId);

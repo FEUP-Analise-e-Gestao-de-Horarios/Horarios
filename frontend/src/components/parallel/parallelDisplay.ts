@@ -31,8 +31,7 @@ export function dayConfig(weekday: string) {
 }
 
 export function formatTime(t: number): string {
-  const s = String(t).padStart(4, "0");
-  return `${s.slice(0, 2)}:${s.slice(2)}`;
+  return minutesToTime(hhmmToMinutes(t));
 }
 
 export function graphStartTime(graph: ParallelCandidateGraph): number {

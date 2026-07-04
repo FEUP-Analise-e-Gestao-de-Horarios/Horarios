@@ -102,11 +102,11 @@ export interface UseParallelSessionsReturn {
 export function useParallelSessions(): UseParallelSessionsReturn {
   const { projectId } = useParams<{ projectId: string }>();
   const projectIdNum = Number(projectId);
-  const candidatesEnabled = Boolean(projectId) && !Number.isNaN(projectIdNum);
+  const projectValid = Boolean(projectId) && !Number.isNaN(projectIdNum);
 
   const { candidatesData, graphs, loadingCandidates, candidatesError } = useParallelCandidatesQuery(
     projectIdNum,
-    candidatesEnabled,
+    projectValid,
   );
 
   const filters = useParallelFilters(projectId, graphs);
@@ -127,8 +127,8 @@ export function useParallelSessions(): UseParallelSessionsReturn {
   const selection = useParallelSelection(graphs, groups.assignedBlockIds);
 
   const confirmations = useParallelConfirmations({
-    projectId,
     projectIdNum,
+    projectValid,
     candidatesData,
     loadingCandidates,
     graphs,
@@ -138,6 +138,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
   const finish = useParallelFinish({
     projectId,
     projectIdNum,
+    projectValid,
     graphs,
     allYearsConfirmed: confirmations.allYearsConfirmed,
     rememberView: filters.rememberView,

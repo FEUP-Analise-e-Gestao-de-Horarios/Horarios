@@ -14,6 +14,7 @@ export type HoverTarget = { kind: "node"; id: UUID } | { kind: "edge"; index: nu
 
 interface GraphInspectorProps {
   graph: ParallelCandidateGraph;
+  nodeById: Map<UUID, ParallelBlockNode>;
   hovered: HoverTarget | null;
   /** Blocks currently selected to form a new group. */
   selected: Set<UUID>;
@@ -293,18 +294,13 @@ function SelectionInfo({
  */
 export default function GraphInspector({
   graph,
+  nodeById,
   hovered,
   selected,
   assigned,
   active,
   sessionTypeStyle,
 }: GraphInspectorProps) {
-  const nodeById = useMemo(() => {
-    const map = new Map<UUID, ParallelBlockNode>();
-    for (const node of graph.nodes) map.set(node.original_block_id, node);
-    return map;
-  }, [graph.nodes]);
-
   const yearLabelById = useMemo(() => {
     const map = new Map<UUID, string>();
     for (const y of graph.subject.years) map.set(y.id, `${y.degree.acronym} ${y.number}º ano`);
