@@ -53,6 +53,7 @@
     "simplifiable",
     "sqlalchemy",
     "staticfiles",
+    "unconfirm",
     "uvx",
     "venv",
     "Vite",
