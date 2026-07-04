@@ -120,7 +120,8 @@ def test_remove_empty_is_noop_returns_zero(project_db) -> None:
     a = uuid.uuid7()
     dao.add([a])
 
-    assert dao.remove([]) == 0
+    removed = dao.remove([])
+    assert removed == 0
     assert dao.get_all() == {a}
 
 
