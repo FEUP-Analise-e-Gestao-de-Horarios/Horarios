@@ -59,17 +59,13 @@ export function useParallelGroups(params: {
   const pendingCreates = useRef<Map<string, Promise<UUID | null>>>(new Map());
 
   // -- Seed confirmed groups from the loaded candidate payload ----------
-  // Runs once per project once the query resolves. Every node carries the
-  // confirmed_group_id it is saved under, so confirmed groups are fully
-  // derivable from the payload; drafts live only in local state.
-  const seededProjectRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (loadingCandidates || !candidatesData) return;
-    const seedKey = String(projectIdNum);
-    if (seededProjectRef.current === seedKey) return;
-    seededProjectRef.current = seedKey;
-
+  // Server truth: the confirmed groups the payload currently reports, each with
+  // its block membership. Every node carries the confirmed_group_id it is saved
+  // under, so confirmed groups are fully derivable from the payload; drafts live
+  // only in local state.
+  const serverConfirmedGroups = useMemo(() => {
     const byConfirmed = new Map<string, ParallelGroup>();
+    if (!candidatesData) return byConfirmed;
     for (const g of candidatesData) {
       for (const node of g.nodes) {
         if (!node.confirmed_group_id) continue;
@@ -88,8 +84,57 @@ export function useParallelGroups(params: {
         grp.blockIds.push(node.original_block_id);
       }
     }
-    setGroups([...byConfirmed.values()]);
-  }, [candidatesData, loadingCandidates, projectIdNum]);
+    return byConfirmed;
+  }, [candidatesData]);
+
+  // Re-derives the seeded confirmed groups whenever the *content* of the
+  // server-confirmed set changes (block membership included), keyed per project.
+  // Keying on content — not the query's identity — means an unrelated refetch
+  // can't clobber an in-flight optimistic create/delete: the server groups are
+  // unchanged, so the signature matches and we skip. A stale-confirm
+  // invalidation, which does change block membership, re-applies server truth so
+  // cards stop resolving against dropped ids. The re-seed reconciles by server
+  // id so existing cards keep their React identity (no remount / interrupted
+  // animation); optimistic pending cards (still creating, or on their way out)
+  // are carried across untouched.
+  const seededSignatureRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (loadingCandidates || !candidatesData) return;
+    const signature = `${projectIdNum}:${[...serverConfirmedGroups.values()]
+      .map((g) => `${g.serverId}:${[...g.blockIds].sort().join("-")}`)
+      .sort()
+      .join(",")}`;
+    if (seededSignatureRef.current === signature) return;
+    seededSignatureRef.current = signature;
+
+    setGroups((prev) => {
+      // Index existing cards that carry a server id, so a group already present
+      // keeps its React identity (no remount / animation restart) across a
+      // re-seed; only genuinely new server groups mount, and settled cards that
+      // vanished server-side drop out.
+      const prevByServerId = new Map<UUID, ParallelGroup>();
+      for (const g of prev) if (g.serverId) prevByServerId.set(g.serverId, g);
+
+      const next: ParallelGroup[] = [];
+      const seeded = new Set<UUID>();
+      for (const [sid, serverGrp] of serverConfirmedGroups) {
+        seeded.add(sid);
+        const existing = prevByServerId.get(sid);
+        // Reuse the existing card (keep id + in-flight status), just refresh
+        // block membership from server truth; mount a fresh card only for new
+        // groups.
+        next.push(existing ? { ...existing, blockIds: serverGrp.blockIds } : serverGrp);
+      }
+      // Carry optimistic cards the server doesn't (yet) know about: pending
+      // creates with no serverId, and deleting/leaving cards whose group is
+      // already gone. A "saved" card missing from server truth is dropped.
+      for (const g of prev) {
+        if (g.serverId && seeded.has(g.serverId)) continue;
+        if (g.status !== "saved") next.push(g);
+      }
+      return next;
+    });
+  }, [candidatesData, loadingCandidates, projectIdNum, serverConfirmedGroups]);
 
   // -- Lookups ----------------------------------------------------------
   const nodeIndex = useMemo(() => {
