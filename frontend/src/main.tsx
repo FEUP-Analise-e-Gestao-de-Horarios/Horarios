@@ -13,7 +13,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
       <AltClickCopy />
-      <Toaster position="top-right" richColors closeButton />
+      <Toaster
+        position="top-right"
+        toastOptions={{ className: "app-toast" }}
+        style={{ "--width": "300px" } as React.CSSProperties}
+      />
     </QueryClientProvider>
   </React.StrictMode>,
 );

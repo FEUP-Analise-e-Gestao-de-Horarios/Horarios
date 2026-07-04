@@ -117,3 +117,41 @@
     animation: parallel-group-glow-red 0.55s ease-out;
   }
 }
+
+/* Sonner toast styling: compact rows with dark, saturated per-type fills and
+   white text (no close button — toasts auto-dismiss). Class+attribute selectors
+   outweigh sonner's own [data-sonner-toast] base rules. */
+.app-toast {
+  gap: 8px;
+  padding: 9px 12px;
+  min-height: 0;
+  border-radius: 10px;
+  font-size: 12.5px;
+  line-height: 1.35;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+}
+.app-toast [data-icon] {
+  width: 16px;
+  height: 16px;
+  margin-right: 2px;
+}
+.app-toast[data-type="error"] {
+  background: #b1160f;
+  border: 1px solid #7f0d08;
+  color: #fff;
+}
+.app-toast[data-type="success"] {
+  background: #047046;
+  border: 1px solid #04502f;
+  color: #fff;
+}
+.app-toast[data-type="warning"] {
+  background: #b45016;
+  border: 1px solid #843810;
+  color: #fff;
+}
+.app-toast[data-type="info"] {
+  background: #1f2937;
+  border: 1px solid #111827;
+  color: #fff;
+}
