@@ -1,0 +1,42 @@
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/api/client";
+import { queryKeys } from "@/api/queryKeys";
+import type { ParallelCandidateGraph, SuccessResponse } from "@/types/parallelSessions";
+
+/** Fetches the parallel candidate graphs for a project and exposes the raw
+ * payload (for once-per-project seeding) alongside a memoised `graphs` array
+ * and the loading/error flags every consumer reads. */
+export function useParallelCandidatesQuery(projectIdNum: number, enabled: boolean) {
+  const candidatesQuery = useQuery({
+    queryKey: queryKeys.projects.parallelCandidates(String(projectIdNum)),
+    queryFn: async () => {
+      const res = await api.get<SuccessResponse<ParallelCandidateGraph[]>>(
+        `/api/projects/${projectIdNum}/parallel-blocks/candidates`,
+      );
+      return res.data;
+    },
+    enabled,
+    // The graph structure is stable for a session; groups are mutated locally
+    // and persisted separately, so never auto-refetch this payload.
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
+
+  const graphs = useMemo(() => candidatesQuery.data ?? [], [candidatesQuery.data]);
+  const loadingCandidates = candidatesQuery.isLoading;
+  const candidatesError = candidatesQuery.error
+    ? candidatesQuery.error instanceof Error
+      ? candidatesQuery.error.message
+      : "Failed to load parallel candidates"
+    : null;
+
+  return {
+    /** The raw payload, used by the once-per-project seeding effects. */
+    candidatesData: candidatesQuery.data,
+    graphs,
+    loadingCandidates,
+    candidatesError,
+  };
+}
