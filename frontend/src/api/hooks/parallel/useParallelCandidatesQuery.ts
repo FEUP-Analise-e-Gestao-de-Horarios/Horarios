@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { queryKeys } from "@/api/queryKeys";
 import type { ParallelCandidateGraph, SuccessResponse } from "@/types/parallelSessions";
+import { getErrorMessage } from "./errors";
 
 /** Fetches the parallel candidate graphs for a project and exposes the raw
  * payload (for once-per-project seeding) alongside a memoised `graphs` array
@@ -27,9 +28,7 @@ export function useParallelCandidatesQuery(projectIdNum: number, enabled: boolea
   const graphs = useMemo(() => candidatesQuery.data ?? [], [candidatesQuery.data]);
   const loadingCandidates = candidatesQuery.isLoading;
   const candidatesError = candidatesQuery.error
-    ? candidatesQuery.error instanceof Error
-      ? candidatesQuery.error.message
-      : "Failed to load parallel candidates"
+    ? getErrorMessage(candidatesQuery.error, "Failed to load parallel candidates")
     : null;
 
   return {
