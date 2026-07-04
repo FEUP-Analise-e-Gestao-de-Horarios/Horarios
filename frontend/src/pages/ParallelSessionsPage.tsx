@@ -60,6 +60,7 @@ export default function ParallelClassesPage() {
     handleCreateGroup,
     handleGroupAll,
     handleRemoveGroup,
+    handleRemoveGroups,
     handleBack,
     handleNavigateHome,
     handleReset,
@@ -191,9 +192,11 @@ export default function ParallelClassesPage() {
     }
   };
 
-  // Repor: drop every group already formed for the active subject.
+  // Repor: drop every group already formed for the active subject in one batch,
+  // so the whole reset triggers a single cache invalidation instead of one per
+  // group.
   const handleResetActiveSubject = () => {
-    for (const view of activeSubjectGroupViews) handleRemoveGroup(view.group.id);
+    handleRemoveGroups(activeSubjectGroupViews.map((view) => view.group.id));
   };
 
   // Undo confirmation (fired by clicking the confirmed button, which reddens on

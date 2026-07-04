@@ -242,7 +242,10 @@ export function useParallelGroups(params: {
   // "deleting" state). Waits for an in-flight create so a just-created group
   // can still be deleted. Only once the server confirms does the card collapse
   // out and get dropped; a failure settles it back to "saved".
-  const persistDelete = async (group: ParallelGroup): Promise<void> => {
+  const persistDelete = async (
+    group: ParallelGroup,
+    { invalidate = true }: { invalidate?: boolean } = {},
+  ): Promise<void> => {
     beginRequest();
     try {
       let serverId = group.serverId;
@@ -262,7 +265,9 @@ export function useParallelGroups(params: {
         api.delete(`/api/projects/${projectIdNum}/parallel-blocks/groups/${serverId}`),
         delay(GROUP_MIN_HOLD_MS),
       ]);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
+      // Suppressed for the bulk path, which invalidates once after all its
+      // deletes land instead of per card.
+      if (invalidate) void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
 
       // Confirmed: play the collapse-out, then drop the row once it settles so
       // the remaining cards slide up into its place.
@@ -303,10 +308,32 @@ export function useParallelGroups(params: {
     void persistDelete(group);
   };
 
+  // Bulk remove (Repor): flag every eligible card for deletion, fire all the
+  // deletes concurrently with their per-card invalidation suppressed, then
+  // invalidate the project cache exactly once after they all settle — collapsing
+  // N candidates refetches into one. Per-card animation timing is untouched.
+  const handleRemoveGroups = (groupIds: string[]) => {
+    const targets = groupIds
+      .map((id) => groups.find((g) => g.id === id))
+      .filter(
+        (g): g is ParallelGroup => g != null && g.status !== "deleting" && g.status !== "leaving",
+      );
+    if (targets.length === 0) return;
+    const targetIds = new Set(targets.map((g) => g.id));
+    setGroups((prev) => prev.map((g) => (targetIds.has(g.id) ? { ...g, status: "deleting" } : g)));
+    // allSettled so one failed delete still lets the single invalidation run.
+    void Promise.allSettled(
+      targets.map((group) => persistDelete(group, { invalidate: false })),
+    ).then(() => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
+    });
+  };
+
   return {
     assignedBlockIds,
     groupViewsBySubject,
     createGroup,
     handleRemoveGroup,
+    handleRemoveGroups,
   };
 }

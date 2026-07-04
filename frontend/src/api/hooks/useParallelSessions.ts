@@ -86,6 +86,8 @@ export interface UseParallelSessionsReturn {
   /** Group all still-free nodes of a component; returns its id, or null if invalid. */
   handleGroupAll: (candidateGroupId: UUID) => UUID | null;
   handleRemoveGroup: (groupId: string) => void;
+  /** Remove several groups in one batch, invalidating the cache once total. */
+  handleRemoveGroups: (groupIds: string[]) => void;
   handleBack: () => void;
   handleNavigateHome: () => void;
   handleReset: () => void;
@@ -211,6 +213,7 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     handleCreateGroup,
     handleGroupAll,
     handleRemoveGroup: groups.handleRemoveGroup,
+    handleRemoveGroups: groups.handleRemoveGroups,
     handleBack: finish.handleBack,
     handleNavigateHome: finish.handleNavigateHome,
     handleReset: finish.handleReset,
