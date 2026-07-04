@@ -99,7 +99,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # ── Static files ──────────────────────────────────────────────────────────────
 STATIC_URL = "static/"
 STATIC_ROOT = SRC_DIR / "staticfiles"
-STATICFILES_DIRS = [SRC_DIR / "static"]
+# ``static`` holds the Vite build output, which only exists once the frontend
+# has been built; skip it otherwise to avoid a staticfiles.W004 warning.
+STATICFILES_DIRS = [SRC_DIR / "static"] if (SRC_DIR / "static").is_dir() else []
 
 
 # ── Email ─────────────────────────────────────────────────────────────────────
