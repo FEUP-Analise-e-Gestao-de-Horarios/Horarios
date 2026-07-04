@@ -107,7 +107,9 @@ class ParallelBlockCandidateDAO:
         stored set is pruned to exactly the ids of fully-confirmed subjects:
         this drops both stale ids no longer produced by any component and the
         partial ids of a subject that is only some-confirmed, so a subject can
-        never silently reappear as confirmed after its blocks change.
+        never silently reappear as confirmed after its blocks change. When the
+        stored set already equals that target no DELETE is issued, so a read
+        with nothing stale performs no write.
 
         The caller is responsible for committing the session.
         """
@@ -127,7 +129,11 @@ class ParallelBlockCandidateDAO:
                 confirmed_subject_ids.add(subject_id)
                 keep |= candidate_ids
 
-        confirmed_dao.retain_only(keep)
+        # keep is a subset of stored, so ``stored - keep`` is exactly the set of
+        # rows retain_only would delete; skip the DELETE when it is empty so a
+        # read with nothing stale stays write-free.
+        if stored - keep:
+            confirmed_dao.retain_only(keep)
         return confirmed_subject_ids
 
     # -------------------------------------------------------------------

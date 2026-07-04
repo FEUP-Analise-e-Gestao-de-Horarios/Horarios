@@ -155,6 +155,31 @@ def test_stored_matches_all_candidates_is_noop(project_db) -> None:
     assert ParallelConfirmedCandidateDAO(project_db).get_all() == {c1, c2}
 
 
+def test_stored_equal_to_keep_issues_no_delete(project_db, monkeypatch) -> None:
+    """With nothing stale, reconcile issues no DELETE, so the read performs no write."""
+    subject = uuid.uuid7()
+    c1, c2 = uuid.uuid7(), uuid.uuid7()
+    make_confirmed_candidate(project_db, candidate_group_id=c1, commit=False)
+    make_confirmed_candidate(project_db, candidate_group_id=c2, commit=False)
+
+    # Spy on the only delete path reconcile can take.
+    calls: list[set[uuid.UUID]] = []
+    original_retain_only = ParallelConfirmedCandidateDAO.retain_only
+
+    def spy_retain_only(self, keep: set[uuid.UUID]) -> int:
+        calls.append(keep)
+        return original_retain_only(self, keep)
+
+    monkeypatch.setattr(ParallelConfirmedCandidateDAO, "retain_only", spy_retain_only)
+
+    dao = ParallelBlockCandidateDAO(project_db)
+    result = dao.reconcile_confirmed_subjects([_component(subject, c1), _component(subject, c2)])
+
+    assert result == {subject}
+    assert calls == []  # nothing stale -> no prune attempted
+    assert ParallelConfirmedCandidateDAO(project_db).get_all() == {c1, c2}
+
+
 def test_confirmed_subject_with_shrunk_candidate_set_prunes_gone_id(project_db) -> None:
     """A still-confirmed subject that lost a candidate keeps the live id, prunes the gone one.
 

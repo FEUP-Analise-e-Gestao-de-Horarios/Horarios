@@ -45,6 +45,8 @@ class ProjectParallelBlockCandidateView(View):
 
             # get_all_groups_with_info reconciles the stored confirmations
             # against the fresh components, pruning stale ids; persist that.
+            # When nothing was stale the reconcile issues no DELETE, so this is
+            # a read-only commit (no write/fsync).
             db_session.commit()
 
             return JsonResponse(
