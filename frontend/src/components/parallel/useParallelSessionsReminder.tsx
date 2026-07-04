@@ -25,9 +25,9 @@ export function shouldRemindParallelSelection(project: Project | undefined): pro
  * a project's schedule is viewed — with an action that jumps to the selection
  * page. Fires once per project per mount so refetches don't re-toast.
  *
- * Rendered as a plain toast (not `warning`) wearing the `app-toast-reminder`
- * class: a calm dark card with a terracotta accent rather than the saturated
- * per-type fills, since this is a gentle nudge and not an alert.
+ * Rendered as a plain (default-type) toast so it wears the shared neutral card
+ * with a monochrome icon, rather than a coloured per-type accent — this is a
+ * gentle nudge, not an alert.
  */
 export function useParallelSessionsReminder(project: Project | undefined) {
   const navigate = useNavigate();
@@ -41,10 +41,9 @@ export function useParallelSessionsReminder(project: Project | undefined) {
 
     toast("Aulas em paralelo", {
       id: REMINDER_TOAST_ID,
-      className: "app-toast-reminder",
       description: "Ainda não selecionaste as aulas em paralelo deste projeto.",
       icon: <Layers size={16} strokeWidth={2.25} aria-hidden />,
-      duration: 8000,
+      duration: 4500,
       action: {
         label: "Selecionar",
         onClick: () =>

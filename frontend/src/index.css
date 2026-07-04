@@ -118,70 +118,68 @@
   }
 }
 
-/* Sonner toast styling: compact rows with dark, saturated per-type fills and
-   white text (no close button — toasts auto-dismiss). Class+attribute selectors
-   outweigh sonner's own [data-sonner-toast] base rules. */
+/* Sonner toast styling: one clean, neutral card for every toast — now and in
+   future — with the type signalled by a coloured icon instead of a saturated
+   fill (no close button; toasts auto-dismiss). The card surface, border, text
+   and the resulting monochrome action button are driven through sonner's own
+   CSS variables, so its base rules apply them with no specificity fight; the
+   rest uses class+attribute selectors that win the source-order tie against
+   sonner's [data-sonner-toast] base rules. */
 .app-toast {
-  gap: 8px;
-  padding: 9px 12px;
-  min-height: 0;
-  border-radius: 10px;
-  font-size: 12.5px;
-  line-height: 1.35;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+  /* Dark graphite card. It reads clearly because the Toaster is offset below
+     the app's dark #1e2028 navbar (see main.tsx) so toasts land on the cream
+     #f0eeeb page body, where a dark card has strong contrast. */
+  --normal-bg: #18181b;
+  --normal-border: rgba(255, 255, 255, 0.1);
+  --normal-text: #fafafa;
+  --border-radius: 12px;
 }
-.app-toast [data-icon] {
+.app-toast[data-sonner-toast] {
+  padding: 13px 15px;
+  /* Layered shadow lifts the card off the cream body; the inset top highlight
+     keeps a crisp lit edge. */
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.25),
+    0 2px 6px rgba(0, 0, 0, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.app-toast[data-sonner-toast]:focus-visible {
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.35),
+    0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+.app-toast[data-sonner-toast] [data-title] {
+  font-weight: 600;
+}
+.app-toast[data-sonner-toast] [data-description] {
+  color: #a1a1aa;
+}
+/* Normalise every icon to 16px (sonner's built-in type icons ship at 20px). */
+.app-toast[data-sonner-toast] [data-icon] {
   width: 16px;
   height: 16px;
-  margin-right: 2px;
 }
-/* Parallel-selection reminder: a clean, neutral card — monochrome, no accent
-   colors — set apart from the saturated per-type toasts since it's a gentle
-   nudge, not an alert. Two-class / attribute selectors so these win the
-   source-order tie against sonner's own [data-styled] base rules. */
-.app-toast.app-toast-reminder {
-  background: #18181b;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #fafafa;
-  padding: 13px 15px;
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+.app-toast[data-sonner-toast] [data-icon] svg {
+  width: 16px;
+  height: 16px;
 }
-.app-toast.app-toast-reminder [data-icon] {
-  color: #a1a1aa;
-}
-.app-toast.app-toast-reminder [data-title] {
-  font-weight: 600;
-}
-.app-toast.app-toast-reminder [data-description] {
-  color: #a1a1aa;
-}
-.app-toast.app-toast-reminder [data-button] {
-  background: #fafafa;
-  color: #18181b;
-  font-weight: 600;
+.app-toast[data-sonner-toast] [data-button] {
   border-radius: 7px;
+  font-weight: 600;
 }
-.app-toast.app-toast-reminder [data-button]:hover {
+.app-toast[data-sonner-toast] [data-button]:hover {
   background: #e4e4e7;
 }
-.app-toast[data-type="error"] {
-  background: #b1160f;
-  border: 1px solid #7f0d08;
-  color: #fff;
+/* Type accent: colour the icon on the shared neutral card. */
+.app-toast[data-type="error"] [data-icon] {
+  color: #f87171;
 }
-.app-toast[data-type="success"] {
-  background: #047046;
-  border: 1px solid #04502f;
-  color: #fff;
+.app-toast[data-type="success"] [data-icon] {
+  color: #34d399;
 }
-.app-toast[data-type="warning"] {
-  background: #b45016;
-  border: 1px solid #843810;
-  color: #fff;
+.app-toast[data-type="warning"] [data-icon] {
+  color: #fbbf24;
 }
-.app-toast[data-type="info"] {
-  background: #1f2937;
-  border: 1px solid #111827;
-  color: #fff;
+.app-toast[data-type="info"] [data-icon] {
+  color: #60a5fa;
 }

@@ -15,6 +15,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <AltClickCopy />
       <Toaster
         position="top-right"
+        theme="dark"
+        offset={{ top: 76 }}
         toastOptions={{ className: "app-toast" }}
         style={{ "--width": "300px" } as React.CSSProperties}
       />
