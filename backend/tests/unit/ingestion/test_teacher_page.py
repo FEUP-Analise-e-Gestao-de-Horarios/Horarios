@@ -1,9 +1,10 @@
 """Unit tests for :func:`src.ingestion.parsers.teacher_page.extract_teacher_info`.
 
-The parser reverse-engineers acronym/name/code from the ``repr`` of the
-``cabtitulo`` cell's child nodes, so it is sensitive to how the three
-``<br/>``-separated text nodes are shaped. These tests pin the behaviour of
-each formatting branch (plain, apostrophe, empty name, punctuation).
+The parser reads the three ``<br>``-separated text nodes of the ``cabtitulo``
+cell (header, acronym, code) and derives the name from the header, whose
+displayed sigla is not always the acronym. These tests pin each shape: plain,
+apostrophe/punctuation, empty name, and siglas that differ from or extend the
+acronym.
 """
 
 import pytest
@@ -29,9 +30,8 @@ def test_custom_values() -> None:
     )
 
 
-def test_apostrophe_in_name_uses_quote_branch() -> None:
-    """A single quote in a text node forces ``repr`` to switch to double quotes,
-    exercising the parser's ``'"' in content`` branch; punctuation is stripped."""
+def test_apostrophe_in_name_is_stripped() -> None:
+    """An apostrophe in the name is stripped along with other punctuation."""
     assert _info(first_node="ABC - O'Brien", acronym="ABC", code=99) == (
         "ABC",
         "OBrien",
@@ -56,3 +56,40 @@ def test_missing_cabtitulo_raises() -> None:
     soup = BeautifulSoup("<html><body>no header here</body></html>", "html.parser")
     with pytest.raises(ValueError, match="cabtitulo"):
         extract_teacher_info(soup)
+
+
+# ---------------------------------------------------------------------------
+# -- Name recovery when the header sigla is not the acronym (bugfix)
+# ---------------------------------------------------------------------------
+
+
+def test_name_recovered_when_sigla_differs_from_acronym() -> None:
+    """The header's displayed sigla is not always the acronym.
+
+    Here the header reads ``AJCA-Albertino …`` but the acronym node is ``AA``.
+    The name must be recovered from the header instead of collapsing to the
+    acronym. Real page: ``docente_AA_481933`` (see ``test_real_pages``).
+    """
+    assert _info(
+        first_node="AJCA-Albertino José Castanho Arteiro",
+        acronym="AA",
+        code=481933,
+    ) == ("AA", "Albertino José Castanho Arteiro", 481933)
+
+
+def test_name_recovered_when_sigla_extends_acronym() -> None:
+    """A header sigla that extends the acronym (``AMMTB`` vs ``AMM``) is peeled off."""
+    assert _info(
+        first_node="AMMTB - Ana Mafalda Matos",
+        acronym="AMM",
+        code=7,
+    ) == ("AMM", "Ana Mafalda Matos", 7)
+
+
+def test_name_parsed_when_acronym_contains_separator() -> None:
+    """The acronym node may itself contain ``" - "`` (e.g. ``DCC - ACM``)."""
+    assert _info(
+        first_node="DCC - ACM - André Couto Meira",
+        acronym="DCC - ACM",
+        code=3,
+    ) == ("DCC - ACM", "André Couto Meira", 3)
