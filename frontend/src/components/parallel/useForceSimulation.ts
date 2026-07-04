@@ -27,6 +27,20 @@ const DEFAULT_RADIUS = 36;
 const MARGIN = 44;
 /** Pointer travel (px) under which a press counts as a tap, not a drag. */
 const TAP_SLOP = 4;
+/**
+ * Max synchronous steps run when the sim is (re)built, settling the seed
+ * layout under the live forces before anything is visible. Without this the
+ * seed↔live model mismatch relaxes on screen: nodes sit still for a moment
+ * (velocities start at 0) and then drift seconds into viewing the graph.
+ * Generous on purpose — some seeds crawl through a near-equilibrium saddle
+ * for hundreds of ticks before settling, and a warm-up that stops there
+ * resumes as visible drift. The loop breaks at rest, so typical graphs only
+ * pay a few hundred iterations; even the cap costs mere milliseconds at
+ * these node counts.
+ */
+const WARMUP_TICKS = 5000;
+/** Consecutive at-rest warm-up ticks required before the settle is trusted. */
+const WARMUP_REST_STREAK = 10;
 
 // Shake-to-scream easter egg: whip a held node hard enough back and forth and
 // something plays. "Hard" = several fast direction reversals in a short window.
@@ -73,6 +87,149 @@ export interface ForceSimulation {
 }
 
 /**
+ * Advance the simulation one frame in place: apply repulsion, springs and
+ * centre pull, integrate, then positionally resolve collisions. Returns the
+ * frame's peak speeds so callers can decide whether the system is at rest.
+ */
+function stepSim(s: SimState): { maxSpeed: number; collMove: number } {
+  const n = s.x.length;
+  const fx = new Array<number>(n).fill(0);
+  const fy = new Array<number>(n).fill(0);
+  const cx = s.width / 2;
+  const cy = s.height / 2;
+
+  // Pairwise repulsion (O(n^2) — graphs here are small).
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      let dx = s.x[i]! - s.x[j]!;
+      let dy = s.y[i]! - s.y[j]!;
+      let d2 = dx * dx + dy * dy;
+      if (d2 < 0.01) {
+        dx = i - j || 1;
+        dy = 1;
+        d2 = dx * dx + dy * dy;
+      }
+      const d = Math.sqrt(d2);
+      const f = REPULSION / d2;
+      const ux = dx / d;
+      const uy = dy / d;
+      fx[i]! += ux * f;
+      fy[i]! += uy * f;
+      fx[j]! -= ux * f;
+      fy[j]! -= uy * f;
+    }
+  }
+
+  // Edge springs pull endpoints toward the rest length.
+  for (const [ia, ib] of s.edges) {
+    const dx = s.x[ib]! - s.x[ia]!;
+    const dy = s.y[ib]! - s.y[ia]!;
+    const d = Math.hypot(dx, dy) || 0.01;
+    // Rest length grows with both endpoints' radii so larger nodes sit further apart.
+    const rest = s.link + s.r[ia]! + s.r[ib]!;
+    const f = SPRING * (d - rest);
+    const ux = dx / d;
+    const uy = dy / d;
+    fx[ia]! += ux * f;
+    fy[ia]! += uy * f;
+    fx[ib]! -= ux * f;
+    fy[ib]! -= uy * f;
+  }
+
+  // Centre pull. With a selection, selected nodes are pulled hard to the
+  // centre while the rest are held loosely, so they fan out and circle.
+  const hasAnchor = s.anchorIdx.size > 0;
+  for (let i = 0; i < n; i++) {
+    const pull = hasAnchor
+      ? s.anchorIdx.has(i)
+        ? SELECT_PULL
+        : CENTER_PULL * ORBIT_PULL_FACTOR
+      : CENTER_PULL;
+    fx[i]! += (cx - s.x[i]!) * pull;
+    fy[i]! += (cy - s.y[i]!) * pull;
+  }
+
+  // Integrate.
+  let maxSpeed = 0;
+  for (let i = 0; i < n; i++) {
+    if (i === s.dragIdx) {
+      s.x[i] = s.dragX;
+      s.y[i] = s.dragY;
+      s.vx[i] = 0;
+      s.vy[i] = 0;
+      continue;
+    }
+    let vx = (s.vx[i]! + fx[i]!) * DAMPING;
+    let vy = (s.vy[i]! + fy[i]!) * DAMPING;
+    const sp = Math.hypot(vx, vy);
+    if (sp > MAX_SPEED) {
+      vx = (vx / sp) * MAX_SPEED;
+      vy = (vy / sp) * MAX_SPEED;
+    }
+    s.vx[i] = vx;
+    s.vy[i] = vy;
+    s.x[i] = Math.max(MARGIN, Math.min(s.width - MARGIN, s.x[i]! + vx));
+    s.y[i] = Math.max(MARGIN, Math.min(s.height - MARGIN, s.y[i]! + vy));
+    if (sp > maxSpeed) maxSpeed = sp;
+  }
+
+  // Collision: positionally separate any two nodes closer than their combined
+  // radii (+ gap). This is what makes spacing scale with node size and keeps
+  // boxes from overlapping. A dragged node is immovable — the other yields.
+  let collMove = 0;
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      let dx = s.x[i]! - s.x[j]!;
+      let dy = s.y[i]! - s.y[j]!;
+      let dist = Math.hypot(dx, dy);
+      const minDist = s.r[i]! + s.r[j]! + COLLIDE_GAP;
+      if (dist >= minDist) continue;
+      if (dist < 1e-3) {
+        dx = i - j || 1;
+        dy = 1;
+        dist = Math.hypot(dx, dy);
+      }
+      const push = minDist - dist;
+      const ux = dx / dist;
+      const uy = dy / dist;
+      if (i === s.dragIdx) {
+        s.x[j] = s.x[j]! - ux * push;
+        s.y[j] = s.y[j]! - uy * push;
+      } else if (j === s.dragIdx) {
+        s.x[i] = s.x[i]! + ux * push;
+        s.y[i] = s.y[i]! + uy * push;
+      } else {
+        s.x[i] = s.x[i]! + ux * push * 0.5;
+        s.y[i] = s.y[i]! + uy * push * 0.5;
+        s.x[j] = s.x[j]! - ux * push * 0.5;
+        s.y[j] = s.y[j]! - uy * push * 0.5;
+      }
+      if (push > collMove) collMove = push;
+    }
+  }
+  // Re-clamp after the collision shoves.
+  for (let i = 0; i < n; i++) {
+    if (i === s.dragIdx) continue;
+    s.x[i] = Math.max(MARGIN, Math.min(s.width - MARGIN, s.x[i]!));
+    s.y[i] = Math.max(MARGIN, Math.min(s.height - MARGIN, s.y[i]!));
+  }
+
+  return { maxSpeed, collMove };
+}
+
+/** True when a frame's peak movement is small enough to park the loop. */
+function atRest(maxSpeed: number, collMove: number): boolean {
+  return maxSpeed <= REST_SPEED && collMove <= REST_SPEED;
+}
+
+/** Snapshot the simulation's positions into a fresh id-keyed map. */
+function snapshotPositions(s: SimState): Map<UUID, NodePosition> {
+  const map = new Map<UUID, NodePosition>();
+  for (let i = 0; i < s.ids.length; i++) map.set(s.ids[i]!, { x: s.x[i]!, y: s.y[i]! });
+  return map;
+}
+
+/**
  * Live Fruchterman–Reingold-style simulation: nodes repel each other, edges act
  * as springs, and a node can be dragged (it pins to the pointer while its
  * neighbours are shoved aside and relax back). The loop is lazy — it only spins
@@ -97,9 +254,7 @@ export function useForceSimulation(
   const rafRef = useRef<number | null>(null);
   const runningRef = useRef(false);
   const onTapRef = useRef(onTap);
-  onTapRef.current = onTap;
   const onShakeRef = useRef(onShake);
-  onShakeRef.current = onShake;
   // Gesture state for the shake detector: last pointer position, last movement
   // vector (to spot direction reversals), reversal timestamps, and a cooldown.
   const shakeRef = useRef({
@@ -111,12 +266,46 @@ export function useForceSimulation(
     lastFired: 0,
   });
   const selectedRef = useRef(selected);
-  selectedRef.current = selected;
   const radiiRef = useRef(radii);
-  radiiRef.current = radii;
   const pressRef = useRef<{ id: UUID; clientX: number; clientY: number; moved: boolean } | null>(
     null,
   );
+
+  // Mirror the latest props into refs so the long-lived callbacks and effects
+  // below read fresh values without depending on them. Declared before those
+  // effects so it runs first within each commit.
+  useEffect(() => {
+    onTapRef.current = onTap;
+    onShakeRef.current = onShake;
+    selectedRef.current = selected;
+    radiiRef.current = radii;
+  });
+
+  const tick = useCallback(
+    // Named so the frame can schedule itself with rAF.
+    function tickFrame() {
+      const s = sim.current;
+      if (!s) {
+        runningRef.current = false;
+        return;
+      }
+      const { maxSpeed, collMove } = stepSim(s);
+      setPositions(snapshotPositions(s));
+
+      if (s.dragIdx != null || !atRest(maxSpeed, collMove)) {
+        rafRef.current = requestAnimationFrame(tickFrame);
+      } else {
+        runningRef.current = false;
+      }
+    },
+    [],
+  );
+
+  const kick = useCallback(() => {
+    if (runningRef.current) return;
+    runningRef.current = true;
+    rafRef.current = requestAnimationFrame(tick);
+  }, [tick]);
 
   // (Re)build the physics state whenever the graph identity changes. `layout`,
   // `ids` and `edges` are all memoised upstream, so this runs once per graph.
@@ -144,7 +333,7 @@ export function useForceSimulation(
       const i = index.get(id);
       if (i != null) anchorIdx.add(i);
     }
-    sim.current = {
+    const state: SimState = {
       ids: ids.slice(),
       index,
       x,
@@ -161,7 +350,18 @@ export function useForceSimulation(
       dragY: 0,
       anchorIdx,
     };
-    setPositions(new Map(layout.initial));
+    // Settle the seed layout under the live forces before it is ever shown —
+    // the seed comes from a different force model, so without this warm-up the
+    // mismatch relaxes on screen as a slow, delayed-looking drift. Rest must
+    // hold for several consecutive ticks: near a saddle the speed can dip
+    // under the threshold for a frame and then grow again.
+    let restStreak = 0;
+    for (let i = 0; i < WARMUP_TICKS && restStreak < WARMUP_REST_STREAK; i++) {
+      const { maxSpeed, collMove } = stepSim(state);
+      restStreak = atRest(maxSpeed, collMove) ? restStreak + 1 : 0;
+    }
+    sim.current = state;
+    setPositions(snapshotPositions(state));
   }, [ids, edges, layout]);
 
   // Re-anchor and re-settle whenever the selection changes: selected nodes are
@@ -195,151 +395,6 @@ export function useForceSimulation(
     kick();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [radiiKey]);
-
-  const tick = useCallback(() => {
-    const s = sim.current;
-    if (!s) {
-      runningRef.current = false;
-      return;
-    }
-    const n = s.x.length;
-    const fx = new Array<number>(n).fill(0);
-    const fy = new Array<number>(n).fill(0);
-    const cx = s.width / 2;
-    const cy = s.height / 2;
-
-    // Pairwise repulsion (O(n^2) — graphs here are small).
-    for (let i = 0; i < n; i++) {
-      for (let j = i + 1; j < n; j++) {
-        let dx = s.x[i]! - s.x[j]!;
-        let dy = s.y[i]! - s.y[j]!;
-        let d2 = dx * dx + dy * dy;
-        if (d2 < 0.01) {
-          dx = i - j || 1;
-          dy = 1;
-          d2 = dx * dx + dy * dy;
-        }
-        const d = Math.sqrt(d2);
-        const f = REPULSION / d2;
-        const ux = dx / d;
-        const uy = dy / d;
-        fx[i]! += ux * f;
-        fy[i]! += uy * f;
-        fx[j]! -= ux * f;
-        fy[j]! -= uy * f;
-      }
-    }
-
-    // Edge springs pull endpoints toward the rest length.
-    for (const [ia, ib] of s.edges) {
-      const dx = s.x[ib]! - s.x[ia]!;
-      const dy = s.y[ib]! - s.y[ia]!;
-      const d = Math.hypot(dx, dy) || 0.01;
-      // Rest length grows with both endpoints' radii so larger nodes sit further apart.
-      const rest = s.link + s.r[ia]! + s.r[ib]!;
-      const f = SPRING * (d - rest);
-      const ux = dx / d;
-      const uy = dy / d;
-      fx[ia]! += ux * f;
-      fy[ia]! += uy * f;
-      fx[ib]! -= ux * f;
-      fy[ib]! -= uy * f;
-    }
-
-    // Centre pull. With a selection, selected nodes are pulled hard to the
-    // centre while the rest are held loosely, so they fan out and circle.
-    const hasAnchor = s.anchorIdx.size > 0;
-    for (let i = 0; i < n; i++) {
-      const pull = hasAnchor
-        ? s.anchorIdx.has(i)
-          ? SELECT_PULL
-          : CENTER_PULL * ORBIT_PULL_FACTOR
-        : CENTER_PULL;
-      fx[i]! += (cx - s.x[i]!) * pull;
-      fy[i]! += (cy - s.y[i]!) * pull;
-    }
-
-    // Integrate.
-    let maxSpeed = 0;
-    for (let i = 0; i < n; i++) {
-      if (i === s.dragIdx) {
-        s.x[i] = s.dragX;
-        s.y[i] = s.dragY;
-        s.vx[i] = 0;
-        s.vy[i] = 0;
-        continue;
-      }
-      let vx = (s.vx[i]! + fx[i]!) * DAMPING;
-      let vy = (s.vy[i]! + fy[i]!) * DAMPING;
-      const sp = Math.hypot(vx, vy);
-      if (sp > MAX_SPEED) {
-        vx = (vx / sp) * MAX_SPEED;
-        vy = (vy / sp) * MAX_SPEED;
-      }
-      s.vx[i] = vx;
-      s.vy[i] = vy;
-      s.x[i] = Math.max(MARGIN, Math.min(s.width - MARGIN, s.x[i]! + vx));
-      s.y[i] = Math.max(MARGIN, Math.min(s.height - MARGIN, s.y[i]! + vy));
-      if (sp > maxSpeed) maxSpeed = sp;
-    }
-
-    // Collision: positionally separate any two nodes closer than their combined
-    // radii (+ gap). This is what makes spacing scale with node size and keeps
-    // boxes from overlapping. A dragged node is immovable — the other yields.
-    let collMove = 0;
-    for (let i = 0; i < n; i++) {
-      for (let j = i + 1; j < n; j++) {
-        let dx = s.x[i]! - s.x[j]!;
-        let dy = s.y[i]! - s.y[j]!;
-        let dist = Math.hypot(dx, dy);
-        const minDist = s.r[i]! + s.r[j]! + COLLIDE_GAP;
-        if (dist >= minDist) continue;
-        if (dist < 1e-3) {
-          dx = i - j || 1;
-          dy = 1;
-          dist = Math.hypot(dx, dy);
-        }
-        const push = minDist - dist;
-        const ux = dx / dist;
-        const uy = dy / dist;
-        if (i === s.dragIdx) {
-          s.x[j] = s.x[j]! - ux * push;
-          s.y[j] = s.y[j]! - uy * push;
-        } else if (j === s.dragIdx) {
-          s.x[i] = s.x[i]! + ux * push;
-          s.y[i] = s.y[i]! + uy * push;
-        } else {
-          s.x[i] = s.x[i]! + ux * push * 0.5;
-          s.y[i] = s.y[i]! + uy * push * 0.5;
-          s.x[j] = s.x[j]! - ux * push * 0.5;
-          s.y[j] = s.y[j]! - uy * push * 0.5;
-        }
-        if (push > collMove) collMove = push;
-      }
-    }
-    // Re-clamp after the collision shoves.
-    for (let i = 0; i < n; i++) {
-      if (i === s.dragIdx) continue;
-      s.x[i] = Math.max(MARGIN, Math.min(s.width - MARGIN, s.x[i]!));
-      s.y[i] = Math.max(MARGIN, Math.min(s.height - MARGIN, s.y[i]!));
-    }
-
-    const map = new Map<UUID, NodePosition>();
-    for (let i = 0; i < n; i++) map.set(s.ids[i]!, { x: s.x[i]!, y: s.y[i]! });
-    setPositions(map);
-
-    if (s.dragIdx != null || maxSpeed > REST_SPEED || collMove > REST_SPEED) {
-      rafRef.current = requestAnimationFrame(tick);
-    } else {
-      runningRef.current = false;
-    }
-  }, []);
-
-  const kick = useCallback(() => {
-    if (runningRef.current) return;
-    runningRef.current = true;
-    rafRef.current = requestAnimationFrame(tick);
-  }, [tick]);
 
   const pointFromEvent = useCallback(
     (clientX: number, clientY: number) => {

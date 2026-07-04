@@ -114,9 +114,9 @@ export default function ParallelGraph({
     for (const [id, p] of raw) {
       initial.set(id, { x: p.x - minX + pad, y: p.y - minY + pad });
     }
-    // Seed uses the radius-inflated spacing, but the live springs add each
-    // edge's own radii on top, so they keep the plain base rest length. On
-    // average these agree, so the graph barely moves on load.
+    // Seed uses the radius-inflated spacing while the live springs add each
+    // edge's own radii on top of the plain base rest length; the remaining
+    // mismatch is settled off-screen by the simulation's warm-up pass.
     return { initial, width, height, linkDistance: LINK_DISTANCE };
   }, [ids, graph.edges, meanRadius, maxRadius]);
 
