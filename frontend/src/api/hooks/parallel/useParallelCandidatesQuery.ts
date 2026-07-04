@@ -6,8 +6,8 @@ import type { ParallelCandidateGraph, SuccessResponse } from "@/types/parallelSe
 import { getErrorMessage } from "./errors";
 
 /** Fetches the parallel candidate graphs for a project and exposes the raw
- * payload (for once-per-project seeding) alongside a memoised `graphs` array
- * and the loading/error flags every consumer reads. */
+ * payload (which the confirm/group state seeds from) alongside a memoised
+ * `graphs` array and the loading/error flags every consumer reads. */
 export function useParallelCandidatesQuery(projectIdNum: number, enabled: boolean) {
   const candidatesQuery = useQuery({
     queryKey: queryKeys.projects.parallelCandidates(String(projectIdNum)),
@@ -32,7 +32,7 @@ export function useParallelCandidatesQuery(projectIdNum: number, enabled: boolea
     : null;
 
   return {
-    /** The raw payload, used by the once-per-project seeding effects. */
+    /** The raw payload the confirm/group seeding effects derive their state from. */
     candidatesData: candidatesQuery.data,
     graphs,
     loadingCandidates,
