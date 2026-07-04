@@ -1,4 +1,5 @@
-import type { ParallelCandidateGraph } from "@/types/parallelSessions";
+import type { ParallelCandidateGraph, ParallelSessionTemplate } from "@/types/parallelSessions";
+import { hhmmToMinutes, minutesToTime } from "@/utils/time";
 
 export const DAY_CONFIG: Record<string, { short: string; bg: string; text: string }> = {
   monday: { short: "SEG", bg: "bg-blue-500", text: "text-white" },
@@ -36,4 +37,10 @@ export function formatTime(t: number): string {
 
 export function graphStartTime(graph: ParallelCandidateGraph): number {
   return graph.nodes[0]?.session.start_time ?? 0;
+}
+
+/** A session's "14:00–15:30" range — `duration` counts 30-minute slots. */
+export function sessionTimeRange(session: ParallelSessionTemplate): string {
+  const start = hhmmToMinutes(session.start_time);
+  return `${minutesToTime(start)}–${minutesToTime(start + session.duration * 30)}`;
 }

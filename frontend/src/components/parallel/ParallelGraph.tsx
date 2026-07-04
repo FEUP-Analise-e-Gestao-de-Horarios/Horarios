@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ParallelBlockNode, ParallelCandidateGraph, UUID } from "@/types/parallelSessions";
+import GraphInspector, { type HoverTarget } from "./GraphInspector";
 import { buildAdjacency, forceLayout } from "./parallelGraph";
 import { useForceSimulation } from "./useForceSimulation";
 
@@ -43,34 +44,8 @@ function estimateRadius(codes: string): number {
 /** Per-node delay of the entrance burst, in ms. */
 const STAGGER = 45;
 
-/** Format an ISO date (YYYY-MM-DD) as DD/MM. */
-function formatWeek(dateStr: string): string {
-  const parts = dateStr.split("-");
-  return parts.length === 3 ? `${parts[2]}/${parts[1]}` : dateStr;
-}
-
-/** A week span, e.g. "15/09" or "15/09–20/12". */
-function weekRange(first: string, last: string): string {
-  const a = formatWeek(first);
-  const b = formatWeek(last);
-  return a === b ? a : `${a}–${b}`;
-}
-
-/**
- * The exact weeks two blocks collide on — the reason an edge exists. The label
- * is the span of those weeks; the tooltip carries the precise list (collisions
- * can be non-contiguous, e.g. biweekly). ISO dates sort lexically.
- */
-function edgeWeeksLabel(weeks: string[]): { range: string; tooltip: string } {
-  if (weeks.length === 0) return { range: "", tooltip: "" };
-  const sorted = [...weeks].sort();
-  const range = weekRange(sorted[0]!, sorted[sorted.length - 1]!);
-  const tooltip =
-    sorted.length === 1
-      ? `1 semana: ${formatWeek(sorted[0]!)}`
-      : `${sorted.length} semanas: ${sorted.map(formatWeek).join(", ")}`;
-  return { range, tooltip };
-}
+/** Invisible stroke width making thin edges hoverable. */
+const EDGE_HIT_WIDTH = 16;
 
 export default function ParallelGraph({
   graph,
@@ -161,6 +136,20 @@ export default function ParallelGraph({
     return set;
   }, [selected, adjacency]);
 
+  // What the mouse is over (node or edge), feeding the inspector card and the
+  // hover highlights. Touch never sets it (no hover there — the card falls
+  // back to the selection summary).
+  const [hovered, setHovered] = useState<HoverTarget | null>(null);
+
+  const hoveredNodeId = hovered?.kind === "node" ? hovered.id : null;
+  const hoveredEdge = hovered?.kind === "edge" ? (graph.edges[hovered.index] ?? null) : null;
+
+  // Heaviest collision in the graph, so edge strokes can scale relative to it.
+  const maxEdgeWeeks = useMemo(
+    () => graph.edges.reduce((max, e) => Math.max(max, e.weeks.length), 1),
+    [graph.edges],
+  );
+
   // A tap (a press that didn't turn into a drag) toggles a free node into the
   // selection, or — for a locked node — reveals the group it already belongs to.
   // Dimmed nodes (outside the active frontier) can't join the group, so a tap on
@@ -237,6 +226,46 @@ export default function ParallelGraph({
     return () => ro.disconnect();
   }, []);
 
+  // The inspector's home is the graph's bottom-left corner. Hovering a node or
+  // edge that sits under the card slides it up to the top-left corner;
+  // hovering anything clear of the home spot slides it back down. The hovered
+  // target's rect is captured on pointer enter, and the overlap decision runs
+  // *after* the card renders for that target, so it measures the card's real
+  // size (a first hover has nothing on screen to measure at enter time). The
+  // check always uses the card's *home* rect, so a dodged card knows when its
+  // spot is free again.
+  const [dodged, setDodged] = useState(false);
+  const inspectorRef = useRef<HTMLDivElement>(null);
+  const hoverTargetRect = useRef<{
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
+  } | null>(null);
+  useLayoutEffect(() => {
+    const target = hoverTargetRect.current;
+    const vp = viewportRef.current?.getBoundingClientRect();
+    // Pure translation, so the rect keeps the card's size in either position.
+    const card = inspectorRef.current?.getBoundingClientRect();
+    if (!target || !vp || !card || card.height === 0) {
+      setDodged(false);
+      return;
+    }
+    const margin = 8;
+    const home = {
+      left: vp.left + margin,
+      right: vp.left + margin + card.width,
+      top: vp.bottom - margin - card.height,
+      bottom: vp.bottom - margin,
+    };
+    setDodged(
+      target.left < home.right &&
+        target.right > home.left &&
+        target.top < home.bottom &&
+        target.bottom > home.top,
+    );
+  }, [hovered]);
+
   // Fit-to-container scale (never upscales past natural size), then the user's
   // own zoom on top so they can push in past the fit and pan by dragging nodes.
   const fitScale = viewport
@@ -294,6 +323,28 @@ export default function ParallelGraph({
         </button>
       </div>
       <div
+        ref={inspectorRef}
+        className="pointer-events-none absolute bottom-2 left-2 z-20 transition-transform duration-300 ease-out"
+        style={{
+          // Dodged, the card's top edge lands on the viewport's top inset:
+          // 100% cancels its own height, then it shifts up by the viewport
+          // height minus both 8px insets.
+          transform:
+            dodged && viewport
+              ? `translateY(calc(100% - ${Math.round(viewport.h) - 16}px))`
+              : "translateY(0)",
+        }}
+      >
+        <GraphInspector
+          graph={graph}
+          hovered={hovered}
+          selected={selected}
+          assigned={assigned}
+          active={active}
+          sessionTypeStyle={sessionTypeStyle}
+        />
+      </div>
+      <div
         className="relative shrink-0"
         style={{ width: layout.width * scale, height: layout.height * scale }}
       >
@@ -311,18 +362,20 @@ export default function ParallelGraph({
             {graph.edges.map(({ source: a, target: b, weeks }, i) => {
               const pa = positions.get(a);
               const pb = positions.get(b);
-              const na = nodeById.get(a);
-              const nb = nodeById.get(b);
-              if (!pa || !pb || !na || !nb) return null;
-              const { range: weeksRange, tooltip: weeksTooltip } = edgeWeeksLabel(weeks);
+              if (!pa || !pb) return null;
               const bothSelected = selected.has(a) && selected.has(b);
               // An edge is "connected to the selection" when either endpoint is
-              // selected; otherwise its line and week range are dimmed.
+              // selected; otherwise it is dimmed.
               const edgeActive = active === null || selected.has(a) || selected.has(b);
+              const isHovered =
+                (hovered?.kind === "edge" && hovered.index === i) ||
+                hoveredNodeId === a ||
+                hoveredNodeId === b;
+              // Collision strength drives the stroke: pairs that collide on more
+              // weeks draw heavier lines.
+              const width = 1 + 2 * (weeks.length / maxEdgeWeeks);
               const delay =
                 (Math.max(orderIndex.get(a) ?? 0, orderIndex.get(b) ?? 0) + 1) * STAGGER;
-              const mx = (pa.x + pb.x) / 2;
-              const my = (pa.y + pb.y) / 2;
               return (
                 <g
                   key={`${a}-${b}-${i}`}
@@ -337,29 +390,34 @@ export default function ParallelGraph({
                     y1={pa.y}
                     x2={pb.x}
                     y2={pb.y}
-                    stroke={bothSelected ? "#f59e0b" : "#d1d5db"}
-                    strokeWidth={bothSelected ? 2.5 : 1.5}
+                    stroke={bothSelected ? "#f59e0b" : isHovered ? "#6b7280" : "#d1d5db"}
+                    strokeWidth={bothSelected || isHovered ? width + 1 : width}
                   />
-                  <text
-                    x={mx}
-                    y={my}
-                    textAnchor="middle"
-                    dominantBaseline="central"
-                    style={{
-                      fontSize: 9,
-                      fontWeight: 600,
-                      fontVariantNumeric: "tabular-nums",
-                      fill: bothSelected ? "#b45309" : "#9ca3af",
-                      // White halo so the label stays legible over the edge line.
-                      paintOrder: "stroke",
-                      stroke: "#fff",
-                      strokeWidth: 3,
-                      strokeLinejoin: "round",
+                  {/* Generous invisible hit target — the visible line is unhoverable. */}
+                  <line
+                    x1={pa.x}
+                    y1={pa.y}
+                    x2={pb.x}
+                    y2={pb.y}
+                    stroke="transparent"
+                    strokeWidth={EDGE_HIT_WIDTH}
+                    style={{ pointerEvents: "stroke" }}
+                    onPointerEnter={(e) => {
+                      if (e.pointerType !== "mouse") return;
+                      hoverTargetRect.current = {
+                        left: e.clientX - 6,
+                        right: e.clientX + 6,
+                        top: e.clientY - 6,
+                        bottom: e.clientY + 6,
+                      };
+                      setHovered({ kind: "edge", index: i });
                     }}
-                  >
-                    <title>{weeksTooltip}</title>
-                    {weeksRange}
-                  </text>
+                    onPointerLeave={(e) => {
+                      if (e.pointerType !== "mouse") return;
+                      hoverTargetRect.current = null;
+                      setHovered(null);
+                    }}
+                  />
                 </g>
               );
             })}
@@ -374,6 +432,13 @@ export default function ParallelGraph({
             const isDragging = draggingId === id;
             // Not selected and not adjacent to the selection: greyed out.
             const isDimmed = active !== null && !active.has(id);
+            // Emphasised as the far end of what's hovered: an endpoint of a
+            // hovered edge, or a neighbour of a hovered node.
+            const isHoverRelated =
+              (hoveredEdge !== null && (hoveredEdge.source === id || hoveredEdge.target === id)) ||
+              (hoveredNodeId !== null &&
+                hoveredNodeId !== id &&
+                (adjacency.get(hoveredNodeId)?.has(id) ?? false));
             const typeStyle = sessionTypeStyle(node.session.type);
             const codes = node.classes.map((c) => c.code).join(" ");
             return (
@@ -381,7 +446,16 @@ export default function ParallelGraph({
                 key={id}
                 type="button"
                 onPointerDown={(e) => onNodePointerDown(id, e)}
-                title={isAssigned ? "Já pertence a um grupo — clica para ver" : codes}
+                onPointerEnter={(e) => {
+                  if (e.pointerType !== "mouse") return;
+                  hoverTargetRect.current = e.currentTarget.getBoundingClientRect();
+                  setHovered({ kind: "node", id });
+                }}
+                onPointerLeave={(e) => {
+                  if (e.pointerType !== "mouse") return;
+                  hoverTargetRect.current = null;
+                  setHovered(null);
+                }}
                 style={{
                   left: pos.x,
                   top: pos.y,
@@ -399,10 +473,12 @@ export default function ParallelGraph({
                 }}
                 className={`absolute flex max-w-[150px] touch-none flex-col items-center gap-1 rounded-xl border px-2.5 py-1.5 shadow-sm ${
                   isAssigned
-                    ? "border-dashed border-gray-300 bg-gray-100"
+                    ? `border-dashed bg-gray-100 ${isHoverRelated ? "border-gray-400" : "border-gray-300"}`
                     : isSelected
                       ? "border-amber-400 bg-amber-50 ring-2 ring-amber-300"
-                      : "border-gray-300 bg-white hover:border-gray-400 hover:bg-[#fffdf5]"
+                      : isHoverRelated
+                        ? "border-gray-500 bg-white"
+                        : "border-gray-300 bg-white hover:border-gray-400 hover:bg-[#fffdf5]"
                 } ${isDragging ? "shadow-lg" : ""}`}
               >
                 <span
