@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ParallelBlockNode, ParallelCandidateGraph, UUID } from "@/types/parallelSessions";
 import GraphInspector, { type HoverTarget } from "./GraphInspector";
-import { buildAdjacency, forceLayout } from "./parallelGraph";
+import { buildAdjacency } from "./parallelGraph";
 import { useForceSimulation } from "./useForceSimulation";
 
 interface ParallelGraphProps {
@@ -22,10 +22,11 @@ const LINK_DISTANCE = 140;
 const NODE_MAX_W = 150;
 
 /** User-zoom bounds, applied on top of the fit-to-container scale. */
-const MIN_ZOOM = 0.4;
-const MAX_ZOOM = 3;
-/** Start a touch more zoomed-in than a plain fit. */
-const DEFAULT_ZOOM = 1.25;
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 3.5;
+/** Start noticeably more zoomed-in than a plain fit, so small graphs don't open
+ * tiny and need a manual zoom-in. */
+const DEFAULT_ZOOM = 2.5;
 const ZOOM_STEP = 1.2;
 
 function clampZoom(z: number): number {
@@ -87,38 +88,41 @@ export default function ParallelGraph({
     return { meanRadius: radii.size ? sum / radii.size : 40, maxRadius: max };
   }, [radii]);
 
-  // One-shot relaxed layout, then translated into container coordinates. This
-  // seeds the live simulation; the container keeps this fixed size so dragging
-  // never reflows the page. The seed spacing and padding grow with node size so
-  // the box is roomy enough for the size-aware live layout.
+  // Cheap deterministic circle seed for the live simulation, laid out in a
+  // generous square container that keeps a fixed size so dragging never reflows
+  // the page. This isn't the final layout — it just gives the simulation a
+  // sane, non-degenerate start; the warm-up settles it off-screen. The seed
+  // spacing and padding grow with node size so the box is roomy enough for the
+  // size-aware live layout to spread without hitting the sim's margin clamp.
   const layout = useMemo(() => {
     const seedLink = LINK_DISTANCE + 2 * meanRadius;
-    const raw = forceLayout(ids, graph.edges, { linkDistance: seedLink });
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-    for (const p of raw.values()) {
-      minX = Math.min(minX, p.x);
-      minY = Math.min(minY, p.y);
-      maxX = Math.max(maxX, p.x);
-      maxY = Math.max(maxY, p.y);
-    }
-    if (!Number.isFinite(minX)) {
-      minX = minY = maxX = maxY = 0;
-    }
     const pad = NODE_PAD + maxRadius;
-    const width = maxX - minX + pad * 2;
-    const height = maxY - minY + pad * 2;
+    const n = ids.length;
+    // Radius of a circle whose circumference spaces n nodes ~seedLink apart,
+    // then inflated by a safety factor so the live model has slack to spread.
+    const r0 = n <= 1 ? 0 : seedLink * Math.max(1, n / (2 * Math.PI));
+    const radius = r0 * 1.15;
+    const size = 2 * (radius + pad);
+    const center = size / 2;
     const initial = new Map<UUID, { x: number; y: number }>();
-    for (const [id, p] of raw) {
-      initial.set(id, { x: p.x - minX + pad, y: p.y - minY + pad });
+    if (n === 1) {
+      initial.set(ids[0]!, { x: center, y: center });
+    } else if (n === 2) {
+      // A single pair reads best side by side (horizontal), not stacked.
+      initial.set(ids[0]!, { x: center - radius, y: center });
+      initial.set(ids[1]!, { x: center + radius, y: center });
+    } else {
+      for (let i = 0; i < n; i++) {
+        const angle = (i * 2 * Math.PI) / n - Math.PI / 2;
+        // The 2.399963 offset breaks perfect symmetry so nodes never start
+        // coincident/collinear (which can trap them under the live forces).
+        const x = center + Math.cos(angle) * radius + Math.cos(i * 2.399963) * 4;
+        const y = center + Math.sin(angle) * radius + Math.sin(i * 2.399963) * 4;
+        initial.set(ids[i]!, { x, y });
+      }
     }
-    // Seed uses the radius-inflated spacing while the live springs add each
-    // edge's own radii on top of the plain base rest length; the remaining
-    // mismatch is settled off-screen by the simulation's warm-up pass.
-    return { initial, width, height, linkDistance: LINK_DISTANCE };
-  }, [ids, graph.edges, meanRadius, maxRadius]);
+    return { initial, width: size, height: size, linkDistance: LINK_DISTANCE };
+  }, [ids, meanRadius, maxRadius]);
 
   const containerRef = useRef<HTMLDivElement>(null);
 

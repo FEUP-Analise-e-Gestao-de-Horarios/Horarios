@@ -29,9 +29,10 @@ const MARGIN = 44;
 const TAP_SLOP = 4;
 /**
  * Max synchronous steps run when the sim is (re)built, settling the seed
- * layout under the live forces before anything is visible. Without this the
- * seed↔live model mismatch relaxes on screen: nodes sit still for a moment
- * (velocities start at 0) and then drift seconds into viewing the graph.
+ * layout under the live forces before anything is visible. The seed is a crude
+ * circle placement that isn't at rest under the live forces, so without this
+ * it relaxes on screen: nodes sit still for a moment (velocities start at 0)
+ * and then drift seconds into viewing the graph.
  * Generous on purpose — some seeds crawl through a near-equilibrium saddle
  * for hundreds of ticks before settling, and a warm-up that stops there
  * resumes as visible drift. The loop breaks at rest, so typical graphs only
@@ -351,10 +352,11 @@ export function useForceSimulation(
       anchorIdx,
     };
     // Settle the seed layout under the live forces before it is ever shown —
-    // the seed comes from a different force model, so without this warm-up the
-    // mismatch relaxes on screen as a slow, delayed-looking drift. Rest must
-    // hold for several consecutive ticks: near a saddle the speed can dip
-    // under the threshold for a frame and then grow again.
+    // the seed is a crude circle placement that isn't at rest under these
+    // forces, so without this warm-up it relaxes on screen as a slow,
+    // delayed-looking drift. Rest must hold for several consecutive ticks: near
+    // a saddle the speed can dip under the threshold for a frame and then grow
+    // again.
     let restStreak = 0;
     for (let i = 0; i < WARMUP_TICKS && restStreak < WARMUP_REST_STREAK; i++) {
       const { maxSpeed, collMove } = stepSim(state);
