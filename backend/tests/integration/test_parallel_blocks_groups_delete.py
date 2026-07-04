@@ -173,7 +173,7 @@ def test_clear_all_groups_leaves_confirmed_candidates_intact(
     Group members and confirmed candidates live in separate tables; the
     group clear-all must operate on its own table alone.
     """
-    _g1, _blocks_1 = _seed_group(project_db, size=2)
+    _seed_group(project_db, size=2)
     seeded_confirmed = uuid.uuid7()
     make_confirmed_candidate(project_db, candidate_group_id=seeded_confirmed)
 
