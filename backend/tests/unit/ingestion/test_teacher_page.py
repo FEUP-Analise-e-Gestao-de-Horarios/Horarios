@@ -44,6 +44,23 @@ def test_empty_name_falls_back_to_acronym() -> None:
     assert _info(first_node="ABC", acronym="ABC", code=5) == ("ABC", "ABC", 5)
 
 
+def test_name_dropped_when_first_node_prefix_differs_from_acronym() -> None:
+    """KNOWN WART — minimal repro of the real ``teacher_name_is_acronym`` fixture.
+
+    ``extract_teacher_info`` recovers the name by stripping the *acronym* prefix
+    off the first node. When the first node's leading token is not the acronym
+    (here "AJCA" vs "AA") and it uses a bare "-" separator, the strip fails and
+    the name falls back to the acronym — so the real name is dropped. Pinned as
+    current behaviour (25 such pages exist in the captured corpus); see
+    ``test_real_pages`` for the real page this reproduces.
+    """
+    assert _info(
+        first_node="AJCA-Albertino José Castanho Arteiro",
+        acronym="AA",
+        code=481933,
+    ) == ("AA", "AA", 481933)
+
+
 def test_punctuation_is_stripped_from_name() -> None:
     assert _info(first_node="ABC - Zé, Jr.", acronym="ABC", code=9) == (
         "ABC",

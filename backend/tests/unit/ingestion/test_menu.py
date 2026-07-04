@@ -47,6 +47,14 @@ def test_menu_link_missing_frame_raises() -> None:
         extract_menu_link(_soup("<html><frameset></frameset></html>"))
 
 
+def test_menu_link_matches_upper_case_frame_name() -> None:
+    """Real framesets use ``<frame NAME="links">`` (upper-case) with a
+    ``%3F``-encoded src; the lookup (which searches lower-case ``name``) must
+    still match once HTML parsing has normalised the attribute name."""
+    html = '<html><frameset><frame NAME="links" src="coluna1.html%3Fx.html"></frameset></html>'
+    assert extract_menu_link(_soup(html)) == "coluna1.html%3Fx.html"
+
+
 # ---------------------------------------------------------------------------
 # -- extract_menu_tags
 # ---------------------------------------------------------------------------
