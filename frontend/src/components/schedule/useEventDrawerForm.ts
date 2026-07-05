@@ -3,12 +3,26 @@ import type { Weekday } from "@/types/project/weekday";
 import { hhmmToMinutes, minutesToTime } from "@/utils/time";
 import type { WeekGridEvent } from "./WeekGrid";
 
-const MIN_TIME_MINUTES = 8 * 60;
-const MAX_TIME_MINUTES = 19 * 60 + 30;
-const MIN_DURATION_MINUTES = 30;
+const SLOT_MINUTES = 30;
+const MIN_TIME_MINUTES = 7 * 60;
+const MAX_END_MINUTES = 20 * 60;
+// A class needs at least one slot before the grid ends, so it can't start later
+// than 19:30.
+const MAX_START_MINUTES = MAX_END_MINUTES - SLOT_MINUTES;
+const MIN_DURATION_SLOTS = 1;
 
 function clampTimeMinutes(totalMinutes: number): number {
-  return Math.max(MIN_TIME_MINUTES, Math.min(MAX_TIME_MINUTES, totalMinutes));
+  return Math.max(MIN_TIME_MINUTES, Math.min(MAX_START_MINUTES, totalMinutes));
+}
+
+/** Largest duration (in slots) that keeps `startTime` + duration within the grid. */
+function maxDurationSlots(startTime: string): number {
+  const startMin = timeToMinutes(startTime) ?? MIN_TIME_MINUTES;
+  return Math.max(MIN_DURATION_SLOTS, Math.floor((MAX_END_MINUTES - startMin) / SLOT_MINUTES));
+}
+
+function clampDuration(slots: number, startTime: string): number {
+  return Math.max(MIN_DURATION_SLOTS, Math.min(maxDurationSlots(startTime), slots));
 }
 
 function timeToMinutes(time: string): number | null {
@@ -38,24 +52,6 @@ function normalizeTimeValue(value: string, fallback: string): string {
   return minutesToTime(totalMinutes);
 }
 
-/**
- * Adjusts `state` so `endTime` is at least one slot after `startTime`. The
- * pinned field stays put; the other is nudged into range.
- */
-function enforceTimeOrdering(state: EventDrawerFormState, pinned: TimeField): EventDrawerFormState {
-  const startMin = timeToMinutes(state.startTime);
-  const endMin = timeToMinutes(state.endTime);
-  if (startMin === null || endMin === null) return state;
-  if (endMin - startMin >= MIN_DURATION_MINUTES) return state;
-
-  if (pinned === "startTime") {
-    const nextEnd = clampTimeMinutes(startMin + MIN_DURATION_MINUTES);
-    return { ...state, endTime: minutesToTime(nextEnd) };
-  }
-  const nextStart = clampTimeMinutes(endMin - MIN_DURATION_MINUTES);
-  return { ...state, startTime: minutesToTime(nextStart) };
-}
-
 function toggleSelection(current: string[], itemId: string): string[] {
   return current.includes(itemId)
     ? current.filter((selectedId) => selectedId !== itemId)
@@ -69,32 +65,36 @@ export type EventDrawerFormState = {
   selectedTurmasOverride: string[];
   selectedWeekday: Weekday;
   startTime: string;
-  endTime: string;
+  /** Class length in 30-min slots (PI ToDo #19 — replaces an explicit end time). */
+  durationSlots: number;
 };
-
-type TimeField = "startTime" | "endTime";
 
 export type EventDrawerFormAction =
   | { type: "reset"; event: WeekGridEvent | null | undefined }
   | { type: "setUc"; value: string }
   | { type: "setWeekday"; value: Weekday }
-  | { type: "setTime"; field: TimeField; value: string }
-  | { type: "shiftTime"; field: TimeField; delta: number }
-  | { type: "normalizeTime"; field: TimeField; raw: string }
+  | { type: "setStartTime"; value: string }
+  | { type: "shiftStartTime"; delta: number }
+  | { type: "normalizeStartTime"; raw: string }
+  | { type: "setDuration"; slots: number }
+  | { type: "shiftDuration"; delta: number }
   | { type: "toggleDocente"; id: string }
   | { type: "toggleSala"; id: string }
   | { type: "setTurmas"; value: string[] };
 
 export function getInitialEventDrawerFormState(event?: WeekGridEvent | null): EventDrawerFormState {
   if (event) {
+    // Clamp the seeded start the same way shifts/normalization do, so an event
+    // starting past the latest allowed slot doesn't open the drawer out of range.
+    const startTime = minutesToTime(clampTimeMinutes(hhmmToMinutes(event.startTime)));
     return {
       selectedUcOverride: event.uc ?? "",
       selectedDocenteOverride: (event.teachers ?? []).map((teacher) => teacher.id),
       selectedSalaOverride: (event.rooms ?? []).map((room) => room.id),
       selectedTurmasOverride: event.classCodes ?? (event.turma ? [event.turma] : []),
       selectedWeekday: event.weekday,
-      startTime: minutesToTime(hhmmToMinutes(event.startTime)),
-      endTime: minutesToTime(hhmmToMinutes(event.startTime) + event.duration * 30),
+      startTime,
+      durationSlots: clampDuration(event.duration, startTime),
     };
   }
   return {
@@ -104,7 +104,7 @@ export function getInitialEventDrawerFormState(event?: WeekGridEvent | null): Ev
     selectedTurmasOverride: [],
     selectedWeekday: "monday",
     startTime: "10:30",
-    endTime: "12:30",
+    durationSlots: 4,
   };
 }
 
@@ -119,20 +119,26 @@ export function eventDrawerFormReducer(
       return { ...state, selectedUcOverride: action.value };
     case "setWeekday":
       return { ...state, selectedWeekday: action.value };
-    case "setTime":
-      // Free-text edits skip the ordering invariant — the user is mid-type;
-      // ordering is enforced on blur via `normalizeTime`.
-      return { ...state, [action.field]: action.value };
-    case "shiftTime":
-      return enforceTimeOrdering(
-        { ...state, [action.field]: shiftTimeByMinutes(state[action.field], action.delta) },
-        action.field,
-      );
-    case "normalizeTime":
-      return enforceTimeOrdering(
-        { ...state, [action.field]: normalizeTimeValue(action.raw, state[action.field]) },
-        action.field,
-      );
+    case "setStartTime":
+      // Free-text edits stay raw — the user is mid-type; the value is parsed and
+      // clamped on blur via `normalizeStartTime`.
+      return { ...state, startTime: action.value };
+    case "shiftStartTime": {
+      const startTime = shiftTimeByMinutes(state.startTime, action.delta);
+      // A later start can shrink the room left in the grid, so re-clamp duration.
+      return { ...state, startTime, durationSlots: clampDuration(state.durationSlots, startTime) };
+    }
+    case "normalizeStartTime": {
+      const startTime = normalizeTimeValue(action.raw, state.startTime);
+      return { ...state, startTime, durationSlots: clampDuration(state.durationSlots, startTime) };
+    }
+    case "setDuration":
+      return { ...state, durationSlots: clampDuration(action.slots, state.startTime) };
+    case "shiftDuration":
+      return {
+        ...state,
+        durationSlots: clampDuration(state.durationSlots + action.delta, state.startTime),
+      };
     case "toggleDocente":
       return {
         ...state,

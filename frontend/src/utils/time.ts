@@ -14,3 +14,13 @@ export function minutesToTime(totalMinutes: number): string {
   const minutes = String(totalMinutes % 60).padStart(2, "0");
   return `${hours}:${minutes}`;
 }
+
+/** Formats a count of 30-min slots as a duration label: "30min", "1h", "1h30". */
+export function formatDurationSlots(slots: number): string {
+  const totalMinutes = slots * 30;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0) return `${minutes}min`;
+  if (minutes === 0) return `${hours}h`;
+  return `${hours}h${String(minutes).padStart(2, "0")}`;
+}

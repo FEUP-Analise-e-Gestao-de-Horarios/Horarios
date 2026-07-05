@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ConflictRecord } from "@/types/project/conflicts";
 import type { Weekday } from "@/types/project/weekday";
 import type { WeekGridEvent } from "@/components/schedule/WeekGrid";
+import { formatDurationSlots } from "@/utils/time";
 import { WEEKDAYS, WEEKDAY_LABELS_LONG } from "@/utils/weekdays";
 import ConflictCard from "./ConflictCard";
 import { DRAWER_DISMISS_IGNORE_SELECTOR } from "./dismissable";
@@ -12,6 +13,7 @@ import { toggleSelection, useEventDrawerForm } from "./useEventDrawerForm";
 
 type TeacherOption = {
   id: string;
+  acronym: string;
   label: string;
 };
 
@@ -19,7 +21,28 @@ type RoomOption = {
   id: string;
   label: string;
   type: string;
+  seats: string | null;
 };
+
+/** Sala dropdown option: name, capacity in front, then tipologia (PI ToDo #8a). */
+function salaToOption(room: RoomOption) {
+  const capacity = room.seats ? ` (${room.seats})` : "";
+  const type = room.type ? ` - ${room.type}` : "";
+  return { id: room.id, label: `${room.label}${capacity}${type}` };
+}
+
+/** Inline amber warning shown while editing the event (PI ToDo #17, #18). */
+function DrawerWarning({ children }: { children: string }) {
+  return (
+    <div
+      role="alert"
+      className="flex items-start gap-2 rounded border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-200"
+    >
+      <span aria-hidden="true">⚠</span>
+      <span>{children}</span>
+    </div>
+  );
+}
 
 interface EditEventDrawerProps {
   open: boolean;
@@ -56,7 +79,7 @@ export default function EditEventDrawer({
     selectedTurmasOverride,
     selectedWeekday,
     startTime,
-    endTime,
+    durationSlots,
   } = formState;
 
   const docentesSearch = useDrawerSearch();
@@ -126,14 +149,48 @@ export default function EditEventDrawer({
     [selectedEventTeacherIds, teacherOptions],
   );
 
+  // Capacities of the event's current room(s); rooms matching one of these sort
+  // to the top of their type group (PI ToDo #8a follow-up).
+  const preferredSeats = useMemo(() => {
+    if (!event?.rooms || event.rooms.length === 0) return new Set<string>();
+    const eventRoomIds = new Set(event.rooms.map((room) => room.id));
+    return new Set(
+      roomOptions
+        .filter((room) => eventRoomIds.has(room.id))
+        .map((room) => room.seats)
+        .filter((seats): seats is string => Boolean(seats)),
+    );
+  }, [event, roomOptions]);
+
+  // Same capacity first, then the rest (stable, so name order is preserved).
+  const bySeatsMatch = (a: RoomOption, b: RoomOption) =>
+    Number(preferredSeats.has(b.seats ?? "")) - Number(preferredSeats.has(a.seats ?? ""));
+
+  // Selected rooms head the list in their own group, so they're pulled out of
+  // the type groups below to avoid showing twice.
+  const selectedSalaIds = useMemo(() => new Set(selectedSalaOverride), [selectedSalaOverride]);
+
+  const selectedSalas = useMemo(
+    () => roomOptions.filter((room) => selectedSalaIds.has(room.id)),
+    [roomOptions, selectedSalaIds],
+  );
+
   const preferredSalas = useMemo(
-    () => roomOptions.filter((room) => preferredRoomTypes.has(room.type)),
-    [preferredRoomTypes, roomOptions],
+    () =>
+      roomOptions
+        .filter((room) => !selectedSalaIds.has(room.id) && preferredRoomTypes.has(room.type))
+        .sort(bySeatsMatch),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [preferredRoomTypes, preferredSeats, roomOptions, selectedSalaIds],
   );
 
   const otherSalas = useMemo(
-    () => roomOptions.filter((room) => !preferredRoomTypes.has(room.type)),
-    [preferredRoomTypes, roomOptions],
+    () =>
+      roomOptions
+        .filter((room) => !selectedSalaIds.has(room.id) && !preferredRoomTypes.has(room.type))
+        .sort(bySeatsMatch),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [preferredRoomTypes, preferredSeats, roomOptions, selectedSalaIds],
   );
 
   const docenteMatches = docentesSearch.matches;
@@ -150,6 +207,11 @@ export default function EditEventDrawer({
     [docenteMatches, otherDocentes],
   );
 
+  const filteredSelectedSalas = useMemo(
+    () => selectedSalas.filter((room) => salaMatches(`${room.id} ${room.type}`)),
+    [selectedSalas, salaMatches],
+  );
+
   const filteredPreferredSalas = useMemo(
     () => preferredSalas.filter((room) => salaMatches(`${room.id} ${room.type}`)),
     [preferredSalas, salaMatches],
@@ -160,9 +222,23 @@ export default function EditEventDrawer({
     [otherSalas, salaMatches],
   );
 
+  const eventTurmas = useMemo(() => new Set(event?.classCodes ?? []), [event?.classCodes]);
+
+  // A shared event carries turmas from another course that aren't in this
+  // course's list — append them so they're visible and selectable (PI ToDo #18).
+  const turmaDropdownOptions = useMemo(() => {
+    const extra = (event?.classCodes ?? []).filter((code) => !turmaOptions.includes(code));
+    return extra.length ? [...turmaOptions, ...extra] : turmaOptions;
+  }, [event, turmaOptions]);
+
+  // The event's own turmas float to the top of the list; everything else keeps
+  // its incoming (numeric) order since Array.sort is stable (PI ToDo #8d).
   const filteredTurmas = useMemo(
-    () => turmaOptions.filter((turma) => turmaMatches(turma)),
-    [turmaOptions, turmaMatches],
+    () =>
+      turmaDropdownOptions
+        .filter((turma) => turmaMatches(turma))
+        .sort((a, b) => Number(eventTurmas.has(b)) - Number(eventTurmas.has(a))),
+    [turmaDropdownOptions, turmaMatches, eventTurmas],
   );
 
   // The "effective" selections are simply the user's overrides, narrowed to
@@ -183,12 +259,14 @@ export default function EditEventDrawer({
 
   const selectedDocenteLabel = useMemo(() => {
     if (effectiveSelectedDocente.length === 0) return "Selecionar...";
-    const labels = effectiveSelectedDocente
-      .map((id) => teacherOptions.find((docente) => docente.id === id)?.label)
-      .filter((label): label is string => Boolean(label));
-    const first = labels[0];
+    const docentes = effectiveSelectedDocente
+      .map((id) => teacherOptions.find((docente) => docente.id === id))
+      .filter((docente): docente is TeacherOption => Boolean(docente));
+    const first = docentes[0];
     if (!first) return "Selecionar...";
-    return labels.length === 1 ? first : `${first} (+${labels.length - 1})`;
+    // One docente keeps the full "acronym - name"; multiple show every acronym
+    // so both professors are visible in the trigger (PI ToDo #8b).
+    return docentes.length === 1 ? first.label : docentes.map((d) => d.acronym).join(", ");
   }, [effectiveSelectedDocente, teacherOptions]);
 
   const selectedSalaLabel = useMemo(() => {
@@ -207,8 +285,24 @@ export default function EditEventDrawer({
   // search box should only narrow what's *displayed* in the dropdown, never
   // drop selections the user already made.
   const effectiveSelectedTurmas = useMemo(
-    () => selectedTurmasOverride.filter((id) => turmaOptions.includes(id)),
-    [selectedTurmasOverride, turmaOptions],
+    () => selectedTurmasOverride.filter((id) => turmaDropdownOptions.includes(id)),
+    [selectedTurmasOverride, turmaDropdownOptions],
+  );
+
+  // Inline edit warnings (PI ToDo #17, #18).
+  // #17 — changed when the selection differs from the event's own turmas at open.
+  const turmasChanged = useMemo(() => {
+    if (effectiveSelectedTurmas.length !== eventTurmas.size) return true;
+    return effectiveSelectedTurmas.some((turma) => !eventTurmas.has(turma));
+  }, [effectiveSelectedTurmas, eventTurmas]);
+
+  // #18 — a class code outside this course's turma list belongs to another course
+  // (guarded against the transient empty option list while the course loads).
+  const isCrossCourse = useMemo(
+    () =>
+      turmaOptions.length > 0 &&
+      (event?.classCodes ?? []).some((code) => !turmaOptions.includes(code)),
+    [event, turmaOptions],
   );
 
   if (!open) return null;
@@ -255,6 +349,17 @@ export default function EditEventDrawer({
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          {(turmasChanged || isCrossCourse) && (
+            <div className="space-y-2">
+              {turmasChanged && (
+                <DrawerWarning>Está a mudar esta aula para uma turma diferente.</DrawerWarning>
+              )}
+              {isCrossCourse && (
+                <DrawerWarning>Esta aula é partilhada com outro curso.</DrawerWarning>
+              )}
+            </div>
+          )}
+
           <label className="block text-sm">
             <span className="mb-1.5 block text-white/90">UC Selecionada</span>
             <select
@@ -282,7 +387,7 @@ export default function EditEventDrawer({
               <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  onClick={() => dispatch({ type: "shiftTime", field: "startTime", delta: -30 })}
+                  onClick={() => dispatch({ type: "shiftStartTime", delta: -30 })}
                   className="h-8 w-8 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white text-sm"
                   aria-label="Diminuir hora de início em 30 minutos"
                 >
@@ -295,16 +400,16 @@ export default function EditEventDrawer({
                   value={startTime}
                   aria-labelledby="edit-event-start-time-label"
                   onChange={(event) =>
-                    dispatch({ type: "setTime", field: "startTime", value: event.target.value })
+                    dispatch({ type: "setStartTime", value: event.target.value })
                   }
                   onBlur={(event) =>
-                    dispatch({ type: "normalizeTime", field: "startTime", raw: event.target.value })
+                    dispatch({ type: "normalizeStartTime", raw: event.target.value })
                   }
                   className="w-14 bg-[#2a303a] border border-white/20 rounded px-1.5 py-1.5 text-white text-center text-sm"
                 />
                 <button
                   type="button"
-                  onClick={() => dispatch({ type: "shiftTime", field: "startTime", delta: 30 })}
+                  onClick={() => dispatch({ type: "shiftStartTime", delta: 30 })}
                   className="h-8 w-8 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white text-sm"
                   aria-label="Aumentar hora de início em 30 minutos"
                 >
@@ -313,37 +418,29 @@ export default function EditEventDrawer({
               </div>
             </div>
             <div className="block text-sm flex-1 min-w-0">
-              <span id="edit-event-end-time-label" className="mb-1.5 block text-white/90">
-                Hora Fim
+              <span id="edit-event-duration-label" className="mb-1.5 block text-white/90">
+                Duração
               </span>
               <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  onClick={() => dispatch({ type: "shiftTime", field: "endTime", delta: -30 })}
+                  onClick={() => dispatch({ type: "shiftDuration", delta: -1 })}
                   className="h-8 w-8 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white text-sm"
-                  aria-label="Diminuir hora de fim em 30 minutos"
+                  aria-label="Diminuir duração em 30 minutos"
                 >
                   -
                 </button>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="HH:MM"
-                  value={endTime}
-                  aria-labelledby="edit-event-end-time-label"
-                  onChange={(event) =>
-                    dispatch({ type: "setTime", field: "endTime", value: event.target.value })
-                  }
-                  onBlur={(event) =>
-                    dispatch({ type: "normalizeTime", field: "endTime", raw: event.target.value })
-                  }
-                  className="w-14 bg-[#2a303a] border border-white/20 rounded px-1.5 py-1.5 text-white text-center text-sm"
-                />
+                <span
+                  aria-labelledby="edit-event-duration-label"
+                  className="w-14 bg-[#2a303a] border border-white/20 rounded px-1.5 py-1.5 text-white text-center text-sm tabular-nums"
+                >
+                  {formatDurationSlots(durationSlots)}
+                </span>
                 <button
                   type="button"
-                  onClick={() => dispatch({ type: "shiftTime", field: "endTime", delta: 30 })}
+                  onClick={() => dispatch({ type: "shiftDuration", delta: 1 })}
                   className="h-8 w-8 rounded border border-white/20 bg-[#2a303a] text-white/80 hover:text-white text-sm"
-                  aria-label="Aumentar hora de fim em 30 minutos"
+                  aria-label="Aumentar duração em 30 minutos"
                 >
                   +
                 </button>
@@ -376,7 +473,7 @@ export default function EditEventDrawer({
               onToggle={() => setOpenDropdown((prev) => (prev === "docentes" ? null : "docentes"))}
               search={docentesSearch.query}
               onSearchChange={docentesSearch.setQuery}
-              listMaxHeightClass="max-h-72"
+              listMaxHeightClass="max-h-48"
               groups={[
                 {
                   heading: "Docentes desta aula",
@@ -397,21 +494,19 @@ export default function EditEventDrawer({
                   onToggle={() => setOpenDropdown((prev) => (prev === "salas" ? null : "salas"))}
                   search={salasSearch.query}
                   onSearchChange={salasSearch.setQuery}
-                  listMaxHeightClass="max-h-64"
+                  listMaxHeightClass="max-h-32"
                   groups={[
                     {
+                      heading: "Selecionada",
+                      options: filteredSelectedSalas.map(salaToOption),
+                    },
+                    {
                       heading: "Tipologia correspondente",
-                      options: filteredPreferredSalas.map((room) => ({
-                        id: room.id,
-                        label: `${room.label} - ${room.type}`,
-                      })),
+                      options: filteredPreferredSalas.map(salaToOption),
                     },
                     {
                       heading: "Outras Salas",
-                      options: filteredOtherSalas.map((room) => ({
-                        id: room.id,
-                        label: `${room.label} - ${room.type}`,
-                      })),
+                      options: filteredOtherSalas.map(salaToOption),
                     },
                   ]}
                   selectedIds={effectiveSelectedSala}
@@ -427,9 +522,15 @@ export default function EditEventDrawer({
                   onToggle={() => setOpenDropdown((prev) => (prev === "turmas" ? null : "turmas"))}
                   search={turmasSearch.query}
                   onSearchChange={turmasSearch.setQuery}
-                  listMaxHeightClass="max-h-56"
+                  listMaxHeightClass="max-h-32"
                   groups={[
-                    { options: filteredTurmas.map((turma) => ({ id: turma, label: turma })) },
+                    {
+                      options: filteredTurmas.map((turma) => ({
+                        id: turma,
+                        // Flag the event's own turma(s) so the original is clear (#17).
+                        label: eventTurmas.has(turma) ? `${turma} · original` : turma,
+                      })),
+                    },
                   ]}
                   selectedIds={effectiveSelectedTurmas}
                   onToggleOption={(id) =>
