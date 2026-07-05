@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { getErrorCode } from "@/api/errors";
 import { useLogin } from "@/api/hooks/useAuth";
 import { ApiError } from "@/types/api";
 import AuthPageLayout from "@/components/auth/AuthPageLayout";
@@ -71,7 +72,7 @@ export default function LoginPage() {
           window.location.href = ROUTES.HOME;
         },
         onError: (err) => {
-          if (err.code === ApiError.AUTH_BAD_CREDENTIALS) {
+          if (getErrorCode(err) === ApiError.AUTH_BAD_CREDENTIALS) {
             setErrors({ password: "Credenciais inválidas." });
           } else {
             setErrors({ password: "Ocorreu um erro. Tente novamente." });

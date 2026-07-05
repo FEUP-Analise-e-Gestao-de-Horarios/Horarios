@@ -19,15 +19,8 @@ export const queryKeys = {
     room: (id: string, roomId: string) => ["projects", id, "rooms", roomId] as const,
     subject: (id: string, subjectId: string) => ["projects", id, "subjects", subjectId] as const,
     class: (id: string, classId: string) => ["projects", id, "classes", classId] as const,
-    // Prefix of every sessions(...) key; lets mutations invalidate all
-    // session queries for a project at once.
-    sessionsRoot: (id: string) => ["projects", id, "sessions"] as const,
-    conflictsRoot: (id: string) => ["projects", id, "conflicts"] as const,
     conflicts: (id: string, scope: string, yearId: string, includeIgnored: boolean) =>
       ["projects", id, "conflicts", scope, yearId, includeIgnored] as const,
-    permissions: (id: string) => ["projects", id, "permissions"] as const,
-    parallelBlocks: (id: string, sessionId: string) =>
-      ["projects", id, "parallel-blocks", sessionId] as const,
     sessions: (id: string, filters: SessionsQueryFilters) =>
       [
         "projects",
@@ -38,5 +31,13 @@ export const queryKeys = {
         [...filters.classIds].sort(),
         [...filters.weekdays].sort(),
       ] as const,
+    parallelCandidates: (id: string) => ["projects", id, "parallel-candidates"] as const,
+
+    // -- Invalidation prefixes -------------------------------------------
+    // Each is the shared prefix of the matching specific key above, so
+    // invalidating it refetches every variant (all filters / scopes) for the
+    // project in one call. Keep them a true prefix of their specific key.
+    sessionsRoot: (id: string) => ["projects", id, "sessions"] as const,
+    conflictsRoot: (id: string) => ["projects", id, "conflicts"] as const,
   },
 } as const;

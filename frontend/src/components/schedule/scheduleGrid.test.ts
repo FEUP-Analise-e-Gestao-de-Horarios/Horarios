@@ -446,6 +446,13 @@ describe("assignLaneSegments", () => {
       { start: 4, span: 1, lane: 1, laneCount: 2 },
     ]);
   });
+
+  it("keeps every column of a mark's day at one lane so it stays full-width", () => {
+    // 2 turmas/day; a mark on day 1 keeps both of its columns (2-3) at one lane
+    // so the day-wide red block doesn't collapse to label width.
+    const { colLaneCount } = assignLaneSegments([], 2, 4, [1]);
+    expect(colLaneCount).toEqual([0, 0, 1, 1]);
+  });
 });
 
 describe("computeColumnWidths", () => {
