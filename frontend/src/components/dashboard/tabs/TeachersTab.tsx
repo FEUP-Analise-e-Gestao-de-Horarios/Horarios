@@ -111,6 +111,7 @@ export default function TeachersTab({
                 <Link
                   to={buildPath(ROUTES.TEACHER_DETAIL, { projectId, teacherId: teacher.id })}
                   data-copy-id={teacher.id}
+                  data-copy-label="ID do docente"
                   draggable={false}
                   aria-label={teacher.name}
                   className="contents text-inherit no-underline [-webkit-user-drag:none]"
