@@ -60,7 +60,7 @@ export default function DistributionModal({ open, onClose, events }: Distributio
     const move = (moveEvent: PointerEvent) => {
       setPos({
         x: Math.max(0, Math.min(window.innerWidth - rect.width, moveEvent.clientX - offsetX)),
-        y: Math.max(0, Math.min(window.innerHeight - 28, moveEvent.clientY - offsetY)),
+        y: Math.max(0, Math.min(window.innerHeight - rect.height, moveEvent.clientY - offsetY)),
       });
     };
     const up = () => {
