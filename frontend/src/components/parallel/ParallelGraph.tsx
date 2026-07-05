@@ -48,6 +48,39 @@ const STAGGER = 45;
 /** Invisible stroke width making thin edges hoverable. */
 const EDGE_HIT_WIDTH = 16;
 
+/**
+ * Web Audio backing for the goat-scream easter egg. The mp3 bytes are fetched
+ * and decoded a single time for the page's lifetime into an AudioBuffer; each
+ * scream then plays a throwaway AudioBufferSourceNode off that cached buffer, so
+ * there is no per-play network fetch and overlapping screams stack into a chorus
+ * for free. Everything is lazy — nothing is constructed at import time, so
+ * importing this module under SSR/jsdom (no AudioContext) never throws.
+ */
+const GOAT_SCREAM_VOLUME = 0.75;
+let goatAudioContext: AudioContext | null = null;
+let goatBufferPromise: Promise<AudioBuffer> | null = null;
+
+function getGoatAudioContext(): AudioContext {
+  if (!goatAudioContext) {
+    const Ctor =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    goatAudioContext = new Ctor();
+  }
+  return goatAudioContext;
+}
+
+/** Fetch + decode the mp3 once, caching the in-flight promise so rapid screams
+ * before the first decode finishes don't kick off duplicate loads. */
+function ensureGoatBuffer(ctx: AudioContext): Promise<AudioBuffer> {
+  if (!goatBufferPromise) {
+    goatBufferPromise = fetch(`${import.meta.env.BASE_URL}goat-scream.mp3`)
+      .then((res) => res.arrayBuffer())
+      .then((bytes) => ctx.decodeAudioData(bytes));
+  }
+  return goatBufferPromise;
+}
+
 export default function ParallelGraph({
   graph,
   selected,
@@ -167,28 +200,29 @@ export default function ParallelGraph({
   );
 
   // Easter egg: shaking a held node really hard plays a goat scream. The audio
-  // lives at public/goat-scream.mp3; if it's missing, play() rejects and the
-  // gesture is simply silent. A template element is preloaded once on mount so
-  // the first scream fires without a fetch delay; each trigger plays a fresh
-  // clone, so repeated shakes stack into a chorus instead of restarting.
-  const goatRef = useRef<HTMLAudioElement | null>(null);
-  useEffect(() => {
-    const audio = new Audio(`${import.meta.env.BASE_URL}goat-scream.mp3`);
-    audio.volume = 0.75;
-    audio.preload = "auto";
-    audio.load();
-    goatRef.current = audio;
-    return () => {
-      audio.pause();
-      goatRef.current = null;
-    };
-  }, []);
+  // lives at public/goat-scream.mp3 and is fetched + decoded a single time for
+  // the page via Web Audio (see ensureGoatBuffer); every scream then fires a
+  // throwaway source node off that cached buffer, so there's no per-play fetch
+  // and overlapping shakes stack into a chorus. The first scream carries a tiny
+  // one-time decode delay; the rest are instant. Any failure (missing file,
+  // decode error, no Web Audio support) is swallowed — the gesture stays silent.
   const playGoatScream = useCallback(() => {
-    const template = goatRef.current;
-    if (!template) return;
-    const voice = template.cloneNode() as HTMLAudioElement;
-    voice.volume = template.volume;
-    void voice.play().catch(() => {});
+    try {
+      const ctx = getGoatAudioContext();
+      if (ctx.state === "suspended") void ctx.resume();
+      void ensureGoatBuffer(ctx)
+        .then((buffer) => {
+          const source = ctx.createBufferSource();
+          source.buffer = buffer;
+          const gain = ctx.createGain();
+          gain.gain.value = GOAT_SCREAM_VOLUME;
+          source.connect(gain).connect(ctx.destination);
+          source.start(0);
+        })
+        .catch(() => {});
+    } catch {
+      // No Web Audio support (or context construction failed) — stay silent.
+    }
   }, []);
 
   const { positions, draggingId, onNodePointerDown } = useForceSimulation(
