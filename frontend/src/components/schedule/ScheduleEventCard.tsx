@@ -31,6 +31,14 @@ interface ScheduleEventCardProps {
   colSpan: number;
   /** Row span (in 30-min slots). */
   rowSpan: number;
+  /** Lane index when this event shares a column with overlapping events (#24). */
+  lane?: number;
+  /** Total lanes in this event's cluster; >1 means render side-by-side. */
+  laneCount?: number;
+  /** Event id shared by this event's segments, set only when it has >1 (#20). */
+  arcGroupId?: string;
+  /** This segment's order within the event, for arc ordering (#20). */
+  arcSegIndex?: number;
   style: SubjectStyle;
   isEditing: boolean;
   /**
@@ -58,12 +66,19 @@ export default function ScheduleEventCard({
   startRow,
   colSpan,
   rowSpan,
+  lane = 0,
+  laneCount = 1,
+  arcGroupId,
+  arcSegIndex,
   style,
   isEditing,
   weekRangeLabel = "",
   onClick,
 }: ScheduleEventCardProps) {
   const clickable = !!onClick;
+  // A 30-min event (single slot) is too short for the stacked title/type/body
+  // lines, so pack the info into two rows: [UC, teacher] / [type, room] (#24).
+  const compact = rowSpan === 1;
   const ariaLabel = weekRangeLabel
     ? `${getEventAriaLabel(ev)} — semanas ${weekRangeLabel}`
     : getEventAriaLabel(ev);
@@ -71,6 +86,9 @@ export default function ScheduleEventCard({
     <button
       type="button"
       {...{ [SCHEDULE_EVENT_DATA_ATTR]: "" }}
+      data-arc-group={arcGroupId}
+      data-arc-seg={arcSegIndex}
+      data-arc-color={arcGroupId ? style.border : undefined}
       onClick={onClick ? () => onClick(ev) : undefined}
       aria-label={ariaLabel}
       aria-current={isEditing ? "true" : undefined}
@@ -80,6 +98,13 @@ export default function ScheduleEventCard({
       style={{
         gridColumn: `${startCol} / span ${colSpan}`,
         gridRow: `${startRow} / span ${rowSpan}`,
+        ...(laneCount > 1
+          ? {
+              justifySelf: "start",
+              width: `calc(100% / ${laneCount})`,
+              marginLeft: `calc(100% * ${lane} / ${laneCount})`,
+            }
+          : null),
         backgroundColor: style.background,
         color: style.text,
         // Editing keeps the subject's own colours and signals selection with a
@@ -94,17 +119,42 @@ export default function ScheduleEventCard({
         className="absolute inset-0 overflow-hidden px-1.5 py-0.5"
         style={{ maskImage: FADE_MASK, WebkitMaskImage: FADE_MASK }}
       >
-        {ev.title && <MarqueeText className="font-semibold">{ev.title}</MarqueeText>}
-        {ev.type && (
-          <MarqueeText className="text-[10px] uppercase leading-none opacity-70">
-            {ev.type}
-          </MarqueeText>
+        {compact ? (
+          <div className="flex h-full flex-col justify-center gap-px">
+            <div className="flex items-baseline gap-1">
+              {ev.title && (
+                <MarqueeText className="min-w-0 flex-1 font-semibold">{ev.title}</MarqueeText>
+              )}
+              {ev.type && (
+                <MarqueeText className="min-w-0 max-w-[55%] text-[10px] uppercase leading-none opacity-70">
+                  {ev.type}
+                </MarqueeText>
+              )}
+            </div>
+            <div className="flex items-baseline gap-1">
+              {ev.professor && (
+                <MarqueeText className="min-w-0 flex-1 opacity-80">{ev.professor}</MarqueeText>
+              )}
+              {ev.sala && (
+                <MarqueeText className="min-w-0 max-w-[55%] opacity-80">{ev.sala}</MarqueeText>
+              )}
+            </div>
+          </div>
+        ) : (
+          <>
+            {ev.title && <MarqueeText className="font-semibold">{ev.title}</MarqueeText>}
+            {ev.type && (
+              <MarqueeText className="text-[10px] uppercase leading-none opacity-70">
+                {ev.type}
+              </MarqueeText>
+            )}
+            {ev.body?.map((line, i) => (
+              <MarqueeText key={i} className="opacity-80">
+                {line}
+              </MarqueeText>
+            ))}
+          </>
         )}
-        {ev.body?.map((line, i) => (
-          <MarqueeText key={i} className="opacity-80">
-            {line}
-          </MarqueeText>
-        ))}
       </div>
       {weekRangeLabel && (
         // Week range pinned to the bottom-right marks a session that only runs

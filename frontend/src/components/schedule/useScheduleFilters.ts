@@ -39,6 +39,14 @@ export function compareTurnos(left: string, right: string): number {
   return leftValue - rightValue;
 }
 
+/**
+ * Orders turma codes naturally so the numeric suffix sorts as a number
+ * (...08 < ...09 < ...10), not lexically (which would put ...10 before ...8).
+ */
+export function compareTurmas(left: string, right: string): number {
+  return left.localeCompare(right, undefined, { numeric: true });
+}
+
 /** The single ano value that drives the selected-year query. */
 export function pickSelectedYearNumber(
   curso: string,
@@ -148,7 +156,7 @@ export function useScheduleFilters({
       label: `Turno ${turno}`,
       turmas: classes
         .slice()
-        .sort((a, b) => a.code.localeCompare(b.code))
+        .sort((a, b) => compareTurmas(a.code, b.code))
         .map((classItem) => classItem.code),
     }));
   }, [classesByTurno]);
