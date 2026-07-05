@@ -24,6 +24,14 @@ describe("getInitialEventDrawerFormState", () => {
     // 18:30 leaves only three 30-min slots before the 20:00 grid end.
     expect(getInitialEventDrawerFormState(event).durationSlots).toBe(3);
   });
+
+  it("clamps a seeded start past the latest allowed slot", () => {
+    const event = { startTime: 2000, duration: 2, weekday: "monday" } as WeekGridEvent;
+    // 20:00 is past the 19:30 latest start; pull it back to the last valid slot.
+    const state = getInitialEventDrawerFormState(event);
+    expect(state.startTime).toBe("19:30");
+    expect(state.durationSlots).toBe(1);
+  });
 });
 
 describe("eventDrawerFormReducer — duration", () => {
