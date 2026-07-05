@@ -7,16 +7,16 @@ import {
   type UUID,
   type YearOption,
 } from "@/types/parallelSessions";
-import { useParallelCandidatesQuery } from "./parallel/useParallelCandidatesQuery";
-import { useParallelFilters } from "./parallel/useParallelFilters";
-import { useParallelGroups, type GroupView } from "./parallel/useParallelGroups";
-import { useParallelSelection } from "./parallel/useParallelSelection";
-import { useParallelConfirmations } from "./parallel/useParallelConfirmations";
-import { useParallelFinish } from "./parallel/useParallelFinish";
-import { useSaving } from "./parallel/useSaving";
+import { useParallelCandidatesQuery } from "./candidates";
+import { useParallelFilters } from "./filters";
+import { useParallelGroups, type GroupView } from "./groups";
+import { useParallelSelection } from "./selection";
+import { useParallelConfirmations } from "./confirmations";
+import { useParallelFinish } from "./finish";
+import { useSaving } from "./saving";
 
 // Re-exported so the candidate/group components can keep importing it from here.
-export type { GroupView } from "./parallel/useParallelGroups";
+export type { GroupView } from "./groups";
 
 export interface UseParallelSessionsReturn {
   degrees: DegreeOption[];

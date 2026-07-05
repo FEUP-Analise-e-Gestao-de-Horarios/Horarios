@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { GroupView } from "@/api/hooks/useParallelSessions";
+import type { GroupView } from "@/api/hooks/parallel/sessions";
 
 /**
  * Owns the "reveal a group card" choreography for the selected-groups panel: the

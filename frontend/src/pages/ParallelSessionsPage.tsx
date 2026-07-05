@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useParallelSessions } from "@/api/hooks/useParallelSessions";
+import { useParallelSessions } from "@/api/hooks/parallel/sessions";
 import { useGroupReveal } from "@/components/parallel/useGroupReveal";
 import { DAY_ORDER, type ParallelCandidateGraph } from "@/types/parallelSessions";
 import { EMPTY_SELECTION, graphStartTime } from "@/components/parallel/parallelDisplay";

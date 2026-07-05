@@ -11,7 +11,7 @@ import {
 } from "@/types/parallelSessions";
 import { getErrorMessage } from "@/api/errors";
 import { handleStaleConfirmError, type StaleConfirmScope } from "./errors";
-import type { SavingControls } from "./useSaving";
+import type { SavingControls } from "./saving";
 
 /** Owns the "reviewed" state of subjects and the confirmation roll-up
  * (subject → year → degree) computed across the whole payload, plus the

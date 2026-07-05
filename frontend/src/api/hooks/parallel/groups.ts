@@ -14,7 +14,7 @@ import {
 import { ApiError } from "@/types/api";
 import { getErrorCode } from "@/api/errors";
 import { parallelSaveErrorMessage } from "./errors";
-import type { SavingControls } from "./useSaving";
+import type { SavingControls } from "./saving";
 
 /** How long a confirmed-deleted card releases, fades, and collapses out before
  * it is dropped from the list. Kept just above the CSS leave duration (500ms)

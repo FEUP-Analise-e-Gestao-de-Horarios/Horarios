@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { GroupView } from "@/api/hooks/useParallelSessions";
+import type { GroupView } from "@/api/hooks/parallel/sessions";
 import { dayConfig, formatTime, sessionTypeStyle } from "./parallelDisplay";
 
 /**

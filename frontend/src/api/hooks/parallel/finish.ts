@@ -8,7 +8,7 @@ import { queryKeys } from "@/api/queryKeys";
 import type { ParallelCandidateGraph, UUID } from "@/types/parallelSessions";
 import { getErrorMessage } from "@/api/errors";
 import { handleStaleConfirmError, type StaleConfirmScope } from "./errors";
-import type { SavingControls } from "./useSaving";
+import type { SavingControls } from "./saving";
 
 /** Owns the finish/stale/reset/navigation flow: the finish + reset modals, the
  * "mark step done and leave" writes, the confirm-all-and-finish action (with

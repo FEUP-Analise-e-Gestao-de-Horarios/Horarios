@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import type { GroupView } from "@/api/hooks/useParallelSessions";
+import type { GroupView } from "@/api/hooks/parallel/sessions";
 import CandidatesLoadingSkeleton from "./CandidatesLoadingSkeleton";
 import GroupCard from "./GroupCard";
 

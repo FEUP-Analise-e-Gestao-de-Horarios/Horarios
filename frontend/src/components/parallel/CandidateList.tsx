@@ -1,5 +1,5 @@
 import { ChevronRight } from "lucide-react";
-import type { GroupView } from "@/api/hooks/useParallelSessions";
+import type { GroupView } from "@/api/hooks/parallel/sessions";
 import type { ParallelCandidateGraph, UUID } from "@/types/parallelSessions";
 import CandidatesLoadingSkeleton from "./CandidatesLoadingSkeleton";
 import { dayConfig, EMPTY_SELECTION, formatTime, graphStartTime } from "./parallelDisplay";
