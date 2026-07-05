@@ -324,8 +324,18 @@ export default function WeekGrid({
       );
   const gridTemplateColumns = `${TIME_COL_PX}px ${turmaColumnTracks.join(" ")}`;
 
+  // Encode everything that fixes a card's position, not just the segment count:
+  // the grid tracks plus each event's day/row and every segment's start/span/lane.
+  // A same-size reshuffle (e.g. editing a session's time without changing which
+  // rows are occupied) leaves the tracks and counts identical, so without the
+  // positional fields the overlay would keep stale arcs until the next resize.
   const arcSignature = `${gridTemplateColumns}|${gridTemplateRows}|${lanedEvents
-    .map((e) => `${e.ev.id}:${e.segments.length}`)
+    .map(
+      (e) =>
+        `${e.ev.id}@${e.dayCol}:${e.rowStart}:${e.segments
+          .map((s) => `${s.start}/${s.span}/${s.lane}/${s.laneCount}`)
+          .join("+")}`,
+    )
     .join(",")}`;
 
   if (events.length === 0 && marks.length === 0 && emptyMessage) {
