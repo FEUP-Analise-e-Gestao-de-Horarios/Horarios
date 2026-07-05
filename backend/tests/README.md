@@ -13,7 +13,10 @@ tests/
   factories.py           # make_* row builders for the per-project SQLAlchemy DB
   unit/                  # fast, pure-logic tests — no DB, no HTTP
     ingestion/           # scraper + HTML parser tests (built HTML, no network)
+    exporter/            # exporter graph/compact/schemas/legacy/benchmark logic
   integration/           # real HTTP requests through the Django test client
+    conftest.py          # export_dbs fixture (initial + general project DBs)
+    _export_seed.py      # fixed-id reference data + session seeding for the exporter
 ```
 
 - **Unit** tests import a module and assert on its behavior directly. They do
@@ -24,10 +27,20 @@ tests/
   each parser expects (indexed tables, the weekday header row, `td_tipologia_*`
   session cells, ...), so no captured pages or network are needed. The scraper
   tests swap in a fake `requests.Session`.
+- **Exporter unit** tests (`unit/exporter/`) cover `src.exporter` as pure logic:
+  the graph utilities/types, the `ExportGraph` algorithm (built via `__new__`),
+  the compact⇄expanded payload round-trip, the pydantic schemas, the legacy
+  conflict/comparator helpers and the benchmark statistics.
 - **Integration** tests drive endpoints end to end via the Django test client,
   backed by a real, seeded, per-project SQLite file. Example:
   `integration/test_smoke_endpoint.py`. `integration/test_ingestion_manager.py`
   drives the whole `IngestionManager` pipeline with only the `Scraper` faked.
+  The exporter pipeline is covered by `integration/test_export_endpoint.py`
+  (`POST /export` end to end), `integration/test_export_graph_pipeline.py`
+  (`ExportGraph` against real initial/general databases) and
+  `integration/test_export_legacy_and_benchmark.py` (legacy `Comparator` and the
+  benchmark mutation/run helpers). These use the `export_dbs` fixture, which
+  provisions *both* the initial and general project databases.
 
 ## How to run
 
