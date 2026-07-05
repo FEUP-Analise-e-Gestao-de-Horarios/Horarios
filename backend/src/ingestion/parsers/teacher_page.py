@@ -66,8 +66,8 @@ def extract_teacher_info(soup: BeautifulSoup) -> tuple[str, str, int]:
     else:
         name = ""
 
-    name = re.sub(r"[^\w\s]", "", name).strip()
+    name = re.sub(r"[^\w\s'-]", "", name).strip()
     if not name:  # header carried no name part: use the acronym
-        name = re.sub(r"[^\w\s]", "", acronym).strip() or acronym
+        name = re.sub(r"[^\w\s'-]", "", acronym).strip() or acronym
 
     return acronym, name, int(raw_code)

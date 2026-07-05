@@ -30,11 +30,11 @@ def test_custom_values() -> None:
     )
 
 
-def test_apostrophe_in_name_is_stripped() -> None:
-    """An apostrophe in the name is stripped along with other punctuation."""
+def test_apostrophe_in_name_is_kept() -> None:
+    """An apostrophe is part of the name and survives punctuation cleaning."""
     assert _info(first_node="ABC - O'Brien", acronym="ABC", code=99) == (
         "ABC",
-        "OBrien",
+        "O'Brien",
         99,
     )
 
@@ -141,10 +141,10 @@ def test_dashless_name_with_an_internal_hyphen_is_not_split_on_it() -> None:
 
     Combines the dashless ``MJMS Maria João …`` shape with a hyphenated
     surname: the residual after peeling must survive whole rather than being
-    split at the surname's hyphen. (``re.sub`` still strips the hyphen itself.)
+    split at the surname's hyphen, and the hyphen itself is kept.
     """
     assert _info(
         first_node="MJMS Maria João Sá-Carneiro",
         acronym="MJMS",
         code=8,
-    ) == ("MJMS", "Maria João SáCarneiro", 8)
+    ) == ("MJMS", "Maria João Sá-Carneiro", 8)
