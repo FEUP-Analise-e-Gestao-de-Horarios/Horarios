@@ -115,7 +115,9 @@ export default function DistributionModal({ open, onClose, events }: Distributio
               className="sticky top-0 z-10 cursor-move select-none bg-white text-[11px] uppercase tracking-wide text-[#6b6375] [&_th]:bg-white"
             >
               <tr className="border-b border-[#e5e4e7]">
-                <th className="px-2 py-1 text-left">{closeButton}</th>
+                <th className="sticky left-0 z-20 bg-white border-r border-[#e5e4e7] px-2 py-1 text-left">
+                  {closeButton}
+                </th>
                 {weekdays.map((weekday) => (
                   <th key={weekday} colSpan={typesByDay[weekday].length} className={headCell}>
                     {WEEKDAY_LABELS_UPPER[weekday]}
@@ -123,7 +125,9 @@ export default function DistributionModal({ open, onClose, events }: Distributio
                 ))}
               </tr>
               <tr className="border-b border-[#e5e4e7]">
-                <th className="px-2 py-0.5 text-left font-semibold">UC</th>
+                <th className="sticky left-0 z-20 bg-white border-r border-[#e5e4e7] px-2 py-0.5 text-left font-semibold">
+                  UC
+                </th>
                 {weekdays.flatMap((weekday) =>
                   typesByDay[weekday].map((type, index) => (
                     <th
@@ -141,11 +145,14 @@ export default function DistributionModal({ open, onClose, events }: Distributio
             <tbody>
               {rows.map((row, rowIndex) => (
                 <tr
-                  key={row.name}
+                  key={row.acronym}
                   ref={rowIndex === 0 ? rowRef : undefined}
                   className="border-b border-[#f0eeeb] text-[#08060d]"
                 >
-                  <td className="px-2 py-0.5 text-left font-semibold" title={row.name}>
+                  <td
+                    className="sticky left-0 bg-white border-r border-[#f0eeeb] px-2 py-0.5 text-left font-semibold"
+                    title={row.name}
+                  >
                     {row.acronym}
                   </td>
                   {weekdays.flatMap((weekday) =>
