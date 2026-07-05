@@ -50,14 +50,16 @@ def extract_teacher_info(soup: BeautifulSoup) -> tuple[str, str, int]:
     # vs "AA"), or itself contain " - " ("DCC - ACM"). Peel a matching acronym
     # prefix, then take the name after the sigla's own separator: prefer the
     # last " - " so a multi-token sigla ("DCC - ACM") is fully consumed, fall
-    # back to a bare "-" ("AJCA-Name"), and when the acronym runs straight into
-    # a whitespace-separated name ("MJMS Maria João …") keep the residual. A
-    # sigla that differs entirely and carries no separator has no name part.
+    # back to a bare "-" only when the sigla runs straight into it ("AJCA-Name")
+    # rather than a hyphen sitting inside the name ("MJMS Maria João Sá-Carneiro"),
+    # and when the acronym runs straight into a whitespace-separated name
+    # ("MJMS Maria João …") keep the residual. A sigla that differs entirely and
+    # carries no separator has no name part.
     peeled = header.startswith(acronym)
     body = header[len(acronym) :] if peeled else header
     if " - " in body:
         name = body.rsplit(" - ", 1)[1]
-    elif "-" in body:
+    elif "-" in body and " " not in body.split("-", 1)[0]:
         name = body.split("-", 1)[1]
     elif peeled:
         name = body

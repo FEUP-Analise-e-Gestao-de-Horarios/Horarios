@@ -134,3 +134,17 @@ def test_name_recovered_when_sigla_runs_into_a_dashless_name() -> None:
         acronym="MJMS",
         code=8,
     ) == ("MJMS", "Maria João Martins dos Santos", 8)
+
+
+def test_dashless_name_with_an_internal_hyphen_is_not_split_on_it() -> None:
+    """A hyphen inside a whitespace-separated name is not the sigla separator.
+
+    Combines the dashless ``MJMS Maria João …`` shape with a hyphenated
+    surname: the residual after peeling must survive whole rather than being
+    split at the surname's hyphen. (``re.sub`` still strips the hyphen itself.)
+    """
+    assert _info(
+        first_node="MJMS Maria João Sá-Carneiro",
+        acronym="MJMS",
+        code=8,
+    ) == ("MJMS", "Maria João SáCarneiro", 8)
