@@ -11,7 +11,8 @@ import {
   type SuccessResponse,
   type UUID,
 } from "@/types/parallelSessions";
-import { parallelSaveErrorMessage } from "./errors";
+import { ApiError } from "@/types/api";
+import { getErrorCode, parallelSaveErrorMessage } from "./errors";
 import type { SavingControls } from "./useSaving";
 
 /** How long a confirmed-deleted card releases, fades, and collapses out before
@@ -247,6 +248,18 @@ export function useParallelGroups(params: {
     { invalidate = true }: { invalidate?: boolean } = {},
   ): Promise<void> => {
     beginRequest();
+    // Delete confirmed (or the group was already gone server-side): invalidate
+    // (unless the bulk path defers it), then play the collapse-out and drop the
+    // row once it settles so the remaining cards slide up into its place.
+    const collapseOut = () => {
+      // Suppressed for the bulk path, which invalidates once after all its
+      // deletes land instead of per card.
+      if (invalidate) void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
+      setGroups((prev) => prev.map((g) => (g.id === group.id ? { ...g, status: "leaving" } : g)));
+      window.setTimeout(() => {
+        setGroups((prev) => prev.filter((g) => g.id !== group.id));
+      }, GROUP_LEAVE_MS);
+    };
     try {
       let serverId = group.serverId;
       if (!serverId) {
@@ -265,19 +278,17 @@ export function useParallelGroups(params: {
         api.delete(`/api/projects/${projectIdNum}/parallel-blocks/groups/${serverId}`),
         delay(GROUP_MIN_HOLD_MS),
       ]);
-      // Suppressed for the bulk path, which invalidates once after all its
-      // deletes land instead of per card.
-      if (invalidate) void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
-
-      // Confirmed: play the collapse-out, then drop the row once it settles so
-      // the remaining cards slide up into its place.
-      setGroups((prev) => prev.map((g) => (g.id === group.id ? { ...g, status: "leaving" } : g)));
-      window.setTimeout(() => {
-        setGroups((prev) => prev.filter((g) => g.id !== group.id));
-      }, GROUP_LEAVE_MS);
+      collapseOut();
     } catch (err) {
-      // Failed: settle the card back to its saved resting state (releases the
-      // red border and rightward shift).
+      // Already gone server-side (a racing delete, or a stale-confirm dropped
+      // it): the user's intent is satisfied, so collapse the card out rather
+      // than resurrecting a group that no longer exists.
+      if (getErrorCode(err) === ApiError.PARALLEL_GROUPS_NOT_FOUND) {
+        collapseOut();
+        return;
+      }
+      // A genuine failure: settle the card back to its saved resting state
+      // (releases the red border and rightward shift).
       setGroups((prev) => prev.map((g) => (g.id === group.id ? { ...g, status: "saved" } : g)));
       toast.error(parallelSaveErrorMessage(err));
     } finally {
