@@ -40,6 +40,7 @@ from src.ingestion.parsers.teacher_page import extract_teacher_info
 from src.ingestion.schemas.misc import WeekDay
 from src.ingestion.scraper import Scraper
 from tests.unit.ingestion import _fixtures as F
+from tests.unit.ingestion._fakes import FakeSession
 
 # ---------------------------------------------------------------------------
 # -- frameset (index.html) -> extract_menu_link
@@ -244,25 +245,6 @@ def test_real_room_red_blocks() -> None:
 # ---------------------------------------------------------------------------
 
 
-class _FakeResponse:
-    def __init__(self, content: bytes) -> None:
-        self.content = content
-
-    def raise_for_status(self) -> None:
-        pass
-
-
-class _FakeSession:
-    def __init__(self, content: bytes) -> None:
-        self._content = content
-
-    def get(self, url: str, timeout: object = None) -> _FakeResponse:
-        return _FakeResponse(self._content)
-
-    def close(self) -> None:
-        pass
-
-
 def test_real_get_class_page_end_to_end() -> None:
     """Drive the whole ``get_class_page`` dispatch over one real page.
 
@@ -270,8 +252,9 @@ def test_real_get_class_page_end_to_end() -> None:
     teacher acronym must resolve against the *same page's* teacher table, so a
     green result means the parsers agree with each other on real markup.
     """
-    scraper = Scraper("https://mirror.example/")
-    scraper._session = _FakeSession(F.raw("class_single_session"))  # type: ignore[assignment]
+    base = "https://mirror.example/"
+    scraper = Scraper(base)
+    scraper._session = FakeSession({base + "class.html": F.raw("class_single_session")})  # type: ignore[assignment]
 
     class_page = scraper.get_class_page("class.html")
 
@@ -284,28 +267,6 @@ def test_real_get_class_page_end_to_end() -> None:
     assert class_page["sessions"][0]["teachers"] == [95610]
     assert class_page["sessions"][0]["subject_acronym"] == "DCM"
     assert len(class_page["red_blocks"]) == 66
-
-
-class _RoutingSession:
-    """Fake session that serves a different real page per URL, recording order.
-
-    ``read_menu`` issues two sequential GETs (the root frameset, then the menu
-    frame it points at), so unlike :class:`_FakeSession` it cannot serve one
-    fixed body — it must route by URL.
-    """
-
-    def __init__(self, pages: dict[str, bytes]) -> None:
-        self._pages = pages
-        self.requested: list[str] = []
-
-    def get(self, url: str, timeout: object = None) -> _FakeResponse:
-        self.requested.append(url)
-        if url not in self._pages:
-            raise AssertionError(f"unexpected URL requested: {url!r}")
-        return _FakeResponse(self._pages[url])
-
-    def close(self) -> None:
-        pass
 
 
 # ===========================================================================
@@ -862,7 +823,7 @@ def test_real_read_menu_end_to_end() -> None:
     parse from the real menu bytes in one pass."""
     base = "https://mirror.example/"
     menu_path = "coluna1.html%3F639044378190378436.html"
-    session = _RoutingSession(
+    session = FakeSession(
         {
             base: F.raw("frameset"),
             base + menu_path: F.raw("menu"),
@@ -876,14 +837,15 @@ def test_real_read_menu_end_to_end() -> None:
     assert len(teacher_links) == 661
     assert len(degrees) == 51
     assert len(rooms) == 149
-    assert session.requested == [base, base + menu_path]
+    assert [url for url, _ in session.calls] == [base, base + menu_path]
 
 
 def test_real_get_teacher_page_end_to_end() -> None:
     """``get_teacher_page`` fuses ``extract_teacher_info`` + ``extract_red_blocks``
     into one ``TeacherInfo`` over a real teacher page."""
-    scraper = Scraper("https://mirror.example/")
-    scraper._session = _FakeSession(F.raw("teacher_normal"))  # type: ignore[assignment]
+    base = "https://mirror.example/"
+    scraper = Scraper(base)
+    scraper._session = FakeSession({base + "teacher.html": F.raw("teacher_normal")})  # type: ignore[assignment]
 
     teacher = scraper.get_teacher_page("teacher.html")
 
@@ -896,8 +858,9 @@ def test_real_get_teacher_page_end_to_end() -> None:
 
 def test_real_get_room_page_end_to_end() -> None:
     """``get_room_page`` returns the real room's red blocks straight through."""
-    scraper = Scraper("https://mirror.example/")
-    scraper._session = _FakeSession(F.raw("room"))  # type: ignore[assignment]
+    base = "https://mirror.example/"
+    scraper = Scraper(base)
+    scraper._session = FakeSession({base + "room.html": F.raw("room")})  # type: ignore[assignment]
 
     red_blocks = scraper.get_room_page("room.html")
 

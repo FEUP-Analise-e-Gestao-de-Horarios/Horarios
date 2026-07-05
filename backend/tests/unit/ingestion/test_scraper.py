@@ -15,39 +15,12 @@ import requests
 from src.ingestion.schemas.misc import WeekDay
 from src.ingestion.scraper import Scraper
 from tests.unit.ingestion import _html as H
+from tests.unit.ingestion._fakes import FakeResponse, FakeSession
 
 
-class _FakeResponse:
-    def __init__(self, content: str, status_ok: bool = True) -> None:
-        self.content = content.encode("utf-8")
-        self._status_ok = status_ok
-
-    def raise_for_status(self) -> None:
-        if not self._status_ok:
-            raise requests.HTTPError("non-2xx")
-
-
-class _FakeSession:
-    """Maps request URLs to canned responses and records every call."""
-
-    def __init__(self, pages: dict[str, _FakeResponse]) -> None:
-        self._pages = pages
-        self.calls: list[tuple[str, object]] = []
-        self.closed = False
-
-    def get(self, url: str, timeout: object = None) -> _FakeResponse:
-        self.calls.append((url, timeout))
-        if url not in self._pages:
-            raise AssertionError(f"unexpected URL requested: {url!r}")
-        return self._pages[url]
-
-    def close(self) -> None:
-        self.closed = True
-
-
-def _scraper(base_url: str, pages: dict[str, _FakeResponse]) -> tuple[Scraper, _FakeSession]:
+def _scraper(base_url: str, pages: dict[str, FakeResponse]) -> tuple[Scraper, FakeSession]:
     scraper = Scraper(base_url)
-    fake = _FakeSession(pages)
+    fake = FakeSession(pages)
     scraper._session = fake  # type: ignore[assignment]
     return scraper, fake
 
@@ -60,7 +33,7 @@ def _scraper(base_url: str, pages: dict[str, _FakeResponse]) -> tuple[Scraper, _
 def test_request_builds_url_and_applies_timeout() -> None:
     scraper, fake = _scraper(
         "https://sigarra.example/",
-        {"https://sigarra.example/page": _FakeResponse("<html><body>ok</body></html>")},
+        {"https://sigarra.example/page": FakeResponse("<html><body>ok</body></html>")},
     )
     soup = scraper._request("page")
 
@@ -73,7 +46,7 @@ def test_request_builds_url_and_applies_timeout() -> None:
 def test_request_raises_on_http_error() -> None:
     scraper, _ = _scraper(
         "https://x/",
-        {"https://x/boom": _FakeResponse("", status_ok=False)},
+        {"https://x/boom": FakeResponse("", status_ok=False)},
     )
     with pytest.raises(requests.HTTPError):
         scraper._request("boom")
@@ -84,7 +57,7 @@ def test_request_concatenates_without_urljoin_normalization() -> None:
     # trailing slash concatenates directly, so "https://x" + "menu" == "https://xmenu".
     scraper, fake = _scraper(
         "https://x",
-        {"https://xmenu": _FakeResponse("<html><body>ok</body></html>")},
+        {"https://xmenu": FakeResponse("<html><body>ok</body></html>")},
     )
     scraper._request("menu")
 
@@ -97,7 +70,7 @@ def test_request_does_not_normalize_leading_slash_path() -> None:
     # it is appended verbatim, producing a doubled slash rather than a reset.
     scraper, fake = _scraper(
         "https://x/base",
-        {"https://x/base/menu": _FakeResponse("<html><body>ok</body></html>")},
+        {"https://x/base/menu": FakeResponse("<html><body>ok</body></html>")},
     )
     scraper._request("/menu")
 
@@ -114,8 +87,8 @@ def test_read_menu_fetches_root_then_menu_frame() -> None:
     scraper, fake = _scraper(
         "https://x/",
         {
-            "https://x/": _FakeResponse(H.frame_page("menu.html")),
-            "https://x/menu.html": _FakeResponse(H.menu_page()),
+            "https://x/": FakeResponse(H.frame_page("menu.html")),
+            "https://x/menu.html": FakeResponse(H.menu_page()),
         },
     )
     teacher_links, degrees, rooms = scraper.read_menu()
@@ -134,8 +107,8 @@ def test_read_menu_raises_when_menu_frame_fetch_fails() -> None:
     scraper, fake = _scraper(
         "https://x/",
         {
-            "https://x/": _FakeResponse(H.frame_page("menu.html")),
-            "https://x/menu.html": _FakeResponse("", status_ok=False),
+            "https://x/": FakeResponse(H.frame_page("menu.html")),
+            "https://x/menu.html": FakeResponse("", status_ok=False),
         },
     )
     with pytest.raises(requests.HTTPError):
@@ -156,7 +129,7 @@ def test_get_teacher_page() -> None:
     scraper, _ = _scraper(
         "https://x/",
         {
-            "https://x/t/abc.html": _FakeResponse(
+            "https://x/t/abc.html": FakeResponse(
                 H.teacher_page(
                     red_time_rows=[[H.time_cell("09:00"), H.red_cell(), H.empty_cell()]],
                 ),
@@ -176,7 +149,7 @@ def test_get_teacher_page() -> None:
 def test_get_class_page() -> None:
     scraper, _ = _scraper(
         "https://x/",
-        {"https://x/c/w1.html": _FakeResponse(H.class_page())},
+        {"https://x/c/w1.html": FakeResponse(H.class_page())},
     )
     page = scraper.get_class_page("c/w1.html")
 
@@ -192,7 +165,7 @@ def test_get_room_page_returns_red_blocks() -> None:
     scraper, _ = _scraper(
         "https://x/",
         {
-            "https://x/r/b1.html": _FakeResponse(
+            "https://x/r/b1.html": FakeResponse(
                 H.room_page(red_time_rows=[[H.time_cell("14:00"), H.empty_cell(), H.red_cell()]]),
             ),
         },
@@ -214,7 +187,7 @@ def test_page_fetchers_propagate_http_error(method: str, path: str) -> None:
     # not be swallowed or returned as an empty result.
     scraper, _ = _scraper(
         "https://x/",
-        {f"https://x/{path}": _FakeResponse("", status_ok=False)},
+        {f"https://x/{path}": FakeResponse("", status_ok=False)},
     )
     with pytest.raises(requests.HTTPError):
         getattr(scraper, method)(path)
