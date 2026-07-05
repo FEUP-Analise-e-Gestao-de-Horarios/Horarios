@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
+import { getErrorCode } from "@/api/errors";
 import { queryKeys } from "@/api/queryKeys";
 import { ApiError } from "@/types/api";
 import type { Project, ProjectsListPayload } from "@/types/project/project";
@@ -42,6 +43,19 @@ export function useCreateProject() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
     },
   });
+}
+
+/** Message for a failed project create: maps known codes to a PT explanation,
+ * else a generic fallback. */
+export function newProjectErrorMessage(err: unknown): string {
+  switch (getErrorCode(err)) {
+    case ApiError.PROJECTS_CREATE_DUPLICATED_NAME:
+      return "Já existe um projeto com esse nome.";
+    case ApiError.INVALID_BODY:
+      return "Link inválido.";
+    default:
+      return "Ocorreu um erro. Tente novamente.";
+  }
 }
 
 export function useRenameProject() {

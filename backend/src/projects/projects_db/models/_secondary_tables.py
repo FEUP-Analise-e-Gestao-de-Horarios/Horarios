@@ -2,6 +2,24 @@ from sqlalchemy import Column, ForeignKey, Index, Table, Uuid
 
 from src.projects.projects_db.base import Base
 
+subject_years = Table(
+    "subject_years",
+    Base.metadata,
+    Column(
+        "subject_id",
+        Uuid(native_uuid=False),
+        ForeignKey("subjects.id"),
+        primary_key=True,
+    ),
+    Column(
+        "year_id",
+        Uuid(native_uuid=False),
+        ForeignKey("years.id"),
+        primary_key=True,
+    ),
+    Index("ix_subject_years_year_id", "year_id"),
+)
+
 session_rooms = Table(
     "session_rooms",
     Base.metadata,

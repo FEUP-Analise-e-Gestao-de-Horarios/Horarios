@@ -4,3 +4,7 @@ staticfiles/
 
 # Frontend build files
 src/static/frontend/
+
+# Test artifacts
+.coverage
+.pytest_cache/

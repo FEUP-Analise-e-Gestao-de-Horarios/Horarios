@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ROUTES } from "@/routes";
 import { buildPath } from "@/utils/routes";
 import CursoDropdown from "./CursoDropdown";
@@ -70,6 +70,7 @@ export default function ScheduleNavbar({
     "bg-[#8C2C19] text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap hover:bg-[#A9361E] transition-colors";
   const [openDropdown, setOpenDropdown] = useState<DropdownId | null>(null);
   const navRef = useRef<HTMLElement>(null);
+  const navigate = useNavigate();
 
   useDismissable(navRef, () => setOpenDropdown(null), { escape: true });
 
@@ -193,10 +194,8 @@ export default function ScheduleNavbar({
       <div className="border-l border-gray-600 h-5 mx-1" />
 
       <button
-        type="button"
-        disabled
-        title="Funcionalidade ainda não disponível"
-        className="bg-transparent text-gray-500 font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 cursor-not-allowed"
+        onClick={() => void navigate(buildPath(ROUTES.PARALLEL_SESSIONS, { projectId }))}
+        className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors"
       >
         Editar Aulas em Paralelo
       </button>

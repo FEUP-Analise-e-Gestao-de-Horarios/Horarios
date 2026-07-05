@@ -53,6 +53,7 @@
     "simplifiable",
     "sqlalchemy",
     "staticfiles",
+    "unconfirm",
     "uvx",
     "venv",
     "Vite",
@@ -84,5 +85,9 @@
     "**/venv": true
   },
   "js/ts.tsdk.path": "frontend/node_modules/typescript/lib",
-  "python-envs.defaultEnvManager": "ms-python.python:venv"
+  "python-envs.defaultEnvManager": "ms-python.python:venv",
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff"
+  },
+  "makefile.configureOnOpen": false
 }
