@@ -71,12 +71,18 @@ function getGoatAudioContext(): AudioContext {
 }
 
 /** Fetch + decode the mp3 once, caching the in-flight promise so rapid screams
- * before the first decode finishes don't kick off duplicate loads. */
+ * before the first decode finishes don't kick off duplicate loads. A failed
+ * load (missing file, transient network error, decode failure) clears the cache
+ * so a later scream retries instead of staying silent for the page's lifetime. */
 function ensureGoatBuffer(ctx: AudioContext): Promise<AudioBuffer> {
   if (!goatBufferPromise) {
     goatBufferPromise = fetch(`${import.meta.env.BASE_URL}goat-scream.mp3`)
       .then((res) => res.arrayBuffer())
-      .then((bytes) => ctx.decodeAudioData(bytes));
+      .then((bytes) => ctx.decodeAudioData(bytes))
+      .catch((err) => {
+        goatBufferPromise = null;
+        throw err;
+      });
   }
   return goatBufferPromise;
 }
