@@ -44,13 +44,17 @@ export function computeDistribution(events: WeekGridEvent[]): Distribution {
   const typeSetByDay = new Map<Weekday, Set<string>>();
 
   for (const ev of events) {
-    const name = ev.uc ?? ev.title ?? "";
-    const acronym = ev.title ?? name;
+    // Group by the acronym label (`title`), so a row's identity is exactly what
+    // it displays and doesn't depend on event order. Cross-course shared UCs
+    // share a title and merge; a co-taught session ("ALG, BD") stays its own
+    // honest row instead of silently folding into the primary subject's row.
+    const acronym = ev.title ?? ev.uc ?? "";
+    const name = ev.subjectNames?.length ? ev.subjectNames.join(", ") : (ev.uc ?? acronym);
     const type = ev.type ?? "";
-    let group = groups.get(name);
+    let group = groups.get(acronym);
     if (!group) {
       group = { acronym, name, perDay: new Map() };
-      groups.set(name, group);
+      groups.set(acronym, group);
     }
     let day = group.perDay.get(ev.weekday);
     if (!day) {

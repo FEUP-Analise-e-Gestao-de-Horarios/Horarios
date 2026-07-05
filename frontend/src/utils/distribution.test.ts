@@ -53,4 +53,23 @@ describe("computeDistribution", () => {
     ]);
     expect(rows.map((r) => r.acronym)).toEqual(["AA", "ZZ"]);
   });
+
+  it("keeps a co-taught session its own row, independent of event order", () => {
+    const coTaught = ev({
+      title: "ALG, BD",
+      uc: "Algoritmos",
+      subjectNames: ["Algoritmos", "Bases de Dados"],
+      type: "TP",
+      sessionId: "joint",
+    });
+    const standalone = ev({ title: "BD", uc: "Bases de Dados", type: "T", sessionId: "solo" });
+
+    const a = computeDistribution([coTaught, standalone]);
+    const b = computeDistribution([standalone, coTaught]);
+    // Rows keyed by the acronym they display, so order can't rename or merge them.
+    expect(a.rows.map((r) => r.acronym)).toEqual(["ALG, BD", "BD"]);
+    expect(b.rows.map((r) => r.acronym)).toEqual(a.rows.map((r) => r.acronym));
+    // The full name (tooltip) comes from the deduped subject names.
+    expect(a.rows.find((r) => r.acronym === "ALG, BD")?.name).toBe("Algoritmos, Bases de Dados");
+  });
 });
