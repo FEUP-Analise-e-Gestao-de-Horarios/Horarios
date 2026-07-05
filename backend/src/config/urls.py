@@ -48,6 +48,11 @@ urlpatterns = [
         spa_view,
         name="class-detail",
     ),
+    path(
+        "projects/<int:project_id>/parallel-sessions",
+        spa_view,
+        name="parallel-sessions",
+    ),
     # API endpoints
     path("api/projects/", include("src.projects.urls")),
     path("api/auth/", include("src.login.urls")),
