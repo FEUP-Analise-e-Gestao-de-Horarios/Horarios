@@ -15,10 +15,12 @@ fixtures are refreshed.
 """
 
 from collections import Counter
-from datetime import date
+from datetime import date, timedelta
+from itertools import pairwise
 
 import pytest
 
+from src.ingestion.manager import IngestionManager
 from src.ingestion.parsers.class_page import (
     extract_sessions,
     extract_subjects,
@@ -689,6 +691,50 @@ def test_real_teacher_normal_red_blocks_day_distribution() -> None:
     }
 
 
+@pytest.mark.parametrize(
+    ("fixture", "expected_per_day"),
+    [
+        (
+            "class_single_session",
+            {
+                WeekDay.SATURDAY: 29,
+                WeekDay.TUESDAY: 17,
+                WeekDay.MONDAY: 5,
+                WeekDay.WEDNESDAY: 5,
+                WeekDay.THURSDAY: 5,
+                WeekDay.FRIDAY: 5,
+            },
+        ),
+        (
+            "class_many_sessions",
+            {
+                WeekDay.SATURDAY: 29,
+                WeekDay.WEDNESDAY: 11,
+                WeekDay.MONDAY: 5,
+                WeekDay.TUESDAY: 5,
+                WeekDay.THURSDAY: 5,
+                WeekDay.FRIDAY: 5,
+            },
+        ),
+    ],
+)
+def test_real_class_page_red_blocks_day_distribution(
+    fixture: str,
+    expected_per_day: dict[WeekDay, int],
+) -> None:
+    """Pin the per-day red-block spread on both class pages, not just the total.
+
+    ``test_real_red_blocks_are_wellformed_and_deduplicated`` only asserts the
+    *count* (66 / 60) for these pages, so a column→weekday mapping bug that
+    shuffled blocks between days while keeping the total would slip through. This
+    is the false-positive guard the ``room`` (full list) and ``teacher_normal``
+    (distribution) fixtures already have, extended to the two class grids."""
+    red_blocks = extract_red_blocks(F.soup(fixture))
+    per_day = Counter(day for _time, day in red_blocks)
+    assert dict(per_day) == expected_per_day
+    assert sum(expected_per_day.values()) == len(red_blocks)
+
+
 _SATURDAY_HALF_HOURS = [
     1400,
     1430,
@@ -856,3 +902,44 @@ def test_real_get_room_page_end_to_end() -> None:
 
     assert len(red_blocks) == 17
     assert {day for _time, day in red_blocks} == {WeekDay.SATURDAY}
+
+
+# ===========================================================================
+# == Pipeline logic grounded on real inputs (manager, not just the parsers)
+# ===========================================================================
+#
+# Every test above stops at the parser boundary. The manager that turns parsed
+# pages into DB rows is only ever driven by hand-built synthetic pages (see
+# tests/integration/test_ingestion_manager.py), so no real captured value ever
+# reaches the pipeline transforms. ``_compute_weeks`` is the one transform that
+# needs no database — it expands a page's ``cabtitulo`` date range into weekly
+# start dates — so it can be grounded directly on the real ranges the parsers
+# read, closing part of that gap. The two fixtures bracket both regimes: a
+# multi-month range and a degenerate single-date week (start == end).
+
+
+@pytest.mark.parametrize(
+    ("fixture", "expected_weeks"),
+    [
+        # 2026-02-16 .. 2026-06-01: a full semester of Mondays, endpoint included.
+        ("class_single_session", 16),
+        # start == end: exactly one week, never zero (the boundary is inclusive).
+        ("class_many_sessions", 1),
+    ],
+)
+def test_real_compute_weeks_over_real_date_ranges(fixture: str, expected_weeks: int) -> None:
+    """Drive the manager's week expansion over the real parsed date ranges.
+
+    Pins that ``_compute_weeks`` turns a real ``(start_date, end_date)`` into the
+    expected number of weekly Mondays, that the first week is the real start and
+    the last never overruns the real end, and that every step is exactly 7 days.
+    A regression that made the range end-exclusive, or stepped by something other
+    than a week, would surface here against real data rather than only synthetic."""
+    start_date, end_date = extract_week_dates(F.soup(fixture))
+    weeks = IngestionManager._compute_weeks({"start_date": start_date, "end_date": end_date})
+
+    assert len(weeks) == expected_weeks
+    assert weeks[0] == start_date
+    assert weeks[-1] <= end_date
+    assert all(week.weekday() == 0 for week in weeks)  # every week starts on a Monday
+    assert all((b - a) == timedelta(weeks=1) for a, b in pairwise(weeks))
