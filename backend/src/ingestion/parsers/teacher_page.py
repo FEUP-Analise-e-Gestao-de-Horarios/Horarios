@@ -10,10 +10,12 @@ def extract_teacher_info(soup: BeautifulSoup) -> tuple[str, str, int]:
     text nodes are ``{header}``, ``{acronym}``, ``{code}`` (any further nodes,
     such as a trailing ``Semanas: …`` range, are ignored). ``{header}`` is
     ``"{sigla} - {name}"``; the displayed *sigla* is usually the acronym but may
-    extend or differ from it, so the name is taken as the text after the first
-    ``-`` separator (peeling a matching acronym prefix first, so a longer sigla's
-    own separator is the one used). When the header has no name part (it is just
-    a code), the acronym is used as the name.
+    extend or differ from it, so the name is taken as the text after the sigla's
+    own separator (peeling a matching acronym prefix first, then preferring the
+    last ``" - "`` so a multi-token sigla is fully consumed). When the acronym
+    prefixes the header but no separator follows, the residual after peeling is
+    the name (``"MJMS Maria João …"``); when the header is just a code with no
+    name part at all, the acronym is used as the name.
 
     Args:
         soup: Parsed HTML of the teacher page.
@@ -45,13 +47,22 @@ def extract_teacher_info(soup: BeautifulSoup) -> tuple[str, str, int]:
 
     # The header is "{sigla}[ - ]{name}". The displayed sigla is usually the
     # acronym, but it may extend it ("AMMTB" vs "AMM"), differ entirely ("AJCA"
-    # vs "AA"), or itself contain " - " ("DCC - ACM"). When the acronym prefixes
-    # the header, peel it off first so only the sigla's own separator is left;
-    # otherwise the sigla is a single token and the first "-" splits it from the
-    # name. Split on the *first* separator, not the last, so a name that itself
-    # contains " - " keeps all of its parts.
-    body = header[len(acronym) :] if header.startswith(acronym) else header
-    name = body.split("-", 1)[1] if "-" in body else ""
+    # vs "AA"), or itself contain " - " ("DCC - ACM"). Peel a matching acronym
+    # prefix, then take the name after the sigla's own separator: prefer the
+    # last " - " so a multi-token sigla ("DCC - ACM") is fully consumed, fall
+    # back to a bare "-" ("AJCA-Name"), and when the acronym runs straight into
+    # a whitespace-separated name ("MJMS Maria João …") keep the residual. A
+    # sigla that differs entirely and carries no separator has no name part.
+    peeled = header.startswith(acronym)
+    body = header[len(acronym) :] if peeled else header
+    if " - " in body:
+        name = body.rsplit(" - ", 1)[1]
+    elif "-" in body:
+        name = body.split("-", 1)[1]
+    elif peeled:
+        name = body
+    else:
+        name = ""
 
     name = re.sub(r"[^\w\s]", "", name).strip()
     if not name:  # header carried no name part: use the acronym

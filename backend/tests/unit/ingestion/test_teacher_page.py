@@ -109,12 +109,28 @@ def test_name_recovered_when_sigla_extends_acronym_with_plain_dash() -> None:
     ) == ("AMM", "Ana Mafalda Matos", 7)
 
 
-def test_multipart_name_keeps_all_segments() -> None:
-    """The name is split off at the *first* separator, so a name that itself
-    contains ``" - "`` keeps every part (the inner ``-`` is then stripped as
-    punctuation, leaving the surrounding spaces)."""
+def test_name_recovered_when_acronym_prefixes_a_multitoken_sigla() -> None:
+    """When the acronym is only a *prefix* of a sigla that carries its own
+    ``" - "`` (acronym ``DCC`` vs sigla ``DCC - ACM``), peeling the acronym
+    leaves the residual sigla token before the name. The name is split off at
+    the *last* ``" - "`` so that residual token is consumed rather than fused
+    into the name."""
     assert _info(
-        first_node="ABC - Ana - Sofia Costa",
-        acronym="ABC",
+        first_node="DCC - ACM - André Couto Meira",
+        acronym="DCC",
         code=8,
-    ) == ("ABC", "Ana  Sofia Costa", 8)
+    ) == ("DCC", "André Couto Meira", 8)
+
+
+def test_name_recovered_when_sigla_runs_into_a_dashless_name() -> None:
+    """When the sigla equals the acronym and the name follows with only a space
+    (no ``-`` at all), the residual after peeling the acronym is the name.
+
+    Real page: ``MJMS Maria João Martins dos Santos`` — without this the name
+    collapses to the acronym.
+    """
+    assert _info(
+        first_node="MJMS Maria João Martins dos Santos",
+        acronym="MJMS",
+        code=8,
+    ) == ("MJMS", "Maria João Martins dos Santos", 8)
