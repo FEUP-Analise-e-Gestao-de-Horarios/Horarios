@@ -74,7 +74,7 @@ interface WeekGridProps {
   /** Per-UC colours; events fall back to a neutral style when absent. */
   subjectPalette?: SubjectPalette;
   /**
-   * Collapse rows/columns that hold no events to reduce scroll (#13/#14).
+   * Collapse rows/columns that hold no events or marks to reduce scroll (#13/#14).
    * Set false to keep every slot full-size — e.g. while placing an event, so
    * empty cells stay big enough to be a drop target (Phase 5 #6).
    */
