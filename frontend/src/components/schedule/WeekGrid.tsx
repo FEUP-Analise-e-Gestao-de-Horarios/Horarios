@@ -275,9 +275,14 @@ export default function WeekGrid({
   const colOccupied = useMemo(
     () =>
       compactEmpty
-        ? computeColumnOccupancy(placedEvents, turmaColumnCount, turmasCount)
+        ? computeColumnOccupancy(
+            placedEvents,
+            placedMarks.map((m) => m.col),
+            turmaColumnCount,
+            turmasCount,
+          )
         : new Array<boolean>(turmaColumnCount).fill(true),
-    [compactEmpty, placedEvents, turmaColumnCount, turmasCount],
+    [compactEmpty, placedEvents, placedMarks, turmaColumnCount, turmasCount],
   );
 
   // Width a fully-empty day collapses to: enough to show its (longest) day

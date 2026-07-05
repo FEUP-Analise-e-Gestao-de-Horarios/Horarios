@@ -339,6 +339,7 @@ describe("computeColumnOccupancy", () => {
     // 2 turmas/day; event on day 1 (cols 2-3) covering turma index 1 -> col 3.
     const occ = computeColumnOccupancy(
       [placed({ dayCol: 1, runs: [{ start: 1, span: 1 }] })],
+      [],
       4,
       2,
     );
@@ -348,10 +349,18 @@ describe("computeColumnOccupancy", () => {
   it("handles multi-column runs", () => {
     const occ = computeColumnOccupancy(
       [placed({ dayCol: 0, runs: [{ start: 0, span: 2 }] })],
+      [],
       3,
       3,
     );
     expect(occ).toEqual([true, true, false]);
+  });
+
+  it("keeps every column of a mark's day occupied even with no events", () => {
+    // 2 turmas/day; a mark on day 1 keeps both of its columns (2-3) open so the
+    // day-wide red block doesn't collapse to label width.
+    const occ = computeColumnOccupancy([], [1], 4, 2);
+    expect(occ).toEqual([false, false, true, true]);
   });
 });
 

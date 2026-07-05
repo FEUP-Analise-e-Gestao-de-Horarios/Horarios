@@ -93,12 +93,16 @@ export function computeRowHeights(
 }
 
 /**
- * Marks which of the `columnCount` turma columns carry an event. A column's
- * global index is `dayCol * turmasCount + turmaIndex`; a run covers every
- * column in `[start, start + span)`. Empty columns can then be narrowed (#14).
+ * Marks which of the `columnCount` turma columns carry content. A placed
+ * event's global column index is `dayCol * turmasCount + turmaIndex`; a run
+ * covers every column in `[start, start + span)`. Marks (red blocks) are
+ * day-wide, so each mark keeps every turma column of its day occupied — this
+ * stops a day that holds only marks from collapsing to label width. Empty
+ * columns can then be narrowed (#14).
  */
 export function computeColumnOccupancy(
   placed: PlacedEvent[],
+  markDayCols: number[],
   columnCount: number,
   turmasCount: number,
 ): boolean[] {
@@ -110,6 +114,13 @@ export function computeColumnOccupancy(
         const col = base + i;
         if (col >= 0 && col < columnCount) occupied[col] = true;
       }
+    }
+  }
+  for (const dayCol of markDayCols) {
+    const base = dayCol * turmasCount;
+    for (let i = 0; i < turmasCount; i += 1) {
+      const col = base + i;
+      if (col >= 0 && col < columnCount) occupied[col] = true;
     }
   }
   return occupied;
