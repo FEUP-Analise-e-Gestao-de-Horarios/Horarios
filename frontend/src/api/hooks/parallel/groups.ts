@@ -32,6 +32,7 @@ const delay = (ms: number): Promise<void> =>
 /** A confirmed/draft group enriched with display metadata for the side panel. */
 export interface GroupView {
   group: ParallelGroup;
+  subjectId: UUID;
   subjectName: string;
   weekday: string;
   startTime: number;
@@ -169,6 +170,7 @@ export function useParallelGroups(params: {
       const first = blocks[0];
       views.push({
         group,
+        subjectId: first?.graph.subject.id ?? "",
         subjectName: first?.graph.subject.name ?? "Disciplina",
         weekday: first?.graph.weekday ?? "",
         startTime: first?.node.session.start_time ?? 0,
@@ -182,9 +184,9 @@ export function useParallelGroups(params: {
 
     const map = new Map<string, GroupView[]>();
     for (const view of views) {
-      const list = map.get(view.subjectName);
+      const list = map.get(view.subjectId);
       if (list) list.push(view);
-      else map.set(view.subjectName, [view]);
+      else map.set(view.subjectId, [view]);
     }
     for (const list of map.values()) {
       list.sort(

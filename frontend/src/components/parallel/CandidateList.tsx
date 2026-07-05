@@ -15,7 +15,7 @@ export default function CandidateList({
   candidatesError,
   hasSubjects,
   hasSelectedDegree,
-  activeSubject,
+  activeSubjectName,
   activeSubjectGroupViews,
   activeSubjectConfirmed,
   saving,
@@ -33,7 +33,7 @@ export default function CandidateList({
   candidatesError: string | null;
   hasSubjects: boolean;
   hasSelectedDegree: boolean;
-  activeSubject: string | null;
+  activeSubjectName: string | null;
   activeSubjectGroupViews: GroupView[];
   activeSubjectConfirmed: boolean;
   saving: boolean;
@@ -59,9 +59,9 @@ export default function CandidateList({
         </p>
       ) : (
         <div className="overflow-hidden rounded-2xl border border-[#e8e8e8] shadow-sm bg-white">
-          {activeSubject && (
+          {activeSubjectName && (
             <div className="flex items-center justify-between gap-2 px-4 py-2.5 bg-[#fafafa] border-b border-[#e8e8e8]">
-              <p className="font-semibold text-[#222] text-sm truncate">{activeSubject}</p>
+              <p className="font-semibold text-[#222] text-sm truncate">{activeSubjectName}</p>
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   type="button"

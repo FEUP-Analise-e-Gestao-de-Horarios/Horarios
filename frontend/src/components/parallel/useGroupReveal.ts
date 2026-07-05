@@ -9,7 +9,7 @@ import type { GroupView } from "@/api/hooks/parallel/sessions";
  * creation, and subject changes.
  */
 export function useGroupReveal(
-  activeSubject: string | null,
+  activeSubjectId: string | null,
   groupViewsBySubject: Map<string, GroupView[]>,
 ) {
   // The selected-groups scroll container (scrolls both axes: columns sideways,
@@ -40,7 +40,7 @@ export function useGroupReveal(
     const delta = colRect.left - cRect.left;
     const target = container.scrollLeft + delta - (container.clientWidth - colRect.width) / 2;
     container.scrollTo({ top: 0, left: Math.max(0, target), behavior: "smooth" });
-  }, [activeSubject]);
+  }, [activeSubjectId]);
 
   // Block id -> the id of the (shown) group it belongs to, for reveal-on-tap.
   const groupIdByBlock = useMemo(() => {

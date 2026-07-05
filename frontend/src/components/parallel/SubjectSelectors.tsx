@@ -16,10 +16,8 @@ export default function SubjectSelectors({
   activeYearId,
   confirmedYearIds,
   onYearSelect,
-  subjectNames,
-  activeSubject,
-  subjectIdByName,
-  subjectAcronyms,
+  subjects,
+  activeSubjectId,
   confirmedSubjectIds,
   onSelectSubject,
 }: {
@@ -33,12 +31,10 @@ export default function SubjectSelectors({
   activeYearId: UUID | null;
   confirmedYearIds: Set<UUID>;
   onYearSelect: (yearId: UUID) => void;
-  subjectNames: string[];
-  activeSubject: string | null;
-  subjectIdByName: Map<string, UUID>;
-  subjectAcronyms: Map<string, string>;
+  subjects: { id: UUID; name: string; acronym: string }[];
+  activeSubjectId: UUID | null;
   confirmedSubjectIds: Set<UUID>;
-  onSelectSubject: (name: string) => void;
+  onSelectSubject: (subjectId: UUID) => void;
 }) {
   return (
     <>
@@ -113,7 +109,7 @@ export default function SubjectSelectors({
             </div>
           )}
 
-          {subjectNames.length > 0 && (
+          {subjects.length > 0 && (
             <>
               <div className="mb-3 shrink-0 border-t border-[#e8e8e8]" />
               <div className="mb-3 shrink-0">
@@ -121,15 +117,14 @@ export default function SubjectSelectors({
                   Cadeira
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {subjectNames.map((name) => {
-                    const isActive = activeSubject === name;
-                    const subjectId = subjectIdByName.get(name);
-                    const isConfirmed = subjectId ? confirmedSubjectIds.has(subjectId) : false;
+                  {subjects.map((subject) => {
+                    const isActive = activeSubjectId === subject.id;
+                    const isConfirmed = confirmedSubjectIds.has(subject.id);
                     return (
                       <button
-                        key={name}
+                        key={subject.id}
                         type="button"
-                        onClick={() => onSelectSubject(name)}
+                        onClick={() => onSelectSubject(subject.id)}
                         className={`rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors cursor-pointer ${
                           isActive
                             ? "border-[#8c2d19] bg-[#8c2d19] text-white"
@@ -138,7 +133,7 @@ export default function SubjectSelectors({
                               : "border-[#e8e8e8] bg-white text-[#555] hover:border-[#d4d4d4] hover:bg-[#faf7f4]"
                         }`}
                       >
-                        {subjectAcronyms.get(name) ?? name}
+                        {subject.acronym || subject.name}
                       </button>
                     );
                   })}

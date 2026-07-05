@@ -12,7 +12,7 @@ import GroupCard from "./GroupCard";
 export default function SelectedGroupsPanel({
   loadingCandidates,
   groupViewsBySubject,
-  activeSubject,
+  activeSubjectId,
   highlightedGroupId,
   onRemoveGroup,
   scrollRef,
@@ -21,7 +21,7 @@ export default function SelectedGroupsPanel({
 }: {
   loadingCandidates: boolean;
   groupViewsBySubject: Map<string, GroupView[]>;
-  activeSubject: string | null;
+  activeSubjectId: string | null;
   highlightedGroupId: string | null;
   onRemoveGroup: (groupId: string) => void;
   scrollRef: RefObject<HTMLDivElement | null>;
@@ -42,12 +42,15 @@ export default function SelectedGroupsPanel({
             className="flex h-full gap-4 overflow-auto pr-1 pb-2 [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300/60"
           >
             {[...groupViewsBySubject.entries()]
-              .sort(([a], [b]) => a.localeCompare(b))
-              .map(([subjName, items]) => {
-                const isActive = subjName === activeSubject;
+              .sort(([, a], [, b]) =>
+                (a[0]?.subjectName ?? "").localeCompare(b[0]?.subjectName ?? ""),
+              )
+              .map(([subjectId, items]) => {
+                const isActive = subjectId === activeSubjectId;
+                const subjectName = items[0]?.subjectName ?? "";
                 return (
                   <div
-                    key={subjName}
+                    key={subjectId}
                     ref={isActive ? activeColRef : undefined}
                     className={`parallel-col-enter flex flex-col transition-[flex-grow,min-width] duration-300 ease-out ${
                       isActive ? "flex-[2.75] min-w-[340px]" : "flex-1 min-w-[210px]"
@@ -56,7 +59,7 @@ export default function SelectedGroupsPanel({
                     {/* Pinned so the subject stays visible while its cards scroll under it. */}
                     <div className="sticky top-0 z-10 flex items-center gap-2 bg-[#f0eeeb] pb-1.5">
                       <p className="text-[11px] font-bold tracking-widest uppercase text-[#888]">
-                        {subjName}
+                        {subjectName}
                       </p>
                       <span className="text-[10px] font-semibold text-[#bbb] tabular-nums">
                         {items.length}
