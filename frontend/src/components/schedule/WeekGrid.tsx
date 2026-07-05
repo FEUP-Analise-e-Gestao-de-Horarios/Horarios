@@ -299,17 +299,28 @@ export default function WeekGrid({
 
   const fullColTrack =
     columnWidthPx != null ? `${columnWidthPx}px` : `minmax(${TURMA_COLUMN_DEFAULT_MIN_PX}px, 1fr)`;
-  const gridTemplateColumns = dragState
-    ? `${TIME_COL_PX}px ${Array.from({ length: turmaColumnCount }, (_, columnIndex) =>
-        columnIndex === dragState.colIndex ? `${dragState.width}px` : `${dragState.othersWidth}px`,
-      ).join(" ")}`
-    : `${TIME_COL_PX}px ${computeColumnWidths(
+  // While dragging, occupied columns freeze at their pre-drag width so they
+  // don't reflow as the handle moves, and only the dragged column follows the
+  // pointer. Empty columns/days stay compacted just as they will after the
+  // commit, so releasing no longer pops them from full-width back to thin.
+  const turmaColumnTracks = dragState
+    ? computeColumnWidths(
+        colOccupied,
+        turmasCount,
+        `${dragState.othersWidth}px`,
+        TURMA_COLUMN_MIN_PX,
+        emptyDayTotalPx,
+      ).map((track, columnIndex) =>
+        columnIndex === dragState.colIndex ? `${dragState.width}px` : track,
+      )
+    : computeColumnWidths(
         colOccupied,
         turmasCount,
         fullColTrack,
         TURMA_COLUMN_MIN_PX,
         emptyDayTotalPx,
-      ).join(" ")}`;
+      );
+  const gridTemplateColumns = `${TIME_COL_PX}px ${turmaColumnTracks.join(" ")}`;
 
   if (events.length === 0 && marks.length === 0 && emptyMessage) {
     return (
@@ -410,7 +421,7 @@ export default function WeekGrid({
                           : (columnWidthPx ?? undefined)
                       }
                       onMouseDown={(event) => handleResizeStart(columnIndex, event)}
-                      onKeyDown={(event) => handleResizeKeyDown(columnIndex, event)}
+                      onKeyDown={(event) => handleResizeKeyDown(event)}
                       className={`absolute top-0 right-0 z-10 h-full w-2 cursor-col-resize hover:bg-[#8C2C19]/40 focus-visible:bg-[#8C2C19]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C73F24]/70 ${
                         dragState?.colIndex === columnIndex ? "bg-[#8C2C19]/60" : ""
                       }`}
