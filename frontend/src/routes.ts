@@ -11,4 +11,5 @@ export const ROUTES = {
   SUBJECT_DETAIL: "/projects/:projectId/dashboard/subjects/:subjectId",
   CLASS_DETAIL: "/projects/:projectId/dashboard/classes/:classId",
   EXPORT: "/projects/:projectId/export",
+  PARALLEL_SESSIONS: "/projects/:projectId/parallel-sessions",
 } as const;

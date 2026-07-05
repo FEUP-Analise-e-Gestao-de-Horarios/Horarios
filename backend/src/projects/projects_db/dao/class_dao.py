@@ -1,7 +1,7 @@
 from collections.abc import Iterable
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session as DBSession
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
@@ -112,7 +112,7 @@ class ClassDAO(BaseDAO[Class]):
     def _get_with_stats(self, *, year_id: UUID | None = None) -> list[ClassStats]:
         sessions_sq_q = select(
             SessionClassSubject.class_id,
-            func.count(SessionClassSubject.session_id).label("cnt"),
+            func.count(distinct(SessionClassSubject.session_id)).label("cnt"),
         )
         if year_id is not None:
             sessions_sq_q = sessions_sq_q.join(

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { getErrorCode, getErrorMessage } from "@/api/errors";
 import { useChangePassword } from "@/api/hooks/useAuth";
 import AuthPageLayout from "@/components/auth/AuthPageLayout";
 import BackLink from "@/components/auth/BackLink";
@@ -140,12 +141,12 @@ export default function ChangePasswordPage() {
           setCountdown(3);
         },
         onError: (err) => {
-          if (err.code === ApiError.AUTH_INVALID_OLD_PASSWORD) {
+          if (getErrorCode(err) === ApiError.AUTH_INVALID_OLD_PASSWORD) {
             setFieldError("oldPassword", "Palavra-passe antiga incorreta.");
-          } else if (err.code === ApiError.AUTH_PASSWORD_POLICY_VIOLATION) {
+          } else if (getErrorCode(err) === ApiError.AUTH_PASSWORD_POLICY_VIOLATION) {
             setFieldError(
               "newPassword",
-              err.apiMessage ?? "A palavra-passe não cumpre os requisitos de segurança.",
+              getErrorMessage(err, "A palavra-passe não cumpre os requisitos de segurança."),
             );
           } else {
             setFieldError("oldPassword", "Ocorreu um erro. Tente novamente.");

@@ -59,11 +59,16 @@ class YearBase(BaseModel):
     number: int
 
 
+class YearWithDegree(YearBase):
+    """A year together with its owning degree."""
+
+    degree: DegreeBase
+
+
 class SubjectBase(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
-    year_id: UUID
 
     number: int
     code: str

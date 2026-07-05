@@ -18,6 +18,7 @@
     "appuser",
     "ASGI",
     "astral",
+    "beautifulsoup",
     "cabtitulo",
     "collectstatic",
     "csrftoken",
@@ -52,6 +53,7 @@
     "simplifiable",
     "sqlalchemy",
     "staticfiles",
+    "unconfirm",
     "uvx",
     "venv",
     "Vite",
@@ -85,4 +87,8 @@
   "js/ts.tsdk.path": "frontend/node_modules/typescript/lib",
   "python-envs.defaultEnvManager": "ms-python.python:venv",
   "python.analysis.extraPaths": ["backend/"],
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff"
+  },
+  "makefile.configureOnOpen": false
 }

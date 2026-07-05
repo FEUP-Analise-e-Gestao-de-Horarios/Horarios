@@ -66,9 +66,15 @@ CREATE TABLE subjects (
     number   INT UNIQUE NOT NULL,
     code     TEXT UNIQUE NOT NULL,
     acronym  TEXT NOT NULL,
-    name     TEXT NOT NULL,
+    name     TEXT NOT NULL
+);
 
-    year_id  UUID NOT NULL REFERENCES years(id)
+-- A subject can be taught across several years (shared/optional UCs).
+CREATE TABLE subject_years (
+    subject_id  UUID NOT NULL REFERENCES subjects(id),
+    year_id     UUID NOT NULL REFERENCES years(id),
+
+    PRIMARY KEY (subject_id, year_id)
 );
 
 
@@ -149,19 +155,22 @@ CREATE INDEX ix_sessions_classes_subject_class_session
 -- Parallel blocks
 -----------------------------------------------------------
 
-CREATE TABLE parallel_block_candidates (
-    candidate_group_id  UUID NOT NULL,
-    original_block_id   UUID NOT NULL,
-
-    PRIMARY KEY (candidate_group_id, original_block_id)
-);
-
 CREATE TABLE parallel_block_group_members (
     parallel_block_group_id  UUID NOT NULL,
     original_block_id        UUID NOT NULL,
 
     PRIMARY KEY (parallel_block_group_id, original_block_id),
     UNIQUE (original_block_id)
+);
+
+-- Candidate groups the user has marked as reviewed/confirmed. A subject is
+-- confirmed only when every one of its current candidate components is listed
+-- here; the candidates endpoint prunes ids that no longer belong to a
+-- fully-confirmed subject on every read.
+CREATE TABLE parallel_confirmed_candidates (
+    candidate_group_id  UUID NOT NULL,
+
+    PRIMARY KEY (candidate_group_id)
 );
 
 

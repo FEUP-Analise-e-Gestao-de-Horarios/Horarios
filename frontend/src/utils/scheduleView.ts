@@ -1,8 +1,5 @@
 import { WEEKDAYS } from "@/utils/weekdays";
 
-/** Day order used when bit-packing the day filter into the URL. */
-export const SCHEDULE_VIEW_DAYS = WEEKDAYS;
-
 export type ScheduleViewSelection = {
   degreeId: string;
   ano: string;
@@ -151,12 +148,12 @@ export function encodeScheduleView(
   // toggle individual days off but the UI starts fully checked. That state is
   // observationally identical to "no day filter active", so collapse it to an
   // empty selection here so the canonical default URL stays compact.
-  const normalizedDias = selection.dias.length === SCHEDULE_VIEW_DAYS.length ? [] : selection.dias;
+  const normalizedDias = selection.dias.length === WEEKDAYS.length ? [] : selection.dias;
 
   const sections = [
     { values: selection.ucs, ref: orders.ucOrder },
     { values: selection.turmas, ref: orders.turmaOrder },
-    { values: normalizedDias, ref: [...SCHEDULE_VIEW_DAYS] },
+    { values: normalizedDias, ref: [...WEEKDAYS] },
     { values: selection.semanas, ref: orders.weekOrder },
   ];
 

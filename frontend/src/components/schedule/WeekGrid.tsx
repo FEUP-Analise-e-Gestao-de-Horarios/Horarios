@@ -1,13 +1,21 @@
 import { useMemo, useRef } from "react";
 import type { Weekday } from "@/types/project/weekday";
 import { hhmmToMinutes, minutesToTime } from "@/utils/time";
-import { WEEKDAYS, WEEKDAY_LABELS_LONG, WEEKDAY_LABELS_SHORT } from "@/utils/weekdays";
-import MarqueeText from "./MarqueeText";
+import { WEEKDAYS, WEEKDAY_LABELS_SHORT } from "@/utils/weekdays";
+import ScheduleEventCard from "./ScheduleEventCard";
+import { placeEventsOnGrid } from "./scheduleGrid";
 import { styleForSubject } from "./subjectColors";
 import { TURMA_COLUMN_MAX_PX, TURMA_COLUMN_MIN_PX, useColumnResize } from "./useColumnResize";
+import { useGridTimeRange } from "./useGridTimeRange";
 
 export interface WeekGridEvent {
   id: string;
+  /**
+   * Backend session id, shared by every event expanded from the same session
+   * (`id` is `${sessionId}-${turma}` for class-expanded events). Conflict
+   * records and session mutations key on this, never on `id`.
+   */
+  sessionId: string;
   weekday: Weekday;
   startTime: number;
   duration: number;
@@ -16,11 +24,13 @@ export interface WeekGridEvent {
   type?: string;
   turma?: string;
   classCodes?: string[];
+  /** Weeks (as ISO date strings) the source week-block covers. */
+  weeks?: string[];
   uc?: string;
   professor?: string;
   sala?: string;
-  teacherIds?: string[];
-  roomIds?: string[];
+  teachers?: { id: string; acronym: string; name: string }[];
+  rooms?: { id: string; name: string }[];
   subjectNames?: string[];
 }
 
@@ -36,13 +46,16 @@ interface WeekGridProps {
   startTime?: number;
   endTime?: number;
   onEventClick?: (event: WeekGridEvent) => void;
-  onEventDoubleClick?: (event: WeekGridEvent) => void;
   onHorizontalScroll?: () => void;
   emptyMessage?: string;
   weekdayLabels?: string[];
   primaryHeaderLeftLabel?: string;
   secondaryHeaderLeftLabel?: string;
   selectedTurmas?: string[];
+  /** Union of the weeks the user has selected; drives the partial-weeks badge. */
+  selectedWeeks?: string[];
+  /** Maps each week (ISO date) to its 1-based ordinal, for the week-range label. */
+  weekNumbers?: Map<string, number>;
   turmaShifts?: Record<string, number>;
   slotHeightPx?: number;
   showHalfHourLabels?: boolean;
@@ -56,37 +69,20 @@ interface WeekGridProps {
 
 const WEEKDAY_LABELS = WEEKDAYS.map((day) => WEEKDAY_LABELS_SHORT[day]);
 
-const DEFAULT_START_HHMM = 800;
-const DEFAULT_END_HHMM = 2000;
 const SLOT_MINUTES = 30;
 const MIN_SLOT_PX = 16;
 const HEADER_PX = 40;
+// Width of the sticky time-label column. '08:00' at the 12px label font is
+// ~33px; 34px hugs it tight on both sides (PI ToDo #22).
+const TIME_COL_PX = 34;
 // Width each turma column gets in the default (un-resized) flexible layout.
 const TURMA_COLUMN_DEFAULT_MIN_PX = 64;
 // Pixels of horizontal scroll change required to count as a user gesture.
 const HORIZONTAL_SCROLL_THRESHOLD_PX = 8;
 
-function weekdayIndex(weekday: Weekday): number {
-  return WEEKDAYS.indexOf(weekday);
-}
-
 function getTurmaHeaderStyle(shift?: number): string {
   if (shift !== undefined && shift % 2 === 0) return "bg-[#f7ddd7] border-[#e0b0a5] text-[#8C2C19]";
   return "bg-[#f9f7f4] text-[#08060d]";
-}
-
-function getEventAriaLabel(ev: WeekGridEvent): string {
-  const startMin = hhmmToMinutes(ev.startTime);
-  const endMin = startMin + ev.duration * SLOT_MINUTES;
-  const timeRange = `${minutesToTime(startMin)} a ${minutesToTime(endMin)}`;
-  const parts = [
-    ev.title || ev.uc || ev.type || "Evento",
-    `${WEEKDAY_LABELS_LONG[ev.weekday]}, ${timeRange}`,
-  ];
-  if (ev.turma) parts.push(`turma ${ev.turma}`);
-  if (ev.professor) parts.push(`docente ${ev.professor}`);
-  if (ev.sala) parts.push(`sala ${ev.sala}`);
-  return parts.join(" — ");
 }
 
 // Maps each turma code to a shortened label with the prefix/suffix shared by
@@ -125,35 +121,20 @@ function getTurmaShortLabels(turmas: string[]): Map<string, string> {
   return labels;
 }
 
-// Collapses a sorted, ascending list of column indices into contiguous runs.
-// A merged event may cover non-adjacent turma columns (e.g. [0, 2]); each run
-// is rendered as its own card so a card never spans a gap.
-function toContiguousRuns(sortedIndices: number[]): { start: number; span: number }[] {
-  const runs: { start: number; span: number }[] = [];
-  for (const index of sortedIndices) {
-    const last = runs[runs.length - 1];
-    if (last && index === last.start + last.span) {
-      last.span += 1;
-    } else {
-      runs.push({ start: index, span: 1 });
-    }
-  }
-  return runs;
-}
-
 export default function WeekGrid({
   events,
   marks = [],
   startTime,
   endTime,
   onEventClick,
-  onEventDoubleClick,
   onHorizontalScroll,
   emptyMessage,
   weekdayLabels,
   primaryHeaderLeftLabel,
   secondaryHeaderLeftLabel,
   selectedTurmas = [],
+  selectedWeeks = [],
+  weekNumbers,
   turmaShifts = {},
   slotHeightPx,
   showHalfHourLabels = false,
@@ -206,118 +187,48 @@ export default function WeekGrid({
   const hourFontPx = hourLabelFontPx ?? 10;
 
   const gridTemplateColumns = dragState
-    ? `44px ${Array.from({ length: turmaColumnCount }, (_, columnIndex) =>
+    ? `${TIME_COL_PX}px ${Array.from({ length: turmaColumnCount }, (_, columnIndex) =>
         columnIndex === dragState.colIndex ? `${dragState.width}px` : `${dragState.othersWidth}px`,
       ).join(" ")}`
     : columnWidthPx != null
-      ? `44px repeat(${turmaColumnCount}, ${columnWidthPx}px)`
-      : `44px repeat(${turmaColumnCount}, minmax(${TURMA_COLUMN_DEFAULT_MIN_PX}px, 1fr))`;
+      ? `${TIME_COL_PX}px repeat(${turmaColumnCount}, ${columnWidthPx}px)`
+      : `${TIME_COL_PX}px repeat(${turmaColumnCount}, minmax(${TURMA_COLUMN_DEFAULT_MIN_PX}px, 1fr))`;
 
-  const { gridStartMinutes, slotCount } = useMemo(() => {
-    let min = hhmmToMinutes(startTime ?? DEFAULT_START_HHMM);
-    let max = hhmmToMinutes(endTime ?? DEFAULT_END_HHMM);
+  const { gridStartMinutes, slotCount } = useGridTimeRange({
+    events,
+    marks,
+    startTime,
+    endTime,
+    includeEndSlot,
+  });
 
-    if (startTime === undefined || endTime === undefined) {
-      for (const ev of events) {
-        const start = hhmmToMinutes(ev.startTime);
-        const end = start + ev.duration * SLOT_MINUTES;
-        if (startTime === undefined && start < min) min = Math.floor(start / 60) * 60;
-        if (endTime === undefined && end > max) max = Math.ceil(end / 60) * 60;
-      }
-      for (const m of marks) {
-        const t = hhmmToMinutes(m.time);
-        if (startTime === undefined && t < min) min = Math.floor(t / 60) * 60;
-        if (endTime === undefined && t + SLOT_MINUTES > max)
-          max = Math.ceil((t + SLOT_MINUTES) / 60) * 60;
-      }
-    }
-
-    const count = (max - min) / SLOT_MINUTES + (includeEndSlot ? 1 : 0);
-    return { gridStartMinutes: min, slotCount: Math.max(count, 1) };
-  }, [events, marks, startTime, endTime, includeEndSlot]);
-
-  const placedEvents = useMemo(() => {
-    // The backend emits one event per (session, class code). Events that are
-    // really the same session — same day/time/duration/type and same
-    // title/teacher/room — are merged into a single card that spans every
-    // turma column it belongs to, instead of drawing N identical cards.
-    const getMergeKey = (ev: WeekGridEvent): string => {
-      return [ev.weekday, ev.startTime, ev.duration, ev.type, ev.title, ev.professor, ev.sala].join(
-        "||",
-      );
-    };
-
-    const mergeGroups = new Map<string, { events: WeekGridEvent[]; turmas: Set<string> }>();
-    for (const ev of events) {
-      if (activeTurmas.length > 0 && ev.turma && !activeTurmas.includes(ev.turma)) continue;
-      const key = getMergeKey(ev);
-      if (!mergeGroups.has(key)) {
-        mergeGroups.set(key, { events: [], turmas: new Set() });
-      }
-      const group = mergeGroups.get(key)!;
-      group.events.push(ev);
-      if (ev.turma) group.turmas.add(ev.turma);
-    }
-
-    type PlacedEvent = {
-      ev: WeekGridEvent;
-      dayCol: number;
-      rowStart: number;
-      span: number;
-      // Contiguous column runs the event occupies; usually one run.
-      runs: { start: number; span: number }[];
-    };
-
-    const result: PlacedEvent[] = [];
-    for (const { events: groupEvents, turmas } of mergeGroups.values()) {
-      if (groupEvents.length === 0) continue;
-      const ev = groupEvents[0];
-      if (!ev) continue;
-
-      const dayCol = weekdayIndex(ev.weekday);
-      if (dayCol < 0) continue;
-
-      // Filter events by visible days
-      const visibleColIdx = visibleDayIndices.indexOf(dayCol);
-      if (visibleColIdx < 0) continue; // Event is on a hidden day
-
-      const startMin = hhmmToMinutes(ev.startTime);
-      const rowStart = Math.round((startMin - gridStartMinutes) / SLOT_MINUTES);
-      if (rowStart < 0 || rowStart >= slotCount) continue;
-
-      const span = Math.min(ev.duration, slotCount - rowStart);
-
-      const turmaIndices: number[] = [];
-      for (let i = 0; i < activeTurmas.length; i++) {
-        const turma = activeTurmas[i];
-        if (turma && turmas.has(turma)) {
-          turmaIndices.push(i);
-        }
-      }
-
-      if (turmaIndices.length === 0 && activeTurmas.length > 0) {
-        turmaIndices.push(0);
-      }
-
-      if (turmaIndices.length > 0) {
-        result.push({
-          ev,
-          dayCol: visibleColIdx,
-          rowStart,
-          span,
-          runs: toContiguousRuns(turmaIndices),
-        });
-      }
-    }
-
-    return result;
-  }, [events, activeTurmas, gridStartMinutes, slotCount, visibleDayIndices]);
+  const placedEvents = useMemo(
+    () =>
+      placeEventsOnGrid(
+        events,
+        activeTurmas,
+        visibleDayIndices,
+        gridStartMinutes,
+        slotCount,
+        selectedWeeks,
+        weekNumbers,
+      ),
+    [
+      events,
+      activeTurmas,
+      gridStartMinutes,
+      slotCount,
+      visibleDayIndices,
+      selectedWeeks,
+      weekNumbers,
+    ],
+  );
 
   const placedMarks = useMemo(
     () =>
       marks
         .map((m) => {
-          const col = weekdayIndex(m.weekday);
+          const col = WEEKDAYS.indexOf(m.weekday);
           if (col < 0) return null;
           const visibleColIdx = visibleDayIndices.indexOf(col);
           if (visibleColIdx < 0) return null; // Mark is on a hidden day
@@ -400,7 +311,7 @@ export default function WeekGrid({
                 return (
                   <div
                     key={`sub-${visibleIdx}-${turmaIdx}`}
-                    className={`@container sticky z-20 overflow-hidden border-b px-2 py-1 text-center text-[10px] font-semibold uppercase tracking-wider ${getTurmaHeaderStyle(
+                    className={`@container sticky z-20 overflow-hidden border-b px-0.5 py-1 text-center text-[10px] font-semibold uppercase tracking-wider ${getTurmaHeaderStyle(
                       turmaShifts[turma],
                     )} ${turmaIdx === 0 && visibleIdx > 0 ? "border-l border-[#d8d5da]" : "border-[#e5e4e7]"}`}
                     style={{
@@ -457,7 +368,7 @@ export default function WeekGrid({
           return (
             <div
               key={`t-${i}`}
-              className={`sticky left-0 z-10 flex items-center justify-center bg-white border-r border-[#e5e4e7] px-2 text-center text-[#6b6375] ${rowDividerClass}`}
+              className={`sticky left-0 z-10 flex items-center justify-center bg-white border-r border-[#e5e4e7] px-0 text-center text-[#6b6375] ${rowDividerClass}`}
               style={{
                 gridColumn: 1,
                 gridRow: i + headerRows + 1,
@@ -512,58 +423,23 @@ export default function WeekGrid({
           );
         })}
 
-        {placedEvents.flatMap(({ ev, dayCol, rowStart, span, runs }) => {
+        {placedEvents.flatMap(({ ev, dayCol, rowStart, span, runs, weekRangeLabel }) => {
           const style = styleForSubject(ev.uc);
-          const clickable = !!onEventClick || !!onEventDoubleClick;
           const isEditingEvent = editingEventId === ev.id;
-          const ariaLabel = getEventAriaLabel(ev);
-          return runs.map((run) => {
-            const startCol = dayCol * turmasCount + run.start + 2;
-            return (
-              <button
-                key={`e-${ev.id}-${run.start}`}
-                type="button"
-                data-schedule-event=""
-                onClick={onEventClick ? () => onEventClick(ev) : undefined}
-                onDoubleClick={onEventDoubleClick ? () => onEventDoubleClick(ev) : undefined}
-                aria-label={ariaLabel}
-                aria-current={isEditingEvent ? "true" : undefined}
-                className={`group relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/80 focus-visible:z-10 ${
-                  isEditingEvent
-                    ? "bg-[#250902] border-[#38040e] text-white"
-                    : `${style.bg} ${style.border} ${style.text}`
-                } ${clickable ? "cursor-pointer hover:brightness-95 transition" : "cursor-default"}`}
-                style={{
-                  gridColumn: `${startCol} / span ${run.span}`,
-                  gridRow: `${rowStart + headerRows + 1} / span ${span}`,
-                }}
-                title={ev.title}
-                disabled={!clickable}
-              >
-                <div
-                  className="absolute inset-0 overflow-hidden px-1.5 py-1"
-                  style={{
-                    maskImage:
-                      "linear-gradient(to bottom, black calc(100% - 3px), rgba(0,0,0,0.2) calc(100% - 1px), transparent 100%)",
-                    WebkitMaskImage:
-                      "linear-gradient(to bottom, black calc(100% - 3px), rgba(0,0,0,0.2) calc(100% - 1px), transparent 100%)",
-                  }}
-                >
-                  {ev.title && <MarqueeText className="font-semibold">{ev.title}</MarqueeText>}
-                  {ev.type && (
-                    <MarqueeText className="text-[10px] uppercase leading-none opacity-70">
-                      {ev.type}
-                    </MarqueeText>
-                  )}
-                  {ev.body?.map((line, i) => (
-                    <MarqueeText key={i} className="opacity-80">
-                      {line}
-                    </MarqueeText>
-                  ))}
-                </div>
-              </button>
-            );
-          });
+          return runs.map((run) => (
+            <ScheduleEventCard
+              key={`e-${ev.id}-${run.start}`}
+              ev={ev}
+              startCol={dayCol * turmasCount + run.start + 2}
+              startRow={rowStart + headerRows + 1}
+              colSpan={run.span}
+              rowSpan={span}
+              style={style}
+              isEditing={isEditingEvent}
+              weekRangeLabel={weekRangeLabel}
+              onClick={onEventClick}
+            />
+          ));
         })}
       </div>
     </div>

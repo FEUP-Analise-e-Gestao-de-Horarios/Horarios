@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { sortValuesByReference } from "@/utils/scheduleEvents";
 import {
-  SCHEDULE_VIEW_DAYS,
   degreeKey,
   encodeScheduleView,
   parseScheduleView,
   unpackSections,
 } from "@/utils/scheduleView";
+import { WEEKDAYS } from "@/utils/weekdays";
 
 type DegreeOption = { id: string; acronym: string };
 type SyncedClass = { code: string; shift: number };
@@ -140,7 +140,7 @@ export function useScheduleViewUrl({
       const sections = unpackSections(parsed.bytes, [
         { ref: ucOptions },
         { ref: turmaOrder },
-        { ref: [...SCHEDULE_VIEW_DAYS] },
+        { ref: [...WEEKDAYS] },
         { ref: allWeekValues },
       ]);
       const ucsSection = sections[0];
@@ -171,7 +171,7 @@ export function useScheduleViewUrl({
         const sections = unpackSections(parsed.bytes, [
           { ref: ucOptions },
           { ref: turmaOrder },
-          { ref: [...SCHEDULE_VIEW_DAYS] },
+          { ref: [...WEEKDAYS] },
           { ref: allWeekValues },
         ]);
         const semanasSection = sections[3];

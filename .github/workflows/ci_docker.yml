@@ -1,0 +1,13 @@
+name: "CI: Docker"
+
+on:
+  pull_request:
+  merge_group:
+
+jobs:
+  docker-build:
+    name: "Build production image"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker build -t horarios-app .

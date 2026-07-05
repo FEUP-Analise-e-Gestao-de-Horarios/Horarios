@@ -59,13 +59,11 @@ export function compactExportToProjectExportPayload(
           class_code: classEntity?.class_code ?? conflict[1],
         };
       }),
-    modification_steps: payload.modification_steps.map(
-      (step): ExportModificationStep => ({
-        ...step,
-        session: sessionForStep(step, payload),
-        modifications: expandModifications(step.modifications, payload),
-      }),
-    ),
+    modification_steps: payload.modification_steps.map((step): ExportModificationStep => ({
+      ...step,
+      session: sessionForStep(step, payload),
+      modifications: expandModifications(step.modifications, payload),
+    })),
   };
 }
 

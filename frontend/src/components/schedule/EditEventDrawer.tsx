@@ -1,45 +1,15 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ConflictRecord } from "@/types/project/conflicts";
 import type { Weekday } from "@/types/project/weekday";
 import type { WeekGridEvent } from "@/components/schedule/WeekGrid";
-import { hhmmToMinutes, minutesToTime } from "@/utils/time";
 import { WEEKDAYS, WEEKDAY_LABELS_LONG } from "@/utils/weekdays";
+import ConflictCard from "./ConflictCard";
+import { DRAWER_DISMISS_IGNORE_SELECTOR } from "./dismissable";
 import DrawerMultiSelect from "./DrawerMultiSelect";
 import { useDismissable } from "./useDismissable";
+import { useDrawerSearch } from "./useDrawerSearch";
+import { toggleSelection, useEventDrawerForm } from "./useEventDrawerForm";
 
-function normalizeText(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-}
-
-function getConflictDay(weekday: Weekday): string {
-  return WEEKDAY_LABELS_LONG[weekday].split("-")[0] ?? "";
-}
-
-function conflictMatchesEvent(conflict: ConflictRecord, event: WeekGridEvent): boolean {
-  if (conflict.event_ids.includes(event.id)) return true;
-
-  const eventDay = normalizeText(getConflictDay(event.weekday));
-  const conflictDay = normalizeText(conflict.day);
-  if (eventDay !== conflictDay) return false;
-
-  const eventTime = minutesToTime(hhmmToMinutes(event.startTime));
-  if (conflict.time !== eventTime) return false;
-
-  const eventTurma = normalizeText(event.turma ?? event.classCodes?.[0] ?? "");
-  if (eventTurma && normalizeText(conflict.turma) !== eventTurma) return false;
-
-  const conflictText = normalizeText(conflict.event_names.join(" "));
-  const eventTokens = [event.title, event.uc, event.professor, event.sala, event.turma]
-    .filter((token): token is string => Boolean(token))
-    .map(normalizeText);
-
-  if (eventTokens.length === 0) return true;
-  return eventTokens.some((token) => conflictText.includes(token));
-}
 type TeacherOption = {
   id: string;
   label: string;
@@ -65,152 +35,6 @@ interface EditEventDrawerProps {
   event?: WeekGridEvent | null;
 }
 
-const MIN_TIME_MINUTES = 8 * 60;
-const MAX_TIME_MINUTES = 19 * 60 + 30;
-// Smallest gap between start and end. Mirrors the 30-minute slot grid the
-// schedule is drawn against; an event can't be shorter than one slot.
-const MIN_DURATION_MINUTES = 30;
-
-function clampTimeMinutes(totalMinutes: number): number {
-  return Math.max(MIN_TIME_MINUTES, Math.min(MAX_TIME_MINUTES, totalMinutes));
-}
-
-function timeToMinutes(time: string): number | null {
-  const [hours, minutes] = time.split(":").map(Number);
-  if (hours === undefined || minutes === undefined || Number.isNaN(hours) || Number.isNaN(minutes))
-    return null;
-  return hours * 60 + minutes;
-}
-
-function shiftTimeByMinutes(time: string, deltaMinutes: number): string {
-  const totalMinutes = timeToMinutes(time);
-  if (totalMinutes === null) return time;
-  return minutesToTime(clampTimeMinutes(totalMinutes + deltaMinutes));
-}
-
-function normalizeTimeValue(value: string, fallback: string): string {
-  const cleaned = value.trim();
-  const match = cleaned.match(/^(\d{1,2}):?(\d{2})$/);
-  if (!match) return fallback;
-
-  const hours = Number(match[1]);
-  const minutes = Number(match[2]);
-  if (Number.isNaN(hours) || Number.isNaN(minutes)) return fallback;
-  if (minutes < 0 || minutes > 59) return fallback;
-
-  const totalMinutes = clampTimeMinutes(hours * 60 + minutes);
-  return minutesToTime(totalMinutes);
-}
-
-/**
- * Adjusts `state` so `endTime` is at least one slot after `startTime`. Both
- * inputs are independently editable, but the form-state invariant is that
- * the start always precedes the end by at least one slot. The pinned field
- * stays put; the other is nudged into range.
- */
-function enforceTimeOrdering(state: FormState, pinned: TimeField): FormState {
-  const startMin = timeToMinutes(state.startTime);
-  const endMin = timeToMinutes(state.endTime);
-  if (startMin === null || endMin === null) return state;
-  if (endMin - startMin >= MIN_DURATION_MINUTES) return state;
-
-  if (pinned === "startTime") {
-    const nextEnd = clampTimeMinutes(startMin + MIN_DURATION_MINUTES);
-    return { ...state, endTime: minutesToTime(nextEnd) };
-  }
-  const nextStart = clampTimeMinutes(endMin - MIN_DURATION_MINUTES);
-  return { ...state, startTime: minutesToTime(nextStart) };
-}
-
-function toggleSelection(current: string[], itemId: string): string[] {
-  return current.includes(itemId)
-    ? current.filter((selectedId) => selectedId !== itemId)
-    : [...current, itemId];
-}
-
-type FormState = {
-  selectedUcOverride: string;
-  selectedDocenteOverride: string[];
-  selectedSalaOverride: string[];
-  selectedTurmasOverride: string[];
-  selectedWeekday: Weekday;
-  startTime: string;
-  endTime: string;
-};
-
-type TimeField = "startTime" | "endTime";
-
-type FormAction =
-  | { type: "reset"; event: WeekGridEvent | null | undefined }
-  | { type: "setUc"; value: string }
-  | { type: "setWeekday"; value: Weekday }
-  | { type: "setTime"; field: TimeField; value: string }
-  | { type: "shiftTime"; field: TimeField; delta: number }
-  | { type: "normalizeTime"; field: TimeField; raw: string }
-  | { type: "toggleDocente"; id: string }
-  | { type: "toggleSala"; id: string }
-  | { type: "setTurmas"; value: string[] };
-
-function getInitialFormState(event?: WeekGridEvent | null): FormState {
-  if (event) {
-    return {
-      selectedUcOverride: event.uc ?? "",
-      selectedDocenteOverride: event.teacherIds ?? [],
-      selectedSalaOverride: event.roomIds ?? [],
-      selectedTurmasOverride: event.classCodes ?? (event.turma ? [event.turma] : []),
-      selectedWeekday: event.weekday,
-      startTime: minutesToTime(hhmmToMinutes(event.startTime)),
-      endTime: minutesToTime(hhmmToMinutes(event.startTime) + event.duration * 30),
-    };
-  }
-  return {
-    selectedUcOverride: "",
-    selectedDocenteOverride: [],
-    selectedSalaOverride: [],
-    selectedTurmasOverride: [],
-    selectedWeekday: "monday",
-    startTime: "10:30",
-    endTime: "12:30",
-  };
-}
-
-function formReducer(state: FormState, action: FormAction): FormState {
-  switch (action.type) {
-    case "reset":
-      return getInitialFormState(action.event);
-    case "setUc":
-      return { ...state, selectedUcOverride: action.value };
-    case "setWeekday":
-      return { ...state, selectedWeekday: action.value };
-    case "setTime":
-      // Free-text edits skip the ordering invariant — the user is mid-type;
-      // ordering is enforced on blur via `normalizeTime`.
-      return { ...state, [action.field]: action.value };
-    case "shiftTime":
-      return enforceTimeOrdering(
-        { ...state, [action.field]: shiftTimeByMinutes(state[action.field], action.delta) },
-        action.field,
-      );
-    case "normalizeTime":
-      return enforceTimeOrdering(
-        { ...state, [action.field]: normalizeTimeValue(action.raw, state[action.field]) },
-        action.field,
-      );
-    case "toggleDocente":
-      return {
-        ...state,
-        selectedDocenteOverride: toggleSelection(state.selectedDocenteOverride, action.id),
-      };
-    case "toggleSala":
-      return {
-        ...state,
-        selectedSalaOverride: toggleSelection(state.selectedSalaOverride, action.id),
-      };
-    case "setTurmas":
-      return { ...state, selectedTurmasOverride: action.value };
-  }
-}
-
 export default function EditEventDrawer({
   open,
   onClose,
@@ -224,7 +48,7 @@ export default function EditEventDrawer({
   preferredUc,
   event,
 }: EditEventDrawerProps) {
-  const [formState, dispatch] = useReducer(formReducer, event, getInitialFormState);
+  const [formState, dispatch] = useEventDrawerForm(event);
   const {
     selectedUcOverride,
     selectedDocenteOverride,
@@ -235,6 +59,10 @@ export default function EditEventDrawer({
     endTime,
   } = formState;
 
+  const docentesSearch = useDrawerSearch();
+  const salasSearch = useDrawerSearch();
+  const turmasSearch = useDrawerSearch();
+
   // The form is seeded lazily from `event` on mount; re-seed whenever the
   // parent swaps in a different event (or any of its time-shape fields
   // change) so the inputs don't get stuck displaying the previous event.
@@ -244,13 +72,13 @@ export default function EditEventDrawer({
       lastEventRef.current = event;
       dispatch({ type: "reset", event });
     }
-  }, [event]);
-
-  const [docentesSearch, setDocentesSearch] = useState("");
-  const [salasSearch, setSalasSearch] = useState("");
-  const [turmasSearch, setTurmasSearch] = useState("");
+  }, [event, dispatch]);
+  // Conflicts reference bare session ids (contract C2), so matching on
+  // `sessionId` works for every event expanded from the session regardless of
+  // which turma's card the user clicked.
   const eventConflicts = useMemo(
-    () => (event ? conflicts.filter((conflict) => conflictMatchesEvent(conflict, event)) : []),
+    () =>
+      event ? conflicts.filter((conflict) => conflict.event_ids.includes(event.sessionId)) : [],
     [conflicts, event],
   );
   const [openDropdown, setOpenDropdown] = useState<"docentes" | "salas" | "turmas" | null>(null);
@@ -263,7 +91,7 @@ export default function EditEventDrawer({
   useDismissable(dropdownAreaRef, () => setOpenDropdown(null));
   useDismissable(asideRef, onClose, {
     escape: true,
-    ignoreSelector: "[data-schedule-event],[data-schedule-navbar]",
+    ignoreSelector: DRAWER_DISMISS_IGNORE_SELECTOR,
   });
 
   const selectedUc = useMemo(() => {
@@ -273,17 +101,18 @@ export default function EditEventDrawer({
   }, [preferredUc, selectedUcOverride, ucOptions]);
 
   const preferredRoomTypes = useMemo(() => {
-    if (!event?.roomIds || event.roomIds.length === 0) return new Set<string>();
+    if (!event?.rooms || event.rooms.length === 0) return new Set<string>();
+    const eventRoomIds = new Set(event.rooms.map((room) => room.id));
     const roomTypes = roomOptions
-      .filter((room) => event.roomIds?.includes(room.id))
+      .filter((room) => eventRoomIds.has(room.id))
       .map((room) => room.type)
       .filter((type) => type.length > 0);
     return new Set(roomTypes);
   }, [event, roomOptions]);
 
   const selectedEventTeacherIds = useMemo(
-    () => new Set(event?.teacherIds ?? []),
-    [event?.teacherIds],
+    () => new Set((event?.teachers ?? []).map((teacher) => teacher.id)),
+    [event?.teachers],
   );
 
   const selectedClassDocentes = useMemo(
@@ -307,35 +136,34 @@ export default function EditEventDrawer({
     [preferredRoomTypes, roomOptions],
   );
 
-  const filteredSelectedClassDocentes = useMemo(() => {
-    const query = docentesSearch.toLowerCase().trim();
-    if (!query) return selectedClassDocentes;
-    return selectedClassDocentes.filter((docente) => docente.label.toLowerCase().includes(query));
-  }, [docentesSearch, selectedClassDocentes]);
+  const docenteMatches = docentesSearch.matches;
+  const salaMatches = salasSearch.matches;
+  const turmaMatches = turmasSearch.matches;
 
-  const filteredOtherDocentes = useMemo(() => {
-    const query = docentesSearch.toLowerCase().trim();
-    if (!query) return otherDocentes;
-    return otherDocentes.filter((docente) => docente.label.toLowerCase().includes(query));
-  }, [docentesSearch, otherDocentes]);
+  const filteredSelectedClassDocentes = useMemo(
+    () => selectedClassDocentes.filter((docente) => docenteMatches(docente.label)),
+    [docenteMatches, selectedClassDocentes],
+  );
 
-  const filteredPreferredSalas = useMemo(() => {
-    const query = salasSearch.toLowerCase().trim();
-    if (!query) return preferredSalas;
-    return preferredSalas.filter((room) => `${room.id} ${room.type}`.toLowerCase().includes(query));
-  }, [preferredSalas, salasSearch]);
+  const filteredOtherDocentes = useMemo(
+    () => otherDocentes.filter((docente) => docenteMatches(docente.label)),
+    [docenteMatches, otherDocentes],
+  );
 
-  const filteredOtherSalas = useMemo(() => {
-    const query = salasSearch.toLowerCase().trim();
-    if (!query) return otherSalas;
-    return otherSalas.filter((room) => `${room.id} ${room.type}`.toLowerCase().includes(query));
-  }, [otherSalas, salasSearch]);
+  const filteredPreferredSalas = useMemo(
+    () => preferredSalas.filter((room) => salaMatches(`${room.id} ${room.type}`)),
+    [preferredSalas, salaMatches],
+  );
 
-  const filteredTurmas = useMemo(() => {
-    const query = turmasSearch.toLowerCase().trim();
-    if (!query) return turmaOptions;
-    return turmaOptions.filter((turma) => turma.toLowerCase().includes(query));
-  }, [turmaOptions, turmasSearch]);
+  const filteredOtherSalas = useMemo(
+    () => otherSalas.filter((room) => salaMatches(`${room.id} ${room.type}`)),
+    [otherSalas, salaMatches],
+  );
+
+  const filteredTurmas = useMemo(
+    () => turmaOptions.filter((turma) => turmaMatches(turma)),
+    [turmaOptions, turmaMatches],
+  );
 
   // The "effective" selections are simply the user's overrides, narrowed to
   // ids that still exist in the option list. Previously they fell back to a
@@ -394,7 +222,9 @@ export default function EditEventDrawer({
       // "non-modal side panel" meaning more accurately than role="dialog".
       aria-labelledby="edit-event-drawer-title"
       className={[
-        "fixed left-0 top-[15vh] h-[70vh] w-[min(92vw,420px)] z-40 transition-transform duration-200",
+        // Positioned by the page: fills the schedule content area, which
+        // starts exactly where the (height-variable) navbar ends.
+        "absolute left-0 top-0 h-full w-[min(92vw,420px)] z-40 transition-transform duration-200",
         collapsed ? "-translate-x-full" : "translate-x-0",
       ].join(" ")}
     >
@@ -544,12 +374,12 @@ export default function EditEventDrawer({
               triggerLabel={selectedDocenteLabel}
               open={openDropdown === "docentes"}
               onToggle={() => setOpenDropdown((prev) => (prev === "docentes" ? null : "docentes"))}
-              search={docentesSearch}
-              onSearchChange={setDocentesSearch}
-              listMaxHeightClass="max-h-52"
+              search={docentesSearch.query}
+              onSearchChange={docentesSearch.setQuery}
+              listMaxHeightClass="max-h-72"
               groups={[
                 {
-                  heading: "Docentes da turma selecionada",
+                  heading: "Docentes desta aula",
                   options: filteredSelectedClassDocentes,
                 },
                 { heading: "Todos os docentes", options: filteredOtherDocentes },
@@ -565,9 +395,9 @@ export default function EditEventDrawer({
                   triggerLabel={selectedSalaLabel}
                   open={openDropdown === "salas"}
                   onToggle={() => setOpenDropdown((prev) => (prev === "salas" ? null : "salas"))}
-                  search={salasSearch}
-                  onSearchChange={setSalasSearch}
-                  listMaxHeightClass="max-h-48"
+                  search={salasSearch.query}
+                  onSearchChange={salasSearch.setQuery}
+                  listMaxHeightClass="max-h-64"
                   groups={[
                     {
                       heading: "Tipologia correspondente",
@@ -595,9 +425,9 @@ export default function EditEventDrawer({
                   triggerLabel={`Turmas (${effectiveSelectedTurmas.length})`}
                   open={openDropdown === "turmas"}
                   onToggle={() => setOpenDropdown((prev) => (prev === "turmas" ? null : "turmas"))}
-                  search={turmasSearch}
-                  onSearchChange={setTurmasSearch}
-                  listMaxHeightClass="max-h-44"
+                  search={turmasSearch.query}
+                  onSearchChange={turmasSearch.setQuery}
+                  listMaxHeightClass="max-h-56"
                   groups={[
                     { options: filteredTurmas.map((turma) => ({ id: turma, label: turma })) },
                   ]}
@@ -635,29 +465,7 @@ export default function EditEventDrawer({
             ) : (
               <div className="space-y-2">
                 {eventConflicts.map((conflict) => (
-                  <div
-                    key={conflict.id}
-                    className="text-xs border-l-3 border-white/30 bg-white/5 rounded p-2 space-y-1.5"
-                  >
-                    <div className="text-white/90 font-semibold space-y-0.5">
-                      {conflict.event_names.map((name, idx) => (
-                        <p key={idx} className="line-clamp-1">
-                          {name}
-                        </p>
-                      ))}
-                    </div>
-                    <p className="text-white/70">
-                      {conflict.day} · {conflict.time}
-                    </p>
-                    <div className="space-y-0.5 pt-1 border-t border-white/10">
-                      {conflict.conflict_reasons.map((reason, idx) => (
-                        <p key={idx} className="text-white/80 flex items-start gap-1">
-                          <span className="text-white/60 flex-shrink-0">•</span>
-                          <span>{reason}</span>
-                        </p>
-                      ))}
-                    </div>
-                  </div>
+                  <ConflictCard key={conflict.id} conflict={conflict} variant="compact" />
                 ))}
               </div>
             )}

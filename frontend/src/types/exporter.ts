@@ -4,9 +4,7 @@ export type ExportModificationStepType = "move" | "exchange";
 
 export type ExportPrimitive = string | number | boolean | null;
 export type ExportJsonValue =
-  | ExportPrimitive
-  | ExportJsonValue[]
-  | { [key: string]: ExportJsonValue };
+  ExportPrimitive | ExportJsonValue[] | { [key: string]: ExportJsonValue };
 
 export interface ExportColumnChange<T = ExportJsonValue> {
   old: T;
@@ -49,8 +47,7 @@ export interface ExportClassSubjectRelationChange {
 }
 
 export type ExportFieldModification =
-  | ExportColumnChange<unknown>
-  | ExportAddedRemovedRecords<unknown>;
+  ExportColumnChange<unknown> | ExportAddedRemovedRecords<unknown>;
 
 export interface ExportSessionModifications {
   start_time?: ExportColumnChange<number>;

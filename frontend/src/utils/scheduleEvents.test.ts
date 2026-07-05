@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  formatDateLabel,
-  formatWeekRange,
+  compareCourseAcronyms,
   getCourseGroupLabel,
   sessionToEvents,
   sortValuesByReference,
@@ -40,6 +39,11 @@ describe("getCourseGroupLabel", () => {
     expect(getCourseGroupLabel("Mestrado em Engenharia")).toBe("Mestrados");
   });
 
+  it("matches Doutoramentos via doutoramento and programa doutoral", () => {
+    expect(getCourseGroupLabel("Doutoramento em Engenharia Informática")).toBe("Doutoramentos");
+    expect(getCourseGroupLabel("Programa Doutoral em Informática")).toBe("Doutoramentos");
+  });
+
   it("matches Pós-Graduações via accented and unaccented variants", () => {
     expect(getCourseGroupLabel("Pós-Graduação em X")).toBe("Pós-Graduações");
     expect(getCourseGroupLabel("Pos-graduacao em X")).toBe("Pós-Graduações");
@@ -52,35 +56,37 @@ describe("getCourseGroupLabel", () => {
   });
 });
 
-describe("formatDateLabel", () => {
-  it("flips ISO-style dates to DD-MM-YYYY", () => {
-    expect(formatDateLabel("2024-03-05")).toBe("05-03-2024");
+describe("compareCourseAcronyms", () => {
+  it("pins the informática licenciaturas in order, matching dotted sigarra forms", () => {
+    const compare = compareCourseAcronyms("Licenciaturas");
+    expect(["CINF", "L.EIC"].sort(compare)).toEqual(["L.EIC", "CINF"]);
   });
 
-  it("returns the input unchanged when it doesn't have three hyphen-separated parts", () => {
-    expect(formatDateLabel("2024")).toBe("2024");
-    expect(formatDateLabel("2024-03")).toBe("2024-03");
-    expect(formatDateLabel("")).toBe("");
-  });
-});
-
-describe("formatWeekRange", () => {
-  it("returns empty for an empty list", () => {
-    expect(formatWeekRange([])).toBe("");
-  });
-
-  it("collapses a single-week block to one date", () => {
-    expect(formatWeekRange(["2024-03-05"])).toBe("05-03-2024");
+  it("pins the mestrados in the PI ToDo order", () => {
+    const compare = compareCourseAcronyms("Mestrados");
+    expect(["MM", "MCI", "MECD", "MESW", "M.IA", "M.EIC"].sort(compare)).toEqual([
+      "M.EIC",
+      "M.IA",
+      "MESW",
+      "MECD",
+      "MCI",
+      "MM",
+    ]);
   });
 
-  it("collapses a block whose first and last dates match", () => {
-    expect(formatWeekRange(["2024-03-05", "2024-03-05"])).toBe("05-03-2024");
+  it("sorts unpinned acronyms alphabetically after the pinned ones", () => {
+    const compare = compareCourseAcronyms("Licenciaturas");
+    expect(["LZZZ", "CINF", "LAAA", "LEIC"].sort(compare)).toEqual([
+      "LEIC",
+      "CINF",
+      "LAAA",
+      "LZZZ",
+    ]);
   });
 
-  it("formats a multi-week block as first - last", () => {
-    expect(formatWeekRange(["2024-03-05", "2024-03-12", "2024-03-19"])).toBe(
-      "05-03-2024 - 19-03-2024",
-    );
+  it("is purely alphabetical for groups without a pinned order", () => {
+    const compare = compareCourseAcronyms("Outros");
+    expect(["B", "A"].sort(compare)).toEqual(["A", "B"]);
   });
 });
 
@@ -98,7 +104,6 @@ function makeTeacher(overrides: Partial<TeacherBase> = {}): TeacherBase {
 function makeSubject(overrides: Partial<SubjectBase> = {}): SubjectBase {
   return {
     id: "u1",
-    year_id: "y1",
     number: 1,
     code: "ALG01",
     acronym: "ALG",
@@ -203,5 +208,14 @@ describe("sessionToEvents", () => {
   it("populates body lines from teacher and room acronyms when present", () => {
     const events = sessionToEvents(makeSession(), NO_FILTERS);
     expect(events[0]?.body).toEqual(["AL", "B003"]);
+  });
+
+  it("stamps the session id and structured teachers/rooms on every event", () => {
+    const events = sessionToEvents(makeSession(), NO_FILTERS);
+    for (const ev of events) {
+      expect(ev.sessionId).toBe("s1");
+      expect(ev.teachers).toEqual([{ id: "t1", acronym: "AL", name: "Ada Lovelace" }]);
+      expect(ev.rooms).toEqual([{ id: "r1", name: "B003" }]);
+    }
   });
 });

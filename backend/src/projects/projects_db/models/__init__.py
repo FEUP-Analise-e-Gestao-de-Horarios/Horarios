@@ -3,7 +3,8 @@ from .class_red_block import ClassRedBlock
 from .degree import Degree
 from .export_cache import ExportCache
 from .modified_session import ModifiedSession
-from .parallel_block_candidate import ParallelBlockCandidate
+from .parallel_block_group_member import ParallelBlockGroupMember
+from .parallel_confirmed_candidate import ParallelConfirmedCandidate
 from .room import Room
 from .room_red_block import RoomRedBlock
 from .session import Session
@@ -19,7 +20,8 @@ __all__ = [
     "Degree",
     "ExportCache",
     "ModifiedSession",
-    "ParallelBlockCandidate",
+    "ParallelBlockGroupMember",
+    "ParallelConfirmedCandidate",
     "Room",
     "RoomRedBlock",
     "Session",

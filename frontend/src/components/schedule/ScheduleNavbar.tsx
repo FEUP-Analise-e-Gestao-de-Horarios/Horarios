@@ -1,29 +1,14 @@
 import { useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ROUTES } from "@/routes";
 import { buildPath } from "@/utils/routes";
 import CursoDropdown from "./CursoDropdown";
+import { SCHEDULE_NAVBAR_DATA_ATTR } from "./dismissable";
 import MultiDropdown from "./MultiDropdown";
 import TurnoTurmaDropdown, { type TurnoTurmaGroup } from "./TurnoTurmaDropdown";
 import { styleForSubjectDark } from "./subjectColors";
+import type { CourseGroup, DropdownOption } from "./types";
 import { useDismissable } from "./useDismissable";
-
-type CourseOption = {
-  value: string;
-  label: string;
-  description?: string;
-};
-
-type DropdownOption = {
-  value: string;
-  label: string;
-  secondaryText?: string;
-};
-
-type CourseGroup = {
-  label: string;
-  options: CourseOption[];
-};
 
 interface ScheduleNavbarProps {
   projectId: string;
@@ -83,6 +68,7 @@ export default function ScheduleNavbar({
     "bg-[#8C2C19] text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap hover:bg-[#A9361E] transition-colors";
   const [openDropdown, setOpenDropdown] = useState<DropdownId | null>(null);
   const navRef = useRef<HTMLElement>(null);
+  const navigate = useNavigate();
 
   useDismissable(navRef, () => setOpenDropdown(null), { escape: true });
 
@@ -109,7 +95,7 @@ export default function ScheduleNavbar({
   return (
     <header
       ref={navRef}
-      data-schedule-navbar=""
+      {...{ [SCHEDULE_NAVBAR_DATA_ATTR]: "" }}
       className="relative z-50 shrink-0 px-6 py-3 bg-[#1e2028] flex items-center gap-2 w-full flex-wrap overflow-visible border-b border-gray-700"
     >
       <Link to={ROUTES.HOME} className={primaryRedButtonClass}>
@@ -207,7 +193,7 @@ export default function ScheduleNavbar({
       <div className="border-l border-gray-600 h-5 mx-1" />
 
       <button
-        type="button"
+        onClick={() => void navigate(buildPath(ROUTES.PARALLEL_SESSIONS, { projectId }))}
         className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors"
       >
         Editar Aulas em Paralelo
@@ -217,7 +203,9 @@ export default function ScheduleNavbar({
 
       <button
         type="button"
-        className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors"
+        disabled
+        title="Funcionalidade ainda não disponível"
+        className="bg-transparent text-gray-500 font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 cursor-not-allowed"
       >
         Distribuição
       </button>

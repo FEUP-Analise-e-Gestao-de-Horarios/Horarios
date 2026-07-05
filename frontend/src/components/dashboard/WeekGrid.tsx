@@ -268,7 +268,9 @@ export default function WeekGrid({
             <button
               key={`e-${ev.id}`}
               type="button"
-              onClick={clickable ? () => onEventClick(ev) : undefined}
+              data-copy-id={ev.id}
+              data-copy-label="ID da sessão"
+              onClick={clickable ? (e) => !e.altKey && onEventClick(ev) : undefined}
               className={`relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden ${
                 isHighlighted
                   ? "z-10 animate-pulse border-red-700 bg-red-100 text-red-950 shadow-[0_0_0_2px_rgba(220,38,38,0.75)]"

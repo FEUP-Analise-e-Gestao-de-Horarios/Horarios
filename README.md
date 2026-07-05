@@ -9,6 +9,8 @@ A web application for analyzing and managing FEUP (Faculty of Engineering, Unive
 | [Setup Guide](docs/setup.md)           | How to run the project locally for development   |
 | [Deployment Guide](docs/deployment.md) | How to deploy the project to a production server |
 | [Structure](docs/structure.md)         | Repository layout and codebase overview          |
+| [Backend](docs/backend.md)             | Backend architecture, API surface, and databases |
+| [Frontend](docs/frontend.md)           | React frontend architecture and data-fetching layer |
 | [Glossary](docs/glossary.md)           | Canonical names for domain concepts              |
 | [Page Information](docs/page-information.md) | Data extraction requirements for schedule pages |
 

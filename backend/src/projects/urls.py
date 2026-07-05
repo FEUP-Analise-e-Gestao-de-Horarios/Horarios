@@ -3,6 +3,15 @@ from django.urls import include, path
 from src.projects.views.classes import ProjectClassesView, ProjectClassView
 from src.projects.views.degrees import ProjectDegreesView, ProjectDegreeView
 from src.projects.views.export import ProjectExportView
+from src.projects.views.parallel_blocks import (
+    ProjectParallelBlockCandidateView,
+    ProjectParallelBlockGroupsView,
+    ProjectParallelBlockGroupView,
+    ProjectParallelConfirmAllView,
+    ProjectParallelConfirmationsView,
+    ProjectParallelConfirmationView,
+    ProjectParallelFinishView,
+)
 from src.projects.views.project import ProjectsView, ProjectView
 from src.projects.views.rooms import ProjectRoomsView, ProjectRoomView
 from src.projects.views.sessions import ProjectSessionsView, ProjectSessionView
@@ -48,17 +57,35 @@ session_patterns = [
     path("<uuid:session_id>", ProjectSessionView.as_view()),
 ]
 
+parallel_block_group_patterns = [
+    path("", ProjectParallelBlockGroupsView.as_view()),
+    path("<uuid:group_id>", ProjectParallelBlockGroupView.as_view()),
+]
+
+parallel_confirmation_patterns = [
+    path("", ProjectParallelConfirmationsView.as_view()),
+    path("all", ProjectParallelConfirmAllView.as_view()),
+    path("<uuid:subject_id>", ProjectParallelConfirmationView.as_view()),
+]
+
+parallel_block_patterns = [
+    path("candidates", ProjectParallelBlockCandidateView.as_view()),
+    path("finish", ProjectParallelFinishView.as_view()),
+    path("groups/", include(parallel_block_group_patterns)),
+    path("confirmations/", include(parallel_confirmation_patterns)),
+]
+
 project_patterns = [
-    path("", ProjectView.as_view()),
     path("stats", ProjectStatsView.as_view()),
     path("export", ProjectExportView.as_view()),
     path("rooms/", include(room_patterns)),
-    path("sessions/", include(session_patterns)),
     path("teachers/", include(teacher_patterns)),
     path("degrees/", include(degree_patterns)),
     path("years/", include(year_patterns)),
     path("subjects/", include(subject_patterns)),
     path("classes/", include(class_patterns)),
+    path("sessions/", include(session_patterns)),
+    path("parallel-blocks/", include(parallel_block_patterns)),
 ]
 
 urlpatterns = [

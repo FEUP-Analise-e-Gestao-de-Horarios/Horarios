@@ -25,6 +25,9 @@ class Session(Base):
         UniqueConstraint("week", "original_block_id"),
         Index("ix_sessions_week_original_block_id", "week", "original_block_id"),
         Index("ix_sessions_conflict_slot", "week", "weekday", "start_time", "duration", "id"),
+        # Covers the per-block min/max(week) lookup in the parallel-candidate
+        # query; also serves plain original_block_id filters as a prefix.
+        Index("ix_sessions_original_block_id_week", "original_block_id", "week"),
     )
 
     # UUIDs
@@ -40,7 +43,7 @@ class Session(Base):
     start_time: Mapped[int] = mapped_column()
     duration: Mapped[int] = mapped_column()
     type: Mapped[str] = mapped_column(Text, index=True)
-    original_block_id: Mapped[UUID] = mapped_column(Uuid(native_uuid=False), index=True)
+    original_block_id: Mapped[UUID] = mapped_column(Uuid(native_uuid=False))
 
     # Relationships
     rooms: Mapped[list[Room]] = relationship(

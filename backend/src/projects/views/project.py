@@ -6,7 +6,12 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views import View
 
 from src.core.decorators import require_auth
-from src.core.errors import ApiError, ErrorResponse, ProjectNotFoundResponse
+from src.core.errors import (
+    ProjectCreateDuplicatedNameResponse,
+    ProjectCreateFailedResponse,
+    ProjectNotFoundResponse,
+    ProjectRenameDuplicatedNameResponse,
+)
 from src.core.schemas import SuccessResponse
 from src.core.validation import validate_request_body
 from src.ingestion.manager import IngestionManager
@@ -49,11 +54,7 @@ class ProjectsView(View):
 
         # -- Check if Project already exists -----------------------------------
         if Project.objects.filter(name=project_name).exists():
-            return ErrorResponse(
-                status=HTTPStatus.BAD_REQUEST,
-                code=ApiError.PROJECTS_CREATE_DUPLICATED_NAME,
-                message=f"A project with the name '{project_name}' already exists.",
-            )
+            return ProjectCreateDuplicatedNameResponse(project_name)
 
         # -- Create Project's entry and DB -------------------------------------
         proj = Project(name=project_name, url=str(project_url), creator=request.user)
@@ -64,11 +65,7 @@ class ProjectsView(View):
             create_project_db(proj_id)
         except Exception:
             proj.delete()
-            return ErrorResponse(
-                status=HTTPStatus.INTERNAL_SERVER_ERROR,
-                code=ApiError.PROJECTS_CREATE_FAILED,
-                message="Failed to create project.",
-            )
+            return ProjectCreateFailedResponse()
 
         # -- Run Ingestion in a background thread ------------------------------
         def run() -> None:
@@ -126,11 +123,7 @@ class ProjectView(View):
         # -- Check if name is taken --------------------------------------------
         new_name = validated.name
         if Project.objects.filter(name=new_name).exclude(pk=project_id).exists():
-            return ErrorResponse(
-                status=HTTPStatus.BAD_REQUEST,
-                code=ApiError.PROJECTS_RENAME_DUPLICATED_NAME,
-                message=f"A project with the name '{new_name}' already exists.",
-            )
+            return ProjectRenameDuplicatedNameResponse(new_name)
 
         # -- Rename and return -------------------------------------------------
         project.name = new_name
