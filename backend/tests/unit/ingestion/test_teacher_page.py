@@ -93,3 +93,28 @@ def test_name_parsed_when_acronym_contains_separator() -> None:
         acronym="DCC - ACM",
         code=3,
     ) == ("DCC - ACM", "André Couto Meira", 3)
+
+
+def test_name_recovered_when_sigla_extends_acronym_with_plain_dash() -> None:
+    """The extends-sigla case must also work with a bare ``-`` separator.
+
+    Same shape as ``test_name_recovered_when_sigla_extends_acronym`` but with the
+    spaceless separator the real ``AJCA-…`` page uses. The residual sigla chars
+    (``TB``) must still be peeled off instead of fusing into the name.
+    """
+    assert _info(
+        first_node="AMMTB-Ana Mafalda Matos",
+        acronym="AMM",
+        code=7,
+    ) == ("AMM", "Ana Mafalda Matos", 7)
+
+
+def test_multipart_name_keeps_all_segments() -> None:
+    """The name is split off at the *first* separator, so a name that itself
+    contains ``" - "`` keeps every part (the inner ``-`` is then stripped as
+    punctuation, leaving the surrounding spaces)."""
+    assert _info(
+        first_node="ABC - Ana - Sofia Costa",
+        acronym="ABC",
+        code=8,
+    ) == ("ABC", "Ana  Sofia Costa", 8)

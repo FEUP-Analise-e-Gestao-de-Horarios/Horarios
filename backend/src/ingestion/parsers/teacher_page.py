@@ -9,10 +9,11 @@ def extract_teacher_info(soup: BeautifulSoup) -> tuple[str, str, int]:
     Parses the ``<td class="cabtitulo">`` header cell, whose ``<br>``-separated
     text nodes are ``{header}``, ``{acronym}``, ``{code}`` (any further nodes,
     such as a trailing ``Semanas: …`` range, are ignored). ``{header}`` is
-    ``"{sigla} - {name}"``; the displayed *sigla* is usually the acronym but not
-    always, so the name is taken as the text after the header's first ``-``
-    separator rather than by stripping the acronym off it. When the header has no
-    name part (it is just a code), the acronym is used as the name.
+    ``"{sigla} - {name}"``; the displayed *sigla* is usually the acronym but may
+    extend or differ from it, so the name is taken as the text after the first
+    ``-`` separator (peeling a matching acronym prefix first, so a longer sigla's
+    own separator is the one used). When the header has no name part (it is just
+    a code), the acronym is used as the name.
 
     Args:
         soup: Parsed HTML of the teacher page.
@@ -43,19 +44,14 @@ def extract_teacher_info(soup: BeautifulSoup) -> tuple[str, str, int]:
     header, acronym, raw_code = text_nodes[0], text_nodes[1], text_nodes[2]
 
     # The header is "{sigla}[ - ]{name}". The displayed sigla is usually the
-    # acronym, but it may be longer ("AMMTB" vs "AMM"), differ entirely
-    # ("AJCA" vs "AA"), or itself contain " - " ("DCC - ACM"). Peel the sigla
-    # off so a name is never dropped just because the sigla != the acronym.
-    if header.startswith(acronym):
-        name = header[len(acronym) :].lstrip("- ")
-        if " - " in name:  # a secondary sigla remained before the name
-            name = name.rsplit(" - ", 1)[1]
-    elif " - " in header:
-        name = header.rsplit(" - ", 1)[1]
-    elif "-" in header:
-        name = header.split("-", 1)[1]
-    else:
-        name = ""
+    # acronym, but it may extend it ("AMMTB" vs "AMM"), differ entirely ("AJCA"
+    # vs "AA"), or itself contain " - " ("DCC - ACM"). When the acronym prefixes
+    # the header, peel it off first so only the sigla's own separator is left;
+    # otherwise the sigla is a single token and the first "-" splits it from the
+    # name. Split on the *first* separator, not the last, so a name that itself
+    # contains " - " keeps all of its parts.
+    body = header[len(acronym) :] if header.startswith(acronym) else header
+    name = body.split("-", 1)[1] if "-" in body else ""
 
     name = re.sub(r"[^\w\s]", "", name).strip()
     if not name:  # header carried no name part: use the acronym
