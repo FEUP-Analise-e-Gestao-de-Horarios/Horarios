@@ -5,11 +5,10 @@ import type {
   ConflictsListPayload,
 } from "@/types/project/conflicts";
 import type { ParallelBlocksPayload } from "@/types/project/parallel";
-import type { PermissionsPayload } from "@/types/project/permissions";
 
 /**
  * In-memory stand-ins for the backend endpoints that don't exist yet
- * (contracts C2-C5). Hooks route here while the matching flag in
+ * (contracts C2-C4). Hooks route here while the matching flag in
  * `@/config/featureFlags` is off. Once the real endpoint ships, nothing in
  * this module is referenced for that feature and it can be deleted piecemeal.
  */
@@ -107,11 +106,4 @@ export function mockParallelBlocks(): ParallelBlocksPayload {
   // No restrictions until the endpoint exists; the unavailability overlay
   // simply unions an empty list.
   return { blocks: [] };
-}
-
-// -- Permissions (C5) --------------------------------------------------------
-
-export function mockPermissions(): PermissionsPayload {
-  // Admin-by-default so no UI is hidden while the endpoint doesn't exist.
-  return { degrees: [], is_admin: true };
 }
