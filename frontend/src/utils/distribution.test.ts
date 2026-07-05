@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { WeekGridEvent } from "@/components/schedule/WeekGrid";
 import { computeDistribution } from "./distribution";
 
+let nextId = 0;
 function ev(partial: Partial<WeekGridEvent>): WeekGridEvent {
   return {
-    id: Math.random().toString(),
+    id: `e${(nextId += 1)}`,
     sessionId: "s",
     weekday: "monday",
     startTime: 800,
