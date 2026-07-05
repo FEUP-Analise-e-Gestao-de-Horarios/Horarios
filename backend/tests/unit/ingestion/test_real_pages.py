@@ -678,8 +678,9 @@ def test_real_red_blocks_are_wellformed_and_deduplicated(
 
 def test_real_teacher_normal_red_blocks_day_distribution() -> None:
     """Pin the per-day spread, not just the total: 17 Saturday slots plus two on
-    each weekday. A weekday-mapping bug that shifted blocks between days would
-    keep the total 27 but change this distribution."""
+    each weekday. Because the five weekday buckets are all 2, this only catches a
+    mapping bug that moves blocks to or from the Saturday column (17); a swap
+    between two weekdays leaves the distribution unchanged."""
     red_blocks = extract_red_blocks(F.soup("teacher_normal"))
     per_day = Counter(day for _time, day in red_blocks)
     assert per_day == {
