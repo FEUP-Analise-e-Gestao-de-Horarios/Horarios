@@ -10,7 +10,11 @@ import DrawerMultiSelect from "./DrawerMultiSelect";
 import ScrollingNames from "./ScrollingNames";
 import { useDismissable } from "./useDismissable";
 import { useDrawerSearch } from "./useDrawerSearch";
-import { toggleSelection, useEventDrawerForm } from "./useEventDrawerForm";
+import {
+  getInitialEventDrawerFormState,
+  toggleSelection,
+  useEventDrawerForm,
+} from "./useEventDrawerForm";
 
 function normalizeText(value: string): string {
   return value
@@ -21,6 +25,8 @@ function normalizeText(value: string): string {
 }
 
 function conflictMatchesEvent(conflict: ConflictRecord, event: WeekGridEvent): boolean {
+  if (event.blockId && conflict.block_ids.includes(event.blockId)) return true;
+
   if (conflict.event_ids.includes(event.id)) return true;
 
   if (conflict.day !== event.weekday) return false;
@@ -166,6 +172,29 @@ export default function EditEventDrawer({
     startTime,
     endTime,
   } = formState;
+
+  // Whether the form differs from the event it was seeded with.
+  const initialFormState = useMemo(() => getInitialEventDrawerFormState(event), [event]);
+  const isFormDirty = useMemo(() => {
+    const sameSet = (a: string[], b: string[]) =>
+      a.length === b.length && a.every((x) => b.includes(x));
+    return (
+      selectedWeekday !== initialFormState.selectedWeekday ||
+      startTime !== initialFormState.startTime ||
+      endTime !== initialFormState.endTime ||
+      !sameSet(selectedDocenteOverride, initialFormState.selectedDocenteOverride) ||
+      !sameSet(selectedSalaOverride, initialFormState.selectedSalaOverride) ||
+      !sameSet(selectedTurmasOverride, initialFormState.selectedTurmasOverride)
+    );
+  }, [
+    selectedWeekday,
+    startTime,
+    endTime,
+    selectedDocenteOverride,
+    selectedSalaOverride,
+    selectedTurmasOverride,
+    initialFormState,
+  ]);
 
   const docentesSearch = useDrawerSearch();
   const salasSearch = useDrawerSearch();
@@ -332,6 +361,12 @@ export default function EditEventDrawer({
     const blockId = event?.blockId;
     if (!blockId) return;
 
+    // Skip the preview until the form is actually changed.
+    if (!isFormDirty) {
+      resetPreview();
+      return;
+    }
+
     const startMin = timeToMinutes(startTime);
     const endMin = timeToMinutes(endTime);
     if (startMin === null || endMin === null || endMin <= startMin) return;
@@ -354,6 +389,7 @@ export default function EditEventDrawer({
     return () => clearTimeout(timer);
   }, [
     event?.blockId,
+    isFormDirty,
     selectedWeekday,
     startTime,
     endTime,
@@ -361,6 +397,7 @@ export default function EditEventDrawer({
     effectiveSelectedSala,
     effectiveSelectedClassIds,
     previewConflicts,
+    resetPreview,
   ]);
 
   // Clear preview when the event changes.
