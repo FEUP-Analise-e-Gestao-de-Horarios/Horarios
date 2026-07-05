@@ -14,9 +14,9 @@ export function useParallelFilters(
   graphs: ParallelCandidateGraph[],
 ) {
   const [restoredState] = useState<{ degreeId: string; yearIds: string[] } | null>(() => {
-    const raw = sessionStorage.getItem(`parallelClasses-${projectId ?? ""}`);
+    const raw = sessionStorage.getItem(`parallelSessions-${projectId ?? ""}`);
     if (!raw) return null;
-    sessionStorage.removeItem(`parallelClasses-${projectId ?? ""}`);
+    sessionStorage.removeItem(`parallelSessions-${projectId ?? ""}`);
     try {
       return JSON.parse(raw) as { degreeId: string; yearIds: string[] };
     } catch {
@@ -131,7 +131,7 @@ export function useParallelFilters(
   const rememberView = () => {
     if (!projectId) return;
     sessionStorage.setItem(
-      `parallelClasses-${projectId}`,
+      `parallelSessions-${projectId}`,
       JSON.stringify({ degreeId: selectedDegree?.id, yearIds: [...selectedYearIds] }),
     );
   };
