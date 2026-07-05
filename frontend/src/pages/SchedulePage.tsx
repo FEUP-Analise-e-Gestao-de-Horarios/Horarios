@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
+import type { EventTarget } from "@/types/project/conflicts";
 import WeekGrid from "@/components/schedule/WeekGrid";
 import EditEventDrawer from "@/components/schedule/EditEventDrawer";
 import ConflictsDrawer from "@/components/schedule/ConflictsDrawer";
@@ -49,6 +50,10 @@ export default function SchedulePage() {
   const eventEditor = useEventEditor();
   const [isConflictsDrawerOpen, setIsConflictsDrawerOpen] = useState(false);
   const [conflictsFetchEnabled, setConflictsFetchEnabled] = useState(false);
+  // A conflict aula the user clicked: drives the schedule to that aula's
+  // degree/year/week and then opens the editor on its block once both load.
+  const [pendingEventTarget, setPendingEventTarget] = useState<EventTarget | null>(null);
+  const pendingWeekPinnedRef = useRef(false);
 
   const canShowSchedule = curso !== "";
 
@@ -188,6 +193,48 @@ export default function SchedulePage() {
     setSemanas,
   });
 
+  const handleNavigateToEvent = (target: EventTarget) => {
+    setCurso(target.degree);
+    setAnos([String(target.year)]);
+    setUcs([]);
+    setTurnos([]);
+    setTurmas([]);
+    setSemanas([]);
+    setDias([...WEEKDAYS]);
+    setIsConflictsDrawerOpen(false);
+    pendingWeekPinnedRef.current = false;
+    setPendingEventTarget(target);
+  };
+
+  // Resolve a pending aula navigation once the target year's data loads: pin
+  // its week, then open the editor on its block.
+  useEffect(() => {
+    if (!pendingEventTarget) return;
+    /* eslint-disable react-hooks/set-state-in-effect */
+    if (!pendingWeekPinnedRef.current) {
+      const weekBlock = filters.allWeekValues.find((value) =>
+        value.split("|").includes(pendingEventTarget.week),
+      );
+      if (weekBlock) {
+        pendingWeekPinnedRef.current = true;
+        if (!semanas.includes(weekBlock)) {
+          setSemanas([weekBlock]);
+          return;
+        }
+      }
+    }
+
+    const event = filters.scheduleEvents.find(
+      (candidate) => candidate.blockId === pendingEventTarget.block_id,
+    );
+    if (event) {
+      eventEditor.openEditor(event);
+      setPendingEventTarget(null);
+      pendingWeekPinnedRef.current = false;
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [pendingEventTarget, filters.allWeekValues, filters.scheduleEvents, semanas, eventEditor]);
+
   const handleSelectCurso = (nextCurso: string) => {
     setCurso(nextCurso);
     setAnos([]);
@@ -275,6 +322,7 @@ export default function SchedulePage() {
         conflicts={yearConflicts}
         isLoading={yearConflictsQuery.isFetching}
         onRefresh={() => void yearConflictsQuery.refetch()}
+        onNavigateToEvent={handleNavigateToEvent}
         displayedBlockIds={displayedBlockIds}
       />
 

@@ -1,8 +1,16 @@
 // -- Base ----------------------------------------------------------------
+export interface EventTarget {
+  degree: string;
+  year: number;
+  week: string;
+  block_id: string;
+}
+
 export interface ConflictRecord {
   id: string;
   event_ids: string[];
   event_names: string[];
+  event_targets: Record<string, EventTarget>;
   day: string;
   time: number;
   turma: string[];

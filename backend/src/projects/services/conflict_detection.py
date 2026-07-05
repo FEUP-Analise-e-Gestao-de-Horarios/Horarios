@@ -17,7 +17,12 @@ from src.projects.projects_db.models.room_red_block import RoomRedBlock
 from src.projects.projects_db.models.session import Session
 from src.projects.projects_db.models.teacher_red_block import TeacherRedBlock
 from src.projects.projects_db.schemas.weekday import WeekDay
-from src.projects.services.schemas.conflicts import ConflictData, ConflictResult, RedBlocks
+from src.projects.services.schemas.conflicts import (
+    ConflictData,
+    ConflictResult,
+    EventTarget,
+    RedBlocks,
+)
 
 # A red block marks a single 30-minute slot as unavailable.
 RED_BLOCK_SLOT_MINUTES = 30
@@ -343,6 +348,28 @@ def _conflict_data_to_results(
             },
         )
 
+        # Per-event editing target, preferring the turma that is part of the
+        # conflict over other turmas of a shared block.
+        conflict_class_ids = set(class_ids_by_conflict.get(cid, []))
+        event_targets: dict[str, EventTarget] = {}
+        for s in sessions:
+            classes = [cs.class_ for cs in s.session_class_subjects if cs.class_ is not None]
+            chosen = next((c for c in classes if c.id in conflict_class_ids), None)
+            if chosen is None:
+                chosen = next(iter(classes), None)
+            if chosen is None:
+                continue
+            year = getattr(chosen, "year", None)
+            degree = getattr(year, "degree", None)
+            if year is None or degree is None:
+                continue
+            event_targets[str(s.id)] = EventTarget(
+                degree=degree.acronym,
+                year=year.number,
+                week=s.week.isoformat(),
+                block_id=str(s.original_block_id),
+            )
+
         subjects = sorted(
             {
                 cs.subject.acronym
@@ -395,6 +422,7 @@ def _conflict_data_to_results(
                 id=cid,
                 event_ids=[str(s.id) for s in sessions],
                 event_names=[_session_name(s) for s in sessions],
+                event_targets=event_targets,
                 day=first.weekday.value,
                 time=first.start_time,
                 turma=turma,

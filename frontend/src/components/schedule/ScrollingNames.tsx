@@ -1,11 +1,23 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
+interface ScrollingNamesProps {
+  names: string[];
+  /** When set, each navigable name renders as a button that calls this. */
+  onNameClick?: (index: number) => void;
+  /** Whether the name at a given index is navigable. Defaults to all. */
+  isNameClickable?: (index: number) => boolean;
+}
+
 /**
  * Renders a joined list of names in a single overflowing line.
  * When the text is wider than the container it scrolls back and forth
  * while the element is hovered, so the clipped part can still be read.
  */
-export default function ScrollingNames({ names }: { names: string[] }) {
+export default function ScrollingNames({
+  names,
+  onNameClick,
+  isNameClickable,
+}: ScrollingNamesProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLSpanElement>(null);
   const [translateX, setTranslateX] = useState(0);
@@ -85,7 +97,27 @@ export default function ScrollingNames({ names }: { names: string[] }) {
           transition: `transform ${duration}s ease-in-out`,
         }}
       >
-        {names.join(" · ")}
+        {onNameClick
+          ? names.map((name, index) => {
+              const clickable = isNameClickable?.(index) ?? true;
+              return (
+                <span key={index}>
+                  {index > 0 && " · "}
+                  {clickable ? (
+                    <button
+                      type="button"
+                      onClick={() => onNameClick(index)}
+                      className="underline decoration-dotted underline-offset-2 hover:text-white/80 cursor-pointer"
+                    >
+                      {name}
+                    </button>
+                  ) : (
+                    name
+                  )}
+                </span>
+              );
+            })
+          : names.join(" · ")}
       </span>
     </div>
   );

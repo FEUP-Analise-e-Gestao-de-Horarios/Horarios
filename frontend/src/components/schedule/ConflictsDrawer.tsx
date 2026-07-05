@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ConflictRecord } from "@/types/project/conflicts";
+import type { ConflictRecord, EventTarget } from "@/types/project/conflicts";
 import { CONFLICT_TAGS } from "@/types/project/conflicts";
 import {
   useDeleteConflictTag,
@@ -192,6 +192,7 @@ interface ConflictCardProps {
   availableTags: string[];
   onSetTags: (conflictId: string, nextTags: string[]) => void;
   onAddCustomTag: (tag: string) => void;
+  onNavigateToEvent?: (target: EventTarget) => void;
   isPending: boolean;
 }
 
@@ -200,6 +201,7 @@ function ConflictCard({
   availableTags,
   onSetTags,
   onAddCustomTag,
+  onNavigateToEvent,
   isPending,
 }: ConflictCardProps) {
   const [pickerAnchorRect, setPickerAnchorRect] = useState<DOMRect | null>(null);
@@ -242,7 +244,18 @@ function ConflictCard({
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
-          <ScrollingNames names={conflict.event_names} />
+          <ScrollingNames
+            names={conflict.event_names}
+            onNameClick={
+              onNavigateToEvent
+                ? (index) => {
+                    const target = conflict.event_targets[conflict.event_ids[index] ?? ""];
+                    if (target) onNavigateToEvent(target);
+                  }
+                : undefined
+            }
+            isNameClickable={(index) => !!conflict.event_targets[conflict.event_ids[index] ?? ""]}
+          />
           <p className="text-xs text-white/70 mt-1">
             {(WEEKDAY_LABELS_SHORT as Record<string, string>)[conflict.day] ?? conflict.day} às{" "}
             {minutesToTime(hhmmToMinutes(conflict.time))} — Turma: {conflict.turma.join(", ")}
@@ -357,6 +370,7 @@ interface ConflictsDrawerProps {
   conflicts?: ConflictRecord[];
   isLoading?: boolean;
   onRefresh?: () => void;
+  onNavigateToEvent?: (target: EventTarget) => void;
   displayedBlockIds?: Set<string>;
 }
 
@@ -373,6 +387,7 @@ export default function ConflictsDrawer({
   conflicts = [],
   isLoading = false,
   onRefresh,
+  onNavigateToEvent,
   displayedBlockIds,
 }: ConflictsDrawerProps) {
   const asideRef = useRef<HTMLElement>(null);
@@ -750,6 +765,7 @@ export default function ConflictsDrawer({
                     isPending={isTagPending}
                     onSetTags={(id, tags) => updateTags({ conflictId: id, tags })}
                     onAddCustomTag={addCustomTag}
+                    onNavigateToEvent={onNavigateToEvent}
                   />
                 ))}
               </div>

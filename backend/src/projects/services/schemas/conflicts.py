@@ -6,10 +6,20 @@ from pydantic import BaseModel, ConfigDict, Field
 from src.projects.projects_db.schemas.weekday import WeekDay
 
 
+class EventTarget(BaseModel):
+    """Where to navigate to edit the aula (session) behind a conflict event."""
+
+    degree: str
+    year: int
+    week: str
+    block_id: str
+
+
 class ConflictResult(BaseModel):
     id: str
     event_ids: list[str]
     event_names: list[str]
+    event_targets: dict[str, EventTarget] = Field(default_factory=dict)
     day: str
     time: int
     turma: list[str]
