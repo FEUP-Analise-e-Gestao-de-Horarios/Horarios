@@ -27,7 +27,8 @@ type RoomOption = {
 /** Sala dropdown option: name, capacity in front, then tipologia (PI ToDo #8a). */
 function salaToOption(room: RoomOption) {
   const capacity = room.seats ? ` (${room.seats})` : "";
-  return { id: room.id, label: `${room.label}${capacity} - ${room.type}` };
+  const type = room.type ? ` - ${room.type}` : "";
+  return { id: room.id, label: `${room.label}${capacity}${type}` };
 }
 
 /** Inline amber warning shown while editing the event (PI ToDo #17, #18). */

@@ -88,9 +88,15 @@ function buildBaseEvent(
 ): Omit<WeekGridEvent, "id" | "turma"> {
   const primarySubject = session.subjects[0];
   // A class shared across courses links the same UC's subject row from each
-  // course (same acronym/name, different id), so de-duplicate to avoid "VC, VC".
-  const uniqueAcronyms = [...new Set(session.subjects.map((subject) => subject.acronym))];
-  const title = uniqueAcronyms.join(", ") || session.type;
+  // course (same acronym+name, different id), so de-duplicate by UC identity to
+  // avoid "VC, VC". Keying title and subjectNames off the same deduped list
+  // keeps them consistent: distinct UCs that merely share an acronym stay split.
+  const uniqueSubjects = [
+    ...new Map(
+      session.subjects.map((subject) => [`${subject.acronym} ${subject.name}`, subject]),
+    ).values(),
+  ];
+  const title = uniqueSubjects.map((subject) => subject.acronym).join(", ") || session.type;
   const body = [
     session.teachers.map((teacher) => teacher.acronym).join(", "),
     session.rooms.map((room) => room.name).join(", "),
@@ -115,7 +121,7 @@ function buildBaseEvent(
       name: teacher.name,
     })),
     rooms: session.rooms.map((room) => ({ id: room.id, name: room.name })),
-    subjectNames: [...new Set(session.subjects.map((subject) => subject.name))],
+    subjectNames: uniqueSubjects.map((subject) => subject.name),
   };
 }
 

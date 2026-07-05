@@ -4,10 +4,10 @@ import { hhmmToMinutes, minutesToTime } from "@/utils/time";
 import type { WeekGridEvent } from "./WeekGrid";
 
 const SLOT_MINUTES = 30;
-const MIN_TIME_MINUTES = 8 * 60;
-const MAX_END_MINUTES = 19 * 60 + 30;
+const MIN_TIME_MINUTES = 7 * 60;
+const MAX_END_MINUTES = 20 * 60;
 // A class needs at least one slot before the grid ends, so it can't start later
-// than 19:00.
+// than 19:30.
 const MAX_START_MINUTES = MAX_END_MINUTES - SLOT_MINUTES;
 const MIN_DURATION_SLOTS = 1;
 
@@ -84,7 +84,9 @@ export type EventDrawerFormAction =
 
 export function getInitialEventDrawerFormState(event?: WeekGridEvent | null): EventDrawerFormState {
   if (event) {
-    const startTime = minutesToTime(hhmmToMinutes(event.startTime));
+    // Clamp the seeded start the same way shifts/normalization do, so an event
+    // starting past the latest allowed slot doesn't open the drawer out of range.
+    const startTime = minutesToTime(clampTimeMinutes(hhmmToMinutes(event.startTime)));
     return {
       selectedUcOverride: event.uc ?? "",
       selectedDocenteOverride: (event.teachers ?? []).map((teacher) => teacher.id),
