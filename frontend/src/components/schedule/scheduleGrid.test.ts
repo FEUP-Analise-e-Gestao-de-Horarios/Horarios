@@ -9,6 +9,7 @@ const SLOT_COUNT = 19;
 
 function event(overrides: Partial<WeekGridEvent> & { id: string }): WeekGridEvent {
   return {
+    sessionId: overrides.id,
     weekday: "monday",
     startTime: 800,
     duration: 2,

@@ -49,6 +49,7 @@ function buildBaseEvent(
   ].filter((item) => item.length > 0);
 
   return {
+    sessionId: session.id,
     weekday: session.weekday,
     startTime: session.start_time,
     duration: session.duration,
@@ -60,8 +61,12 @@ function buildBaseEvent(
     uc: primarySubject?.name ?? primarySubject?.acronym ?? session.type,
     professor: session.teachers[0]?.acronym,
     sala: session.rooms[0]?.name,
-    teacherIds: session.teachers.map((teacher) => teacher.id),
-    roomIds: session.rooms.map((room) => room.id),
+    teachers: session.teachers.map((teacher) => ({
+      id: teacher.id,
+      acronym: teacher.acronym,
+      name: teacher.name,
+    })),
+    rooms: session.rooms.map((room) => ({ id: room.id, name: room.name })),
     subjectNames: session.subjects.map((subject) => subject.name),
   };
 }

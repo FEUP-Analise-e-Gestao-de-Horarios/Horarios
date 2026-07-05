@@ -6,7 +6,7 @@ import type { WeekGridEvent } from "./WeekGrid";
  * whether the drawer is open, and whether it's collapsed against the left
  * edge. `openEditor` deep-clones the event so the drawer's in-flight edits
  * can't reach back into the canonical event arrays (`body`, `classCodes`,
- * `teacherIds`, …) that the grid keeps rendering from.
+ * `teachers`, …) that the grid keeps rendering from.
  */
 export function useEventEditor() {
   const [editingEvent, setEditingEvent] = useState<WeekGridEvent | null>(null);

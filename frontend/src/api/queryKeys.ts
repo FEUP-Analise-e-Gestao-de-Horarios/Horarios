@@ -19,6 +19,8 @@ export const queryKeys = {
     room: (id: string, roomId: string) => ["projects", id, "rooms", roomId] as const,
     subject: (id: string, subjectId: string) => ["projects", id, "subjects", subjectId] as const,
     class: (id: string, classId: string) => ["projects", id, "classes", classId] as const,
+    conflicts: (id: string, scope: string, yearId: string, includeIgnored: boolean) =>
+      ["projects", id, "conflicts", scope, yearId, includeIgnored] as const,
     sessions: (id: string, filters: SessionsQueryFilters) =>
       [
         "projects",
@@ -30,5 +32,12 @@ export const queryKeys = {
         [...filters.weekdays].sort(),
       ] as const,
     parallelCandidates: (id: string) => ["projects", id, "parallel-candidates"] as const,
+
+    // -- Invalidation prefixes -------------------------------------------
+    // Each is the shared prefix of the matching specific key above, so
+    // invalidating it refetches every variant (all filters / scopes) for the
+    // project in one call. Keep them a true prefix of their specific key.
+    sessionsRoot: (id: string) => ["projects", id, "sessions"] as const,
+    conflictsRoot: (id: string) => ["projects", id, "conflicts"] as const,
   },
 } as const;

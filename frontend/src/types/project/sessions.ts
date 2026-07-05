@@ -23,6 +23,20 @@ export interface SessionResponse extends SessionBase {
   rooms: RoomBase[];
 }
 
+// -- Update (contract C1) --------------------------------------------------
+/** PATCH body for /api/projects/<pid>/sessions/<sid>/ — send only changed fields. */
+export interface SessionPatch {
+  weekday?: Weekday;
+  /** HHMM encoding, same as SessionBase.start_time. */
+  start_time?: number;
+  /** Duration in 30-minute slots, same as SessionBase.duration. */
+  duration?: number;
+  teacher_ids?: string[];
+  room_ids?: string[];
+  class_ids?: string[];
+  subject_ids?: string[];
+}
+
 // -- Week blocks ---------------------------------------------------------
 export interface WeekBlockResponse {
   weeks: string[];
