@@ -263,6 +263,7 @@ export default function WeekGrid({
               key={`e-${ev.id}`}
               type="button"
               data-copy-id={ev.id}
+              data-copy-label="ID da sessão"
               onClick={clickable ? (e) => !e.altKey && onEventClick(ev) : undefined}
               className={`relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden ${
                 style.bg
