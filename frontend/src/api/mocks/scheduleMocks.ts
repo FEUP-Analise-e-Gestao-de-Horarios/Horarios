@@ -4,11 +4,10 @@ import type {
   ConflictScope,
   ConflictsListPayload,
 } from "@/types/project/conflicts";
-import type { ParallelBlocksPayload } from "@/types/project/parallel";
 
 /**
  * In-memory stand-ins for the backend endpoints that don't exist yet
- * (contracts C2-C4). Hooks route here while the matching flag in
+ * (contracts C2/C3). Hooks route here while the matching flag in
  * `@/config/featureFlags` is off. Once the real endpoint ships, nothing in
  * this module is referenced for that feature and it can be deleted piecemeal.
  */
@@ -98,12 +97,4 @@ export function mockSetConflictIgnored(
 /** Test helper: reset the in-memory ignore state. */
 export function mockResetIgnoredConflicts(): void {
   ignoredConflictIds.clear();
-}
-
-// -- Parallel blocks (C4) ----------------------------------------------------
-
-export function mockParallelBlocks(): ParallelBlocksPayload {
-  // No restrictions until the endpoint exists; the unavailability overlay
-  // simply unions an empty list.
-  return { blocks: [] };
 }

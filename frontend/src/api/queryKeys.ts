@@ -25,8 +25,6 @@ export const queryKeys = {
     conflictsRoot: (id: string) => ["projects", id, "conflicts"] as const,
     conflicts: (id: string, scope: string, yearId: string, includeIgnored: boolean) =>
       ["projects", id, "conflicts", scope, yearId, includeIgnored] as const,
-    parallelBlocks: (id: string, sessionId: string) =>
-      ["projects", id, "parallel-blocks", sessionId] as const,
     sessions: (id: string, filters: SessionsQueryFilters) =>
       [
         "projects",
