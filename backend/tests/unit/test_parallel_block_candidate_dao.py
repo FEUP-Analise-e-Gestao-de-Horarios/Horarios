@@ -1939,6 +1939,44 @@ def test_candidate_ids_for_subject_unknown_subject_is_empty(project_db: Session)
     assert dao.candidate_ids_for_subject(uuid.uuid7()) == set()
 
 
+def test_candidate_ids_for_subject_filtered_matches_full_graph(project_db: Session) -> None:
+    """The filtered scan returns the same ids as computing the full graph and filtering.
+
+    Two subjects each have a pair of blocks colliding in *overlapping slots*
+    (same week/weekday/start_time), so the full graph interleaves their rows.
+    For every subject the filtered ``candidate_ids_for_subject`` must equal the
+    full graph filtered in Python by ``subject_id`` -- proving the subject-filter
+    pushed into the query causes no cross-subject leakage or loss.
+    """
+    year = make_year(project_db, commit=False)
+    subject_a = make_subject(project_db, year=year, commit=False)
+    subject_b = make_subject(project_db, year=year, commit=False)
+    # Both pairs share the exact same slot (MONDAY@9, W_09_15); only the subject
+    # differs, so the two subjects' rows sit in the same slot buckets.
+    a1, a2 = make_parallel_candidate_pair(project_db, subject=subject_a, commit=False)
+    b1, b2 = make_parallel_candidate_pair(project_db, subject=subject_b, commit=False)
+    project_db.commit()
+
+    dao = ParallelBlockCandidateDAO(project_db)
+
+    # Reference: full, unfiltered graph, filtered in Python by subject_id.
+    full_components = dao.get_candidate_components()
+
+    def full_filtered(subject_id: UUID) -> set[UUID]:
+        return {
+            component.candidate_group_id
+            for component in full_components
+            if component.subject_id == subject_id
+        }
+
+    for subject in (subject_a, subject_b):
+        assert dao.candidate_ids_for_subject(subject.id) == full_filtered(subject.id)
+
+    # And the concrete expected sets, so a regression is legible.
+    assert dao.candidate_ids_for_subject(subject_a.id) == {_component_uuid(subject_a.id, {a1, a2})}
+    assert dao.candidate_ids_for_subject(subject_b.id) == {_component_uuid(subject_b.id, {b1, b2})}
+
+
 def test_all_candidate_ids_spans_every_subject(project_db: Session) -> None:
     """all_candidate_ids unions the candidate ids of every subject's components."""
     year = make_year(project_db, commit=False)

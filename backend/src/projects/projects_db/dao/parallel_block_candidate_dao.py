@@ -78,17 +78,29 @@ class ParallelBlockCandidateDAO:
     # -- Components (graph topology only)
     # -------------------------------------------------------------------
 
-    def get_candidate_components(self) -> list[CandidateComponent]:
-        """Return the candidate groups as connected components with their edges."""
-        rows = self.session.execute(candidate_slot_members_stmt()).all()
+    def get_candidate_components(
+        self,
+        subject_id: UUID | None = None,
+    ) -> list[CandidateComponent]:
+        """Return the candidate groups as connected components with their edges.
+
+        When ``subject_id`` is given the scan is filtered to that subject's rows,
+        so only its components are built (an exact optimization: a subject's
+        components depend only on its own rows). When ``None`` the full,
+        cross-subject graph is built -- required by the confirmation reconcile
+        and display paths.
+        """
+        rows = self.session.execute(candidate_slot_members_stmt(subject_id)).all()
         return build_candidate_components(rows)
 
     def candidate_ids_for_subject(self, subject_id: UUID) -> set[UUID]:
-        """The current candidate group ids of one subject's components."""
+        """The current candidate group ids of one subject's components.
+
+        Scans only ``subject_id``'s rows, so every built component already
+        belongs to that subject -- no post-filter is needed.
+        """
         return {
-            component.candidate_group_id
-            for component in self.get_candidate_components()
-            if component.subject_id == subject_id
+            component.candidate_group_id for component in self.get_candidate_components(subject_id)
         }
 
     def all_candidate_ids(self) -> set[UUID]:

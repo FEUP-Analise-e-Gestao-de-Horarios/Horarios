@@ -11,7 +11,7 @@ from src.projects.projects_db.models.subject import Subject
 from src.projects.projects_db.models.year import Year
 
 
-def candidate_slot_members_stmt() -> Select:
+def candidate_slot_members_stmt(subject_id: UUID | None = None) -> Select:
     """Select ``(slot, subject, block)`` rows for candidate detection.
 
     A "slot" is ``(week, weekday, start_time)``. Two blocks are parallel
@@ -20,17 +20,27 @@ def candidate_slot_members_stmt() -> Select:
     graph's edges (blocks sharing a slot are mutually adjacent) without the
     quadratic ``sessions``-self-join SQLite cannot index efficiently.
 
+    When ``subject_id`` is given, only that subject's rows are scanned. A
+    subject's components depend solely on its own rows (the grouping key
+    includes ``subject_id``, and every session of a block carries the block's
+    full, fixed set of subjects -- see ``_assign_block_ids``), so the filtered
+    scan yields that subject's components identically to the full scan while
+    reading far fewer rows. When ``None`` the full graph is scanned.
+
     Not de-duplicated in SQL on purpose: the caller groups blocks into a ``set``
     per slot, which already collapses duplicates, so a SQL ``DISTINCT`` would
     only add a needless sort over every session row.
     """
-    return select(
+    stmt = select(
         Session.week.label("week"),
         Session.weekday.label("weekday"),
         Session.start_time.label("start_time"),
         SessionClassSubject.subject_id.label("subject_id"),
         Session.original_block_id.label("original_block_id"),
     ).join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
+    if subject_id is not None:
+        stmt = stmt.where(SessionClassSubject.subject_id == subject_id)
+    return stmt
 
 
 def block_details_stmt(block_ids: Sequence[UUID]) -> Select:
