@@ -132,21 +132,20 @@ def test_real_teacher_normal_red_blocks() -> None:
     assert red_blocks[0] == (800, WeekDay.MONDAY)
 
 
-def test_real_teacher_name_is_dropped_when_prefix_differs_from_acronym() -> None:
-    """KNOWN WART, pinned as current behaviour (not endorsed).
+def test_real_teacher_name_recovered_when_sigla_differs_from_acronym() -> None:
+    """The header sigla is not always the acronym; the name is recovered from it.
 
     On this real page the ``cabtitulo`` first node is
     ``"AJCA-Albertino José Castanho Arteiro"`` while the acronym node is ``"AA"``.
-    ``extract_teacher_info`` only recovers the name when the acronym occurs as a
-    substring of the first node (``name = first[len(acronym):] if acronym in
-    first else ""``); because "AA" does not appear anywhere in the first node the
-    check fails, the name becomes empty and falls back to the acronym. The real
-    name is therefore lost.
-
-    This is one of 25 such name-drops in the captured corpus. If the parser is
-    fixed to recover the name, update this assertion — the change is the point.
+    The name is derived from the header's own sigla separator rather than by
+    stripping the acronym, so the real name survives instead of collapsing to the
+    acronym. This is one of the name-drops the fix recovers across the corpus.
     """
-    assert extract_teacher_info(F.soup("teacher_name_is_acronym")) == ("AA", "AA", 481933)
+    assert extract_teacher_info(F.soup("teacher_name_is_acronym")) == (
+        "AA",
+        "Albertino José Castanho Arteiro",
+        481933,
+    )
 
 
 # ---------------------------------------------------------------------------

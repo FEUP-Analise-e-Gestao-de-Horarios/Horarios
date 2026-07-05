@@ -30,9 +30,10 @@ menu                         ``coluna1.html`` — the full navigation menu: 661
                              absent from the ``ROOMS`` registry → ``Desconhecido``).
 teacher_normal               ``docente_JCR_…`` — happy path: accented name parses
                              correctly; carries 27 red blocks.
-teacher_name_is_acronym      ``docente_AA_481933_…`` — a real page where
-                             ``extract_teacher_info`` DROPS the name (see
-                             ``test_real_pages`` for the documented wart).
+teacher_name_is_acronym      ``docente_AA_481933_…`` — a real page whose header
+                             sigla (``AJCA``) differs from the acronym node
+                             (``AA``); the name is recovered from the header
+                             (see ``test_real_pages``).
 class_single_session         ``turma_1LEM20_…`` — one multi-class session; a
                              week date *range*.
 class_many_sessions          ``turma_M.EA101_…`` — 19 sessions, multiple
