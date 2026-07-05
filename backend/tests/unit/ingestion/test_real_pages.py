@@ -932,15 +932,18 @@ def test_real_compute_weeks_over_real_date_ranges(fixture: str, expected_weeks: 
     """Drive the manager's week expansion over the real parsed date ranges.
 
     Pins that ``_compute_weeks`` turns a real ``(start_date, end_date)`` into the
-    expected number of weekly Mondays, that the first week is the real start and
-    the last never overruns the real end, and that every step is exactly 7 days.
-    A regression that made the range end-exclusive, or stepped by something other
-    than a week, would surface here against real data rather than only synthetic."""
+    expected number of weekly start dates, that the first week is the real start
+    and the last never overruns the real end, and that every step is exactly 7
+    days. A regression that made the range end-exclusive, or stepped by something
+    other than a week, would surface here against real data rather than only
+    synthetic. (The weeks land on Mondays only because both real ``start_date``
+    values do; ``_compute_weeks`` steps from ``start_date``, it never aligns to a
+    weekday.)"""
     start_date, end_date = extract_week_dates(F.soup(fixture))
     weeks = IngestionManager._compute_weeks({"start_date": start_date, "end_date": end_date})
 
     assert len(weeks) == expected_weeks
     assert weeks[0] == start_date
     assert weeks[-1] <= end_date
-    assert all(week.weekday() == 0 for week in weeks)  # every week starts on a Monday
+    assert all(week.weekday() == 0 for week in weeks)  # real start_date is a Monday; step keeps it
     assert all((b - a) == timedelta(weeks=1) for a, b in pairwise(weeks))
