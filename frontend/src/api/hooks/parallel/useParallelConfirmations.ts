@@ -2,8 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "@/api/client";
-import { ApiError } from "@/types/api";
-import { queryKeys } from "@/api/queryKeys";
 import {
   type DegreeOption,
   type ParallelCandidateGraph,
@@ -11,7 +9,8 @@ import {
   type UnconfirmedYear,
   type UUID,
 } from "@/types/parallelSessions";
-import { getErrorCode, getErrorMessage } from "@/api/errors";
+import { getErrorMessage } from "@/api/errors";
+import { handleStaleConfirmError, type StaleConfirmScope } from "./errors";
 import type { SavingControls } from "./useSaving";
 
 /** Owns the "reviewed" state of subjects and the confirmation roll-up
@@ -35,7 +34,7 @@ export function useParallelConfirmations(params: {
   // Set when a confirm is rejected because the candidates changed under the
   // user; the list is refetched and this prompts a re-check. The scope drives
   // the prompt copy: a single subject vs. the finish-all action.
-  const [staleConfirmScope, setStaleConfirmScope] = useState<"subject" | "all" | null>(null);
+  const [staleConfirmScope, setStaleConfirmScope] = useState<StaleConfirmScope>(null);
 
   // Server truth: the subject ids the payload currently reports as confirmed. A
   // subject is confirmed when every one of its candidates is (carried on
@@ -182,15 +181,12 @@ export function useParallelConfirmations(params: {
           next.delete(subjectId);
           return next;
         });
-        if (getErrorCode(err) === ApiError.PARALLEL_CONFIRMATION_STALE) {
-          // The list is out of date: pull a fresh copy and tell the user to recheck.
-          void queryClient.invalidateQueries({
-            queryKey: queryKeys.projects.parallelCandidates(String(projectIdNum)),
-          });
-          setStaleConfirmScope("subject");
-        } else {
-          toast.error(getErrorMessage(err, "Erro ao confirmar"));
-        }
+        handleStaleConfirmError(err, {
+          queryClient,
+          projectIdNum,
+          setStaleConfirmScope,
+          scope: "subject",
+        });
         return false;
       })
       .finally(endRequest);

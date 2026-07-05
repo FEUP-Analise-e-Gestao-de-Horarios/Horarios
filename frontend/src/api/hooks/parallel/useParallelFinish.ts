@@ -3,11 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "@/api/client";
-import { ApiError } from "@/types/api";
 import { ROUTES } from "@/routes";
 import { queryKeys } from "@/api/queryKeys";
 import type { ParallelCandidateGraph, UUID } from "@/types/parallelSessions";
-import { getErrorCode, getErrorMessage } from "@/api/errors";
+import { getErrorMessage } from "@/api/errors";
+import { handleStaleConfirmError, type StaleConfirmScope } from "./errors";
 import type { SavingControls } from "./useSaving";
 
 /** Owns the finish/stale/reset/navigation flow: the finish + reset modals, the
@@ -22,7 +22,7 @@ export function useParallelFinish(params: {
   rememberView: () => void;
   saving: SavingControls;
   setConfirmedSubjectIds: Dispatch<SetStateAction<Set<UUID>>>;
-  setStaleConfirmScope: Dispatch<SetStateAction<"subject" | "all" | null>>;
+  setStaleConfirmScope: Dispatch<SetStateAction<StaleConfirmScope>>;
 }) {
   const {
     projectId,
@@ -109,17 +109,13 @@ export function useParallelFinish(params: {
         void navigate(backRoute);
       })
       .catch((err: unknown) => {
-        if (getErrorCode(err) === ApiError.PARALLEL_CONFIRMATION_STALE) {
-          // Candidates changed under us: refetch and prompt a re-check instead
-          // of leaving with an incomplete confirmation.
-          void queryClient.invalidateQueries({
-            queryKey: queryKeys.projects.parallelCandidates(String(projectIdNum)),
-          });
-          setShowFinishModal(false);
-          setStaleConfirmScope("all");
-        } else {
-          toast.error(getErrorMessage(err, "Erro ao confirmar"));
-        }
+        handleStaleConfirmError(err, {
+          queryClient,
+          projectIdNum,
+          setStaleConfirmScope,
+          scope: "all",
+          onStale: () => setShowFinishModal(false),
+        });
       })
       .finally(endRequest);
   };
