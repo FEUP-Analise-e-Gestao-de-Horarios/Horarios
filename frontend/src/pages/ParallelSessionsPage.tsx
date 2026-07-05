@@ -12,7 +12,7 @@ import ResetModal from "@/components/parallel/ResetModal";
 import FinishModal from "@/components/parallel/FinishModal";
 import StaleConfirmModal from "@/components/parallel/StaleConfirmModal";
 
-export default function ParallelClassesPage() {
+export default function ParallelSessionsPage() {
   // Per-subject memory of which candidate's graph is open, mirroring how the
   // year is remembered per degree and the subject per year. Keeps a graph
   // selected only while its subject is active, and restores it on return.

@@ -12,7 +12,7 @@ import TeacherDetailPage from "./pages/dashboard/TeacherDetailPage";
 import RoomDetailPage from "./pages/dashboard/RoomDetailPage";
 import SubjectDetailPage from "./pages/dashboard/SubjectDetailPage";
 import ClassDetailPage from "./pages/dashboard/ClassDetailPage";
-import ParallelClassesPage from "./pages/ParallelSessionsPage";
+import ParallelSessionsPage from "./pages/ParallelSessionsPage";
 
 // Paths here must match what Django delegates to spa_view in urls.py
 export const router = createBrowserRouter([
@@ -33,5 +33,5 @@ export const router = createBrowserRouter([
   { path: ROUTES.ROOM_DETAIL, element: <RoomDetailPage />, loader: requireAuth },
   { path: ROUTES.SUBJECT_DETAIL, element: <SubjectDetailPage />, loader: requireAuth },
   { path: ROUTES.CLASS_DETAIL, element: <ClassDetailPage />, loader: requireAuth },
-  { path: ROUTES.PARALLEL_SESSIONS, element: <ParallelClassesPage />, loader: requireAuth },
+  { path: ROUTES.PARALLEL_SESSIONS, element: <ParallelSessionsPage />, loader: requireAuth },
 ]);
