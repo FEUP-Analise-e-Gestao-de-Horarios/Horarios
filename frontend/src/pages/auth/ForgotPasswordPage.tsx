@@ -1,3 +1,4 @@
+import { getErrorCode } from "@/api/errors";
 import { useForgotPassword } from "@/api/hooks/useAuth";
 import { ApiError } from "@/types/api";
 import AuthPageLayout from "@/components/auth/AuthPageLayout";
@@ -33,7 +34,7 @@ export default function ForgotPasswordPage() {
           setSubmitted(true);
         },
         onError: (err) => {
-          if (err.code === ApiError.AUTH_ALREADY_AUTHENTICATED) {
+          if (getErrorCode(err) === ApiError.AUTH_ALREADY_AUTHENTICATED) {
             setError("Já tem sessão iniciada.");
           } else {
             setError("Ocorreu um erro. Tente novamente mais tarde.");

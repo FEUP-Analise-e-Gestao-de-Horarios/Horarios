@@ -21,7 +21,7 @@ class ProjectResponse(BaseModel):
     name: str
     url: str
 
-    has_selected_aulas_em_paralelo: bool
+    has_selected_parallel_sessions: bool
 
     ingestion_started_at: datetime | None
     ingestion_finished_at: datetime | None

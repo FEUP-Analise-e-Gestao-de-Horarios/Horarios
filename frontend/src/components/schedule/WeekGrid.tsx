@@ -75,7 +75,7 @@ interface WeekGridProps {
   /** Per-UC colours; events fall back to a neutral style when absent. */
   subjectPalette?: SubjectPalette;
   /**
-   * Collapse rows/columns that hold no events to reduce scroll (#13/#14).
+   * Collapse rows/columns that hold no events or marks to reduce scroll (#13/#14).
    * Set false to keep every slot full-size — e.g. while placing an event, so
    * empty cells stay big enough to be a drop target (Phase 5 #6).
    */
@@ -271,8 +271,14 @@ export default function WeekGrid({
   );
 
   const { laned: lanedEvents, colLaneCount: rawColLaneCount } = useMemo(
-    () => assignLaneSegments(placedEvents, turmasCount, turmaColumnCount),
-    [placedEvents, turmasCount, turmaColumnCount],
+    () =>
+      assignLaneSegments(
+        placedEvents,
+        turmasCount,
+        turmaColumnCount,
+        placedMarks.map((m) => m.col),
+      ),
+    [placedEvents, turmasCount, turmaColumnCount, placedMarks],
   );
 
   const colLaneCount = useMemo(
@@ -288,25 +294,48 @@ export default function WeekGrid({
   }, [filteredLabels]);
 
   const fullRowTrack = `minmax(${minSlotPx}px, 1fr)`;
+  const compactRowPx = Math.max(COMPACT_ROW_PX, Math.ceil(hourFontPx * 1.5));
   const gridTemplateRows = `${headerPx}px${
     hasSecondaryHeader ? ` ${headerPx}px` : ""
-  } ${computeRowHeights(rowOccupied, fullRowTrack, COMPACT_ROW_PX).join(" ")}`;
+  } ${computeRowHeights(rowOccupied, fullRowTrack, compactRowPx).join(" ")}`;
 
-  const gridTemplateColumns = dragState
-    ? `${TIME_COL_PX}px ${Array.from({ length: turmaColumnCount }, (_, columnIndex) =>
-        columnIndex === dragState.colIndex ? `${dragState.width}px` : `${dragState.othersWidth}px`,
-      ).join(" ")}`
-    : `${TIME_COL_PX}px ${computeColumnWidths(
+  // While dragging, occupied columns freeze at their pre-drag width so they
+  // don't reflow as the handle moves, and only the dragged column follows the
+  // pointer. Empty columns/days stay compacted just as they will after the
+  // commit, so releasing no longer pops them from full-width back to thin.
+  const turmaColumnTracks = dragState
+    ? computeColumnWidths(
+        colLaneCount,
+        turmasCount,
+        dragState.othersWidth,
+        TURMA_COLUMN_DEFAULT_MIN_PX,
+        TURMA_COLUMN_MIN_PX,
+        emptyDayTotalPx,
+      ).map((track, columnIndex) =>
+        columnIndex === dragState.colIndex ? `${dragState.width}px` : track,
+      )
+    : computeColumnWidths(
         colLaneCount,
         turmasCount,
         columnWidthPx ?? null,
         TURMA_COLUMN_DEFAULT_MIN_PX,
         TURMA_COLUMN_MIN_PX,
         emptyDayTotalPx,
-      ).join(" ")}`;
+      );
+  const gridTemplateColumns = `${TIME_COL_PX}px ${turmaColumnTracks.join(" ")}`;
 
+  // Encode everything that fixes a card's position, not just the segment count:
+  // the grid tracks plus each event's day/row and every segment's start/span/lane.
+  // A same-size reshuffle (e.g. editing a session's time without changing which
+  // rows are occupied) leaves the tracks and counts identical, so without the
+  // positional fields the overlay would keep stale arcs until the next resize.
   const arcSignature = `${gridTemplateColumns}|${gridTemplateRows}|${lanedEvents
-    .map((e) => `${e.ev.id}:${e.segments.length}`)
+    .map(
+      (e) =>
+        `${e.ev.id}@${e.dayCol}:${e.rowStart}:${e.segments
+          .map((s) => `${s.start}/${s.span}/${s.lane}/${s.laneCount}`)
+          .join("+")}`,
+    )
     .join(",")}`;
 
   if (events.length === 0 && marks.length === 0 && emptyMessage) {
@@ -408,7 +437,7 @@ export default function WeekGrid({
                           : (columnWidthPx ?? undefined)
                       }
                       onMouseDown={(event) => handleResizeStart(columnIndex, event)}
-                      onKeyDown={(event) => handleResizeKeyDown(columnIndex, event)}
+                      onKeyDown={(event) => handleResizeKeyDown(event)}
                       className={`absolute top-0 right-0 z-10 h-full w-2 cursor-col-resize hover:bg-[#8C2C19]/40 focus-visible:bg-[#8C2C19]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C73F24]/70 ${
                         dragState?.colIndex === columnIndex ? "bg-[#8C2C19]/60" : ""
                       }`}

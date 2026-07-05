@@ -111,11 +111,17 @@ function eventColumns(p: PlacedEvent, turmasCount: number): number[] {
  * distinct lanes and a per-cluster lane count, so an event stays full width
  * where it has no conflict. Returns render `segments` and per-column
  * `colLaneCount` for sizing.
+ *
+ * `markDayCols` lists the visible day columns carrying a day-wide mark (red
+ * block). Each keeps every turma column of its day at a lane count of at least
+ * one, so a day holding only marks stays full-width instead of collapsing to
+ * label width (#14).
  */
 export function assignLaneSegments(
   placed: PlacedEvent[],
   turmasCount: number,
   columnCount: number,
+  markDayCols: number[] = [],
 ): { laned: LanedEvent[]; colLaneCount: number[] } {
   const perColumn: { index: number; rowStart: number; span: number }[][] = Array.from(
     { length: columnCount },
@@ -164,6 +170,14 @@ export function assignLaneSegments(
       clusterEnd = Math.max(clusterEnd, item.rowStart + item.span);
     }
     flush();
+  }
+
+  for (const dayCol of markDayCols) {
+    const base = dayCol * turmasCount;
+    for (let i = 0; i < turmasCount; i += 1) {
+      const col = base + i;
+      if (col >= 0 && col < columnCount) colLaneCount[col] = Math.max(colLaneCount[col]!, 1);
+    }
   }
 
   const laned = placed.map((p, index) => {

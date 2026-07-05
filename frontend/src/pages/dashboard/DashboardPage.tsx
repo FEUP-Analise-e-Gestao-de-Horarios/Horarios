@@ -7,6 +7,7 @@ import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
 import ProjectHeader from "@/components/dashboard/ProjectHeader";
 import StatsRow from "@/components/dashboard/StatsRow";
 import DashboardTabs from "@/components/dashboard/DashboardTabs";
+import { useParallelSessionsReminder } from "@/components/parallel/useParallelSessionsReminder";
 
 export default function DashboardPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -14,6 +15,7 @@ export default function DashboardPage() {
   const queryClient = useQueryClient();
 
   const project = useProject(id);
+  useParallelSessionsReminder(project.data);
 
   const processing =
     !!project.data?.ingestion_started_at &&
