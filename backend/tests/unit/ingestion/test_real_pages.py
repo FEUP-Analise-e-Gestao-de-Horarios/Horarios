@@ -734,7 +734,6 @@ def test_real_class_page_red_blocks_day_distribution(
     red_blocks = extract_red_blocks(F.soup(fixture))
     per_day = Counter(day for _time, day in red_blocks)
     assert dict(per_day) == expected_per_day
-    assert sum(expected_per_day.values()) == len(red_blocks)
 
 
 _SATURDAY_HALF_HOURS = [
