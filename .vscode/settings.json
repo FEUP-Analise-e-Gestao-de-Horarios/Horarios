@@ -88,5 +88,6 @@
   "python-envs.defaultEnvManager": "ms-python.python:venv",
   "[python]": {
     "editor.defaultFormatter": "charliermarsh.ruff"
-  }
+  },
+  "makefile.configureOnOpen": false
 }
