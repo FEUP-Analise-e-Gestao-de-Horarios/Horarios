@@ -238,21 +238,6 @@ export default function SchedulePage() {
         }}
       />
 
-      <EditEventDrawer
-        key={eventEditor.editingEvent?.id ?? "new"}
-        open={eventEditor.isOpen}
-        collapsed={eventEditor.isCollapsed}
-        onCollapsedChange={eventEditor.setIsCollapsed}
-        onClose={eventEditor.closeEditor}
-        conflicts={yearConflicts}
-        ucOptions={filters.ucOptions}
-        turmaOptions={filters.turmaOrder}
-        teacherOptions={teacherOptions}
-        roomOptions={roomOptions}
-        preferredUc={filters.effectiveUcs[0]}
-        event={eventEditor.editingEvent}
-      />
-
       <ConflictsDrawer
         open={isConflictsDrawerOpen}
         onClose={() => setIsConflictsDrawerOpen(false)}
@@ -261,7 +246,21 @@ export default function SchedulePage() {
         onRefresh={() => void yearConflictsQuery.refetch()}
       />
 
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="relative flex-1 min-h-0 overflow-hidden">
+        <EditEventDrawer
+          key={eventEditor.editingEvent?.id ?? "new"}
+          open={eventEditor.isOpen}
+          collapsed={eventEditor.isCollapsed}
+          onCollapsedChange={eventEditor.setIsCollapsed}
+          onClose={eventEditor.closeEditor}
+          conflicts={yearConflicts}
+          ucOptions={filters.ucOptions}
+          turmaOptions={filters.turmaOrder}
+          teacherOptions={teacherOptions}
+          roomOptions={roomOptions}
+          preferredUc={filters.effectiveUcs[0]}
+          event={eventEditor.editingEvent}
+        />
         {!canShowSchedule ? (
           <div className="h-full flex items-center justify-center text-center text-gray-500 text-lg">
             Seleciona Curso para ver o horário
@@ -293,7 +292,7 @@ export default function SchedulePage() {
               includeEndSlot
               headerHeightPx={22}
               hourLabelFontPx={12}
-              slotHeightPx={31}
+              slotHeightPx={26}
               showHalfHourLabels
               showHalfHourDividers
               editingEventId={eventEditor.isOpen ? eventEditor.editingEvent?.id : undefined}

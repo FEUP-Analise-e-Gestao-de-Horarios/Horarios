@@ -1,8 +1,11 @@
 @import "tailwindcss";
 
-/* Back-and-forth scroll for text that overflows its schedule event card (see
-   MarqueeText in WeekGrid). A pure linear translate, so the text moves at a
-   constant px/sec — the duration is set inline from the overflow distance. */
+/* Circular ticker for text that overflows its schedule event card (see
+   MarqueeText in WeekGrid). The element slides left by exactly one copy of
+   the text (plus gap); a duplicate copy rendered after it lands where the
+   original started, so the loop wraps seamlessly with no snap-back (PI ToDo
+   #21). No hold keyframes: any pause would read as a stutter at the wrap
+   point, so the motion is one uninterrupted glide. */
 @keyframes marquee-scroll {
   from {
     transform: translateX(0);
@@ -14,17 +17,16 @@
 
 /* Runs while the parent event card (`group`) is hovered or contains keyboard
    focus, so keyboard-only users can read the clipped text too. The duration
-   is referenced directly here rather than through a Tailwind @theme animation
-   token: a var() nested inside a theme token does not resolve against the
-   element that sets it, so --marquee-duration would silently fall back to the
-   default and the speed would scale with overflow length.
+   is a fixed shared constant — never derived per element — so every marquee
+   line cycles on the same timeline (PI ToDo #21 "todos ao mesmo tempo");
+   longer overflows simply scroll faster.
 
    The animation is opt-in via `prefers-reduced-motion: no-preference` so
    users who request reduced motion don't get the continuous translateX. */
 @media (prefers-reduced-motion: no-preference) {
   .group:hover .marquee,
   .group:focus-within .marquee {
-    animation: marquee-scroll var(--marquee-duration, 6s) linear infinite alternate;
+    animation: marquee-scroll 3.2s linear infinite;
   }
 }
 

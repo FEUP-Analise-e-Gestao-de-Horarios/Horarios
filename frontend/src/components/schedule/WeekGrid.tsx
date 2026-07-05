@@ -72,6 +72,9 @@ const WEEKDAY_LABELS = WEEKDAYS.map((day) => WEEKDAY_LABELS_SHORT[day]);
 const SLOT_MINUTES = 30;
 const MIN_SLOT_PX = 16;
 const HEADER_PX = 40;
+// Width of the sticky time-label column. '08:00' at the 12px label font is
+// ~33px; 34px hugs it tight on both sides (PI ToDo #22).
+const TIME_COL_PX = 34;
 // Width each turma column gets in the default (un-resized) flexible layout.
 const TURMA_COLUMN_DEFAULT_MIN_PX = 64;
 // Pixels of horizontal scroll change required to count as a user gesture.
@@ -184,12 +187,12 @@ export default function WeekGrid({
   const hourFontPx = hourLabelFontPx ?? 10;
 
   const gridTemplateColumns = dragState
-    ? `44px ${Array.from({ length: turmaColumnCount }, (_, columnIndex) =>
+    ? `${TIME_COL_PX}px ${Array.from({ length: turmaColumnCount }, (_, columnIndex) =>
         columnIndex === dragState.colIndex ? `${dragState.width}px` : `${dragState.othersWidth}px`,
       ).join(" ")}`
     : columnWidthPx != null
-      ? `44px repeat(${turmaColumnCount}, ${columnWidthPx}px)`
-      : `44px repeat(${turmaColumnCount}, minmax(${TURMA_COLUMN_DEFAULT_MIN_PX}px, 1fr))`;
+      ? `${TIME_COL_PX}px repeat(${turmaColumnCount}, ${columnWidthPx}px)`
+      : `${TIME_COL_PX}px repeat(${turmaColumnCount}, minmax(${TURMA_COLUMN_DEFAULT_MIN_PX}px, 1fr))`;
 
   const { gridStartMinutes, slotCount } = useGridTimeRange({
     events,
@@ -308,7 +311,7 @@ export default function WeekGrid({
                 return (
                   <div
                     key={`sub-${visibleIdx}-${turmaIdx}`}
-                    className={`@container sticky z-20 overflow-hidden border-b px-2 py-1 text-center text-[10px] font-semibold uppercase tracking-wider ${getTurmaHeaderStyle(
+                    className={`@container sticky z-20 overflow-hidden border-b px-0.5 py-1 text-center text-[10px] font-semibold uppercase tracking-wider ${getTurmaHeaderStyle(
                       turmaShifts[turma],
                     )} ${turmaIdx === 0 && visibleIdx > 0 ? "border-l border-[#d8d5da]" : "border-[#e5e4e7]"}`}
                     style={{
@@ -365,7 +368,7 @@ export default function WeekGrid({
           return (
             <div
               key={`t-${i}`}
-              className={`sticky left-0 z-10 flex items-center justify-center bg-white border-r border-[#e5e4e7] px-2 text-center text-[#6b6375] ${rowDividerClass}`}
+              className={`sticky left-0 z-10 flex items-center justify-center bg-white border-r border-[#e5e4e7] px-0 text-center text-[#6b6375] ${rowDividerClass}`}
               style={{
                 gridColumn: 1,
                 gridRow: i + headerRows + 1,

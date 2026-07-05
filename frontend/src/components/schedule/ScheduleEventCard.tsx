@@ -74,10 +74,10 @@ export default function ScheduleEventCard({
       onClick={onClick ? () => onClick(ev) : undefined}
       aria-label={ariaLabel}
       aria-current={isEditing ? "true" : undefined}
-      className={`group relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/80 focus-visible:z-10 ${
-        isEditing
-          ? "bg-[#250902] border-[#38040e] text-white"
-          : `${style.bg} ${style.border} ${style.text}`
+      className={`group relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/80 focus-visible:z-10 ${style.bg} ${style.text} ${
+        // Editing keeps the subject's own colors readable and signals selection
+        // with a light brand-red ring instead of a near-black fill (PI ToDo #11).
+        isEditing ? "border-[#C73F24] ring-2 ring-inset ring-[#C73F24] z-10" : style.border
       } ${clickable ? "cursor-pointer hover:brightness-95 transition" : "cursor-default"}`}
       style={{
         gridColumn: `${startCol} / span ${colSpan}`,
