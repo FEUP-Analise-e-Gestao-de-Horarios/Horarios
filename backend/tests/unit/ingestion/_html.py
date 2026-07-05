@@ -260,18 +260,22 @@ def teacher_page(
     name: str = "Ada Berta Costa",
     code: int = 123,
     first_node: str | None = None,
+    semanas: str | None = "16/02/2026 - 09/03/2026",
     days: Sequence[tuple[str, int]] = (("Segunda", 1), ("Terça", 1)),
     red_time_rows: Sequence[Sequence[str]] | None = None,
 ) -> str:
     """Assemble a teacher page: a ``cabtitulo`` header plus an optional red grid.
 
-    The ``cabtitulo`` contents drive :func:`extract_teacher_info`, which reads
-    three ``<br/>``-separated text nodes: ``"{acronym} - {name}"``, the bare
-    ``{acronym}``, then ``{code}``. Override ``first_node`` to exercise the
-    parser's alternate formatting branches.
+    The ``cabtitulo`` holds ``<br/>``-separated text nodes that drive
+    :func:`extract_teacher_info`: the header ``"{acronym} - {name}"``, the bare
+    ``{acronym}``, ``{code}``, and — as on every real page — a trailing
+    ``"Semanas: {semanas}"`` range that the parser must ignore. Override
+    ``first_node`` to exercise the header's sigla/name shapes, or pass
+    ``semanas=None`` to drop the trailing node.
     """
     first = first_node if first_node is not None else f"{acronym} - {name}"
-    cab = f'<td class="cabtitulo">{first}<br/>{acronym}<br/>{code}</td>'
+    tail = f"<br/><br/>Semanas: {semanas}" if semanas is not None else ""
+    cab = f'<td class="cabtitulo">{first}<br/>{acronym}<br/>{code}{tail}</td>'
     header_table = f"<table><tr>{cab}</tr></table>"
 
     if red_time_rows is None:

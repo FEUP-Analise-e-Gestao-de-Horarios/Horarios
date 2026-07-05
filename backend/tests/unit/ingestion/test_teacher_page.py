@@ -58,6 +58,29 @@ def test_missing_cabtitulo_raises() -> None:
         extract_teacher_info(soup)
 
 
+def test_fewer_than_three_text_nodes_raises() -> None:
+    """A cabtitulo missing the acronym or code node is rejected up front, rather
+    than mis-assigning the surviving nodes."""
+    soup = BeautifulSoup(
+        '<html><body><td class="cabtitulo">ABC<br/>123</td></body></html>',
+        "html.parser",
+    )
+    with pytest.raises(ValueError, match="at least 3 text nodes"):
+        extract_teacher_info(soup)
+
+
+def test_trailing_semanas_node_is_ignored() -> None:
+    """Real pages carry a trailing ``Semanas: …`` range node after the code; it
+    must not shift or corrupt the acronym/name/code parse (a parser that read the
+    last node as the code would choke on the date range)."""
+    assert _info(
+        first_node="ABC - Ada Berta Costa",
+        acronym="ABC",
+        code=123,
+        semanas="02/03/2026 - 16/03/2026",
+    ) == ("ABC", "Ada Berta Costa", 123)
+
+
 # ---------------------------------------------------------------------------
 # -- Name recovery when the header sigla is not the acronym (bugfix)
 # ---------------------------------------------------------------------------
