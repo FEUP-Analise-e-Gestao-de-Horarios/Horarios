@@ -1,7 +1,7 @@
 import { useState } from "react";
 
-import { useCreateProject } from "@/api/hooks/useProjects";
-import { ApiError } from "@/types/api";
+import { newProjectErrorMessage, useCreateProject } from "@/api/hooks/useProjects";
+import { PROJECT_NAME_MAX_LENGTH, validateProjectName } from "@/utils/projectName";
 import { Loader2 } from "lucide-react";
 
 interface NewProjectModalProps {
@@ -16,19 +16,16 @@ export default function NewProjectModal({ onClose }: NewProjectModalProps) {
 
   const handleCreate = () => {
     setError(null);
+    const nameError = validateProjectName(projectName);
+    if (nameError) {
+      setError(nameError);
+      return;
+    }
     createProject.mutate(
       { name: projectName, url: scheduleLink },
       {
         onSuccess: () => onClose(),
-        onError: (err) => {
-          if (err.code === ApiError.PROJECTS_CREATE_DUPLICATED_NAME) {
-            setError("Já existe um projeto com esse nome.");
-          } else if (err.code === ApiError.INVALID_BODY) {
-            setError("Link inválido.");
-          } else {
-            setError("Ocorreu um erro. Tente novamente.");
-          }
-        },
+        onError: (err) => setError(newProjectErrorMessage(err)),
       },
     );
   };
@@ -69,6 +66,7 @@ export default function NewProjectModal({ onClose }: NewProjectModalProps) {
             type="text"
             value={projectName}
             onChange={(e) => setProjectName(e.target.value)}
+            maxLength={PROJECT_NAME_MAX_LENGTH}
             disabled={createProject.isPending}
             className="px-3 py-2.5 rounded border border-[#8c2d19] text-[15px] outline-none bg-white text-[#08060d] focus:ring-1 focus:ring-[rgba(140,45,25,0.5)] disabled:opacity-50 disabled:cursor-not-allowed"
           />

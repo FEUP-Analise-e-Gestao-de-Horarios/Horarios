@@ -3,7 +3,7 @@ from typing import get_origin
 from django.http import JsonResponse, QueryDict
 from pydantic import BaseModel, ValidationError
 
-from src.core.errors import ApiError, ErrorResponse
+from src.core.errors import InvalidBodyResponse
 
 
 def _format_validation_error(e: ValidationError) -> str:
@@ -36,11 +36,7 @@ def validate_request_body[M: BaseModel](
     try:
         return model.model_validate_json(body), None
     except ValidationError as e:
-        return None, ErrorResponse(
-            status=400,
-            code=ApiError.INVALID_BODY,
-            message=_format_validation_error(e),
-        )
+        return None, InvalidBodyResponse(_format_validation_error(e))
 
 
 def validate_query_params[M: BaseModel](
@@ -50,8 +46,4 @@ def validate_query_params[M: BaseModel](
     try:
         return model.model_validate(_query_params_to_dict(model, params)), None
     except ValidationError as e:
-        return None, ErrorResponse(
-            status=400,
-            code=ApiError.INVALID_BODY,
-            message=_format_validation_error(e),
-        )
+        return None, InvalidBodyResponse(_format_validation_error(e))

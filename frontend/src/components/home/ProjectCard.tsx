@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { getErrorCode } from "@/api/errors";
 import { useRenameProject, useDeleteProject } from "@/api/hooks/useProjects";
 import { ApiError } from "@/types/api";
 import type { Project } from "@/types/project/project";
+import { ROUTES } from "@/routes";
+import { buildPath } from "@/utils/routes";
+import { PROJECT_NAME_MAX_LENGTH, validateProjectName } from "@/utils/projectName";
 import { Pencil, Trash2, Check, X, Loader2 } from "lucide-react";
 
 interface ProjectCardProps {
@@ -92,8 +96,14 @@ export default function ProjectCard({ project }: ProjectCardProps) {
     !project.ingestion_failed_at;
 
   function handleCardClick() {
-    if (isReady) void navigate(`/projects/${project.id}`);
-    else if (isProcessing) void navigate(`/projects/${project.id}/dashboard`);
+    if (isReady) {
+      if (!project.has_selected_parallel_sessions) {
+        void navigate(buildPath(ROUTES.PARALLEL_SESSIONS, { projectId: String(project.id) }));
+      } else {
+        void navigate(buildPath(ROUTES.SCHEDULE, { projectId: String(project.id) }));
+      }
+    } else if (isProcessing)
+      void navigate(buildPath(ROUTES.DASHBOARD, { projectId: String(project.id) }));
   }
 
   useEffect(() => {
@@ -107,14 +117,19 @@ export default function ProjectCard({ project }: ProjectCardProps) {
       return;
     }
     setRenameError(null);
+    const nameError = validateProjectName(editName);
+    if (nameError) {
+      setRenameError(nameError);
+      return;
+    }
     renameProject.mutate(
       { id: project.id, name: editName },
       {
         onSuccess: () => setIsEditing(false),
         onError: (err) => {
-          if (err.code === ApiError.PROJECTS_RENAME_DUPLICATED_NAME) {
+          if (getErrorCode(err) === ApiError.PROJECTS_RENAME_DUPLICATED_NAME) {
             setRenameError("Nome já existe.");
-          } else if (err.code === ApiError.INVALID_BODY) {
+          } else if (getErrorCode(err) === ApiError.INVALID_BODY) {
             setRenameError("Nome inválido.");
           } else {
             setRenameError("Erro ao renomear.");
@@ -129,7 +144,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
     deleteProject.mutate(project.id, {
       onSuccess: () => setShowDeleteConfirm(false),
       onError: (err) => {
-        if (err.code === ApiError.PROJECTS_NOT_FOUND) {
+        if (getErrorCode(err) === ApiError.PROJECTS_NOT_FOUND) {
           setDeleteError("Projeto não encontrado.");
         } else {
           setDeleteError("Erro ao apagar. Tente novamente.");
@@ -187,6 +202,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
                   type="text"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
+                  maxLength={PROJECT_NAME_MAX_LENGTH}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleRename();
                     if (e.key === "Escape") {

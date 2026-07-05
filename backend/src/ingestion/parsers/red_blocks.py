@@ -49,7 +49,7 @@ def extract_red_blocks(soup: BeautifulSoup) -> list[RedBlock]:
 
     weekday_row = table_rows[3]
     weekday_colspan: dict[WeekDay, int] = {}
-    for i, day in enumerate(weekday_row.findChildren()):
+    for i, day in enumerate(weekday_row.find_all()):
         if i == 0:
             continue
         weekday_colspan[WeekDay(day.text)] = int(str(day.get("colspan") or 1))
