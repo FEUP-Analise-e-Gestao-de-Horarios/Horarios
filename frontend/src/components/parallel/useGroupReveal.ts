@@ -57,28 +57,35 @@ export function useGroupReveal(
   }, []);
 
   // Scroll a group card into view and play its one-shot "look here" pulse.
+  // Deferred a frame so a just-opened candidate's card is registered and laid
+  // out before we scroll to it — callers can invoke this synchronously.
   const revealGroup = useCallback((groupId: string) => {
-    const el = groupCardRefs.current.get(groupId);
-    if (!el) return;
-    el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-    window.clearTimeout(highlightTimer.current ?? undefined);
-    // Clear any current highlight, then start the pulse only after the smooth
-    // scroll has had time to land — otherwise it can finish before the card is
-    // on screen. Clearing first also restarts the CSS animation on a repeat.
-    setHighlightedGroupId(null);
-    highlightTimer.current = window.setTimeout(() => {
-      setHighlightedGroupId(groupId);
-      highlightTimer.current = window.setTimeout(() => setHighlightedGroupId(null), 800);
-    }, 380);
+    requestAnimationFrame(() => {
+      const el = groupCardRefs.current.get(groupId);
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+      window.clearTimeout(highlightTimer.current ?? undefined);
+      // Clear any current highlight, then start the pulse only after the smooth
+      // scroll has had time to land — otherwise it can finish before the card is
+      // on screen. Clearing first also restarts the CSS animation on a repeat.
+      setHighlightedGroupId(null);
+      highlightTimer.current = window.setTimeout(() => {
+        setHighlightedGroupId(groupId);
+        highlightTimer.current = window.setTimeout(() => setHighlightedGroupId(null), 800);
+      }, 380);
+    });
   }, []);
 
   // Scroll a group card into view without the pulse — used on create, where the
   // card's own enter/shift animation is the feedback (and a pulse would fight
-  // its rightward shift transform).
+  // its rightward shift transform). Deferred a frame so the freshly-created card
+  // has mounted before we scroll to it.
   const scrollGroupIntoView = useCallback((groupId: string) => {
-    groupCardRefs.current
-      .get(groupId)
-      ?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    requestAnimationFrame(() =>
+      groupCardRefs.current
+        .get(groupId)
+        ?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" }),
+    );
   }, []);
 
   // Tap on an already-grouped node reveals the group it belongs to.

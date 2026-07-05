@@ -20,8 +20,6 @@ export type { GroupView } from "./groups";
 
 export interface UseParallelSessionsReturn {
   degrees: DegreeOption[];
-  loadingDegrees: boolean;
-  degreesError: string | null;
   selectedDegree: DegreeOption | null;
 
   selectedYearIds: Set<UUID>;
@@ -65,7 +63,6 @@ export interface UseParallelSessionsReturn {
 
   showFinishModal: boolean;
   setShowFinishModal: Dispatch<SetStateAction<boolean>>;
-  /** Shown when a confirm was rejected as stale; the list has been refetched. */
   /** Which confirm was rejected as stale (drives the prompt copy), or null. */
   staleConfirmScope: "subject" | "all" | null;
   setStaleConfirmScope: Dispatch<SetStateAction<"subject" | "all" | null>>;
@@ -176,8 +173,6 @@ export function useParallelSessions(): UseParallelSessionsReturn {
 
   return {
     degrees: filters.degrees,
-    loadingDegrees: loadingCandidates,
-    degreesError: candidatesError,
     selectedDegree: filters.selectedDegree,
     selectedYearIds: filters.selectedYearIds,
     yearsWithCandidates: filters.yearsWithCandidates,

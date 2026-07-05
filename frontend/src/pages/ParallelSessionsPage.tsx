@@ -24,8 +24,6 @@ export default function ParallelClassesPage() {
 
   const {
     degrees,
-    loadingDegrees,
-    degreesError,
     selectedDegree,
     selectedYearIds,
     yearsWithCandidates,
@@ -216,7 +214,7 @@ export default function ParallelClassesPage() {
     }));
     if (!closing) {
       const ids = groupIdsByCandidate.get(candidateId);
-      if (ids && ids.length === 1) requestAnimationFrame(() => revealGroup(ids[0]!));
+      if (ids && ids.length === 1) revealGroup(ids[0]!);
     }
   };
 
@@ -239,16 +237,16 @@ export default function ParallelClassesPage() {
     : 0;
 
   // Create a group (or group-all) from the graph panel, then scroll its new card
-  // into view once it has mounted.
+  // into view.
   const handleCreateGroupForSelected = () => {
     if (!selectedGraph) return;
     const id = handleCreateGroup(selectedGraph.candidate_group_id);
-    if (id) requestAnimationFrame(() => scrollGroupIntoView(id));
+    if (id) scrollGroupIntoView(id);
   };
   const handleGroupAllForSelected = () => {
     if (!selectedGraph) return;
     const id = handleGroupAll(selectedGraph.candidate_group_id);
-    if (id) requestAnimationFrame(() => scrollGroupIntoView(id));
+    if (id) scrollGroupIntoView(id);
   };
 
   return (
@@ -270,9 +268,9 @@ export default function ParallelClassesPage() {
             </div>
 
             <SubjectSelectors
-              degreesError={degreesError}
+              degreesError={candidatesError}
               sortedDegrees={sortedDegrees}
-              loadingDegrees={loadingDegrees}
+              loadingDegrees={loadingCandidates}
               selectedDegree={selectedDegree}
               confirmedDegreeIds={confirmedDegreeIds}
               onDegreeClick={handleDegreeClick}
