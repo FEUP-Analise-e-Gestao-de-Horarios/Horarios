@@ -293,9 +293,10 @@ export default function WeekGrid({
   }, [filteredLabels]);
 
   const fullRowTrack = `minmax(${minSlotPx}px, 1fr)`;
+  const compactRowPx = Math.max(COMPACT_ROW_PX, Math.ceil(hourFontPx * 1.5));
   const gridTemplateRows = `${headerPx}px${
     hasSecondaryHeader ? ` ${headerPx}px` : ""
-  } ${computeRowHeights(rowOccupied, fullRowTrack, COMPACT_ROW_PX).join(" ")}`;
+  } ${computeRowHeights(rowOccupied, fullRowTrack, compactRowPx).join(" ")}`;
 
   const fullColTrack =
     columnWidthPx != null ? `${columnWidthPx}px` : `minmax(${TURMA_COLUMN_DEFAULT_MIN_PX}px, 1fr)`;
