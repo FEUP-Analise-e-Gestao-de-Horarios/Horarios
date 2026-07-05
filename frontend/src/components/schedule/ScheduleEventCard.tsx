@@ -3,7 +3,7 @@ import { WEEKDAY_LABELS_LONG } from "@/utils/weekdays";
 import type { WeekGridEvent } from "./WeekGrid";
 import { SCHEDULE_EVENT_DATA_ATTR } from "./dismissable";
 import MarqueeText from "./MarqueeText";
-import type { SubjectStyle } from "./subjectColors";
+import { SUBJECT_SELECTION_RING, type SubjectStyle } from "./subjectColors";
 
 const SLOT_MINUTES = 30;
 
@@ -74,20 +74,24 @@ export default function ScheduleEventCard({
       onClick={onClick ? () => onClick(ev) : undefined}
       aria-label={ariaLabel}
       aria-current={isEditing ? "true" : undefined}
-      className={`group relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/80 focus-visible:z-10 ${style.bg} ${style.text} ${
-        // Editing keeps the subject's own colors readable and signals selection
-        // with a light brand-red ring instead of a near-black fill (PI ToDo #11).
-        isEditing ? "border-[#C73F24] ring-2 ring-inset ring-[#C73F24] z-10" : style.border
+      className={`group relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C73F24]/70 focus-visible:z-10 ${
+        isEditing ? "z-10" : ""
       } ${clickable ? "cursor-pointer hover:brightness-95 transition" : "cursor-default"}`}
       style={{
         gridColumn: `${startCol} / span ${colSpan}`,
         gridRow: `${startRow} / span ${rowSpan}`,
+        backgroundColor: style.background,
+        color: style.text,
+        // Editing keeps the subject's own colours and signals selection with a
+        // neutral ring that reads against any palette hue (PI ToDo #11).
+        borderColor: isEditing ? SUBJECT_SELECTION_RING : style.border,
+        boxShadow: isEditing ? `inset 0 0 0 2px ${SUBJECT_SELECTION_RING}` : undefined,
       }}
       title={ev.title}
       disabled={!clickable}
     >
       <div
-        className="absolute inset-0 overflow-hidden px-1.5 py-1"
+        className="absolute inset-0 overflow-hidden px-1.5 py-0.5"
         style={{ maskImage: FADE_MASK, WebkitMaskImage: FADE_MASK }}
       >
         {ev.title && <MarqueeText className="font-semibold">{ev.title}</MarqueeText>}

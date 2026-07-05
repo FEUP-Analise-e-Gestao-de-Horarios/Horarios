@@ -13,6 +13,7 @@ import {
 } from "@/components/schedule/useScheduleFilters";
 import { useScheduleOptions } from "@/components/schedule/useScheduleOptions";
 import { useScheduleViewUrl } from "@/components/schedule/useScheduleViewUrl";
+import { createSubjectPalette } from "@/components/schedule/subjectColors";
 import { useTurnoTurmaSync } from "@/components/schedule/useTurnoTurmaSync";
 import { useProjectDegree, useProjectDegrees } from "@/api/hooks/project/degree";
 import { useProjectRooms } from "@/api/hooks/project/room";
@@ -176,6 +177,13 @@ export default function SchedulePage() {
     setSemanas,
   });
 
+  // One palette for the whole page, keyed off the year's full UC list so each
+  // UC keeps its colour as the user changes other filters (#10).
+  const subjectPalette = useMemo(
+    () => createSubjectPalette(filters.ucOptions),
+    [filters.ucOptions],
+  );
+
   const handleSelectCurso = (nextCurso: string) => {
     setCurso(nextCurso);
     setAnos([]);
@@ -229,6 +237,7 @@ export default function SchedulePage() {
         weekOptions={filters.weekOptions}
         dayOptions={filters.dayOptions}
         ucOptions={filters.ucOptions}
+        subjectPalette={subjectPalette}
         turnoTurmaGroups={filters.turnoTurmaGroups}
         yearOptions={filters.yearOptions}
         courseOptions={courseOptions}
@@ -292,10 +301,11 @@ export default function SchedulePage() {
               includeEndSlot
               headerHeightPx={22}
               hourLabelFontPx={12}
-              slotHeightPx={26}
+              slotHeightPx={30}
               showHalfHourLabels
               showHalfHourDividers
               editingEventId={eventEditor.isOpen ? eventEditor.editingEvent?.id : undefined}
+              subjectPalette={subjectPalette}
               onEventClick={eventEditor.openEditor}
               onHorizontalScroll={() => eventEditor.setIsCollapsed(true)}
             />

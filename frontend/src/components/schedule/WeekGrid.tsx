@@ -4,7 +4,7 @@ import { hhmmToMinutes, minutesToTime } from "@/utils/time";
 import { WEEKDAYS, WEEKDAY_LABELS_SHORT } from "@/utils/weekdays";
 import ScheduleEventCard from "./ScheduleEventCard";
 import { placeEventsOnGrid } from "./scheduleGrid";
-import { styleForSubject } from "./subjectColors";
+import { styleForSubject, type SubjectPalette } from "./subjectColors";
 import { TURMA_COLUMN_MAX_PX, TURMA_COLUMN_MIN_PX, useColumnResize } from "./useColumnResize";
 import { useGridTimeRange } from "./useGridTimeRange";
 
@@ -65,6 +65,8 @@ interface WeekGridProps {
   hourLabelFontPx?: number;
   editingEventId?: string;
   selectedDays?: string[];
+  /** Per-UC colours; events fall back to a neutral style when absent. */
+  subjectPalette?: SubjectPalette;
 }
 
 const WEEKDAY_LABELS = WEEKDAYS.map((day) => WEEKDAY_LABELS_SHORT[day]);
@@ -81,7 +83,9 @@ const TURMA_COLUMN_DEFAULT_MIN_PX = 64;
 const HORIZONTAL_SCROLL_THRESHOLD_PX = 8;
 
 function getTurmaHeaderStyle(shift?: number): string {
-  if (shift !== undefined && shift % 2 === 0) return "bg-[#f7ddd7] border-[#e0b0a5] text-[#8C2C19]";
+  // Alternating turnos get a neutral cool-grey tint (was orange); the brand
+  // colour is reserved for actions, not passive headers (#23).
+  if (shift !== undefined && shift % 2 === 0) return "bg-[#e7eaee] border-[#d3d8df] text-[#08060d]";
   return "bg-[#f9f7f4] text-[#08060d]";
 }
 
@@ -144,6 +148,7 @@ export default function WeekGrid({
   hourLabelFontPx,
   editingEventId,
   selectedDays,
+  subjectPalette,
 }: WeekGridProps) {
   const lastScrollLeftRef = useRef(0);
   const { gridRef, columnWidthPx, dragState, handleResizeStart, handleResizeKeyDown } =
@@ -343,7 +348,7 @@ export default function WeekGrid({
                       }
                       onMouseDown={(event) => handleResizeStart(columnIndex, event)}
                       onKeyDown={(event) => handleResizeKeyDown(columnIndex, event)}
-                      className={`absolute top-0 right-0 z-10 h-full w-2 cursor-col-resize hover:bg-[#8C2C19]/40 focus-visible:bg-[#8C2C19]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/80 ${
+                      className={`absolute top-0 right-0 z-10 h-full w-2 cursor-col-resize hover:bg-[#8C2C19]/40 focus-visible:bg-[#8C2C19]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C73F24]/70 ${
                         dragState?.colIndex === columnIndex ? "bg-[#8C2C19]/60" : ""
                       }`}
                       title="Arrasta para redimensionar as colunas"
@@ -424,7 +429,7 @@ export default function WeekGrid({
         })}
 
         {placedEvents.flatMap(({ ev, dayCol, rowStart, span, runs, weekRangeLabel }) => {
-          const style = styleForSubject(ev.uc);
+          const style = styleForSubject(subjectPalette, ev.uc, ev.type);
           const isEditingEvent = editingEventId === ev.id;
           return runs.map((run) => (
             <ScheduleEventCard

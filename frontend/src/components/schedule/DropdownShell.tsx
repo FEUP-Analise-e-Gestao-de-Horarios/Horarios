@@ -6,6 +6,12 @@ import { useDropdownPosition } from "./useDropdownPosition";
 const DROPDOWN_PANEL_BASE =
   "absolute bg-[#1e2028] border border-gray-600 rounded z-[200] shadow-[0_4px_12px_rgba(0,0,0,0.4)]";
 
+// Highlight for a selected option in the filter dropdowns (Curso, Ano, Turma,
+// Dia, Semana). Uses the app's brand red — the same accent as the navbar's
+// primary actions — instead of the old orphan amber. (The UC dropdown is the
+// exception: each UC option takes its own palette colour.)
+export const DROPDOWN_SELECTED_OPTION_CLASS = "text-[#E8634A] bg-[#C73F24]/20 border-[#C73F24]/50";
+
 interface DropdownShellProps {
   /** Whether the panel is shown. Callers should fold in `!disabled` here. */
   open: boolean;

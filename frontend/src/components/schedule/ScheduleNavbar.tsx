@@ -6,7 +6,7 @@ import CursoDropdown from "./CursoDropdown";
 import { SCHEDULE_NAVBAR_DATA_ATTR } from "./dismissable";
 import MultiDropdown from "./MultiDropdown";
 import TurnoTurmaDropdown, { type TurnoTurmaGroup } from "./TurnoTurmaDropdown";
-import { styleForSubjectDark } from "./subjectColors";
+import { styleForSubject, type SubjectPalette } from "./subjectColors";
 import type { CourseGroup, DropdownOption } from "./types";
 import { useDismissable } from "./useDismissable";
 
@@ -29,6 +29,7 @@ interface ScheduleNavbarProps {
   weekOptions: DropdownOption[];
   dayOptions: DropdownOption[];
   ucOptions: string[];
+  subjectPalette: SubjectPalette;
   turnoTurmaGroups: TurnoTurmaGroup[];
   yearOptions: DropdownOption[];
   courseOptions: CourseGroup[];
@@ -58,6 +59,7 @@ export default function ScheduleNavbar({
   weekOptions,
   dayOptions,
   ucOptions,
+  subjectPalette,
   turnoTurmaGroups,
   yearOptions,
   courseOptions,
@@ -150,7 +152,7 @@ export default function ScheduleNavbar({
         disabled={!curso}
         showLabel
         fitContent
-        getOptionStyle={styleForSubjectDark}
+        getOptionStyle={(uc) => styleForSubject(subjectPalette, uc)}
       />
 
       <TurnoTurmaDropdown
