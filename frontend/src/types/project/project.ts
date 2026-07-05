@@ -3,6 +3,7 @@ export interface Project {
   id: number;
   name: string;
   url: string;
+  has_selected_parallel_sessions: boolean;
   created_at: string;
   updated_at: string;
   ingestion_started_at: string | null;

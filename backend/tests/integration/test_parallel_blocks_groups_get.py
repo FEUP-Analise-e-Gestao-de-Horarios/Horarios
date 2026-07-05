@@ -254,44 +254,37 @@ def test_get_reflects_prior_post_round_trip(
         _groups_url(project.pk),
         data=json.dumps(
             {
-                "groups": [
-                    {
-                        "candidate_group_id": candidate_group_id,
-                        "block_ids": [str(block_a), str(block_b)],
-                    },
-                ],
+                "candidate_group_id": candidate_group_id,
+                "block_ids": [str(block_a), str(block_b)],
             },
         ),
         content_type="application/json",
     )
     assert post.status_code == 200
-    assert post.json()["data"] == 1
+    new_group_id = post.json()["data"]["group_id"]
 
     data = auth_client.get(_groups_url(project.pk)).json()["data"]
     assert len(data) == 1
     entry = data[0]
     assert set(entry["block_ids"]) == {str(block_a), str(block_b)}
     # A confirmed group id is a freshly generated UUID (parses), not the candidate id.
+    assert entry["group_id"] == new_group_id
     assert UUID(entry["group_id"]) != UUID(candidate_group_id)
 
 
-def test_get_after_post_clears_all_returns_empty(
+def test_get_after_delete_clear_all_returns_empty(
     auth_client: Client,
     project: Project,
     project_db: Session,
 ) -> None:
-    """POST with an empty group list clears everything; the next GET sees nothing."""
+    """DELETE on the collection clears everything; the next GET sees nothing."""
     group_id = uuid.uuid7()
     make_group_member(project_db, group_id=group_id, original_block_id=uuid.uuid7())
     make_group_member(project_db, group_id=group_id, original_block_id=uuid.uuid7())
 
-    post = auth_client.post(
-        _groups_url(project.pk),
-        data=json.dumps({"groups": []}),
-        content_type="application/json",
-    )
-    assert post.status_code == 200
-    assert post.json()["data"] == 0
+    deleted = auth_client.delete(_groups_url(project.pk))
+    assert deleted.status_code == 200
+    assert deleted.json()["data"] == 2
 
     response = auth_client.get(_groups_url(project.pk))
     assert response.status_code == 200
@@ -303,7 +296,7 @@ def test_get_unaffected_by_rejected_post(
     project: Project,
     project_db: Session,
 ) -> None:
-    """An invalid-candidates POST is rejected before ``clear_all``; prior groups survive."""
+    """An invalid-candidates POST is rejected before any write; prior groups survive."""
     group_id = uuid.uuid7()
     block_a = uuid.uuid7()
     block_b = uuid.uuid7()
@@ -315,12 +308,8 @@ def test_get_unaffected_by_rejected_post(
         _groups_url(project.pk),
         data=json.dumps(
             {
-                "groups": [
-                    {
-                        "candidate_group_id": str(uuid.uuid7()),
-                        "block_ids": [str(uuid.uuid7()), str(uuid.uuid7())],
-                    },
-                ],
+                "candidate_group_id": str(uuid.uuid7()),
+                "block_ids": [str(uuid.uuid7()), str(uuid.uuid7())],
             },
         ),
         content_type="application/json",
@@ -390,14 +379,14 @@ def test_cross_project_isolation(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("method", ["put", "delete"])
-def test_unsupported_methods_return_405(
+@pytest.mark.parametrize("method", ["put", "patch"])
+def test_unsupported_method_returns_405(
     auth_client: Client,
     project: Project,
     project_db: Session,
     method: str,
 ) -> None:
-    """The view defines only get/post; PUT and DELETE fall through to 405."""
+    """The collection view defines get/post/delete; PUT and PATCH fall through to 405."""
     response = getattr(auth_client, method)(_groups_url(project.pk))
     assert response.status_code == 405
 

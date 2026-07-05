@@ -261,6 +261,56 @@ def test_is_connected_subset_does_not_mutate_inputs() -> None:
     assert component.edges == edges_snapshot
 
 
+def test_is_connected_subset_verdict_independent_of_start_node() -> None:
+    """The connected/disconnected verdict never depends on which node the BFS
+    happens to visit first (``start = next(iter(blocks))``).
+
+    ``is_connected_subset`` seeds its traversal from an arbitrary element of the
+    selection set, whose identity is governed by uuid hashing/insertion order.
+    To pin that the verdict is start-node independent we probe several
+    selections that demonstrably begin the traversal from *different* elements
+    (asserted via ``next(iter(...))``) and confirm the verdict is uniform:
+    every connected selection is True and every disconnected one is False,
+    regardless of the entry node.
+    """
+    connected = _component(
+        {A, B, C},
+        (CandidateEdge(A, B, (W1,)), CandidateEdge(B, C, (W1,))),
+    )
+    connected_selections = [{A, B, C}, {A, B}, {B, C}]
+    connected_starts = {next(iter(selection)) for selection in connected_selections}
+    # The probed selections genuinely enter the BFS from more than one node,
+    # so the uniform True verdict below is not an artifact of a single start.
+    assert len(connected_starts) > 1
+    assert all(
+        connected.is_connected_subset(selection) is True for selection in connected_selections
+    )
+
+    # Two disjoint edges (A-B and C-D): any selection that straddles both sides
+    # or isolates a genuine member is disconnected from every possible start.
+    disconnected = _component(
+        {A, B, C, D},
+        (CandidateEdge(A, B, (W1,)), CandidateEdge(C, D, (W1,))),
+    )
+    disconnected_selections = [{A, B, C}, {B, C, D}, {A, C}]
+    disconnected_starts = {next(iter(selection)) for selection in disconnected_selections}
+    assert len(disconnected_starts) > 1
+    assert all(
+        disconnected.is_connected_subset(selection) is False
+        for selection in disconnected_selections
+    )
+
+
+def test_is_connected_subset_self_edge_does_not_falsely_connect() -> None:
+    """A self-loop on A must not bridge A to B when there is no real A-B edge.
+
+    The only edge is ``(A, A)``; it contributes A to A's own adjacency and
+    nothing else, so B stays an island and the selection is disconnected.
+    """
+    component = _component({A, B}, (CandidateEdge(A, A, (W1,)),))
+    assert component.is_connected_subset({A, B}) is False
+
+
 # --------------------------------------------------------------------------- #
 # _UnionFind
 # --------------------------------------------------------------------------- #
