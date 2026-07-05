@@ -47,10 +47,11 @@ def test_empty_name_falls_back_to_acronym() -> None:
 def test_name_dropped_when_first_node_prefix_differs_from_acronym() -> None:
     """KNOWN WART — minimal repro of the real ``teacher_name_is_acronym`` fixture.
 
-    ``extract_teacher_info`` recovers the name by stripping the *acronym* prefix
-    off the first node. When the first node's leading token is not the acronym
-    (here "AJCA" vs "AA") and it uses a bare "-" separator, the strip fails and
-    the name falls back to the acronym — so the real name is dropped. Pinned as
+    ``extract_teacher_info`` only recovers the name when the acronym occurs as a
+    substring of the first node (``name = first[len(acronym):] if acronym in
+    first else ""``). Here the acronym "AA" does not appear anywhere in
+    "AJCA-Albertino José Castanho Arteiro", so the check fails, the name becomes
+    empty and falls back to the acronym — the real name is dropped. Pinned as
     current behaviour (25 such pages exist in the captured corpus); see
     ``test_real_pages`` for the real page this reproduces.
     """

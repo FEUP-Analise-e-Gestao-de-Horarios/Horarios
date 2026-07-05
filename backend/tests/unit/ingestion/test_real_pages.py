@@ -136,10 +136,11 @@ def test_real_teacher_name_is_dropped_when_prefix_differs_from_acronym() -> None
 
     On this real page the ``cabtitulo`` first node is
     ``"AJCA-Albertino José Castanho Arteiro"`` while the acronym node is ``"AA"``.
-    ``extract_teacher_info`` derives the name by stripping the *acronym* prefix
-    off the first node; because the leading token ("AJCA") is not the acronym
-    ("AA") and the separator is a bare "-" (not " - "), the strip fails and the
-    name falls back to the acronym. The real name is therefore lost.
+    ``extract_teacher_info`` only recovers the name when the acronym occurs as a
+    substring of the first node (``name = first[len(acronym):] if acronym in
+    first else ""``); because "AA" does not appear anywhere in the first node the
+    check fails, the name becomes empty and falls back to the acronym. The real
+    name is therefore lost.
 
     This is one of 25 such name-drops in the captured corpus. If the parser is
     fixed to recover the name, update this assertion — the change is the point.
