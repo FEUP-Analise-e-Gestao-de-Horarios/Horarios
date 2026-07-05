@@ -21,8 +21,8 @@ describe("getInitialEventDrawerFormState", () => {
 
   it("clamps a duration that would overrun the grid end", () => {
     const event = { startTime: 1830, duration: 8, weekday: "monday" } as WeekGridEvent;
-    // 18:30 leaves only two 30-min slots before the 19:30 grid end.
-    expect(getInitialEventDrawerFormState(event).durationSlots).toBe(2);
+    // 18:30 leaves only three 30-min slots before the 20:00 grid end.
+    expect(getInitialEventDrawerFormState(event).durationSlots).toBe(3);
   });
 });
 
@@ -40,8 +40,8 @@ describe("eventDrawerFormReducer — duration", () => {
       type: "setDuration",
       slots: 10,
     });
-    // 18:00 -> 19:30 is three slots.
-    expect(next.durationSlots).toBe(3);
+    // 18:00 -> 20:00 is four slots.
+    expect(next.durationSlots).toBe(4);
   });
 
   it("re-clamps the duration when the start time moves later", () => {
@@ -50,7 +50,7 @@ describe("eventDrawerFormReducer — duration", () => {
       delta: 600,
     });
     expect(next.startTime).toBe("18:00");
-    expect(next.durationSlots).toBe(3);
+    expect(next.durationSlots).toBe(4);
   });
 });
 
