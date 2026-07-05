@@ -9,14 +9,36 @@ from src.projects.projects_db.schemas.weekday import WeekDay
 from src.projects.views.schemas.shared import DegreeBase
 
 
-# -- Save parallel groups (request) ------------------------------------
-class ParallelGroupEntry(BaseModel):
+# -- Create one parallel group (request) -------------------------------
+class CreateParallelGroupRequest(BaseModel):
     candidate_group_id: UUID
     block_ids: list[UUID]
 
 
-class SaveParallelGroupMembersRequest(BaseModel):
-    groups: list[ParallelGroupEntry]
+# -- Created parallel group (response) ---------------------------------
+class CreatedParallelGroupResponse(BaseModel):
+    group_id: UUID
+
+
+# -- Confirm a subject's candidates (request) --------------------------
+class ConfirmSubjectRequest(BaseModel):
+    subject_id: UUID
+    # The candidate group ids the client currently shows for this subject. The
+    # server aborts the confirmation if they no longer match the live set, so a
+    # subject is never confirmed against a stale view of its candidates.
+    candidate_group_ids: list[UUID]
+
+
+# -- Confirm every candidate (request) ---------------------------------
+class ConfirmAllRequest(BaseModel):
+    # Every candidate group id the client currently shows, across all subjects.
+    # The server aborts if this no longer matches the live set.
+    candidate_group_ids: list[UUID]
+
+
+# -- Confirmed candidate ids (response) --------------------------------
+class ConfirmedCandidatesResponse(BaseModel):
+    candidate_group_ids: list[UUID]
 
 
 # -- Confirmed parallel groups (response) ------------------------------
@@ -57,6 +79,7 @@ class ParallelCandidateYear(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    number: int
     degree: DegreeBase
 
 
@@ -66,6 +89,7 @@ class ParallelCandidateSubject(BaseModel):
     id: UUID
     acronym: str
     name: str
+    confirmed: bool = False
     years: list[ParallelCandidateYear]
 
 

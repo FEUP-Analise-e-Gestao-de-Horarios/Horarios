@@ -14,8 +14,11 @@ Standalone helper units (``_component_uuid`` in isolation, ``_UnionFind``,
 """
 
 import dataclasses
+import random
 import uuid
-from datetime import date
+from collections import defaultdict
+from datetime import date, timedelta
+from itertools import combinations
 
 import pytest
 
@@ -626,3 +629,201 @@ def test_block_ids_frozenset_edges_tuple_and_dataclasses_frozen() -> None:
 
     with pytest.raises(dataclasses.FrozenInstanceError):
         component.edges[0].block_a = B  # type: ignore[misc]
+
+
+# --------------------------------------------------------------------------- #
+# Complete graph on one slot
+# --------------------------------------------------------------------------- #
+
+
+def test_four_blocks_one_slot_form_k4() -> None:
+    """Four blocks sharing one slot are mutually adjacent (K4): one component,
+    every one of the six canonical pairs as an edge, each on that week."""
+    rows = [
+        row(W1, WeekDay.MONDAY, 9, S1, A),
+        row(W1, WeekDay.MONDAY, 9, S1, B),
+        row(W1, WeekDay.MONDAY, 9, S1, C),
+        row(W1, WeekDay.MONDAY, 9, S1, D),
+    ]
+    components = build_candidate_components(rows)
+
+    assert len(components) == 1
+    component = components[0]
+    assert component.block_ids == frozenset({A, B, C, D})
+
+    expected_edges = tuple(
+        CandidateEdge(block_a, block_b, (W1,))
+        for block_a, block_b in combinations(sorted([A, B, C, D]), 2)
+    )
+    assert len(expected_edges) == 6  # every pair with block_a < block_b
+    assert component.edges == expected_edges
+    assert all(edge.block_a < edge.block_b for edge in component.edges)
+    assert all(edge.weeks == (W1,) for edge in component.edges)
+    assert component.candidate_group_id == _expected_group_id(S1, A, B, C, D)
+
+
+# --------------------------------------------------------------------------- #
+# Property-style invariants over a large, deterministically generated graph
+# --------------------------------------------------------------------------- #
+
+
+def _generate_rows(seed: int) -> list[CandidateSlotRow]:
+    """Deterministically synthesize a large-ish slot-row set for one build.
+
+    Uses a *seeded* ``random.Random`` (no hypothesis, no global RNG) so the
+    input is fully reproducible. The shape is deliberately varied:
+
+    * a guaranteed 3-block homogeneous cluster on an isolated slot (start_time
+      20, which the random pool never uses) so at least one multi-block
+      component always exists and can be named exactly;
+    * a guaranteed set of heterogeneous blocks (two distinct
+      ``(weekday, start_time)`` slots) that must be dropped;
+    * the remaining blocks scattered over a small slot pool across several
+      weeks, all anchored on ``weeks[0]`` so co-located blocks actually collide,
+      which yields further multi-block components and lone (singleton) blocks.
+    """
+    rng = random.Random(seed)
+
+    subjects = [uuid.UUID(int=1000 + index) for index in range(rng.randint(2, 3))]
+    block_count = rng.randint(15, 30)
+    blocks = [uuid.UUID(int=1 + index) for index in range(block_count)]
+    weekdays = [WeekDay.MONDAY, WeekDay.TUESDAY, WeekDay.WEDNESDAY]
+    start_times = [9, 11, 14]
+    home_slots = [(weekday, start) for weekday in weekdays for start in start_times]
+    weeks = [date(2025, 9, 1) + timedelta(days=7 * offset) for offset in range(4)]
+
+    rows: list[CandidateSlotRow] = []
+
+    # Isolated, guaranteed multi-block component (unique start_time 20).
+    cluster = blocks[:3]
+    cluster_subject = subjects[0]
+    for block in cluster:
+        rows.append((weeks[0], WeekDay.MONDAY, 20, cluster_subject, block))
+
+    remaining = blocks[3:]
+    het_count = max(2, len(remaining) // 5)
+    het_blocks = set(rng.sample(remaining, het_count))
+
+    for block in remaining:
+        subject = rng.choice(subjects)
+        weekday, start = rng.choice(home_slots)
+        # Always include weeks[0] so blocks sharing subject+slot collide there.
+        chosen_weeks = {weeks[0]}
+        for week in weeks[1:]:
+            if rng.random() < 0.5:
+                chosen_weeks.add(week)
+        for week in sorted(chosen_weeks):
+            rows.append((week, weekday, start, subject, block))
+        if block in het_blocks:
+            # A second, distinct (weekday, start_time) slot -> block is dropped.
+            other = rng.choice([slot for slot in home_slots if slot != (weekday, start)])
+            rows.append((rng.choice(weeks), other[0], other[1], subject, block))
+
+    rng.shuffle(rows)
+    return rows
+
+
+def _independent_components_by_subject(
+    rows: list[CandidateSlotRow],
+) -> tuple[set[uuid.UUID], dict[uuid.UUID, set[frozenset[uuid.UUID]]]]:
+    """Recompute eligibility and per-subject connected components from scratch.
+
+    Deliberately independent of the module under test: eligibility keys on the
+    distinct ``(weekday, start_time)`` slots per block, and components are found
+    by plain BFS over collision edges (rather than the module's union-find).
+    Returns ``(dropped_blocks, {subject: {frozenset(block_ids), ...}})``.
+    """
+    slots_by_block: defaultdict[uuid.UUID, set[tuple[WeekDay, int]]] = defaultdict(set)
+    for _week, weekday, start_time, _subject_id, block_id in rows:
+        slots_by_block[block_id].add((weekday, start_time))
+    eligible = {block for block, slots in slots_by_block.items() if len(slots) == 1}
+    dropped = set(slots_by_block) - eligible
+
+    blocks_by_slot: defaultdict[tuple[date, WeekDay, int, uuid.UUID], set[uuid.UUID]] = defaultdict(
+        set,
+    )
+    for week, weekday, start_time, subject_id, block_id in rows:
+        if block_id in eligible:
+            blocks_by_slot[(week, weekday, start_time, subject_id)].add(block_id)
+
+    adjacency: defaultdict[uuid.UUID, defaultdict[uuid.UUID, set[uuid.UUID]]] = defaultdict(
+        lambda: defaultdict(set),
+    )
+    nodes_by_subject: defaultdict[uuid.UUID, set[uuid.UUID]] = defaultdict(set)
+    for (_week, _weekday, _start_time, subject_id), blocks in blocks_by_slot.items():
+        if len(blocks) < 2:
+            continue
+        for block_a, block_b in combinations(sorted(blocks), 2):
+            adjacency[subject_id][block_a].add(block_b)
+            adjacency[subject_id][block_b].add(block_a)
+            nodes_by_subject[subject_id].update((block_a, block_b))
+
+    components_by_subject: dict[uuid.UUID, set[frozenset[uuid.UUID]]] = {}
+    for subject_id, nodes in nodes_by_subject.items():
+        unseen = set(nodes)
+        found: set[frozenset[uuid.UUID]] = set()
+        while unseen:
+            start = min(unseen)
+            unseen.discard(start)
+            component = {start}
+            stack = [start]
+            while stack:
+                node = stack.pop()
+                for neighbor in adjacency[subject_id][node]:
+                    if neighbor in unseen:
+                        unseen.discard(neighbor)
+                        component.add(neighbor)
+                        stack.append(neighbor)
+            found.add(frozenset(component))
+        components_by_subject[subject_id] = found
+
+    return dropped, components_by_subject
+
+
+@pytest.mark.parametrize("seed", [1, 7, 1234])
+def test_build_invariants_on_large_generated_graph(seed: int) -> None:
+    """Structural invariants must hold on a large, reproducible random build."""
+    rows = _generate_rows(seed)
+    components = build_candidate_components(rows)
+
+    dropped, expected_by_subject = _independent_components_by_subject(rows)
+
+    # The generator guarantees both code paths are exercised.
+    assert dropped, "expected at least one dropped heterogeneous block"
+    assert components, "expected at least one component"
+
+    for component in components:
+        # No singleton or empty components ever surface.
+        assert len(component.block_ids) >= 2
+        # Edges are canonical and internal to the component.
+        for edge in component.edges:
+            assert edge.block_a < edge.block_b
+            assert edge.block_a in component.block_ids
+            assert edge.block_b in component.block_ids
+        # The id is the golden uuid5 of subject + sorted membership.
+        assert component.candidate_group_id == _expected_group_id(
+            component.subject_id,
+            *component.block_ids,
+        )
+        # No dropped (heterogeneous) block ever appears in a component.
+        assert component.block_ids.isdisjoint(dropped)
+
+    got_by_subject: defaultdict[uuid.UUID, list[frozenset[uuid.UUID]]] = defaultdict(list)
+    for component in components:
+        got_by_subject[component.subject_id].append(component.block_ids)
+
+    # The subjects with components match the independent recomputation.
+    assert set(got_by_subject) == set(expected_by_subject)
+
+    for subject_id, block_id_sets in got_by_subject.items():
+        # Within a subject the components partition their blocks (disjoint).
+        seen: set[uuid.UUID] = set()
+        for block_ids in block_id_sets:
+            assert seen.isdisjoint(block_ids)
+            seen |= block_ids
+        # And the exact set of components matches the independent BFS result.
+        assert set(block_id_sets) == expected_by_subject[subject_id]
+
+    # The guaranteed isolated cluster surfaces exactly as its own component.
+    cluster = frozenset(uuid.UUID(int=1 + index) for index in range(3))
+    assert cluster in set(got_by_subject[uuid.UUID(int=1000)])

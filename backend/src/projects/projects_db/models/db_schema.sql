@@ -150,3 +150,13 @@ CREATE TABLE parallel_block_group_members (
     PRIMARY KEY (parallel_block_group_id, original_block_id),
     UNIQUE (original_block_id)
 );
+
+-- Candidate groups the user has marked as reviewed/confirmed. A subject is
+-- confirmed only when every one of its current candidate components is listed
+-- here; the candidates endpoint prunes ids that no longer belong to a
+-- fully-confirmed subject on every read.
+CREATE TABLE parallel_confirmed_candidates (
+    candidate_group_id  UUID NOT NULL,
+
+    PRIMARY KEY (candidate_group_id)
+);
