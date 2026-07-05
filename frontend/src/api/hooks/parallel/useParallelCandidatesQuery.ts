@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { queryKeys } from "@/api/queryKeys";
 import type { ParallelCandidateGraph, SuccessResponse } from "@/types/parallelSessions";
-import { getErrorMessage } from "./errors";
+import { getErrorMessage } from "@/api/errors";
 
 /** Fetches the parallel candidate graphs for a project and exposes the raw
  * payload (which the confirm/group state seeds from) alongside a memoised

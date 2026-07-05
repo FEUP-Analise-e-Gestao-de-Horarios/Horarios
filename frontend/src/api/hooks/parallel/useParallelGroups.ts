@@ -12,7 +12,8 @@ import {
   type UUID,
 } from "@/types/parallelSessions";
 import { ApiError } from "@/types/api";
-import { getErrorCode, parallelSaveErrorMessage } from "./errors";
+import { getErrorCode } from "@/api/errors";
+import { parallelSaveErrorMessage } from "./errors";
 import type { SavingControls } from "./useSaving";
 
 /** How long a confirmed-deleted card releases, fades, and collapses out before

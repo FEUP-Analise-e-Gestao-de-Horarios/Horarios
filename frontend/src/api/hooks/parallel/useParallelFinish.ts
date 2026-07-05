@@ -7,7 +7,7 @@ import { ApiError } from "@/types/api";
 import { ROUTES } from "@/routes";
 import { queryKeys } from "@/api/queryKeys";
 import type { ParallelCandidateGraph, UUID } from "@/types/parallelSessions";
-import { getErrorCode, getErrorMessage } from "./errors";
+import { getErrorCode, getErrorMessage } from "@/api/errors";
 import type { SavingControls } from "./useSaving";
 
 /** Owns the finish/stale/reset/navigation flow: the finish + reset modals, the

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { getErrorCode } from "@/api/errors";
 import { useRenameProject, useDeleteProject } from "@/api/hooks/useProjects";
 import { ApiError } from "@/types/api";
 import type { Project } from "@/types/project/project";
@@ -126,9 +127,9 @@ export default function ProjectCard({ project }: ProjectCardProps) {
       {
         onSuccess: () => setIsEditing(false),
         onError: (err) => {
-          if (err.code === ApiError.PROJECTS_RENAME_DUPLICATED_NAME) {
+          if (getErrorCode(err) === ApiError.PROJECTS_RENAME_DUPLICATED_NAME) {
             setRenameError("Nome já existe.");
-          } else if (err.code === ApiError.INVALID_BODY) {
+          } else if (getErrorCode(err) === ApiError.INVALID_BODY) {
             setRenameError("Nome inválido.");
           } else {
             setRenameError("Erro ao renomear.");
@@ -143,7 +144,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
     deleteProject.mutate(project.id, {
       onSuccess: () => setShowDeleteConfirm(false),
       onError: (err) => {
-        if (err.code === ApiError.PROJECTS_NOT_FOUND) {
+        if (getErrorCode(err) === ApiError.PROJECTS_NOT_FOUND) {
           setDeleteError("Projeto não encontrado.");
         } else {
           setDeleteError("Erro ao apagar. Tente novamente.");

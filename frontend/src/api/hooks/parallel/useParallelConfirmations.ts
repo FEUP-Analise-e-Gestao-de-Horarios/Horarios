@@ -11,7 +11,7 @@ import {
   type UnconfirmedYear,
   type UUID,
 } from "@/types/parallelSessions";
-import { getErrorCode, getErrorMessage } from "./errors";
+import { getErrorCode, getErrorMessage } from "@/api/errors";
 import type { SavingControls } from "./useSaving";
 
 /** Owns the "reviewed" state of subjects and the confirmation roll-up
