@@ -80,6 +80,7 @@ export default function RoomDetailPage() {
             <>
               <div
                 data-copy-id={rid}
+                data-copy-label="ID da sala"
                 className="bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)] px-6 py-4 flex items-start justify-between gap-4"
               >
                 <div className="min-w-0">

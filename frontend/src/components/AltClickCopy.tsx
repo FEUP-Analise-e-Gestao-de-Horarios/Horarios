@@ -3,10 +3,13 @@ import { useEffect, useRef, useState } from "react";
 /**
  * Global helper: Alt+click any element carrying a `data-copy-id` attribute to
  * copy that id to the clipboard instead of following its link. Mounted once at
- * the app root; entities opt in by adding `data-copy-id={entity.id}`.
+ * the app root; entities opt in by adding `data-copy-id={entity.id}` and,
+ * optionally, `data-copy-label` to name the copied id in the toast
+ * (e.g. "ID da sessão"), defaulting to a plain "ID".
  */
 export default function AltClickCopy() {
   const [visible, setVisible] = useState(false);
+  const [label, setLabel] = useState("ID");
   const timeout = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
@@ -22,6 +25,9 @@ export default function AltClickCopy() {
       e.preventDefault();
       void navigator.clipboard?.writeText(id);
 
+      // `data-copy-label` names the entity (e.g. "ID da sessão"); fall back to
+      // the generic "ID" when a copy site hasn't declared one.
+      setLabel(el?.dataset.copyLabel ?? "ID");
       setVisible(true);
       clearTimeout(timeout.current);
       timeout.current = setTimeout(() => setVisible(false), 1200);
@@ -42,7 +48,7 @@ export default function AltClickCopy() {
         visible ? "opacity-100" : "pointer-events-none opacity-0"
       }`}
     >
-      ID copiado
+      {label} copiado
     </div>
   );
 }

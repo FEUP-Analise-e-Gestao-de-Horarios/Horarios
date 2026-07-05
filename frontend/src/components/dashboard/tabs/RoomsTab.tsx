@@ -100,6 +100,7 @@ export default function RoomsTab({ projectId, search, pollInterval, processing }
                 <Link
                   to={buildPath(ROUTES.ROOM_DETAIL, { projectId, roomId: room.id })}
                   data-copy-id={room.id}
+                  data-copy-label="ID da sala"
                   draggable={false}
                   aria-label={room.name}
                   className="contents text-inherit no-underline [-webkit-user-drag:none]"
