@@ -366,16 +366,15 @@ def test_compaction_does_not_mutate_input_payload() -> None:
 
 
 # ---------------------------------------------------------------------------
-# -- Characterization: entity-map collision between a conflict and a step
+# -- Entity-map collision between a conflict and a step (fields are merged)
 # ---------------------------------------------------------------------------
 
 
-def test_class_shift_is_dropped_when_class_also_appears_in_a_conflict() -> None:
+def test_class_shift_is_preserved_when_class_also_appears_in_a_conflict() -> None:
     # A class conflict populates entities["classes"][id] with only class_code
-    # (conflicts don't carry shift). Because the class_subjects compactor uses
-    # setdefault, a later modification referencing the *same* class id cannot
-    # add class_shift, so it is lost across a round-trip. This documents the
-    # current behavior; a fix should make this round-trip preserve class_shift.
+    # (conflicts don't carry shift). A later modification referencing the *same*
+    # class id contributes class_shift. Because entities are merged per key, the
+    # shift survives the round-trip even though the conflict was compacted first.
     payload = {
         "added_removed_sessions": {"added": [], "removed": []},
         "classes_conflicts": [
@@ -427,5 +426,61 @@ def test_class_shift_is_dropped_when_class_also_appears_in_a_conflict() -> None:
     ]["added"][0]
 
     assert added["class_code"] == "1LEIC01"
-    # class_shift is dropped by the collision (would be 1 without the conflict).
-    assert added["class_shift"] is None
+    assert added["class_shift"] == 1
+
+
+def test_room_detail_is_preserved_when_room_also_appears_in_a_conflict() -> None:
+    # The room conflict knows only room_name; the modification's rooms change
+    # additionally carries room_type/size/seats. Per-key merging keeps all of
+    # them, so the expanded modification row is fully detailed.
+    payload = {
+        "added_removed_sessions": {"added": [], "removed": []},
+        "rooms_conflicts": [
+            {
+                "room_id": "room-1",
+                "room_name": "B101",
+                "week": "2026-01-05",
+                "weekday": "monday",
+                "start_time": 830,
+                "duration": 2,
+                "collisions": 2,
+                "session_ids": ["session-1", "session-2"],
+                "subject_labels": [],
+            },
+        ],
+        "modification_steps": [
+            {
+                "type": "move",
+                "original_block_id": "block-1",
+                "session_ids": ["session-1"],
+                "weeks": ["2026-01-05"],
+                "week_range": {"start": "2026-01-05", "end": "2026-01-05", "contiguous": True},
+                "modifications": {
+                    "rooms": {
+                        "added": [
+                            {
+                                "room_id": "room-1",
+                                "room_name": "B101",
+                                "room_type": "Anf",
+                                "room_size": "Grande",
+                                "room_seats": "120",
+                            },
+                        ],
+                        "removed": [],
+                    },
+                },
+                "dependencies": [],
+                "session": _session_snapshot(),
+            },
+        ],
+    }
+
+    expanded = expand_compact_export_payload(compact_export_payload(payload))
+    added = expanded.model_dump(mode="json")["modification_steps"][0]["modifications"]["rooms"][
+        "added"
+    ][0]
+
+    assert added["room_name"] == "B101"
+    assert added["room_type"] == "Anf"
+    assert added["room_size"] == "Grande"
+    assert added["room_seats"] == "120"

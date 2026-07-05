@@ -26,6 +26,32 @@ def normalize_compact_id(value: ExportJsonValue) -> str:
     return str(value).replace("-", "")
 
 
+def merge_entity_fields(
+    entity_map: ExportMapping,
+    entity_id: str,
+    fields: ExportRecord,
+) -> None:
+    """Accumulate ``fields`` into one entity, keeping the first value seen per key.
+
+    Entities are populated from several sources — resource conflicts and the
+    added/removed relation rows of modification steps — that each know only a
+    subset of an entity's fields (a conflict knows a class code but not its
+    shift, for example). Merging per key, rather than replacing the whole entity
+    via ``setdefault``, means no source's fields are dropped no matter which one
+    is compacted first.
+
+    ``None`` values are ignored: they mark a field a particular source did not
+    provide, so they must never win a ``setdefault`` slot over a real value nor
+    bloat the compact payload (the expander re-materializes absent fields as
+    ``None`` anyway).
+    """
+    entity = cast(ExportMapping, entity_map.setdefault(entity_id, {}))
+    for key, value in fields.items():
+        if value is None:
+            continue
+        entity.setdefault(key, deepcopy(value))
+
+
 def find_entity(entities: EntityMaps, entity_key: str, entity_id: ExportJsonValue) -> ExportMapping:
     """Return an entity by exact id or UUID-normalized id."""
     entity_map = entities.get(entity_key, {})
@@ -156,15 +182,15 @@ def compact_conflict(
 
     if kind == "room":
         resource_id = str(conflict["room_id"])
-        entities["rooms"].setdefault(
+        merge_entity_fields(
+            entities["rooms"],
             resource_id,
-            {
-                "room_name": conflict["room_name"],
-            },
+            {"room_name": conflict["room_name"]},
         )
     elif kind == "teacher":
         resource_id = str(conflict["teacher_id"])
-        entities["teachers"].setdefault(
+        merge_entity_fields(
+            entities["teachers"],
             resource_id,
             {
                 "teacher_number": conflict["teacher_number"],
@@ -174,8 +200,11 @@ def compact_conflict(
         )
     elif kind == "class":
         resource_id = str(conflict["class_id"])
-        class_entity = entities["classes"].setdefault(resource_id, {})
-        class_entity.setdefault("class_code", conflict["class_code"])
+        merge_entity_fields(
+            entities["classes"],
+            resource_id,
+            {"class_code": conflict["class_code"]},
+        )
     else:
         raise ValueError(f"Unknown compact conflict kind: {kind}")
 
@@ -357,9 +386,10 @@ def compact_relation_change(
         records = cast(Sequence[RelationRecord], change.get(change_type, []))
         for record in records:
             entity_id = str(record[id_key])
-            entities[entity_key].setdefault(
+            merge_entity_fields(
+                entities[entity_key],
                 entity_id,
-                {key: deepcopy(value) for key, value in record.items() if key != id_key},
+                {key: value for key, value in record.items() if key != id_key},
             )
             compact[change_type].append(entity_id)
     return compact
@@ -396,16 +426,22 @@ def compact_class_subject_change(
         for record in records:
             class_id = str(record["class_id"])
             subject_id = str(record["subject_id"])
-            entities["classes"].setdefault(
+            merge_entity_fields(
+                entities["classes"],
                 class_id,
-                {key: deepcopy(value) for key, value in record.items() if key.startswith("class_")},
+                {
+                    key: value
+                    for key, value in record.items()
+                    if key.startswith("class_") and key != "class_id"
+                },
             )
-            entities["subjects"].setdefault(
+            merge_entity_fields(
+                entities["subjects"],
                 subject_id,
                 {
-                    key: deepcopy(value)
+                    key: value
                     for key, value in record.items()
-                    if key.startswith("subject_")
+                    if key.startswith("subject_") and key != "subject_id"
                 },
             )
             compact[change_type].append([class_id, subject_id])
