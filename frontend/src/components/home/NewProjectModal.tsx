@@ -1,8 +1,6 @@
 import { useState } from "react";
 
-import { getErrorCode } from "@/api/errors";
-import { useCreateProject } from "@/api/hooks/useProjects";
-import { ApiError } from "@/types/api";
+import { newProjectErrorMessage, useCreateProject } from "@/api/hooks/useProjects";
 import { PROJECT_NAME_MAX_LENGTH, validateProjectName } from "@/utils/projectName";
 import { Loader2 } from "lucide-react";
 
@@ -27,15 +25,7 @@ export default function NewProjectModal({ onClose }: NewProjectModalProps) {
       { name: projectName, url: scheduleLink },
       {
         onSuccess: () => onClose(),
-        onError: (err) => {
-          if (getErrorCode(err) === ApiError.PROJECTS_CREATE_DUPLICATED_NAME) {
-            setError("Já existe um projeto com esse nome.");
-          } else if (getErrorCode(err) === ApiError.INVALID_BODY) {
-            setError("Link inválido.");
-          } else {
-            setError("Ocorreu um erro. Tente novamente.");
-          }
-        },
+        onError: (err) => setError(newProjectErrorMessage(err)),
       },
     );
   };
