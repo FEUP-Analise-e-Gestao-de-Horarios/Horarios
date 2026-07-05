@@ -30,7 +30,6 @@ from src.projects.projects_db.dao import (
 )
 from src.projects.projects_db.models import (
     Class,
-    ParallelBlockCandidate,
     Room,
     Session,
     SessionClassSubject,
@@ -115,10 +114,7 @@ class IngestionManager:
 
             self._ingest_sessions(degrees)
             self._ingest_shifts()
-            # Block ids must be assigned before parallel-block detection,
-            # which groups sessions by original_block_id.
             self._assign_block_ids()
-            self._detect_parallel_block_candidates()
 
             # -- Snapshot general_db into init_db ----------------------------------
             # Force a WAL checkpoint so every committed row lands in the main DB
@@ -451,65 +447,6 @@ class IngestionManager:
 
         self.db_session.commit()
 
-    def _detect_parallel_block_candidates(self) -> None:
-        """Detect and persist candidate parallel block groups.
-
-        Finds sessions that share ``(week, weekday, start_time, subject_id)``
-        in their first week of occurrence and groups their parent blocks
-        (``original_block_id``) together. Groups are stored in
-        ``parallel_block_candidates`` for later user review.
-
-        Only groups with at least two distinct blocks are persisted. Each
-        persisted group is identified by a fresh ``uuid.uuid7()`` label.
-        """
-        detection_sql = text("""
-            WITH session_subjects AS (
-                SELECT DISTINCT
-                    s.original_block_id,
-                    MIN(s.week) OVER (PARTITION BY s.original_block_id) AS first_week,
-                    s.weekday,
-                    s.start_time,
-                    scs.subject_id
-                FROM sessions s
-                JOIN sessions_classes_subject scs ON scs.session_id = s.id
-            ),
-            session_groups AS (
-                SELECT
-                    original_block_id,
-                    DENSE_RANK() OVER (ORDER BY first_week, weekday, start_time, subject_id) AS group_id,
-                    COUNT(*) OVER (PARTITION BY first_week, weekday, start_time, subject_id) AS group_size
-                FROM session_subjects
-            )
-            SELECT DISTINCT group_id, original_block_id
-            FROM session_groups
-            WHERE group_size > 1
-            ORDER BY group_id, original_block_id
-        """)
-
-        rows = self.db_session.execute(detection_sql).all()
-
-        # Bucket blocks by raw group id.
-        # Raw SQL bypasses SQLAlchemy's UUID coercion, so each value comes back
-        # as the underlying 32-char hex string from sqlite.
-        raw_groups: defaultdict[int, set[UUID]] = defaultdict(set)
-        for raw_group_id, original_block_id in rows:
-            raw_groups[raw_group_id].add(UUID(original_block_id))
-
-        # Assign each group a fresh UUID label.
-        candidate_groups: dict[UUID, set[UUID]] = {
-            uuid.uuid7(): block_ids for block_ids in raw_groups.values()
-        }
-
-        candidate_rows = [
-            {"candidate_group_id": group_id, "original_block_id": block_id}
-            for group_id, block_ids in candidate_groups.items()
-            for block_id in block_ids
-        ]
-        if candidate_rows:
-            self.db_session.execute(insert(ParallelBlockCandidate), candidate_rows)
-
-        self.db_session.commit()
-
     def _assign_block_ids(self) -> None:
         """Regroup sessions into blocks by fingerprinting their content.
 
@@ -586,13 +523,17 @@ class IngestionManager:
             subject_db_entry = self.subject_entries.get(subject["number"])
             if subject_db_entry is None:
                 subject_db_entry = subject_dao.create(
-                    year_id=year_db_entry.id,
+                    year=year_db_entry,
                     number=subject["number"],
                     code=subject["code"],
                     acronym=subject["acronym"],
                     name=subject["name"],
                 )
                 self.subject_entries[subject["number"]] = subject_db_entry
+            elif year_db_entry not in subject_db_entry.years:
+                # Same UC taught in another year (e.g. shared/optional): record
+                # the extra year membership rather than overwriting the first.
+                subject_db_entry.years.append(year_db_entry)
             subjects_by_acronym[subject["acronym"]] = subject_db_entry
         self.db_session.flush()
         return subjects_by_acronym

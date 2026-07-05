@@ -38,5 +38,6 @@ export const queryKeys = {
         [...filters.classIds].sort(),
         [...filters.weekdays].sort(),
       ] as const,
+    parallelCandidates: (id: string) => ["projects", id, "parallel-candidates"] as const,
   },
 } as const;
