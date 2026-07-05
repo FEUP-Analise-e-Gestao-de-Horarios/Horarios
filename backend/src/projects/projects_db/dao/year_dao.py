@@ -4,10 +4,10 @@ from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
+from src.projects.projects_db.models._secondary_tables import subject_years
 from src.projects.projects_db.models.class_ import Class
 from src.projects.projects_db.models.degree import Degree
 from src.projects.projects_db.models.session_class_subject import SessionClassSubject
-from src.projects.projects_db.models.subject import Subject
 from src.projects.projects_db.models.year import Year
 from src.projects.projects_db.schemas.year import YearStats
 
@@ -59,8 +59,11 @@ class YearDAO(BaseDAO[Year]):
 
     def _get_with_stats(self, *, degree_id: UUID | None = None) -> list[YearStats]:
         subjects_sq = (
-            select(Subject.year_id, func.count(Subject.id).label("cnt"))
-            .group_by(Subject.year_id)
+            select(
+                subject_years.c.year_id.label("year_id"),
+                func.count(subject_years.c.subject_id).label("cnt"),
+            )
+            .group_by(subject_years.c.year_id)
             .subquery()
         )
         classes_sq = (
@@ -68,13 +71,16 @@ class YearDAO(BaseDAO[Year]):
             .group_by(Class.year_id)
             .subquery()
         )
+        # Sessions are counted per year via the classes that attend them
+        # (class-driven), mirroring SessionDAO.get_by_year, so a shared UC's
+        # sessions are not double-counted across the years it is taught in.
         sessions_sq = (
             select(
-                Subject.year_id,
+                Class.year_id.label("year_id"),
                 func.count(distinct(SessionClassSubject.session_id)).label("cnt"),
             )
-            .join(SessionClassSubject, SessionClassSubject.subject_id == Subject.id)
-            .group_by(Subject.year_id)
+            .join(SessionClassSubject, SessionClassSubject.class_id == Class.id)
+            .group_by(Class.year_id)
             .subquery()
         )
 

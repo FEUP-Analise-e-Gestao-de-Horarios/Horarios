@@ -13,9 +13,13 @@ The ingestion pipeline is orchestrated by `IngestionManager` (`src/ingestion/man
 1. Opens the project's SQLite database.
 2. Drives a `Scraper` to fetch and parse HTML pages from the institution's schedule website.
 3. Delegates persistence to DAO classes from `src/projects/projects_db/dao/`.
-4. Runs a shift-assignment step to enrich the stored data.
+4. Runs post-processing steps (shift assignment, block id reassignment, parallel-block detection) to enrich the stored data.
 
-The pipeline is triggered once per project and its output is a fully populated `general_database.db` file. On success, the database is also snapshotted as `initial_database.db`.
+`IngestionManager` is a context manager and is run on a background thread from
+the project-creation endpoint (`ProjectsView.post`), so ingestion does not block
+the HTTP response. The pipeline is triggered once per project and its output is
+a fully populated `general_database.db` file. On success, the database is also
+snapshotted as `initial_database.db`.
 
 ---
 
@@ -126,9 +130,37 @@ Calculates and assigns shift numbers to classes based on their theoretical sessi
 
 ---
 
-### Phase 9 — Teardown
+### Phase 9 — Assign Block IDs (`_assign_block_ids`)
 
-At the end of `run()`, the database session is closed and `general_database.db` is copied to `initial_database.db` as a baseline snapshot. Then:
+The scraper splits each class's schedule into multiple pages by date range, so a
+single recurring session that spans a page boundary is ingested as several
+disjoint per-page blocks with provisional ids. This step discards those
+provisional ids and reassigns `original_block_id` purely by content: every
+session is fingerprinted by a week-invariant tuple (weekday, start time,
+duration, type, teacher id set, room id set, and the set of `(class id, subject
+id)` pairs) and all sessions sharing a fingerprint are collapsed into a single
+block identified by a fresh `uuid.uuid7()`. A `ValueError` is raised if two
+sessions in the same week share a fingerprint (they would violate the
+`(week, original_block_id)` unique constraint).
+
+---
+
+### Phase 10 — Detect Parallel Block Candidates (`_detect_parallel_block_candidates`)
+
+Runs after block ids are assigned. A single SQL query groups blocks whose
+sessions share `(first occurrence week, weekday, start_time, subject_id)`, and
+any group containing at least two distinct blocks is persisted to the
+`parallel_block_candidates` table (each group labelled with a fresh
+`uuid.uuid7()`) for later user review.
+
+---
+
+### Phase 11 — Snapshot and Teardown
+
+At the end of `run()` (still inside the `try`), the manager forces a WAL
+checkpoint (`PRAGMA wal_checkpoint(TRUNCATE)`) so every committed row lands in
+the main `.db` file, closes the database session, and copies
+`general_database.db` to `initial_database.db` as a baseline snapshot. Then:
 
 **On success (`_teardown_success`):**
 
@@ -141,7 +173,7 @@ At the end of `run()`, the database session is closed and `general_database.db` 
 - The HTTP session is closed.
 - The exception is re-raised after cleanup.
 
-The database session is closed by the context manager's `__exit__` method.
+The database session is also closed by the context manager's `__exit__` method.
 
 ---
 

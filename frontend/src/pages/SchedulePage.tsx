@@ -7,6 +7,7 @@ import DistributionModal from "@/components/schedule/DistributionModal";
 import ScheduleNavbar from "@/components/schedule/ScheduleNavbar";
 import { useEventEditor } from "@/components/schedule/useEventEditor";
 import { useProjectAccess } from "@/components/schedule/useProjectAccess";
+import { useParallelSessionsReminder } from "@/components/parallel/useParallelSessionsReminder";
 import {
   pickSelectedYearNumber,
   useScheduleFilters,
@@ -30,6 +31,7 @@ export default function SchedulePage() {
     isPending: isProjectPending,
     isError: isProjectError,
   } = useProjectAccess(projectId);
+  useParallelSessionsReminder(project);
   const { data: degrees } = useProjectDegrees(projectId ?? "");
   const { data: teachers } = useProjectTeachers(projectId ?? "");
   const { data: rooms } = useProjectRooms(projectId ?? "");

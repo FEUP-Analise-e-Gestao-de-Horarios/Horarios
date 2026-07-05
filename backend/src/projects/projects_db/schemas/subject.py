@@ -5,7 +5,6 @@ from pydantic import BaseModel
 
 class SubjectStats(BaseModel):
     id: UUID
-    year_id: UUID
 
     number: int
     code: str
