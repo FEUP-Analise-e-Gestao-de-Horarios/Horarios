@@ -109,38 +109,50 @@ export function TeacherHoverNames({
     );
   }
 
-  if (overflow) {
-    return (
-      <HoverTooltip
-        className={className}
-        content={
-          <div className="flex gap-3">
-            {teachers.map((teacher) => (
-              <TeacherAvailability key={teacher.id} teacherId={teacher.id} name={teacher.name} />
-            ))}
-          </div>
-        }
-      >
-        <MarqueeText className="opacity-80">{joined}</MarqueeText>
-      </HoverTooltip>
-    );
-  }
+  const separator = (index: number) => (index < teachers.length - 1 ? <span>,&nbsp;</span> : null);
 
+  // The measuring probe stays mounted in both branches, so overflow can flip
+  // back to false when the column widens again (it isn't a one-way latch).
   return (
-    <div
-      ref={measureRef}
-      className={`flex overflow-hidden whitespace-nowrap opacity-80 ${className ?? ""}`}
-    >
-      {teachers.map((teacher, index) => (
-        <Fragment key={teacher.id}>
-          <HoverTooltip
-            content={<TeacherAvailability teacherId={teacher.id} name={teacher.name} fill />}
-          >
-            <span className="hover:underline">{teacher.acronym}</span>
-          </HoverTooltip>
-          {index < teachers.length - 1 ? <span>,&nbsp;</span> : null}
-        </Fragment>
-      ))}
+    <div className={`relative min-w-0 ${className ?? ""}`}>
+      <div
+        ref={measureRef}
+        aria-hidden
+        className="invisible pointer-events-none absolute inset-0 flex overflow-hidden whitespace-nowrap"
+      >
+        {teachers.map((teacher, index) => (
+          <Fragment key={teacher.id}>
+            <span>{teacher.acronym}</span>
+            {separator(index)}
+          </Fragment>
+        ))}
+      </div>
+      {overflow ? (
+        <HoverTooltip
+          content={
+            <div className="flex gap-3">
+              {teachers.map((teacher) => (
+                <TeacherAvailability key={teacher.id} teacherId={teacher.id} name={teacher.name} />
+              ))}
+            </div>
+          }
+        >
+          <MarqueeText className="opacity-80">{joined}</MarqueeText>
+        </HoverTooltip>
+      ) : (
+        <div className="flex overflow-hidden whitespace-nowrap opacity-80">
+          {teachers.map((teacher, index) => (
+            <Fragment key={teacher.id}>
+              <HoverTooltip
+                content={<TeacherAvailability teacherId={teacher.id} name={teacher.name} fill />}
+              >
+                <span className="hover:underline">{teacher.acronym}</span>
+              </HoverTooltip>
+              {separator(index)}
+            </Fragment>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
