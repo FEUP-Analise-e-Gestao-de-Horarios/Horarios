@@ -5,6 +5,8 @@
 \usepackage{url}
 \usepackage{graphicx}
 \usepackage{caption}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning}
 \usepackage[margin=1in]{geometry}
 
 % or customize, for example:
@@ -116,18 +118,18 @@
     A equipa adotou um processo de desenvolvimento iterativo e incremental~\cite{despa2014comparative}, organizado em torno do repositório GitHub~\cite{github} do projeto e de reuniões de acompanhamento praticamente semanais com o supervisor.
     O fluxo de trabalho seguiu o modelo \emph{GitHub Flow}: cada funcionalidade ou correção foi desenvolvida numa \emph{branch} própria, com uma convenção de nomes por área (\texttt{backend/*}, \texttt{frontend/*}), e integrada na \emph{branch} de integração \texttt{dev} através de \emph{pull requests} sujeitos a revisão de código por outro elemento da equipa. Ao longo do projeto foram integrados mais de 230 \emph{pull requests}, num total de cerca de 960 \emph{commits}. A \emph{branch} \texttt{main} preservou a versão da aplicação herdada das edições anteriores, servindo de referência estável para medir a evolução do trabalho.\\
     \\
-    A qualidade do código foi assegurada de forma automática em todos os \emph{pull requests} através de \emph{pipelines} de integração contínua (GitHub Actions), que executam \emph{linting}, formatação, verificação estática de tipos e testes - ruff e django-stubs no \emph{backend}; ESLint, Prettier, TypeScript e Vitest no \emph{frontend} - complementadas por \emph{hooks} de \texttt{pre-commit} locais. A atualização de dependências foi automatizada com o Dependabot, em ciclo semanal, garantindo que a aplicação se manteve alinhada com as versões mais recentes das bibliotecas utilizadas. Os ambientes de desenvolvimento e produção foram uniformizados com Docker e \texttt{docker-compose}, orquestrados por um \texttt{Makefile}, e a gestão de dependências Python migrou de pipenv para uv. Para permitir desenvolver e testar a ingestão sem depender do sítio institucional, foi criado um \emph{mirror} local das páginas de horários.
+    A qualidade do código foi assegurada de forma automática em todos os \emph{pull requests} através de \emph{pipelines} de integração contínua (GitHub Actions): no \emph{backend}, \emph{linting} e formatação com ruff e execução dos testes com pytest; no \emph{frontend}, \emph{linting} (ESLint), formatação (Prettier), verificação de tipos (TypeScript) e testes (Vitest). Estas verificações são reforçadas por \emph{hooks} de \texttt{pre-commit} locais e pela verificação de tipos do \emph{backend} em modo estrito (Pyright), realizada em ambiente de desenvolvimento. A atualização de dependências foi automatizada com o Dependabot, em ciclo semanal, garantindo que a aplicação se manteve alinhada com as versões mais recentes das bibliotecas utilizadas. Os ambientes de desenvolvimento e produção foram uniformizados com Docker e \texttt{docker-compose}, orquestrados por um \texttt{Makefile}, e a gestão de dependências Python migrou de pipenv para uv. Para permitir desenvolver e testar a ingestão sem depender do sítio institucional, foi criado um \emph{mirror} local das páginas de horários.
 	
 	
 \subsection{Intervenientes, papéis e responsabilidades}
 
     O projeto foi desenvolvido por uma equipa de quatro estudantes da L.EIC, com supervisão do Professor Daniel Castro Silva (U.Porto), o que garantiu à equipa acesso contínuo à perspetiva dos utilizadores finais da ferramenta. São ainda partes interessadas as comissões de horários dos cursos da FEUP, destinatárias finais da ferramenta, e as equipas de edições anteriores do Projeto Integrador, cujo trabalho serviu de ponto de partida.
     \\\\
-    %% TODO: validar/ajustar a distribuição de responsabilidades — está inferida do histórico do repositório e pode não refletir todo o trabalho (ex.: quem desenvolveu exportador, conflitos e aulas em paralelo nas branches respetivas).
+    %% NOTA: distribuição inferida do histórico do repositório (git) — confirmar/ajustar, sobretudo a repartição das aulas em paralelo entre o backend (Cláudio) e o frontend (Pedro).
     Dentro da equipa, as responsabilidades principais distribuíram-se da seguinte forma:
     \textbf{Ana Silva} - protótipo do editor de horários no \emph{frontend} (grelha semanal, painéis de edição e de conflitos, barra de navegação e filtros) e páginas de autenticação;
-    \textbf{Cláudio Meireles} - ;
-    \textbf{Diogo Faria} - ;
+    \textbf{Cláudio Meireles} - reestruturação e reescrita do \emph{backend}: o \emph{pipeline} de ingestão e processamento dos horários e a respetiva otimização, o novo modelo de dados (SQLAlchemy e camada de DAOs) e a API do projeto;
+    \textbf{Diogo Faria} - módulo de exportação: comparação entre o horário original e o editado, deteção de conflitos na exportação e cálculo do plano de modificações por análise de dependências, bem como a respetiva página;
     \textbf{Pedro Coelho} - desenvolvimento da funcionalidade de aulas em paralelo, desde a deteção até à criação do protótipo da página de seleção; implementação da gestão de conflitos, incluindo a deteção, a pré-deteção (em caso de alteração de uma aula) e a interface do painel de conflitos; e primeira integração com o otimizador.
 
 \subsection{Atividades desenvolvidas}
@@ -178,22 +180,35 @@ Relação UC--ano muitos-para-muitos; indisponibilidades nas páginas de detalhe
 
     A aplicação está organizada em dois módulos principais: um \emph{backend} em Python/Django, que expõe uma API JSON sob \texttt{/api/}, e um \emph{frontend} em React/TypeScript, uma aplicação de página única (SPA) que serve todas as páginas visíveis ao utilizador. Em produção, o Django serve também o \emph{frontend} compilado, ficando toda a navegação do lado do cliente a cargo do React Router.
     \\\\
-    A versão herdada era um monólito Django com páginas geradas no servidor - um único ficheiro de vistas com cerca de 1\,800 linhas - com acesso a dados por SQL manual, sem testes nem integração contínua. A opção por uma separação API/SPA justificou-se por três razões: permitir que os elementos da equipa trabalhassem em paralelo sobre contratos de API bem definidos; introduzir tipagem de ponta a ponta (Pydantic na validação de pedidos e respostas do \emph{backend}, TypeScript estrito no \emph{frontend}), reduzindo classes inteiras de erros; e melhorar a experiência de utilização, uma vez que a edição interativa de horários exige atualizações de interface imediatas, difíceis de conseguir com páginas renderizadas no servidor. Esta reestruturação implicou a migração integral das páginas existentes e a remoção do código legado correspondente, num saldo global, face à versão herdada, de 662 ficheiros alterados ($+26\,076$/$-54\,998$ linhas).
+    A versão herdada era um monólito Django com páginas geradas no servidor - um único ficheiro de vistas com cerca de 1\,800 linhas - com acesso a dados por SQL manual, sem testes nem integração contínua. A opção por uma separação API/SPA justificou-se por três razões: permitir que os elementos da equipa trabalhassem em paralelo sobre contratos de API bem definidos; introduzir tipagem de ponta a ponta (Pydantic na validação de pedidos e respostas do \emph{backend}, TypeScript estrito no \emph{frontend}), reduzindo classes inteiras de erros; e melhorar a experiência de utilização, uma vez que a edição interativa de horários exige atualizações de interface imediatas, difíceis de conseguir com páginas renderizadas no servidor. Esta reestruturação implicou a migração integral das páginas existentes e a remoção do código legado correspondente, num saldo global, face à versão herdada, de 779 ficheiros alterados ($+54\,723$/$-54\,998$ linhas).
     \\\\
     \textbf{Persistência.} O \emph{backend} usa duas camadas de base de dados distintas. Uma meta-base de dados única (SQLite, gerida pelo ORM do Django) guarda as contas de utilizador e os metadados de cada projeto. Os dados de horários de cada projeto vivem numa base SQLite \emph{própria}, definida com modelos SQLAlchemy e acedida através de uma camada de \emph{Data Access Objects} (DAOs) partilhada pela ingestão e pela API. Cada projeto mantém dois ficheiros: a base de trabalho (\texttt{general\_database}), lida e editada pela API, e um \emph{snapshot} tirado no fim da ingestão (\texttt{initial\_database}), que preserva o horário original e serve de referência à deteção de conflitos pré-existentes e ao módulo de exportação (Secção~\ref{sec:exporter}). Este isolamento por projeto simplifica a criação e eliminação de cenários alternativos de edição e elimina interferências entre projetos.
     \\\\
-    \textbf{Ingestão.} A ingestão é um pacote Python independente das \emph{apps} Django, composto por um \emph{scraper} (\texttt{requests} + BeautifulSoup) e por \emph{parsers} dedicados a cada tipo de página (menus de curso, páginas de turma, páginas de docente, blocos de indisponibilidade e salas), que validam os dados extraídos com esquemas Pydantic antes de os persistirem através dos DAOs.
+    \textbf{Ingestão.} A ingestão é um pacote Python independente das \emph{apps} Django, composto por um \emph{scraper} (\texttt{requests} + BeautifulSoup) e por \emph{parsers} dedicados a cada tipo de página (menus de curso, páginas de turma, páginas de docente, blocos de indisponibilidade e salas), que validam os dados extraídos com estruturas tipadas e verificações explícitas antes de os persistirem através dos DAOs.
     \\\\
     \textbf{Frontend.} A SPA usa Vite como servidor de desenvolvimento e empacotador, TanStack Query para o estado do servidor (\emph{cache} e mutações), React Router para navegação, Tailwind CSS para estilos e TanStack Virtual para virtualização de tabelas grandes. Não existe biblioteca de estado global: o estado de interface vive em \emph{hooks} e no URL, o que torna as vistas do editor partilháveis por ligação. A lógica não trivial do editor está isolada em \emph{hooks} e funções puras com testes unitários (Vitest).
-    \\\\
+
+\begin{center}
+\begin{tikzpicture}[
+  >=Latex, font=\footnotesize,
+  comp/.style={rectangle, rounded corners, draw, align=center, inner sep=5pt},
+  ext/.style={rectangle, draw, dashed, align=center, inner sep=5pt}
+]
+  \node[comp, fill=black!4, text width=7.4cm] (spa) at (0,0) {\textbf{SPA React / TypeScript}\\ editor, \emph{dashboard}, aulas em paralelo e exportação};
+  \node[comp, text width=7.4cm] (backend) at (0,-1.9) {\textbf{\emph{Backend} Django (API \texttt{/api/})}\\[2pt] \emph{apps} (login, projects, core) e pacote de ingestão};
+  \node[ext, text width=2cm] (sig) at (5.9,-1.9) {SIGARRA / \emph{mirror}};
+  \node[comp, text width=3.3cm] (meta) at (-2.2,-4.0) {Meta-BD (Django ORM): utilizadores e projetos};
+  \node[comp, text width=3.3cm] (proj) at (2.2,-4.0) {BDs por projeto (SQLAlchemy/DAOs): \texttt{general} e \texttt{initial}};
+  \draw[<->] (spa) -- node[right, font=\scriptsize] {JSON} (backend);
+  \draw[->] (sig) -- (backend);
+  \draw[->] (backend.south) -- (meta.north);
+  \draw[->] (backend.south) -- (proj.north);
+\end{tikzpicture}
+\captionof{figure}{Arquitetura geral da aplicação.}
+\label{fig:arquitetura}
+\end{center}
+
     \textbf{Dificuldades técnicas e resolução.}  A primeira grande dificuldade foi o desempenho da ingestão: a versão inicial fazia um pedido à base de dados por cada entidade inserida, o que tornava o processo demorado. A solução passou por inserções em lote, \emph{caches} de consultas durante a ingestão e controlo explícito do \emph{flush} das sessões SQLAlchemy.
-    %% \begin{center}
-        %%\imageplaceholder{Inserir diagrama de componentes: SPA React $\leftrightarrow$ API Django (\texttt{/api/}); backend com apps (login, projects, core), pacote de ingestão, meta-BD Django ORM e BDs por projeto (general/initial) via SQLAlchemy/DAOs; fonte externa SIGARRA}{5cm}
-        %%\captionof{figure}{Arquitetura geral da aplicação.}
-        %%\label{fig:arquitetura}
-    %%\end{center}
-    %% TODO: elaborar o diagrama (o ficheiro docs/db_schema.sql e docs/backend.md do repositório podem servir de base); considerar também um diagrama do modelo de dados por projeto.
-    %% TODO: quantificar (tempo de ingestão antes/depois) — reforça a secção de validação e os critérios de avaliação.
     Outro problema foi a fragilidade do \emph{scraping}: para desenvolver e testar sem depender do sítio institucional (e sem o sobrecarregar), foi criado um \emph{mirror} local das páginas de horários, usado como fonte de dados em desenvolvimento.
     Já no editor, o desafio foi manter a interface fluida com centenas de sessões em ecrã, o que obrigou a virtualização de listas, memoização e extração de lógica para funções puras, além de otimizações nas consultas da API (índices nas tabelas de junção, \emph{eager loading} das relações e eliminação de \emph{joins} redundantes).
     Por último, a deteção de blocos em paralelo deu mais trabalho do que o esperado: a abordagem inicial, baseada em \emph{self-joins} de sessões, revelou-se lenta, e acabou substituída por uma modelação em grafo, em que os grupos candidatos são componentes ligados de um grafo de sobreposição de semanas, com as arestas construídas por agrupamento de \emph{slots}.
@@ -247,19 +262,41 @@ Esta secção apresenta a solução na ótica do utilizador, seguindo o fluxo t�
 \subsubsection{Ingestão e processamento de dados}
 \label{sec:ingestion}
 
-%%  - o que é ingerido (cursos, anos, UCs, turmas, sessões, docentes,
-%%    salas, red blocks) e de onde (páginas do SIGARRA);
-%%  - as fases do pipeline (scraping -> parsing -> validação Pydantic ->
-%%    persistência via DAOs -> snapshot da BD inicial);
-%%  - as otimizações de desempenho (inserções em lote, caches de
-%%    consultas, controlo de flush) e OS NÚMEROS antes/depois;
-%%  - o mirror local usado em desenvolvimento.
+    A ingestão é o processo que dá vida a um projeto: percorre as páginas de horários publicadas pela FEUP e delas extrai, para a base de dados do projeto, os cursos, anos, unidades curriculares, turmas, sessões, docentes e salas, bem como os períodos de indisponibilidade de cada recurso (\emph{blocos vermelhos}). Todo este trabalho está reunido num pacote Python autónomo, independente das \emph{apps} Django, orquestrado por um gestor de ingestão que corre numa \emph{thread} em segundo plano - a criação de um projeto responde de imediato e o estado da ingestão (em curso, concluída ou falhada) é registado e refletido na página inicial. A título de ordem de grandeza, o conjunto de páginas usado em desenvolvimento cobre 51 cursos, 661 docentes e 149 salas, dando origem a dezenas de milhares de sessões.
+    \\\\
+    \textbf{Fases do \emph{pipeline}.} A ingestão está organizada como uma sequência de fases (Figura~\ref{fig:ingestion}). Começa pela leitura do menu de navegação do sítio, de onde o \emph{scraper} (\texttt{requests} + BeautifulSoup) extrai três estruturas: a lista de docentes, a hierarquia curso\,$\rightarrow$\,ano\,$\rightarrow$\,turma com as ligações para as páginas semanais, e a lista de salas. Antes de qualquer escrita na base de dados, são descarregadas todas as páginas semanais das turmas, ficando o seu conteúdo já convertido em memória; concentrar assim o acesso à rede evita intercalar pedidos HTTP com operações de base de dados. Só depois começa a persistência, fase a fase: os docentes e as suas indisponibilidades; a hierarquia de cursos, anos e turmas; as salas; e, por fim, as sessões, que constituem o grosso dos dados. Duas fases de pós-processamento completam o resultado - a atribuição de turnos às turmas, calculada a partir das aulas teóricas (informação que não consta diretamente das páginas), e a reconstrução dos identificadores de bloco descrita adiante. No final, a base de dados de trabalho é copiada para um \emph{snapshot} imutável, que preserva o horário original e serve de referência à deteção de conflitos pré-existentes e à exportação.
 
 \begin{center}
-  \imageplaceholder{Inserir diagrama das fases do pipeline de ingestão}{3.4cm}
-  \captionof{figure}{Pipeline de ingestão de horários.}
-  \label{fig:ingestion}
+\begin{tikzpicture}[
+  >=Latex, font=\footnotesize,
+  box/.style={rectangle, rounded corners, draw, align=center, text width=8cm, inner sep=5pt, minimum height=8mm},
+  src/.style={rectangle, draw, dashed, align=center, text width=8cm, inner sep=5pt, minimum height=7mm}
+]
+  \node[src] (n0) at (0,0) {Páginas de horários do SIGARRA (ou \emph{mirror} local)};
+  \node[box] (n1) at (0,-1.15) {Leitura do menu de navegação: docentes, turmas e salas};
+  \node[box] (n2) at (0,-2.30) {Descarga e \emph{parsing} das páginas semanais das turmas};
+  \node[box] (n3) at (0,-3.45) {Ingestão de docentes, cursos, anos, turmas e salas};
+  \node[box] (n4) at (0,-4.60) {Ingestão das sessões em lote (\emph{bulk insert})};
+  \node[box] (n5) at (0,-5.75) {Atribuição de turnos e reconstrução de blocos};
+  \node[box] (n6) at (0,-6.90) {\emph{Snapshot} da base de dados inicial (referência para conflitos e exportação)};
+  \draw[->] (n0) -- (n1);
+  \draw[->] (n1) -- (n2);
+  \draw[->] (n2) -- (n3);
+  \draw[->] (n3) -- (n4);
+  \draw[->] (n4) -- (n5);
+  \draw[->] (n5) -- (n6);
+\end{tikzpicture}
+\captionof{figure}{Fases do \emph{pipeline} de ingestão de horários.}
+\label{fig:ingestion}
 \end{center}
+
+    \textbf{Extração e validação.} Cada tipo de página tem um \emph{parser} dedicado. Como o horário é apresentado em tabelas HTML, os \emph{parsers} reconstroem primeiro a matriz de células - respeitando as junções de linhas e colunas - e só depois dela derivam as sessões, com os respetivos tempos, tipologias, docentes e salas. Os dados extraídos são representados por estruturas tipadas e sujeitos a verificações explícitas em cada \emph{parser} (contagens de tabelas e de células, expressões regulares sobre as siglas, datas bem formadas, tipologias reconhecidas): qualquer desvio ao formato esperado interrompe a ingestão com um erro claro, em vez de gerar dados corrompidos de forma silenciosa. Este rigor é indispensável porque a estrutura das páginas não é controlada pela equipa e pode mudar sem aviso. Vários casos-limite reais são tratados de forma dedicada: sessões partilhadas por mais do que uma unidade curricular, aulas que decorrem apenas em parte do semestre (expandidas para uma ocorrência por semana), aulas sem sala física (assinaladas como \emph{online}), docentes sem indisponibilidades (que não têm ligação no menu e são recuperados a partir das páginas das turmas) e salas não catalogadas (registadas como desconhecidas).
+    \\\\
+    \textbf{Reconstrução de blocos.} O sítio institucional divide o horário de cada turma em várias páginas por intervalo de datas, pelo que uma mesma aula recorrente surge fragmentada em vários registos independentes. Para reconstruir a noção de \emph{bloco} - uma aula que se repete, igual, ao longo de várias semanas -, cada sessão é caracterizada por uma assinatura invariante na semana (dia, hora de início, duração, tipologia, conjunto de docentes, conjunto de salas e os pares turma--UC), e todas as sessões com a mesma assinatura são reunidas sob um identificador de bloco comum. Esta reconstrução é a base das funcionalidades que raciocinam sobre aulas inteiras, como a deteção de aulas em paralelo (Secção~\ref{sec:parallel}) e a exportação (Secção~\ref{sec:exporter}).
+    \\\\
+    \textbf{Desempenho.} A redução do tempo de ingestão foi um dos objetivos centrais desta edição - a ingestão foi, de resto, uma preocupação de desempenho recorrente nas edições anteriores~\cite{carvalho2023, correia2024}. A versão herdada por esta equipa escrevia cada entidade na base de dados com uma operação individual, emitindo um pedido por cada registo inserido, o que domina o tempo total quando se persistem dezenas de milhares de sessões: uma ingestão completa demorava mais de 12 minutos. A reescrita atacou o problema em três frentes: (i) as escritas deixaram de sincronizar com a base de dados a cada registo, passando a ser acumuladas em memória e enviadas em lote uma vez por tipo de entidade; (ii) as sessões e as suas associações - as tabelas de maior dimensão - são inseridas com operações \emph{bulk} únicas, gerando-se os identificadores em Python para dispensar idas à base de dados; e (iii) as chaves estrangeiras (docentes, turmas, salas, UCs) são resolvidas a partir de \emph{caches} em memória construídas durante a própria ingestão, eliminando as consultas de pesquisa que antes acompanhavam cada inserção. Com estas mudanças, o número de acessos à base de dados deixou de ser proporcional ao número de entidades para passar a depender apenas do número de \emph{tipos} de entidade, e o tempo de uma ingestão completa passou de mais de 12 minutos para cerca de 2 minutos - dos quais a quase totalidade corresponde já ao tempo de descarregar as páginas do servidor institucional, e não ao processamento ou à persistência dos dados.
+    \\\\
+    \textbf{Ambiente reprodutível.} Depender do sítio institucional para desenvolver e testar a ingestão é frágil e indesejável, tanto pela variabilidade do acesso como por não ser aceitável sobrecarregá-lo com pedidos repetidos. Criou-se, por isso, um \emph{mirror} local das páginas de horários, servido por um contentor Docker próprio, que funciona como fonte de dados controlada e reprodutível durante o desenvolvimento. A partir desse \emph{mirror} foram ainda capturadas páginas reais, guardadas comprimidas no repositório, que alimentam testes automáticos dos \emph{parsers}: além de verificarem a coerência da extração, funcionam como alarme sempre que o formato das páginas do SIGARRA muda.
 
 \subsubsection{Dashboard de consulta}
 \label{sec:dashboard}
@@ -303,16 +340,16 @@ Esta secção apresenta a solução na ótica do utilizador, seguindo o fluxo t�
 \subsubsection{Aulas em paralelo}
 \label{sec:parallel}
 
-%%  - o que são aulas em paralelo e porque precisam de confirmação manual;
-%%  - como os candidatos são detetados (componentes ligados de um grafo de
-%%    sobreposição de semanas entre blocos com o mesmo slot);
-%%  - a interface: grafos de força interativos (arrastáveis, colapsáveis),
-%%    intervalo de semanas em cada nó, semanas de colisão nas arestas,
-%%    seleção e confirmação de grupos, indicador de grupos por guardar;
-%%  - o que acontece após confirmar (persistência e estado do projeto).
+    Diz-se que duas turmas têm aulas \emph{em paralelo} quando, na prática, são lecionadas em conjunto numa mesma sessão - o mesmo docente, no mesmo horário -, embora o horário publicado as registe como entradas separadas. Reconhecer estes grupos é importante, pois tais aulas devem ser tratadas como uma unidade e não como aulas independentes que por acaso ocupam o mesmo intervalo. O problema é que a origem dos dados não regista esta relação: tudo o que o sistema consegue observar é que dois blocos da mesma unidade curricular coincidem no mesmo dia e hora, em pelo menos uma semana. Este indício é necessário, mas não suficiente - tanto pode corresponder a uma sessão efetivamente partilhada como a uma mera coincidência de horário. Por não ser possível decidir automaticamente, a funcionalidade foi desenhada como um fluxo de \emph{revisão}: o sistema propõe candidatos e cabe a quem gere o horário confirmar os que são genuínos.
+    \\\\
+    \textbf{Deteção de candidatos.} Esta é uma evolução face à edição anterior, na qual os grupos de aulas em paralelo tinham de ser identificados manualmente~\cite{oliveira2025}; nesta edição, os candidatos passaram a ser detetados automaticamente. A deteção assenta num grafo de sobreposição, construído por unidade curricular: cada bloco é um nó e dois blocos são ligados por uma aresta quando coincidem no mesmo dia, hora e semana. Os grupos candidatos são as componentes ligadas desse grafo - conjuntos de blocos ligados, direta ou indiretamente, entre si -, e cada aresta guarda as semanas em que a coincidência ocorre, o que permite distinguir sobreposições em todas as semanas de coincidências apenas pontuais. Para evitar o custo quadrático de comparar todos os pares de sessões, os blocos são primeiro agrupados por intervalo (dia, hora e semana) e apenas os que partilham um intervalo são ligados. A deteção é recalculada a pedido, a partir do estado atual do horário, dispensando qualquer tabela persistente de candidatos.
+    \\\\
+    \textbf{Interface.} A página de seleção apresenta os candidatos como grafos de força interativos (Figura~\ref{fig:parallel}). Cada nó representa uma turma, identificada pela sua tipologia e código, e revela o intervalo de semanas em que decorre; cada aresta representa a coincidência entre duas turmas, e a sua espessura reflete o número de semanas em que estas se sobrepõem, podendo consultar-se, ao passar o rato, a lista exata dessas semanas. Os nós são arrastáveis e o grafo pode ser ampliado e reorganizado, o que ajuda a interpretar agrupamentos densos. Para confirmar um grupo, o utilizador seleciona os nós correspondentes - só sendo possível formar um grupo com turmas efetivamente ligadas entre si - e o grupo formado passa a constar de um painel lateral. Um indicador assinala os grupos por guardar e o estado de gravação de cada operação, mantendo o progresso da revisão sempre visível.
+    \\\\
+    \textbf{Confirmação e persistência.} Os candidatos são organizados por curso, ano e unidade curricular, e cada UC pode ser marcada como revista à medida que é tratada, com um resumo a indicar os anos e cursos já totalmente confirmados. Ao concluir, o utilizador dá a revisão por terminada e o projeto fica marcado como tendo a seleção de aulas em paralelo tratada - estado que a página inicial usa para encaminhar diretamente para o editor os projetos já revistos. Os grupos confirmados são guardados de forma persistente, garantindo-se que cada turma pertence, no máximo, a um grupo; se o horário for entretanto editado ao ponto de um candidato deixar de existir, as confirmações afetadas são automaticamente reconciliadas, evitando que uma seleção desatualizada persista de forma silenciosa. Fica assim registada uma informação que a origem dos dados não fornece - que turmas são, na realidade, lecionadas em conjunto -, relevante para a análise e a edição do horário.
 
 \begin{center}
-  \imageplaceholder{Inserir captura de ecrã da página de aulas em paralelo com um grafo de candidatos}{3.4cm}
+  \includegraphics[width=0.95\textwidth]{figures/select_parallel.png}
   \captionof{figure}{Seleção de aulas em paralelo.}
   \label{fig:parallel}
 \end{center}
@@ -390,22 +427,20 @@ Esta secção apresenta a solução na ótica do utilizador, seguindo o fluxo t�
 \end{minipage}
 \end{center}
 
-    O elemento central da exportação é o plano de modificações. Esta secção ordena os passos por turma e pela ordem que causa o menor número de conflitos intermédios possível. Para esse efeito são construídos grafos de dependências sobre a ocupação de salas, docentes e turmas. Os nós do grafo são representados pelo recurso utilizado e o intervalo de tempo correspondente. Cada alteração é representada por uma aresta direcionada, que vai desde o estado anterior para o estado atual, representado pelos nós do grafo. Como esse grafo não é necessariamente uma árvore, poderão existir ciclos. Para alterações acíclicas, é apenas necessária a ordenação topológica dos nós do grafo. No caso dos componentes cíclicos, estes são analisados separadamente: as trocas exatas de intervalos são classificadas como \emph{trocas}, enquanto os restantes componentes são tratados como \emph{movimentos}. Aquando da ordenação poderá haver casos em que haja dependências intermédias. Uma dependência intermédia é criada quando uma sessão alterada tenta ocupar um intervalo que ainda se encontra atribuído a outra sessão que irá ser alterada num passo mais avançado. As dependências intermédias poderão ocorrer devido à resolução de uma dependência cíclica no grafo de dependências ou à ordenação por turmas dos conflitos.
+    O elemento central da exportação é o plano de modificações. Esta secção ordena os passos por turma e por uma ordem que procura minimizar os conflitos intermédios. Para esse efeito são construídos grafos de dependências sobre a ocupação de salas, docentes e turmas. Os nós do grafo são representados pelo recurso utilizado e o intervalo de tempo correspondente. Cada alteração é representada por uma aresta direcionada, que vai desde o estado anterior para o estado atual, representado pelos nós do grafo. Como esse grafo não é necessariamente uma árvore, poderão existir ciclos. Para alterações acíclicas, é apenas necessária a ordenação topológica dos nós do grafo. No caso dos componentes cíclicos, estes são analisados separadamente: as trocas exatas de intervalos são classificadas como \emph{trocas}, enquanto os restantes componentes são tratados como \emph{movimentos}. Aquando da ordenação poderá haver casos em que haja dependências intermédias. Uma dependência intermédia é criada quando uma sessão alterada tenta ocupar um intervalo que ainda se encontra atribuído a outra sessão que irá ser alterada num passo mais avançado. As dependências intermédias poderão ocorrer devido à resolução de uma dependência cíclica no grafo de dependências ou à ordenação por turmas dos conflitos.
     \\\\
-    Por fim, o módulo recorre a uma \emph{cache} para que, após o primeiro cálculo, a exportação possa ser acedida quase instantaneamente. No entanto, caso a exportação seja calculada pela primeira vez ou exija um recálculo, o processo demora cerca de 2 segundos para um conjunto de cinco modificações. Para aferir o tempo de exportação com maior precisão, foi realizado um teste de desempenho (benchmark) com até 160 modificações, resultando num tempo base de 2,11 s acrescido de 23,92 ms por cada aula modificada. Adicionalmente, o módulo permite gerar uma exportação textual idêntica à apresentada na interface web, através da opção \emph{Exportar texto}.
+    Por fim, o módulo recorre a uma \emph{cache} para que, após o primeiro cálculo, a exportação possa ser acedida quase instantaneamente. No entanto, caso a exportação seja calculada pela primeira vez ou exija um recálculo, o processo demora cerca de 2 segundos para um conjunto de cinco modificações. Para aferir o tempo de exportação com maior precisão, foi realizado um teste de desempenho (benchmark) com até 160 modificações, resultando num tempo base de 2,11 s acrescido de 23,92 ms por cada aula modificada. Adicionalmente, através da opção \emph{Exportar texto}, o módulo permite descarregar uma versão textual das alterações - as aulas adicionadas e removidas e o plano de modificações.
 
 
 \subsection{Validação}
 
     A solução foi validada de várias formas ao longo do semestre.
     \\\\
-    \textbf{Testes automatizados.} A lógica não trivial do editor de horários - colocação de eventos na grelha, filtros, sincronização com o URL, paletas de cores - está isolada em funções puras cobertas por testes unitários (Vitest), executados em todos os \emph{pull requests} na integração contínua. No \emph{backend}, as regras de deteção de conflitos e a persistência de etiquetas são igualmente cobertas por testes dedicados.
-%% TODO: indicar o número de testes/ficheiros de teste e, se possível, cobertura aproximada.
+    \textbf{Testes automatizados.} A lógica não trivial do editor de horários - colocação de eventos na grelha, filtros, sincronização com o URL, paletas de cores - está isolada em funções puras cobertas por testes unitários (Vitest). No \emph{backend}, o \emph{pipeline} de ingestão, a deteção de aulas em paralelo e a camada de acesso a dados estão cobertos por testes unitários e de integração dedicados. No total, o \emph{backend} conta com 781 testes (452 unitários e 329 de integração, distribuídos por 38 ficheiros) e o \emph{frontend} com 174 (em 13 ficheiros), executados em cada \emph{pull request} na integração contínua.
     \\\\
-    \textbf{Verificação estática contínua.} Todos os \emph{pull requests} passam por \emph{linting}, formatação e verificação de tipos em ambos os módulos, complementados por revisão de código por outro elemento da equipa. Este processo travou regressões de forma recorrente antes de chegarem à \emph{branch} de integração.
+    \textbf{Verificação estática contínua.} Todos os \emph{pull requests} passam por \emph{linting}, formatação e execução dos testes em ambos os módulos, e pela verificação de tipos do \emph{frontend}, complementados por revisão de código por outro elemento da equipa. Este processo travou regressões de forma recorrente antes de chegarem à \emph{branch} de integração.
     \\\\
-    \textbf{Validação da ingestão.} A correção do pipeline de ingestão foi verificada por comparação dos dados persistidos com as páginas reais do SIGARRA, usando o \emph{mirror} local como fonte controlada e reprodutível. Casos-limite identificados durante o desenvolvimento - sessões partilhadas por várias UCs, sessões parciais no semestre, tipologias de aula menos comuns - foram corrigidos e mantidos sob verificação.
-%% TODO: acrescentar os números de desempenho da ingestão (tempo antes/depois, dimensão do curso usado como referência).
+    \textbf{Validação da ingestão.} A correção do \emph{pipeline} de ingestão foi verificada por comparação dos dados persistidos com as páginas reais do SIGARRA, usando o \emph{mirror} local como fonte controlada e reprodutível, e é continuamente exercitada por um teste de integração que percorre todo o \emph{pipeline} sobre esse conjunto de páginas. Casos-limite identificados durante o desenvolvimento - sessões partilhadas por várias UCs, sessões parciais no semestre, tipologias de aula menos comuns - foram corrigidos e mantidos sob verificação.
     \\\\
     \textbf{Validação funcional e de usabilidade.} As funcionalidades foram validadas em reuniões de acompanhamento praticamente semanais com o supervisor, que reúne a perspetiva de utilizador final e de especialista no processo. O retorno recebido nestas sessões influenciou o que foi feito nas semanas seguintes, tanto na priorização de funcionalidades como em ajustes à interface do editor.
 %% TODO (opcional): dar 1–2 exemplos concretos de ajustes feitos na sequência desse feedback — torna a afirmação verificável.
@@ -417,22 +452,20 @@ Esta secção apresenta a solução na ótica do utilizador, seguindo o fluxo t�
 \subsection{Resultados alcançados}
 
     Os objetivos definidos no arranque do projeto (Secção~\ref{sec:objetivos}) foram globalmente atingidos.
-    O processo de ingestão foi reescrito sobre um novo modelo de dados e otimizado com inserções em lote e \emph{caches} de consultas, reduzindo significativamente o tempo de processamento
-%% TODO: substituir por números concretos (de X min para Y s/min)
-    sem perda de integridade dos dados.
+    O processo de ingestão foi reescrito sobre um novo modelo de dados e otimizado com inserções em lote e \emph{caches} de consultas, reduzindo o tempo de uma ingestão completa de mais de 12 minutos para cerca de 2 minutos, sem perda de integridade dos dados.
     O editor de horários foi reformulado de raiz: a grelha semanal com colunas por turma, os filtros combináveis, as vistas partilháveis por URL e os painéis de edição tornaram a interação com os horários mais clara e imediata, com atenção explícita à acessibilidade.
     A seleção de grupos de aulas em paralelo foi concluída, incluindo a deteção de candidatos no \emph{backend} e a interface de confirmação com visualização em grafo.
     A deteção de conflitos foi reforçada e integrada no fluxo de edição, com grupos de conflito justificados por recurso, etiquetas persistentes e pré-visualização do impacto de cada alteração antes de confirmada.
     A exportação passou a apresentar um relatório completo - estatísticas, conflitos por resolver, aulas adicionadas e removidas e um plano de modificações ordenado por análise de dependências.
     \\\\
-    Em paralelo, a base de código ficou muito mais fácil de manter: o código legado foi integralmente substituído por uma arquitetura API/SPA com tipagem de ponta a ponta, testes automáticos, integração contínua, ambientes reprodutíveis e documentação de arquitetura - num total de 662 ficheiros alterados e mais de 230 \emph{pull requests} revistos face à versão herdada. Este investimento beneficia diretamente as equipas das edições futuras do Projeto Integrador.
+    Em paralelo, a base de código ficou muito mais fácil de manter: o código legado foi integralmente substituído por uma arquitetura API/SPA com tipagem de ponta a ponta, testes automáticos, integração contínua, ambientes reprodutíveis e documentação de arquitetura - num total de 779 ficheiros alterados e mais de 230 \emph{pull requests} revistos face à versão herdada. Este investimento beneficia diretamente as equipas das edições futuras do Projeto Integrador.
     \\\\
-%% TODO: A PREENCHER PELA EQUIPA — contribuições individuais,qualitativas e quantitativas (percentagem), acordadas entre todos.
+%% NOTA: descrições qualitativas alinhadas com a Secção 2.2; contribuição acordada em 25% para cada elemento.
     As contribuições individuais distribuíram-se da seguinte forma:
-    \textbf{Ana Silva} - \ldots\ (XX\,\%);
-    \textbf{Cláudio Meireles} - \ldots\ (XX\,\%);
-    \textbf{Diogo Faria} - \ldots\ (XX\,\%);
-    \textbf{Pedro Coelho} - \ldots\ (XX\,\%).
+    \textbf{Ana Silva} - editor de horários no \emph{frontend} e páginas de autenticação (25\,\%);
+    \textbf{Cláudio Meireles} - reescrita do \emph{backend}: ingestão, modelo de dados e API (25\,\%);
+    \textbf{Diogo Faria} - módulo de exportação (25\,\%);
+    \textbf{Pedro Coelho} - aulas em paralelo e deteção de conflitos (25\,\%).
 
 \subsection{Lições aprendidas}
 
@@ -445,7 +478,7 @@ Esta secção apresenta a solução na ótica do utilizador, seguindo o fluxo t�
 	
 \subsection{Trabalho futuro} 
  
-    O passo mais imediato é consolidar o que existe: alargar a cobertura de testes automáticos do \emph{backend} (hoje concentrada na deteção de conflitos) ao pipeline de ingestão e aos restantes \emph{endpoints}, e validar a ferramenta em utilização real com membros das comissões de horários, cujo retorno deverá orientar as prioridades seguintes.
+    O passo mais imediato é consolidar o que existe: alargar a cobertura de testes automáticos do \emph{backend} - hoje sólida na ingestão, na deteção de aulas em paralelo e na exportação - à deteção de conflitos e aos restantes \emph{endpoints}, e validar a ferramenta em utilização real com membros das comissões de horários, cujo retorno deverá orientar as prioridades seguintes.
     \\\\
     Depois, há espaço para aprofundar as funcionalidades: sugerir automaticamente resoluções para os conflitos detetados - eventualmente articulando a plataforma com o otimizador automático desenvolvido em~\cite{lopes2024}, conjugando a edição manual com sugestões calculadas -, e enriquecer a exportação com formatos diretamente aproveitáveis pelos serviços que aplicam as alterações.
     \\\\
