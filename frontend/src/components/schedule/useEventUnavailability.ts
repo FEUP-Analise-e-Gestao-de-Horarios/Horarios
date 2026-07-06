@@ -9,10 +9,10 @@ import type { WeekGridEvent, WeekGridMark } from "./WeekGrid";
 const STALE_TIME_MS = 5 * 60 * 1000;
 
 /**
- * Red blocks of the selected event's teacher(s) and room(s), merged into grid
- * marks tagged with which side is unavailable (PI ToDo #5). One slot blocked by
- * both a teacher and the room becomes `kind: "both"`. Fetches the same detail
- * endpoints the hover tooltips use, so they're already cached.
+ * Red blocks of the selected event's teacher(s) and room(s), deduplicated into
+ * grid marks (PI ToDo #5): each unavailable slot yields one `kind: "unavailable"`
+ * mark, whether it's blocked by a teacher, the room, or both. Fetches the same
+ * detail endpoints the hover tooltips use, so they're already cached.
  */
 export function useEventUnavailability(
   projectId: string,
