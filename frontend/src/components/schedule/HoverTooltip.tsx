@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 const HOVER_DELAY_MS = 180;
@@ -38,6 +38,10 @@ export default function HoverTooltip({ content, children, className }: HoverTool
     window.clearTimeout(timerRef.current);
     setAnchor(null);
   }, []);
+
+  // Cancel a pending intent timer if the trigger unmounts mid-delay, so the
+  // callback can't setState on an unmounted component.
+  useEffect(() => () => window.clearTimeout(timerRef.current), []);
 
   // Place below the trigger (left-aligned); measured so it never spills off.
   useLayoutEffect(() => {
