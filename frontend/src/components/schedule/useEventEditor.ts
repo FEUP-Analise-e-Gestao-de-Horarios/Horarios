@@ -13,9 +13,9 @@ export function useEventEditor() {
   const [isOpen, setIsOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  const openEditor = (event: WeekGridEvent | null) => {
+  const openEditor = (event: WeekGridEvent | null, collapsed = false) => {
     setEditingEvent(event ? structuredClone(event) : null);
-    setIsCollapsed(false);
+    setIsCollapsed(collapsed);
     setIsOpen(true);
   };
 

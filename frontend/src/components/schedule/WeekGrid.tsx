@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, type CSSProperties } from "react";
 import type { Weekday } from "@/types/project/weekday";
 import { hhmmToMinutes, minutesToTime } from "@/utils/time";
 import { WEEKDAYS, WEEKDAY_LABELS_SHORT } from "@/utils/weekdays";
@@ -45,6 +45,20 @@ export interface WeekGridMark {
   id: string;
   weekday: Weekday;
   time: number;
+  /** Selection unavailability (#5); absent = generic red block. */
+  kind?: "unavailable";
+}
+
+const UNAVAILABLE_RED = "#e5484d";
+
+function markStyle(kind: WeekGridMark["kind"]): { className: string; style?: CSSProperties } {
+  if (kind === "unavailable") {
+    return {
+      className: "border-l-2",
+      style: { backgroundColor: `${UNAVAILABLE_RED}40`, borderColor: UNAVAILABLE_RED },
+    };
+  }
+  return { className: "bg-[#f7ddd7]/80 border-l-2 border-[#e0b0a5]" };
 }
 
 interface WeekGridProps {
@@ -261,13 +275,11 @@ export default function WeekGrid({
   const rowOccupied = useMemo(
     () =>
       compactEmpty
-        ? computeRowOccupancy(
-            placedEvents,
-            placedMarks.map((m) => m.rowStart),
-            slotCount,
-          )
+        ? // Marks (the #5 unavailability overlay) intentionally don't keep a row
+          // expanded — only real events drive row height.
+          computeRowOccupancy(placedEvents, [], slotCount)
         : new Array<boolean>(slotCount).fill(true),
-    [compactEmpty, placedEvents, placedMarks, slotCount],
+    [compactEmpty, placedEvents, slotCount],
   );
 
   const { laned: lanedEvents, colLaneCount: rawColLaneCount } = useMemo(
@@ -505,11 +517,13 @@ export default function WeekGrid({
 
         {placedMarks.map(({ mark, col, rowStart }) => {
           const dayIdx = col;
+          const { className, style } = markStyle(mark.kind);
           return (
             <div
               key={`m-${mark.id}`}
-              className="bg-[#f7ddd7]/80 border-l-2 border-[#e0b0a5] pointer-events-none"
+              className={`pointer-events-none ${className}`}
               style={{
+                ...style,
                 gridColumn: `${dayIdx * turmasCount + 2} / span ${turmasCount}`,
                 gridRow: rowStart + headerRows + 1,
               }}
