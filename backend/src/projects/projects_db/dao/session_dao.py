@@ -4,7 +4,7 @@ from enum import Enum, auto
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import Select, func, inspect, select, text
+from sqlalchemy import Select, bindparam, func, inspect, select, text
 from sqlalchemy.orm import Session as DBSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.interfaces import LoaderOption
@@ -24,9 +24,11 @@ from src.projects.projects_db.models._secondary_tables import (
     session_teachers,
 )
 from src.projects.projects_db.models.class_ import Class
+from src.projects.projects_db.models.room import Room
 from src.projects.projects_db.models.session import Session
 from src.projects.projects_db.models.session_class_subject import SessionClassSubject
 from src.projects.projects_db.models.subject import Subject
+from src.projects.projects_db.models.teacher import Teacher
 from src.projects.projects_db.schemas.weekday import WeekDay
 
 
@@ -751,8 +753,132 @@ class SessionDAO(BaseDAO[Session]):
         return changes
 
     def get_added_removed_records(self, other_db_alias: DBAlias) -> AddedRemovedRecords:
-        return super().get_added_removed_records(
+        records = super().get_added_removed_records(
             other_db_alias,
             ["id"],
             self.model.__tablename__,
         )
+        other_alias = self._validate_db_alias(other_db_alias)
+
+        return {
+            "added": self._get_export_session_records("main", records["added"]),
+            "removed": self._get_export_session_records(other_alias, records["removed"]),
+        }
+
+    def _get_export_session_records(
+        self,
+        db_alias: str,
+        records: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        session_ids = [str(record["id"]) for record in records]
+        if not session_ids:
+            return []
+
+        sessions_table = self._qualified_table_name(db_alias, Session.__tablename__)
+        session_rooms_table = self._qualified_table_name(db_alias, session_rooms.name)
+        rooms_table = self._qualified_table_name(db_alias, Room.__tablename__)
+        session_teachers_table = self._qualified_table_name(db_alias, session_teachers.name)
+        teachers_table = self._qualified_table_name(db_alias, Teacher.__tablename__)
+        class_subjects_table = self._qualified_table_name(
+            db_alias,
+            SessionClassSubject.__tablename__,
+        )
+        classes_table = self._qualified_table_name(db_alias, Class.__tablename__)
+        subjects_table = self._qualified_table_name(db_alias, Subject.__tablename__)
+
+        query = text(
+            f"""
+            SELECT
+                s.id,
+                s.original_block_id,
+                s.week,
+                s.weekday,
+                s.start_time,
+                s.duration,
+                s.type,
+                r.id AS room_id,
+                r.name AS room_name,
+                t.id AS teacher_id,
+                t.number AS teacher_number,
+                t.acronym AS teacher_acronym,
+                t.name AS teacher_name,
+                c.id AS class_id,
+                c.code AS class_code,
+                sub.id AS subject_id,
+                sub.name AS subject_name,
+                sub.acronym AS subject_acronym,
+                sub.code AS subject_code
+            FROM {sessions_table} s
+            LEFT JOIN {session_rooms_table} sr ON sr.session_id = s.id
+            LEFT JOIN {rooms_table} r ON r.id = sr.room_id
+            LEFT JOIN {session_teachers_table} st ON st.session_id = s.id
+            LEFT JOIN {teachers_table} t ON t.id = st.teacher_id
+            LEFT JOIN {class_subjects_table} scs ON scs.session_id = s.id
+            LEFT JOIN {classes_table} c ON c.id = scs.class_id
+            LEFT JOIN {subjects_table} sub ON sub.id = scs.subject_id
+            WHERE s.id IN :session_ids
+            ORDER BY s.week, s.weekday, s.start_time, s.id, c.code, sub.code, r.name, t.acronym
+            """,
+        ).bindparams(bindparam("session_ids", expanding=True))
+        rows = self.session.connection().execute(query, {"session_ids": session_ids}).mappings()
+        by_id: dict[str, dict[str, Any]] = {}
+
+        for row in rows:
+            session_id = str(row["id"])
+            session_record = by_id.setdefault(
+                session_id,
+                {
+                    "id": session_id,
+                    "original_block_id": row["original_block_id"],
+                    "week": row["week"],
+                    "weekday": self._export_weekday_value(row["weekday"]),
+                    "start_time": row["start_time"],
+                    "duration": row["duration"],
+                    "type": row["type"],
+                    "room_ids": [],
+                    "rooms": [],
+                    "teacher_ids": [],
+                    "teachers": [],
+                    "class_ids": [],
+                    "classes": [],
+                    "subject_ids": [],
+                    "subjects": [],
+                },
+            )
+            if row["room_id"] is not None:
+                self._append_unique(session_record["room_ids"], str(row["room_id"]))
+            self._append_unique(session_record["rooms"], row["room_name"])
+            if row["teacher_number"] is not None:
+                self._append_unique(session_record["teacher_ids"], str(row["teacher_id"]))
+                self._append_unique(
+                    session_record["teachers"],
+                    {
+                        "number": row["teacher_number"],
+                        "acronym": row["teacher_acronym"],
+                        "name": row["teacher_name"],
+                    },
+                )
+            if row["class_id"] is not None:
+                self._append_unique(session_record["class_ids"], str(row["class_id"]))
+            self._append_unique(session_record["classes"], row["class_code"])
+            if row["subject_code"] is not None:
+                self._append_unique(session_record["subject_ids"], str(row["subject_id"]))
+                self._append_unique(
+                    session_record["subjects"],
+                    {
+                        "name": row["subject_name"],
+                        "acronym": row["subject_acronym"],
+                        "code": row["subject_code"],
+                    },
+                )
+
+        return [by_id.get(session_id, {"id": session_id}) for session_id in session_ids]
+
+    @staticmethod
+    def _append_unique(items: list[Any], value: Any) -> None:
+        if value is not None and value not in items:
+            items.append(value)
+
+    @staticmethod
+    def _export_weekday_value(value: Any) -> str:
+        return WeekDay(value).value

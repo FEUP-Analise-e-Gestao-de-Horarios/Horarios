@@ -5,6 +5,7 @@ export const ROUTES = {
   CHANGE_PASSWORD: "/change-password",
   SCHEDULE: "/projects/:projectId",
   DASHBOARD: "/projects/:projectId/dashboard",
+  EXPORT_SESSION_CONTEXT: "/projects/:projectId/dashboard/export-session",
   DEGREE_DETAIL: "/projects/:projectId/dashboard/degrees/:degreeId",
   TEACHER_DETAIL: "/projects/:projectId/dashboard/teachers/:teacherId",
   ROOM_DETAIL: "/projects/:projectId/dashboard/rooms/:roomId",

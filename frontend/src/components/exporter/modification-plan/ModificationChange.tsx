@@ -7,15 +7,18 @@ import {
   isRelationChange,
   relationChangeLabel,
 } from "@/utils/exporter/formatters";
+import { relationFallbackLabel } from "@/utils/exporter/relations";
 
 export default function ModificationChange({
   name,
   change,
   stepType,
+  session,
 }: {
   name: string;
   change: ExportFieldModification;
   stepType?: ExportModificationStep["type"];
+  session?: ExportModificationStep["session"];
 }) {
   if (isColumnChange(change)) {
     const oldValue = formatFieldValue(name, change.old);
@@ -38,7 +41,13 @@ export default function ModificationChange({
     const clusterRelations = stepType === "exchange" && label === "Turmas";
 
     function renderItems(items: unknown[]) {
-      return items.map((item, index) => <EntityChip key={index} item={item} />);
+      return items.map((item, index) => (
+        <EntityChip
+          key={index}
+          item={item}
+          fallbackLabel={relationFallbackLabel({ fieldName: name, index, session })}
+        />
+      ));
     }
 
     return (

@@ -2,7 +2,7 @@ from django.urls import include, path
 
 from src.projects.views.classes import ProjectClassesView, ProjectClassView
 from src.projects.views.degrees import ProjectDegreesView, ProjectDegreeView
-from src.projects.views.export import ProjectExportView
+from src.projects.views.export import ProjectExportSessionContextView, ProjectExportView
 from src.projects.views.parallel_blocks import (
     ProjectParallelBlockCandidateView,
     ProjectParallelBlockGroupsView,
@@ -77,6 +77,7 @@ parallel_block_patterns = [
 
 project_patterns = [
     path("stats", ProjectStatsView.as_view()),
+    path("export/session-context", ProjectExportSessionContextView.as_view()),
     path("export", ProjectExportView.as_view()),
     path("rooms/", include(room_patterns)),
     path("teachers/", include(teacher_patterns)),

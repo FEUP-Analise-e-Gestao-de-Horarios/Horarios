@@ -7,6 +7,7 @@ import ChangePasswordPage from "./pages/auth/ChangePasswordPage";
 import { ROUTES } from "./routes";
 import SchedulePage from "./pages/SchedulePage";
 import DashboardPage from "./pages/dashboard/DashboardPage";
+import ExportSessionContextPage from "./pages/dashboard/ExportSessionContextPage";
 import DegreeDetailPage from "./pages/dashboard/DegreeDetailPage";
 import TeacherDetailPage from "./pages/dashboard/TeacherDetailPage";
 import RoomDetailPage from "./pages/dashboard/RoomDetailPage";
@@ -29,6 +30,11 @@ export const router = createBrowserRouter([
 
   { path: ROUTES.SCHEDULE, element: <SchedulePage />, loader: requireAuth },
   { path: ROUTES.DASHBOARD, element: <DashboardPage />, loader: requireAuth },
+  {
+    path: ROUTES.EXPORT_SESSION_CONTEXT,
+    element: <ExportSessionContextPage />,
+    loader: requireAuth,
+  },
   { path: ROUTES.DEGREE_DETAIL, element: <DegreeDetailPage />, loader: requireAuth },
   { path: ROUTES.TEACHER_DETAIL, element: <TeacherDetailPage />, loader: requireAuth },
   { path: ROUTES.ROOM_DETAIL, element: <RoomDetailPage />, loader: requireAuth },

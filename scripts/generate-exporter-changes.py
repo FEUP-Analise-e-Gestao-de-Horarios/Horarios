@@ -184,6 +184,60 @@ def copy_relations(conn: sqlite3.Connection, source_id: str, target_id: str) -> 
             )
 
 
+def swap_first_available_class(
+    conn: sqlite3.Connection,
+    *,
+    session_id: str,
+    dry_run: bool,
+) -> str | None:
+    rows = conn.execute(
+        """
+        SELECT class_id, subject_id
+        FROM sessions_classes_subject
+        WHERE session_id = ?
+        ORDER BY class_id, subject_id
+        """,
+        (session_id,),
+    ).fetchall()
+    if not rows:
+        return None
+
+    replacement_row = conn.execute(
+        """
+        SELECT id
+        FROM classes
+        WHERE id NOT IN (
+            SELECT class_id
+            FROM sessions_classes_subject
+            WHERE session_id = ?
+        )
+        ORDER BY id
+        LIMIT 1
+        """,
+        (session_id,),
+    ).fetchone()
+    if replacement_row is None:
+        return None
+
+    original_row = rows[0]
+    if not dry_run:
+        conn.execute(
+            """
+            UPDATE sessions_classes_subject
+            SET class_id = ?
+            WHERE session_id = ? AND class_id = ? AND subject_id = ?
+            """,
+            (
+                replacement_row["id"],
+                session_id,
+                original_row["class_id"],
+                original_row["subject_id"],
+            ),
+        )
+
+    return "sessions_classes_subject: replaced one class relation"
+
+
 def add_session_copy(
     conn: sqlite3.Connection,
     source: sqlite3.Row,
@@ -264,6 +318,14 @@ def mutate(conn: sqlite3.Connection, *, dry_run: bool) -> list[str]:
         )
         if result:
             planned.append(f"{result} on modified session")
+
+    class_result = swap_first_available_class(
+        conn,
+        session_id=modify_session["id"],
+        dry_run=dry_run,
+    )
+    if class_result:
+        planned.append(f"{class_result} on modified session")
 
     planned.append(add_session_copy(conn, add_source, dry_run=dry_run))
 

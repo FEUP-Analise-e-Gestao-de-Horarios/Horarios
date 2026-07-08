@@ -49,7 +49,7 @@ export default function ExportResults({ data }: { data: ProjectExportPayload }) 
       />
 
       <ExportSection title="Aulas Adicionadas e removidas">
-        <AddedRemovedSessions data={data.added_removed_sessions} />
+        <AddedRemovedSessions data={data.added_removed_sessions} projectId={projectId} />
       </ExportSection>
 
       <ModificationPlanSection

@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useProject } from "@/api/hooks/project/project";
 import { useProjectClass } from "@/api/hooks/project/class";
 import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
+import ExporterSessionPreviewFallback from "@/components/dashboard/ExporterSessionPreviewFallback";
 import SessionPopup from "@/components/dashboard/SessionPopup";
 import WeekGrid, { type WeekGridEvent, type WeekGridMark } from "@/components/dashboard/WeekGrid";
 import { ROUTES } from "@/routes";
@@ -11,10 +12,14 @@ import type { SessionResponse, WeekBlockResponse } from "@/types/project/session
 import { formatBlockLabel } from "@/utils/date";
 import {
   findTargetWeekBlockIndex,
-  parseConflictSessionIds,
   parseConflictWeeks,
+  parseExportSessionPreview,
+  parseHighlightedSessionIds,
+  parseSessionHighlightTone,
   weekBlockButtonClass,
   weekBlockHasConflict,
+  withExportSessionWeekBlock,
+  withExportSessionPreview,
 } from "@/utils/exporter/dashboardNavigation";
 import { buildPath } from "@/utils/routes";
 
@@ -24,14 +29,17 @@ export default function ClassDetailPage() {
   const pid = projectId ?? "";
   const cid = classId ?? "";
   const targetWeek = searchParams.get("week");
-  const highlightedEventIds = parseConflictSessionIds(searchParams);
+  const highlightedEventIds = parseHighlightedSessionIds(searchParams);
+  const highlightedEventTone = parseSessionHighlightTone(searchParams);
   const conflictWeeks = parseConflictWeeks(searchParams);
+  const exportSessionPreview = parseExportSessionPreview(searchParams);
 
   const project = useProject(pid);
   const { data, isLoading, isError } = useProjectClass(pid, cid);
 
   const blocks: WeekBlockResponse[] = data?.blocks ?? [];
-  const targetBlockIdx = findTargetWeekBlockIndex(blocks, targetWeek);
+  const displayBlocks = withExportSessionWeekBlock(blocks, exportSessionPreview);
+  const targetBlockIdx = findTargetWeekBlockIndex(displayBlocks, targetWeek);
   const [selectedBlockIdx, setSelectedBlockIdx] = useState(0);
   const [selectedSession, setSelectedSession] = useState<SessionResponse | null>(null);
   const [prevCid, setPrevCid] = useState(cid);
@@ -47,23 +55,27 @@ export default function ClassDetailPage() {
     setSelectedBlockIdx(targetBlockIdx);
   }
 
-  const activeBlock = blocks[selectedBlockIdx] ?? blocks[0] ?? null;
+  const activeBlock = displayBlocks[selectedBlockIdx] ?? displayBlocks[0] ?? null;
   const blockSessions: SessionResponse[] = activeBlock?.sessions ?? [];
 
   const totalSessions = blocks.reduce((sum, b) => sum + b.sessions.length * b.weeks.length, 0);
 
-  const events: WeekGridEvent[] = blockSessions.map((s) => ({
-    id: s.id,
-    weekday: s.weekday,
-    startTime: s.start_time,
-    duration: s.duration,
-    title: s.subjects.map((x) => x.acronym).join(", "),
-    body: [
-      s.teachers.map((t) => t.acronym).join(", "),
-      s.rooms.map((r) => r.name).join(", "),
-    ].filter((line) => line.length > 0),
-    type: s.type,
-  }));
+  const events: WeekGridEvent[] = withExportSessionPreview(
+    blockSessions.map((s) => ({
+      id: s.id,
+      weekday: s.weekday,
+      startTime: s.start_time,
+      duration: s.duration,
+      title: s.subjects.map((x) => x.acronym).join(", "),
+      body: [
+        s.teachers.map((t) => t.acronym).join(", "),
+        s.rooms.map((r) => r.name).join(", "),
+      ].filter((line) => line.length > 0),
+      type: s.type,
+    })),
+    activeBlock,
+    exportSessionPreview,
+  );
 
   const redBlocks: RedBlockBase[] = data?.red_blocks ?? [];
   const marks: WeekGridMark[] = redBlocks.map((rb) => ({
@@ -92,6 +104,11 @@ export default function ClassDetailPage() {
         <div className="max-w-7xl mx-auto px-6 pt-6 pb-6 h-full flex flex-col gap-5">
           {isLoading ? (
             <div className="bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)] p-6 h-32 animate-pulse" />
+          ) : (isError || !data) && exportSessionPreview ? (
+            <ExporterSessionPreviewFallback
+              preview={exportSessionPreview}
+              tone={highlightedEventTone}
+            />
           ) : isError || !data ? (
             <div className="bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)] p-6 text-sm text-red-600">
               Erro ao carregar turma.
@@ -133,9 +150,9 @@ export default function ClassDetailPage() {
                 <h2 className="text-sm font-semibold uppercase tracking-wider text-[#08060d]">
                   Horário
                 </h2>
-                {blocks.length > 0 && (
+                {displayBlocks.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
-                    {blocks.map((b, i) => {
+                    {displayBlocks.map((b, i) => {
                       const active = i === selectedBlockIdx;
                       const hasConflictWeek = weekBlockHasConflict(b, conflictWeeks);
                       return (
@@ -163,6 +180,7 @@ export default function ClassDetailPage() {
                 <WeekGrid
                   events={events}
                   highlightedEventIds={highlightedEventIds}
+                  highlightedEventTone={highlightedEventTone}
                   marks={marks}
                   onEventClick={handleEventClick}
                   emptyMessage="Sem aulas nem blocos vermelhos para esta turma."

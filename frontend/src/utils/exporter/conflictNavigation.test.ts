@@ -4,8 +4,14 @@ import {
   hasHighlightedSession,
   parseConflictSessionIds,
   parseConflictWeeks,
+  parseExportSessionContextIds,
+  parseExportSessionPreview,
+  parseHighlightedSessionIds,
+  parseSessionHighlightTone,
   weekBlockButtonClass,
   weekBlockHasConflict,
+  withExportSessionWeekBlock,
+  withExportSessionPreview,
 } from "@/utils/exporter/dashboardNavigation";
 
 describe("parseConflictWeeks", () => {
@@ -21,6 +27,110 @@ describe("parseConflictSessionIds", () => {
     const params = new URLSearchParams("conflictSessions=session-1%2Csession-2%2Csession-1");
 
     expect(parseConflictSessionIds(params)).toEqual(new Set(["session-1", "session-2"]));
+  });
+});
+
+describe("parseHighlightedSessionIds", () => {
+  it("includes added or removed exporter sessions", () => {
+    const params = new URLSearchParams(
+      "conflictSessions=session-1&exportSession=session-2&exportSessionChange=removed",
+    );
+
+    expect(parseHighlightedSessionIds(params)).toEqual(new Set(["session-1", "session-2"]));
+  });
+});
+
+describe("parseSessionHighlightTone", () => {
+  it("uses exporter added and removed colors when present", () => {
+    expect(parseSessionHighlightTone(new URLSearchParams("exportSessionChange=added"))).toBe(
+      "added",
+    );
+    expect(parseSessionHighlightTone(new URLSearchParams("exportSessionChange=removed"))).toBe(
+      "removed",
+    );
+    expect(parseSessionHighlightTone(new URLSearchParams("conflictSessions=session-1"))).toBe(
+      "conflict",
+    );
+  });
+});
+
+describe("parseExportSessionContextIds", () => {
+  it("reads related dashboard resource ids for exporter session context", () => {
+    const params = new URLSearchParams(
+      "exportSessionClassIds=class-1,class-2&exportSessionRoomIds=room-1&exportSessionTeacherIds=teacher-1,teacher-2",
+    );
+
+    expect(parseExportSessionContextIds(params)).toEqual({
+      classIds: ["class-1", "class-2"],
+      roomIds: ["room-1"],
+      teacherIds: ["teacher-1", "teacher-2"],
+    });
+  });
+});
+
+describe("parseExportSessionPreview", () => {
+  it("reads the session preview carried from the exporter", () => {
+    const params = new URLSearchParams(
+      "exportSession=session-1&exportSessionWeek=2026-01-05&exportSessionWeekday=monday&exportSessionStart=830&exportSessionDuration=2&exportSessionTitle=IA&exportSessionBody=%5B%22ABC%22%5D&exportSessionType=TP",
+    );
+
+    expect(parseExportSessionPreview(params)).toMatchObject({
+      id: "session-1",
+      week: "2026-01-05",
+      weekday: "monday",
+      startTime: 830,
+      duration: 2,
+      title: "IA",
+      body: ["ABC"],
+      type: "TP",
+    });
+  });
+});
+
+describe("withExportSessionPreview", () => {
+  it("adds a preview event only for the active week when the event is missing", () => {
+    const preview = {
+      id: "session-1",
+      week: "2026-01-05",
+      weekday: "monday" as const,
+      startTime: 830,
+      duration: 2,
+      title: "IA",
+    };
+
+    expect(
+      withExportSessionPreview([], { weeks: ["2026-01-05"], sessions: [] }, preview),
+    ).toHaveLength(1);
+    expect(
+      withExportSessionPreview([], { weeks: ["2026-01-12"], sessions: [] }, preview),
+    ).toHaveLength(0);
+    expect(
+      withExportSessionPreview(
+        [{ id: "session-1", weekday: "monday", startTime: 830, duration: 2 }],
+        { weeks: ["2026-01-05"], sessions: [] },
+        preview,
+      ),
+    ).toHaveLength(1);
+  });
+});
+
+describe("withExportSessionWeekBlock", () => {
+  it("adds the exporter session week when the dashboard no longer has it", () => {
+    const preview = {
+      id: "session-1",
+      week: "2026-01-05",
+      weekday: "monday" as const,
+      startTime: 830,
+      duration: 2,
+    };
+
+    expect(withExportSessionWeekBlock([{ weeks: ["2026-01-12"], sessions: [] }], preview)).toEqual([
+      { weeks: ["2026-01-12"], sessions: [] },
+      { weeks: ["2026-01-05"], sessions: [] },
+    ]);
+    expect(withExportSessionWeekBlock([{ weeks: ["2026-01-05"], sessions: [] }], preview)).toEqual([
+      { weeks: ["2026-01-05"], sessions: [] },
+    ]);
   });
 });
 

@@ -18,6 +18,20 @@ export interface ExportAddedRemovedRecords<T = ExportJsonValue> {
 
 export interface ExportSessionRecord {
   id: string;
+  original_block_id?: string | null;
+  start_time?: number | null;
+  duration?: number | null;
+  weekday?: Weekday | null;
+  week?: string | null;
+  type?: string | null;
+  room_ids?: string[];
+  rooms?: string[];
+  teacher_ids?: string[];
+  teachers?: ExportTeacherSnapshot[];
+  class_ids?: string[];
+  classes?: string[];
+  subject_ids?: string[];
+  subjects?: ExportSubjectsSnapshot[];
 }
 
 export interface ExportRoomRelationChange {

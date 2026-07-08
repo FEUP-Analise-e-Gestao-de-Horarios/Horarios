@@ -29,6 +29,11 @@ urlpatterns = [
     path("projects/<int:project_id>/", spa_view, name="schedule"),
     path("projects/<int:project_id>/dashboard", spa_view, name="dashboard"),
     path(
+        "projects/<int:project_id>/dashboard/export-session",
+        spa_view,
+        name="export-session-context",
+    ),
+    path(
         "projects/<int:project_id>/dashboard/degrees/<uuid:degree_id>",
         spa_view,
         name="degree-detail",

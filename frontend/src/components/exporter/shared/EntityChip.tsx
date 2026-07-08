@@ -1,8 +1,8 @@
 import StyledTooltip from "@/components/exporter/shared/StyledTooltip";
 import { relationRecord } from "@/utils/exporter/relations";
 
-export function EntityChip({ item }: { item: unknown }) {
-  const relation = relationRecord(item);
+export function EntityChip({ item, fallbackLabel }: { item: unknown; fallbackLabel?: string }) {
+  const relation = relationRecord(item, fallbackLabel);
 
   return (
     <StyledTooltip content={relation.title}>

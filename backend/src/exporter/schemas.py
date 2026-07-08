@@ -33,12 +33,6 @@ class ExportAddedRemovedRecords[T](BaseModel):
     removed: list[T] = Field(default_factory=list)
 
 
-class ExportSessionRecord(BaseModel):
-    """Minimal session reference used by added/removed exporter payloads."""
-
-    id: ExportString
-
-
 class ExportRoomRelationChange(BaseModel):
     """Expanded room relation row embedded in modification diffs."""
 
@@ -110,6 +104,26 @@ class ExportSubjectSnapshot(BaseModel):
     name: ExportString
     acronym: ExportOptionalString = None
     code: ExportString
+
+
+class ExportSessionRecord(BaseModel):
+    """Session row shown in the added/removed exporter section."""
+
+    id: ExportString
+    original_block_id: ExportOptionalString = None
+    start_time: int | None = None
+    duration: int | None = None
+    weekday: ExportOptionalString = None
+    week: ExportOptionalString = None
+    type: ExportOptionalString = None
+    room_ids: list[ExportString] = Field(default_factory=list)
+    rooms: list[ExportString] = Field(default_factory=list)
+    teacher_ids: list[ExportString] = Field(default_factory=list)
+    teachers: list[ExportTeacherSnapshot] = Field(default_factory=list)
+    class_ids: list[ExportString] = Field(default_factory=list)
+    classes: list[ExportString] = Field(default_factory=list)
+    subject_ids: list[ExportString] = Field(default_factory=list)
+    subjects: list[ExportSubjectSnapshot] = Field(default_factory=list)
 
 
 class ExportSessionSnapshot(BaseModel):

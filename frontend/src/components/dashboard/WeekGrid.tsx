@@ -1,6 +1,9 @@
 import { useMemo } from "react";
 import type { Weekday } from "@/types/project/weekday";
-import { hasHighlightedSession } from "@/utils/exporter/dashboardNavigation";
+import {
+  hasHighlightedSession,
+  type DashboardSessionHighlightTone,
+} from "@/utils/exporter/dashboardNavigation";
 
 export interface WeekGridEvent {
   id: string;
@@ -23,9 +26,16 @@ interface WeekGridProps {
   marks?: WeekGridMark[];
   startTime?: number;
   endTime?: number;
+  layout?: "contained" | "natural" | "compact";
+  maxHeight?: number;
+  slotHeight?: number;
+  highlightedMinHeight?: number;
+  contentMode?: "full" | "subject";
+  density?: "normal" | "preview";
   onEventClick?: (event: WeekGridEvent) => void;
   emptyMessage?: string;
   highlightedEventIds?: Set<string>;
+  highlightedEventTone?: DashboardSessionHighlightTone;
 }
 
 const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
@@ -74,14 +84,31 @@ function styleForType(type: string | undefined) {
   return TYPE_STYLES[type.toUpperCase()] ?? DEFAULT_STYLE;
 }
 
+function highlightStyle(tone: DashboardSessionHighlightTone): string {
+  if (tone === "added") {
+    return "z-10 animate-pulse border-green-700 bg-green-100 text-green-950 shadow-[0_0_0_2px_rgba(22,163,74,0.75)]";
+  }
+  if (tone === "removed") {
+    return "z-10 animate-pulse border-red-800 bg-red-100 text-red-950 shadow-[0_0_0_2px_rgba(220,38,38,0.75)]";
+  }
+  return "z-10 animate-pulse border-red-700 bg-red-100 text-red-950 shadow-[0_0_0_2px_rgba(220,38,38,0.75)]";
+}
+
 export default function WeekGrid({
   events,
   marks = [],
   startTime,
   endTime,
+  layout = "contained",
+  maxHeight = 420,
+  slotHeight = MAX_SLOT_PX,
+  highlightedMinHeight = 38,
+  contentMode = "full",
+  density = "normal",
   onEventClick,
   emptyMessage,
   highlightedEventIds,
+  highlightedEventTone = "conflict",
 }: WeekGridProps) {
   const { gridStartMinutes, slotCount } = useMemo(() => {
     let min = hhmmToMinutes(startTime ?? DEFAULT_START_HHMM);
@@ -191,16 +218,37 @@ export default function WeekGrid({
     );
   }
 
+  const headerPx = density === "preview" ? 22 : HEADER_PX;
+  const timeColumnPx = density === "preview" ? 36 : 56;
+  const naturalHeight = slotCount * slotHeight + headerPx + 2;
+  const compactHeight = Math.min(naturalHeight, maxHeight);
+  const useFixedRows = layout !== "contained";
+  const containerClass = [
+    "bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)]",
+    layout === "natural" || (layout === "compact" && naturalHeight <= maxHeight)
+      ? "overflow-visible"
+      : "overflow-y-auto",
+    layout === "contained" ? "h-full" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <div
-      className="bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)] overflow-y-auto h-full"
-      style={{ maxHeight: slotCount * MAX_SLOT_PX + HEADER_PX }}
+      className={containerClass}
+      style={{
+        height:
+          layout === "natural" ? naturalHeight : layout === "compact" ? compactHeight : undefined,
+        maxHeight: layout === "contained" ? naturalHeight : undefined,
+      }}
     >
       <div
         className="grid h-full"
         style={{
-          gridTemplateColumns: `56px repeat(${WEEKDAYS.length}, minmax(0, 1fr))`,
-          gridTemplateRows: `${HEADER_PX}px repeat(${slotCount}, minmax(${MIN_SLOT_PX}px, 1fr))`,
+          gridTemplateColumns: `${timeColumnPx}px repeat(${WEEKDAYS.length}, minmax(0, 1fr))`,
+          gridTemplateRows: useFixedRows
+            ? `${headerPx}px repeat(${slotCount}, ${slotHeight}px)`
+            : `${headerPx}px repeat(${slotCount}, minmax(${MIN_SLOT_PX}px, 1fr))`,
         }}
       >
         <div
@@ -210,7 +258,9 @@ export default function WeekGrid({
         {WEEKDAY_LABELS.map((label, i) => (
           <div
             key={label}
-            className="sticky top-0 z-20 border-b border-[#e5e4e7] bg-[#f9f7f4] px-2 py-2 text-center text-xs font-semibold uppercase tracking-wider text-[#08060d]"
+            className={`sticky top-0 z-20 border-b border-[#e5e4e7] bg-[#f9f7f4] text-center font-semibold uppercase text-[#08060d] ${
+              density === "preview" ? "px-1 py-1 text-[9px]" : "px-2 py-2 text-xs tracking-wider"
+            }`}
             style={{ gridColumn: i + 2, gridRow: 1 }}
           >
             {label}
@@ -223,9 +273,9 @@ export default function WeekGrid({
           return (
             <div
               key={`t-${i}`}
-              className={`border-r border-[#e5e4e7] px-2 text-right text-[10px] text-[#6b6375] ${
-                isHour ? "border-t" : ""
-              }`}
+              className={`border-r border-[#e5e4e7] text-right text-[#6b6375] ${
+                density === "preview" ? "px-1 text-[8px]" : "px-2 text-[10px]"
+              } ${isHour ? "border-t" : ""}`}
               style={{ gridColumn: 1, gridRow: i + 2 }}
             >
               {isHour ? minutesToLabel(mins) : ""}
@@ -264,6 +314,20 @@ export default function WeekGrid({
           const isHighlighted = highlightedEventIds
             ? hasHighlightedSession(ev.id, highlightedEventIds)
             : false;
+          const visibleTitle =
+            ev.title?.trim() ||
+            (isHighlighted
+              ? highlightedEventTone === "added"
+                ? "Aula adicionada"
+                : "Aula removida"
+              : "");
+          const showDetails = contentMode === "full";
+          const eventTextClass =
+            contentMode === "subject" ? "text-[9px] leading-[10px]" : "text-[11px] leading-tight";
+          const contentClass =
+            contentMode === "subject"
+              ? "absolute inset-0 overflow-hidden px-1 py-0.5"
+              : "absolute inset-0 overflow-hidden px-1.5 py-1 pr-6";
           return (
             <button
               key={`e-${ev.id}`}
@@ -271,9 +335,9 @@ export default function WeekGrid({
               data-copy-id={ev.id}
               data-copy-label="ID da sessão"
               onClick={clickable ? (e) => !e.altKey && onEventClick(ev) : undefined}
-              className={`relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden ${
+              className={`relative my-[1px] rounded border text-left overflow-hidden ${eventTextClass} ${
                 isHighlighted
-                  ? "z-10 animate-pulse border-red-700 bg-red-100 text-red-950 shadow-[0_0_0_2px_rgba(220,38,38,0.75)]"
+                  ? highlightStyle(highlightedEventTone)
                   : `${style.bg} ${style.border} ${style.text}`
               } ${clickable ? "cursor-pointer hover:brightness-95 transition" : "cursor-default"}`}
               style={{
@@ -282,17 +346,18 @@ export default function WeekGrid({
                 justifySelf: "start",
                 width: `calc(100% / ${laneCount})`,
                 marginLeft: `calc(100% * ${lane} / ${laneCount})`,
+                minHeight: isHighlighted ? highlightedMinHeight : undefined,
               }}
-              title={ev.title}
+              title={visibleTitle}
               disabled={!clickable}
             >
-              {ev.type && (
+              {showDetails && ev.type && (
                 <div className="absolute top-1 right-1.5 z-10 text-[10px] opacity-70 uppercase leading-none">
                   {ev.type}
                 </div>
               )}
               <div
-                className="absolute inset-0 overflow-hidden px-1.5 py-1 pr-6"
+                className={contentClass}
                 style={{
                   maskImage:
                     "linear-gradient(to bottom, black calc(100% - 3px), rgba(0,0,0,0.2) calc(100% - 1px), transparent 100%)",
@@ -300,12 +365,13 @@ export default function WeekGrid({
                     "linear-gradient(to bottom, black calc(100% - 3px), rgba(0,0,0,0.2) calc(100% - 1px), transparent 100%)",
                 }}
               >
-                {ev.title && <div className="font-semibold truncate">{ev.title}</div>}
-                {ev.body?.map((line, i) => (
-                  <div key={i} className="truncate opacity-80">
-                    {line}
-                  </div>
-                ))}
+                {visibleTitle && <div className="font-semibold truncate">{visibleTitle}</div>}
+                {showDetails &&
+                  ev.body?.map((line, i) => (
+                    <div key={i} className="truncate opacity-80">
+                      {line}
+                    </div>
+                  ))}
               </div>
             </button>
           );
