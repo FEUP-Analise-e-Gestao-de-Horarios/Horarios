@@ -112,8 +112,12 @@ class ProjectExportView(View):
         with get_session(general_db(project_id)) as session:
             export_cache_dao = ExportCacheDAO(session)
             export_checklist_dao = ExportChecklistDAO(session)
+            session.commit()
+            current_session_version = export_cache_dao.get_current_session_version()
             if not recalculate_export_graph:
-                cached_data = export_cache_dao.get_project_export_payload()
+                cached_data = export_cache_dao.get_project_export_payload(
+                    version=current_session_version,
+                )
                 if cached_data is not None:
                     if cached_data.get("format") == COMPACT_EXPORT_FORMAT:
                         if self.cached_payload_supports_added_removed_navigation(cached_data):
@@ -129,10 +133,16 @@ class ProjectExportView(View):
                             )
 
                         export_cache_dao.clear_project_export_payload()
+                        ModifiedSessionDAO(session).clear_modification_steps()
                         session.commit()
                     else:
                         export_cache_dao.clear_project_export_payload()
+                        ModifiedSessionDAO(session).clear_modification_steps()
                         session.commit()
+                elif export_cache_dao.has_project_export_payload():
+                    export_cache_dao.clear_project_export_payload()
+                    ModifiedSessionDAO(session).clear_modification_steps()
+                    session.commit()
 
             session_dao = SessionDAO(session)
             modified_session_dao = ModifiedSessionDAO(session)
@@ -174,7 +184,10 @@ class ProjectExportView(View):
                 },
             )
             compact_data = compact_export_payload(data)
-            export_cache_dao.replace_project_export_payload(compact_data)
+            export_cache_dao.replace_project_export_payload(
+                compact_data,
+                version=current_session_version,
+            )
             session.commit()
 
             print(f"time elapsed: {'%.2f' % (end_time - start_time)}")

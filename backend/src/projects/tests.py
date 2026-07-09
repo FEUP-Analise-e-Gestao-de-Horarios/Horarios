@@ -80,7 +80,7 @@ class SessionDeletionEndpointTests(TestCase):
                 code="TEST001",
                 acronym="TEST",
                 name="Testing Subject",
-                year=year,
+                years=[year],
             )
             class_ = Class(code="1LEIC01", shift=1, year=year)
             room = Room(name="B001", type=None, size=None, seats=None)
@@ -163,6 +163,41 @@ class SessionDeletionEndpointTests(TestCase):
         self.assertEqual(cached_response.status_code, HTTPStatus.OK)
         self.assertEqual(cached_response.json()["message"], "Project export loaded from cache")
         self.assertEqual(cached_response.json()["data"], response.json()["data"])
+
+    def test_export_endpoint_recomputes_when_session_data_changes(self) -> None:
+        response = self.client.post(
+            f"/api/projects/{self.project.pk}/export",
+            data=json.dumps({"recalculate_export_graph": False}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertEqual(
+            response.json()["data"]["added_removed_sessions"]["added"][0]["start_time"],
+            8,
+        )
+
+        with get_project_session(general_db(self.project.pk)) as db_session:
+            existing_session = db_session.get(Session, self.session_id)
+            self.assertIsNotNone(existing_session)
+            assert existing_session is not None
+            existing_session.start_time = 9
+            db_session.commit()
+
+        refreshed_response = self.client.post(
+            f"/api/projects/{self.project.pk}/export",
+            data=json.dumps({"recalculate_export_graph": False}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(refreshed_response.status_code, HTTPStatus.OK)
+        self.assertEqual(
+            refreshed_response.json()["message"],
+            "Project export computed successfully",
+        )
+        self.assertEqual(
+            refreshed_response.json()["data"]["added_removed_sessions"]["added"][0]["start_time"],
+            9,
+        )
 
     def test_export_endpoint_replaces_legacy_expanded_cache(self) -> None:
         with get_project_session(general_db(self.project.pk)) as db_session:

@@ -345,7 +345,7 @@ class ExportBenchmarkScalingTests(TestCase):
                     code=f"SUB{index + 1:03d}",
                     acronym=f"S{index + 1}",
                     name=f"Subject {index + 1}",
-                    year=year,
+                    years=[year],
                 )
                 for index in range(2)
             ]
