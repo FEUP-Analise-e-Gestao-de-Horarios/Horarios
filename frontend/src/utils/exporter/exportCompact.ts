@@ -7,6 +7,7 @@ import type {
   ExportModificationStep,
   ExportRoomConflict,
   ExportRoomRelationChange,
+  ExportSessionRecord,
   ExportSessionModifications,
   ExportTeacherConflict,
   ExportTeacherRelationChange,
@@ -26,7 +27,7 @@ export function compactExportToProjectExportPayload(
   if (!isCompactExportPayload(payload)) return payload;
 
   return {
-    added_removed_sessions: payload.added_removed_sessions,
+    added_removed_sessions: expandAddedRemovedSessions(payload.added_removed_sessions, payload),
     rooms_conflicts: payload.conflicts
       .filter((conflict) => conflict[0] === "room")
       .map((conflict): ExportRoomConflict => {
@@ -64,6 +65,43 @@ export function compactExportToProjectExportPayload(
       session: sessionForStep(step, payload),
       modifications: expandModifications(step.modifications, payload),
     })),
+  };
+}
+
+function expandAddedRemovedSessions(
+  records: CompactProjectExportPayload["added_removed_sessions"],
+  payload: CompactProjectExportPayload,
+): ExportAddedRemovedRecords<ExportSessionRecord> {
+  const added = Array.isArray(records.added) ? records.added : [];
+  const removed = Array.isArray(records.removed) ? records.removed : [];
+
+  return {
+    added: added.map((record) => expandSessionRecord(record, payload)),
+    removed: removed.map((record) => expandSessionRecord(record, payload)),
+  };
+}
+
+function expandSessionRecord(
+  record: ExportSessionRecord,
+  payload: CompactProjectExportPayload,
+): ExportSessionRecord {
+  const roomDetails = (record.room_ids ?? [])
+    .map((roomId) => {
+      const room = findEntity(payload.entities.rooms, roomId);
+      return room ? { room_id: roomId, ...room } : null;
+    })
+    .filter((room): room is ExportRoomRelationChange => room !== null);
+  const teacherDetails = (record.teacher_ids ?? [])
+    .map((teacherId) => {
+      const teacher = findEntity(payload.entities.teachers, teacherId);
+      return teacher ? { teacher_id: teacherId, ...teacher } : null;
+    })
+    .filter((teacher): teacher is ExportTeacherRelationChange => teacher !== null);
+
+  return {
+    ...record,
+    room_details: roomDetails.length ? roomDetails : record.room_details,
+    teacher_details: teacherDetails.length ? teacherDetails : record.teacher_details,
   };
 }
 

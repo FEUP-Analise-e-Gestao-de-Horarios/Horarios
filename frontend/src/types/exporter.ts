@@ -26,8 +26,10 @@ export interface ExportSessionRecord {
   type?: string | null;
   room_ids?: string[];
   rooms?: string[];
+  room_details?: ExportRoomRelationChange[];
   teacher_ids?: string[];
   teachers?: ExportTeacherSnapshot[];
+  teacher_details?: ExportTeacherRelationChange[];
   class_ids?: string[];
   classes?: string[];
   subject_ids?: string[];

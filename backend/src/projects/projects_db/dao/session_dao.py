@@ -798,6 +798,9 @@ class SessionDAO(BaseDAO[Session]):
                 s.type,
                 r.id AS room_id,
                 r.name AS room_name,
+                r.type AS room_type,
+                r.size AS room_size,
+                r.seats AS room_seats,
                 t.id AS teacher_id,
                 t.number AS teacher_number,
                 t.acronym AS teacher_acronym,
@@ -837,8 +840,10 @@ class SessionDAO(BaseDAO[Session]):
                     "type": row["type"],
                     "room_ids": [],
                     "rooms": [],
+                    "room_details": [],
                     "teacher_ids": [],
                     "teachers": [],
+                    "teacher_details": [],
                     "class_ids": [],
                     "classes": [],
                     "subject_ids": [],
@@ -847,6 +852,16 @@ class SessionDAO(BaseDAO[Session]):
             )
             if row["room_id"] is not None:
                 self._append_unique(session_record["room_ids"], str(row["room_id"]))
+                self._append_unique(
+                    session_record["room_details"],
+                    {
+                        "room_id": str(row["room_id"]),
+                        "room_name": row["room_name"],
+                        "room_type": row["room_type"],
+                        "room_size": row["room_size"],
+                        "room_seats": row["room_seats"],
+                    },
+                )
             self._append_unique(session_record["rooms"], row["room_name"])
             if row["teacher_number"] is not None:
                 self._append_unique(session_record["teacher_ids"], str(row["teacher_id"]))
@@ -856,6 +871,15 @@ class SessionDAO(BaseDAO[Session]):
                         "number": row["teacher_number"],
                         "acronym": row["teacher_acronym"],
                         "name": row["teacher_name"],
+                    },
+                )
+                self._append_unique(
+                    session_record["teacher_details"],
+                    {
+                        "teacher_id": str(row["teacher_id"]),
+                        "teacher_number": row["teacher_number"],
+                        "teacher_acronym": row["teacher_acronym"],
+                        "teacher_name": row["teacher_name"],
                     },
                 )
             if row["class_id"] is not None:

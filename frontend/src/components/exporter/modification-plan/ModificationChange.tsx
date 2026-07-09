@@ -5,9 +5,12 @@ import {
   formatFieldValue,
   isColumnChange,
   isRelationChange,
-  relationChangeLabel,
 } from "@/utils/exporter/formatters";
 import { relationFallbackLabel } from "@/utils/exporter/relations";
+
+function modificationRelationChangeLabel(changeType: "added" | "removed"): string {
+  return changeType === "added" ? "Adicionados" : "Removidos";
+}
 
 export default function ModificationChange({
   name,
@@ -78,7 +81,7 @@ export default function ModificationChange({
                 <div className="flex flex-wrap items-center gap-1">
                   <span className="text-xs font-bold text-green-700">+</span>
                   <span className="text-[11px] font-semibold uppercase text-[#08060d]">
-                    {relationChangeLabel(label, "added")}:
+                    {modificationRelationChangeLabel("added")}:
                   </span>
                   {renderItems(change.added)}
                 </div>
@@ -87,7 +90,7 @@ export default function ModificationChange({
                 <div className="flex flex-wrap items-center gap-1">
                   <span className="text-xs font-bold text-red-700">-</span>
                   <span className="text-[11px] font-semibold uppercase text-[#08060d]">
-                    {relationChangeLabel(label, "removed")}:
+                    {modificationRelationChangeLabel("removed")}:
                   </span>
                   {renderItems(change.removed)}
                 </div>

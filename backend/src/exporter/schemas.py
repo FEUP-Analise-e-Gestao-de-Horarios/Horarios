@@ -118,8 +118,10 @@ class ExportSessionRecord(BaseModel):
     type: ExportOptionalString = None
     room_ids: list[ExportString] = Field(default_factory=list)
     rooms: list[ExportString] = Field(default_factory=list)
+    room_details: list[ExportRoomRelationChange] = Field(default_factory=list)
     teacher_ids: list[ExportString] = Field(default_factory=list)
     teachers: list[ExportTeacherSnapshot] = Field(default_factory=list)
+    teacher_details: list[ExportTeacherRelationChange] = Field(default_factory=list)
     class_ids: list[ExportString] = Field(default_factory=list)
     classes: list[ExportString] = Field(default_factory=list)
     subject_ids: list[ExportString] = Field(default_factory=list)

@@ -1,9 +1,15 @@
 import { Link } from "react-router-dom";
 import { EmptyState } from "@/components/exporter/ExportSection";
+import { EntityChip } from "@/components/exporter/shared/EntityChip";
 import { formatDuration, formatTime, WEEKDAY_LABELS } from "@/utils/exporter/formatters";
 import { subjectTitleLabel, uniqueByLabel } from "@/utils/exporter/relations";
 import { buildAddedRemovedSessionHref } from "@/utils/exporter/addedRemovedLinks";
 import type { ExportSessionRecord, ProjectExportPayload } from "@/types/exporter";
+
+interface ResourceGroup {
+  label: string;
+  items: unknown[];
+}
 
 function sessionTitle(session: ExportSessionRecord): string {
   const classes = uniqueByLabel(session.classes ?? [], (classCode) => classCode).join(", ");
@@ -30,14 +36,33 @@ function sessionMeta(session: ExportSessionRecord): string {
   return [session.week, weekday, time, duration].filter(Boolean).join(" · ");
 }
 
-function resourceSummary(session: ExportSessionRecord): string[] {
-  const rooms = session.rooms?.length ? [`Sala ${session.rooms.join(", ")}`] : [];
-  const teachers = session.teachers?.length
-    ? [`Docente ${session.teachers.map((teacher) => teacher.acronym || teacher.name).join(", ")}`]
-    : [];
-  const type = session.type ? [`Tipo ${session.type}`] : [];
+function teacherDetailFallbacks(session: ExportSessionRecord) {
+  return (
+    session.teachers?.map((teacher) => ({
+      teacher_number: teacher.number,
+      teacher_acronym: teacher.acronym,
+      teacher_name: teacher.name,
+    })) ?? []
+  );
+}
 
-  return [...rooms, ...teachers, ...type];
+function resourceGroups(session: ExportSessionRecord): ResourceGroup[] {
+  return [
+    {
+      label: "Salas",
+      items: session.room_details?.length ? session.room_details : (session.rooms ?? []),
+    },
+    {
+      label: "Docentes",
+      items: session.teacher_details?.length
+        ? session.teacher_details
+        : teacherDetailFallbacks(session),
+    },
+    {
+      label: "Tipo",
+      items: session.type ? [session.type] : [],
+    },
+  ].filter((group) => group.items.length > 0);
 }
 
 export default function AddedRemovedSessions({
@@ -79,7 +104,7 @@ export default function AddedRemovedSessions({
           </div>
           <div className="max-h-72 overflow-auto">
             {group.rows.map((session) => {
-              const resources = resourceSummary(session);
+              const resources = resourceGroups(session);
               const href = buildAddedRemovedSessionHref(projectId, session, group.change);
               const content = (
                 <>
@@ -87,15 +112,20 @@ export default function AddedRemovedSessions({
                   <div className="mt-0.5 text-xs font-medium text-[#6b6375]">
                     {sessionMeta(session) || "Sem detalhes de horário"}
                   </div>
-                  {!!resources.length && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {resources.map((item) => (
-                        <span
-                          key={item}
-                          className="inline-flex max-w-full items-center rounded border border-[#d8d3cf] bg-white px-1.5 py-0.5 text-xs font-medium text-[#08060d]"
+                  {resources.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1">
+                      {resources.map((resource) => (
+                        <div
+                          key={resource.label}
+                          className="flex min-w-0 flex-wrap items-center gap-1"
                         >
-                          <span className="truncate">{item}</span>
-                        </span>
+                          <span className="text-[11px] font-bold uppercase text-[#6b6375]">
+                            {resource.label}
+                          </span>
+                          {resource.items.map((item, index) => (
+                            <EntityChip key={index} item={item} />
+                          ))}
+                        </div>
                       ))}
                     </div>
                   )}
@@ -108,14 +138,14 @@ export default function AddedRemovedSessions({
 
               if (!href) {
                 return (
-                  <div key={session.id} className={cardClass} title={`ID: ${session.id}`}>
+                  <div key={session.id} className={cardClass}>
                     {content}
                   </div>
                 );
               }
 
               return (
-                <Link key={session.id} to={href} className={cardClass} title={`ID: ${session.id}`}>
+                <Link key={session.id} to={href} className={cardClass}>
                   {content}
                 </Link>
               );

@@ -42,7 +42,22 @@ describe("compactExportToProjectExportPayload", () => {
           },
         },
       },
-      added_removed_sessions: { added: [], removed: [] },
+      added_removed_sessions: {
+        added: [
+          {
+            id: "new-session",
+            week: "2026-01-05",
+            weekday: "monday",
+            start_time: 1030,
+            duration: 2,
+            room_ids: ["room1"],
+            rooms: ["room1"],
+            teacher_ids: ["teacher1"],
+            teachers: [],
+          },
+        ],
+        removed: [],
+      },
       conflicts: [
         [
           "room",
@@ -115,6 +130,18 @@ describe("compactExportToProjectExportPayload", () => {
       subject_labels: ["TEST (TEST001)"],
     });
     expect(firstStep?.session.id).toBe("session1");
+    expect(expanded.added_removed_sessions.added[0]).toMatchObject({
+      id: "new-session",
+      room_details: [{ room_id: "room1", room_name: "A1" }],
+      teacher_details: [
+        {
+          teacher_id: "teacher1",
+          teacher_number: 7,
+          teacher_acronym: "ABC",
+          teacher_name: "Alice Example",
+        },
+      ],
+    });
     expect(firstStep?.modifications.rooms?.added[0]).toEqual({
       room_id: "room1",
       room_name: "A1",
