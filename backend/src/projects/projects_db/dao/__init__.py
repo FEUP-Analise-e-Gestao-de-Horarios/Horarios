@@ -2,6 +2,7 @@ from .class_dao import ClassDAO
 from .class_red_block_dao import ClassRedBlockDAO
 from .degree_dao import DegreeDAO
 from .export_cache_dao import ExportCacheDAO
+from .export_state_dao import ExportStateDAO
 from .room_dao import RoomDAO
 from .room_red_block_dao import RoomRedBlockDAO
 from .session_class_subject_dao import SessionClassSubjectDAO
@@ -17,6 +18,7 @@ __all__ = [
     "ClassRedBlockDAO",
     "DegreeDAO",
     "ExportCacheDAO",
+    "ExportStateDAO",
     "RoomDAO",
     "RoomRedBlockDAO",
     "SessionClassSubjectDAO",

@@ -8,6 +8,7 @@ from sqlalchemy.pool import ConnectionPoolEntry
 
 # Ensure models are registered in Base.metadata
 from src.projects.projects_db import models  # noqa: F401
+from src.projects.projects_db.migrations import run_project_db_migrations
 
 from .base import Base
 
@@ -44,6 +45,7 @@ def init_engine(db_path: str | Path) -> Engine:
     """Get engine and ensure the ORM schema exists (create_all is idempotent)."""
     engine = get_engine(db_path)
     Base.metadata.create_all(engine)
+    run_project_db_migrations(engine)
     return engine
 
 

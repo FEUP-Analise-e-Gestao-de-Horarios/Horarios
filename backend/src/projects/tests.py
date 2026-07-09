@@ -9,11 +9,12 @@ from unittest.mock import patch
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 
 from src.exporter.compact_payload import COMPACT_EXPORT_FORMAT, expand_compact_export_payload
 from src.projects.models import Project
-from src.projects.projects_db.dao import ExportCacheDAO
+from src.projects.projects_db.dao import ExportCacheDAO, ExportStateDAO
+from src.projects.projects_db.migrations import PROJECT_DB_MIGRATIONS
 from src.projects.projects_db.models import (
     Class,
     Degree,
@@ -198,6 +199,97 @@ class SessionDeletionEndpointTests(TestCase):
             refreshed_response.json()["data"]["added_removed_sessions"]["added"][0]["start_time"],
             9,
         )
+
+        with get_project_session(general_db(self.project.pk)) as db_session:
+            self.assertFalse(ExportStateDAO(db_session).is_project_export_dirty())
+        with get_project_session(initial_db(self.project.pk)) as db_session:
+            self.assertFalse(ExportStateDAO(db_session).is_project_export_dirty())
+
+    def test_export_endpoint_recomputes_when_display_data_changes(self) -> None:
+        response = self.client.post(
+            f"/api/projects/{self.project.pk}/export",
+            data=json.dumps({"recalculate_export_graph": False}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+
+        with get_project_session(general_db(self.project.pk)) as db_session:
+            teacher = db_session.get(Teacher, self.teacher_id)
+            self.assertIsNotNone(teacher)
+            assert teacher is not None
+            teacher.name = "Alice Updated"
+            db_session.commit()
+            self.assertTrue(ExportStateDAO(db_session).is_project_export_dirty())
+
+        refreshed_response = self.client.post(
+            f"/api/projects/{self.project.pk}/export",
+            data=json.dumps({"recalculate_export_graph": False}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(refreshed_response.status_code, HTTPStatus.OK)
+        self.assertEqual(
+            refreshed_response.json()["message"],
+            "Project export computed successfully",
+        )
+        with get_project_session(general_db(self.project.pk)) as db_session:
+            self.assertFalse(ExportStateDAO(db_session).is_project_export_dirty())
+
+    def test_export_endpoint_recomputes_when_initial_database_is_dirty(self) -> None:
+        response = self.client.post(
+            f"/api/projects/{self.project.pk}/export",
+            data=json.dumps({"recalculate_export_graph": False}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+
+        with get_project_session(initial_db(self.project.pk)) as db_session:
+            db_session.add(Room(name="INITIAL-ONLY", type=None, size=None, seats=None))
+            db_session.commit()
+            self.assertTrue(ExportStateDAO(db_session).is_project_export_dirty())
+
+        refreshed_response = self.client.post(
+            f"/api/projects/{self.project.pk}/export",
+            data=json.dumps({"recalculate_export_graph": False}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(refreshed_response.status_code, HTTPStatus.OK)
+        self.assertEqual(
+            refreshed_response.json()["message"],
+            "Project export computed successfully",
+        )
+        with get_project_session(initial_db(self.project.pk)) as db_session:
+            self.assertFalse(ExportStateDAO(db_session).is_project_export_dirty())
+
+    def test_project_db_migration_records_dirty_trigger_migration_once(self) -> None:
+        migration_id = PROJECT_DB_MIGRATIONS[0][0]
+        init_engine(general_db(self.project.pk))
+
+        with get_project_session(general_db(self.project.pk)) as db_session:
+            applied_count = db_session.scalar(
+                text(
+                    """
+                    SELECT COUNT(*)
+                    FROM project_db_migrations
+                    WHERE migration_id = :migration_id
+                    """,
+                ),
+                {"migration_id": migration_id},
+            )
+            trigger_count = db_session.scalar(
+                text(
+                    """
+                    SELECT COUNT(*)
+                    FROM sqlite_master
+                    WHERE type = 'trigger'
+                      AND name LIKE 'export_dirty_%'
+                    """,
+                ),
+            )
+
+        self.assertEqual(applied_count, 1)
+        self.assertEqual(trigger_count, 24)
 
     def test_export_endpoint_replaces_legacy_expanded_cache(self) -> None:
         with get_project_session(general_db(self.project.pk)) as db_session:

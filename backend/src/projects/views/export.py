@@ -27,6 +27,7 @@ from src.projects.models import Project
 from src.projects.projects_db.dao.class_dao import ClassDAO
 from src.projects.projects_db.dao.export_cache_dao import ExportCacheDAO
 from src.projects.projects_db.dao.export_checklist_dao import ExportChecklistDAO
+from src.projects.projects_db.dao.export_state_dao import ExportStateDAO
 from src.projects.projects_db.dao.modified_session_dao import ModifiedSessionDAO
 from src.projects.projects_db.dao.room_dao import RoomDAO
 from src.projects.projects_db.dao.session_dao import SessionDAO
@@ -108,16 +109,14 @@ class ProjectExportView(View):
         #     )
 
         init_engine(general_db(project_id))
+        init_engine(initial_db(project_id))
 
+        export_is_dirty = self.is_project_export_dirty(project_id)
         with get_session(general_db(project_id)) as session:
             export_cache_dao = ExportCacheDAO(session)
             export_checklist_dao = ExportChecklistDAO(session)
-            session.commit()
-            current_session_version = export_cache_dao.get_current_session_version()
-            if not recalculate_export_graph:
-                cached_data = export_cache_dao.get_project_export_payload(
-                    version=current_session_version,
-                )
+            if not recalculate_export_graph and not export_is_dirty:
+                cached_data = export_cache_dao.get_project_export_payload()
                 if cached_data is not None:
                     if cached_data.get("format") == COMPACT_EXPORT_FORMAT:
                         if self.cached_payload_supports_added_removed_navigation(cached_data):
@@ -184,11 +183,10 @@ class ProjectExportView(View):
                 },
             )
             compact_data = compact_export_payload(data)
-            export_cache_dao.replace_project_export_payload(
-                compact_data,
-                version=current_session_version,
-            )
+            export_cache_dao.replace_project_export_payload(compact_data)
+            ExportStateDAO(session).mark_project_export_clean()
             session.commit()
+            self.mark_initial_export_clean(project_id)
 
             print(f"time elapsed: {'%.2f' % (end_time - start_time)}")
 
@@ -198,6 +196,20 @@ class ProjectExportView(View):
                     data=self.format_export_payload(compact_data, payload_format),
                 ).model_dump(),
             )
+
+    @staticmethod
+    def is_project_export_dirty(project_id: int) -> bool:
+        for db_path in (general_db(project_id), initial_db(project_id)):
+            with get_session(db_path) as session:
+                if ExportStateDAO(session).is_project_export_dirty():
+                    return True
+        return False
+
+    @staticmethod
+    def mark_initial_export_clean(project_id: int) -> None:
+        with get_session(initial_db(project_id)) as session:
+            ExportStateDAO(session).mark_project_export_clean()
+            session.commit()
 
     @staticmethod
     def format_export_payload(
