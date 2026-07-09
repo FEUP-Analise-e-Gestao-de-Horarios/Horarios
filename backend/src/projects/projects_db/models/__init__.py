@@ -2,6 +2,7 @@ from .class_ import Class
 from .class_red_block import ClassRedBlock
 from .degree import Degree
 from .export_cache import ExportCache
+from .export_checklist_item import ExportChecklistItem
 from .modified_session import ModifiedSession
 from .parallel_block_group_member import ParallelBlockGroupMember
 from .parallel_confirmed_candidate import ParallelConfirmedCandidate
@@ -19,6 +20,7 @@ __all__ = [
     "ClassRedBlock",
     "Degree",
     "ExportCache",
+    "ExportChecklistItem",
     "ModifiedSession",
     "ParallelBlockGroupMember",
     "ParallelConfirmedCandidate",

@@ -4,6 +4,7 @@ import { EntityChip } from "@/components/exporter/shared/EntityChip";
 import { formatDuration, formatTime, WEEKDAY_LABELS } from "@/utils/exporter/formatters";
 import { subjectTitleLabel, uniqueByLabel } from "@/utils/exporter/relations";
 import { buildAddedRemovedSessionHref } from "@/utils/exporter/addedRemovedLinks";
+import { addedRemovedChecklistKey } from "@/utils/exporter/checklist";
 import type { ExportSessionRecord, ProjectExportPayload } from "@/types/exporter";
 
 interface ResourceGroup {
@@ -68,9 +69,13 @@ function resourceGroups(session: ExportSessionRecord): ResourceGroup[] {
 export default function AddedRemovedSessions({
   data,
   projectId,
+  checkedItemKeys,
+  onCheckedChange,
 }: {
   data: ProjectExportPayload["added_removed_sessions"];
   projectId: string;
+  checkedItemKeys: ReadonlySet<string>;
+  onCheckedChange: (itemKey: string, checked: boolean) => void;
 }) {
   const groups = [
     {
@@ -106,6 +111,8 @@ export default function AddedRemovedSessions({
             {group.rows.map((session) => {
               const resources = resourceGroups(session);
               const href = buildAddedRemovedSessionHref(projectId, session, group.change);
+              const checklistKey = addedRemovedChecklistKey(group.change, session);
+              const isChecked = checkedItemKeys.has(checklistKey);
               const content = (
                 <>
                   <div className="font-semibold">{sessionTitle(session)}</div>
@@ -132,22 +139,43 @@ export default function AddedRemovedSessions({
                 </>
               );
 
-              const cardClass = `block border-b border-[#e5e4e7] px-4 py-3 text-sm text-[#08060d] last:border-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset ${
+              const cardClass = `relative block border-b border-[#e5e4e7] px-4 py-3 pb-8 pr-20 text-sm text-[#08060d] last:border-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset ${
                 href ? group.cardTone : "cursor-default"
               }`;
+              const checkbox = (
+                <label className="absolute bottom-2 right-4 inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-[#6b6375]">
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={(event) => onCheckedChange(checklistKey, event.currentTarget.checked)}
+                    className="h-4 w-4 accent-[#8c2d19]"
+                    aria-label={`${isChecked ? "Desmarcar" : "Marcar"} aula ${
+                      group.change === "added" ? "adicionada" : "removida"
+                    } como tratada`}
+                  />
+                  Feito
+                </label>
+              );
 
               if (!href) {
                 return (
                   <div key={session.id} className={cardClass}>
-                    {content}
+                    <div className="min-w-0">{content}</div>
+                    {checkbox}
                   </div>
                 );
               }
 
               return (
-                <Link key={session.id} to={href} className={cardClass}>
-                  {content}
-                </Link>
+                <div key={session.id} className={cardClass}>
+                  <Link
+                    to={href}
+                    className="block min-w-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8c2d19]"
+                  >
+                    {content}
+                  </Link>
+                  {checkbox}
+                </div>
               );
             })}
           </div>

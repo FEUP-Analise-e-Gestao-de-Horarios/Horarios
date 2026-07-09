@@ -107,6 +107,7 @@ def compact_export_payload(
             "added_removed_sessions": deepcopy(expanded_data.get("added_removed_sessions", {})),
             "conflicts": compact_conflicts,
             "modification_steps": compact_steps,
+            "checked_item_keys": deepcopy(expanded_data.get("checked_item_keys", [])),
         },
     )
 
@@ -144,6 +145,7 @@ def expand_compact_export_payload(
                     compact_data.get("modification_steps", []),
                 )
             ],
+            "checked_item_keys": deepcopy(compact_data.get("checked_item_keys", [])),
         },
     )
 

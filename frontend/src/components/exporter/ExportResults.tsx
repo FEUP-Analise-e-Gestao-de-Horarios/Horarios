@@ -5,6 +5,7 @@ import ExporterConflictsSection from "@/components/exporter/conflicts/ExporterCo
 import ExporterStats from "@/components/exporter/summary/ExporterStats";
 import ModificationPlanSection from "@/components/exporter/modification-plan/ModificationPlanSection";
 import { ExportSection } from "@/components/exporter/ExportSection";
+import { useSetExportChecklistItem } from "@/api/hooks/useDashboard";
 import useExporterNavigationState from "@/api/hooks/useExporterNavigationState";
 import { buildConflictLookup, buildConflictSessionIds } from "@/utils/exporter/conflicts";
 import { normalizeId } from "@/utils/exporter/ids";
@@ -17,6 +18,11 @@ import type { ProjectExportPayload } from "@/types/exporter";
 export default function ExportResults({ data }: { data: ProjectExportPayload }) {
   const { projectId = "" } = useParams<{ projectId: string }>();
   const navigationState = useExporterNavigationState(projectId);
+  const checklistMutation = useSetExportChecklistItem(projectId);
+  const checkedItemKeys = useMemo(
+    () => new Set(data.checked_item_keys ?? []),
+    [data.checked_item_keys],
+  );
   const modificationPlanItems = useMemo(
     () => buildModificationPlanItems(data.modification_steps),
     [data.modification_steps],
@@ -49,7 +55,12 @@ export default function ExportResults({ data }: { data: ProjectExportPayload }) 
       />
 
       <ExportSection title="Aulas Adicionadas e removidas">
-        <AddedRemovedSessions data={data.added_removed_sessions} projectId={projectId} />
+        <AddedRemovedSessions
+          data={data.added_removed_sessions}
+          projectId={projectId}
+          checkedItemKeys={checkedItemKeys}
+          onCheckedChange={(itemKey, checked) => checklistMutation.mutate({ itemKey, checked })}
+        />
       </ExportSection>
 
       <ModificationPlanSection
@@ -61,6 +72,8 @@ export default function ExportResults({ data }: { data: ProjectExportPayload }) 
         onDependencyClick={navigationState.handleDependencyClick}
         onConflictClick={navigationState.handleConflictReferenceClick}
         getSessionOrder={getSessionOrder}
+        checkedItemKeys={checkedItemKeys}
+        onCheckedChange={(itemKey, checked) => checklistMutation.mutate({ itemKey, checked })}
       />
     </div>
   );

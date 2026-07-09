@@ -157,6 +157,7 @@ export interface ProjectExportPayload {
   teacher_conflicts: ExportTeacherConflict[];
   classes_conflicts: ExportClassConflict[];
   modification_steps: ExportModificationSteps;
+  checked_item_keys?: string[];
 }
 
 export type CompactExportConflictKind = "room" | "teacher" | "class";
@@ -201,6 +202,7 @@ export interface CompactProjectExportPayload {
   added_removed_sessions: ExportAddedRemovedRecords<ExportSessionRecord>;
   conflicts: CompactExportConflict[];
   modification_steps: CompactExportModificationStep[];
+  checked_item_keys?: string[];
 }
 
 export type ProjectExportApiPayload = ProjectExportPayload | CompactProjectExportPayload;

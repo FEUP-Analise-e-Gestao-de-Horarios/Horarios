@@ -26,6 +26,7 @@ from src.exporter.schemas import (
 from src.projects.models import Project
 from src.projects.projects_db.dao.class_dao import ClassDAO
 from src.projects.projects_db.dao.export_cache_dao import ExportCacheDAO
+from src.projects.projects_db.dao.export_checklist_dao import ExportChecklistDAO
 from src.projects.projects_db.dao.modified_session_dao import ModifiedSessionDAO
 from src.projects.projects_db.dao.room_dao import RoomDAO
 from src.projects.projects_db.dao.session_dao import SessionDAO
@@ -49,6 +50,15 @@ class ExportSessionContextPayload(BaseModel):
     classes: list[ExportSessionContextResource]
     rooms: list[ExportSessionContextResource]
     teachers: list[ExportSessionContextResource]
+
+
+class ProjectExportChecklistPayload(BaseModel):
+    item_key: str
+    checked: bool
+
+
+class ProjectExportChecklistResponse(BaseModel):
+    checked_item_keys: list[str]
 
 
 class ProjectExportView(View):
@@ -101,11 +111,15 @@ class ProjectExportView(View):
 
         with get_session(general_db(project_id)) as session:
             export_cache_dao = ExportCacheDAO(session)
+            export_checklist_dao = ExportChecklistDAO(session)
             if not recalculate_export_graph:
                 cached_data = export_cache_dao.get_project_export_payload()
                 if cached_data is not None:
                     if cached_data.get("format") == COMPACT_EXPORT_FORMAT:
                         if self.cached_payload_supports_added_removed_navigation(cached_data):
+                            cached_data["checked_item_keys"] = (
+                                export_checklist_dao.get_checked_item_keys()
+                            )
                             response_data = self.format_export_payload(cached_data, payload_format)
                             return JsonResponse(
                                 SuccessResponse(
@@ -156,6 +170,7 @@ class ProjectExportView(View):
                     "teacher_conflicts": teacher_conflicts,
                     "classes_conflicts": classes_conflicts,
                     "modification_steps": modification_steps,
+                    "checked_item_keys": export_checklist_dao.get_checked_item_keys(),
                 },
             )
             compact_data = compact_export_payload(data)
@@ -226,6 +241,61 @@ class ProjectExportView(View):
                 return False
 
         return True
+
+
+class ProjectExportChecklistView(View):
+    """API endpoint: persist checked exporter work items."""
+
+    def patch(self, request: HttpRequest, project_id: int) -> HttpResponse:
+        if not request.user.is_authenticated:
+            return NotAuthenticatedResponse()
+
+        try:
+            Project.objects.get(pk=project_id)
+        except Project.DoesNotExist:
+            return ProjectNotFoundResponse()
+
+        try:
+            raw_payload = json.loads(request.body or b"{}")
+            payload = ProjectExportChecklistPayload.model_validate(raw_payload)
+        except json.JSONDecodeError, ValueError:
+            return JsonResponse({"message": "Invalid checklist payload."}, status=400)
+
+        init_engine(general_db(project_id))
+        with get_session(general_db(project_id)) as session:
+            checked_item_keys = ExportChecklistDAO(session).set_checked(
+                payload.item_key,
+                payload.checked,
+            )
+            session.commit()
+
+        return JsonResponse(
+            SuccessResponse(
+                message="Export checklist updated successfully",
+                data=ProjectExportChecklistResponse(checked_item_keys=checked_item_keys),
+            ).model_dump(mode="json"),
+        )
+
+    def delete(self, request: HttpRequest, project_id: int) -> HttpResponse:
+        if not request.user.is_authenticated:
+            return NotAuthenticatedResponse()
+
+        try:
+            Project.objects.get(pk=project_id)
+        except Project.DoesNotExist:
+            return ProjectNotFoundResponse()
+
+        init_engine(general_db(project_id))
+        with get_session(general_db(project_id)) as session:
+            checked_item_keys = ExportChecklistDAO(session).clear_checked_items()
+            session.commit()
+
+        return JsonResponse(
+            SuccessResponse(
+                message="Export checklist cleared successfully",
+                data=ProjectExportChecklistResponse(checked_item_keys=checked_item_keys),
+            ).model_dump(mode="json"),
+        )
 
 
 class ProjectExportSessionContextView(View):

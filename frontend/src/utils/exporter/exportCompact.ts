@@ -24,7 +24,9 @@ export function isCompactExportPayload(
 export function compactExportToProjectExportPayload(
   payload: ProjectExportApiPayload,
 ): ProjectExportPayload {
-  if (!isCompactExportPayload(payload)) return payload;
+  if (!isCompactExportPayload(payload)) {
+    return payload;
+  }
 
   return {
     added_removed_sessions: expandAddedRemovedSessions(payload.added_removed_sessions, payload),
@@ -65,6 +67,7 @@ export function compactExportToProjectExportPayload(
       session: sessionForStep(step, payload),
       modifications: expandModifications(step.modifications, payload),
     })),
+    checked_item_keys: payload.checked_item_keys ?? [],
   };
 }
 

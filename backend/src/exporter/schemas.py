@@ -213,6 +213,7 @@ class ProjectExportPayload(BaseModel):
     teacher_conflicts: list[ExportTeacherConflict] = Field(default_factory=list)
     classes_conflicts: list[ExportClassConflict] = Field(default_factory=list)
     modification_steps: list[ExportModificationStep] = Field(default_factory=list)
+    checked_item_keys: list[ExportString] = Field(default_factory=list)
 
 
 class CompactExportEntities(BaseModel):
@@ -279,6 +280,7 @@ class CompactProjectExportPayload(BaseModel):
     added_removed_sessions: ExportAddedRemovedRecords[ExportSessionRecord]
     conflicts: list[CompactExportConflict] = Field(default_factory=list)
     modification_steps: list[CompactExportModificationStep] = Field(default_factory=list)
+    checked_item_keys: list[ExportString] = Field(default_factory=list)
 
 
 type ExportPayload = ProjectExportPayload | CompactProjectExportPayload

@@ -5,6 +5,7 @@ import { EmptyState, ExportSection } from "@/components/exporter/ExportSection";
 import DependencyLinks from "@/components/exporter/modification-plan/DependencyLinks";
 import ModificationChange from "@/components/exporter/modification-plan/ModificationChange";
 import SessionAttributes from "@/components/exporter/modification-plan/SessionAttributes";
+import { modificationChecklistKey } from "@/utils/exporter/checklist";
 import type { ConflictLookup } from "@/utils/exporter/conflicts";
 import { anchorId, normalizeId } from "@/utils/exporter/ids";
 import type { DependencyLookup, ModificationPlanItem } from "@/utils/exporter/modificationPlan";
@@ -66,6 +67,8 @@ function ChangeDetails({
   onDependencyClick,
   onConflictClick,
   getSessionOrder,
+  checkedItemKeys,
+  onCheckedChange,
 }: {
   step: ExportModificationStep;
   dependencies: string[];
@@ -76,8 +79,12 @@ function ChangeDetails({
   onDependencyClick: (anchor: string) => void;
   onConflictClick: (anchor: string) => void;
   getSessionOrder: (sessionId: string) => number;
+  checkedItemKeys: ReadonlySet<string>;
+  onCheckedChange: (itemKey: string, checked: boolean) => void;
 }) {
   const [isAttributesOpen, setIsAttributesOpen] = useState(false);
+  const checklistKey = modificationChecklistKey(step);
+  const isChecked = checkedItemKeys.has(checklistKey);
   const hasUnsolvedConflict = step.session_ids.some((sessionId) =>
     conflictSessionIds.has(normalizeId(sessionId)),
   );
@@ -90,7 +97,7 @@ function ChangeDetails({
 
   return (
     <div
-      className={`relative scroll-mt-4 overflow-hidden px-2 py-1 transition-colors duration-500 ease-out ${
+      className={`relative scroll-mt-4 overflow-hidden px-2 py-1 pb-7 transition-colors duration-500 ease-out ${
         hasUnsolvedConflict ? "bg-red-100/90" : isHighlighted ? "bg-amber-50" : "bg-white"
       } ${isHighlighted ? "ring-2 ring-inset ring-amber-400" : ""}`}
     >
@@ -180,6 +187,16 @@ function ChangeDetails({
             ) : null,
           )}
         </div>
+        <label className="absolute bottom-1.5 right-2 z-20 inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-[#6b6375]">
+          <input
+            type="checkbox"
+            checked={isChecked}
+            onChange={(event) => onCheckedChange(checklistKey, event.currentTarget.checked)}
+            className="h-4 w-4 accent-[#8c2d19]"
+            aria-label={`${isChecked ? "Desmarcar" : "Marcar"} modificação como tratada`}
+          />
+          Feito
+        </label>
       </div>
     </div>
   );
@@ -195,6 +212,8 @@ function ModificationStepCard({
   onDependencyClick,
   onConflictClick,
   getSessionOrder,
+  checkedItemKeys,
+  onCheckedChange,
 }: {
   step: ExportModificationStep;
   index: number;
@@ -205,6 +224,8 @@ function ModificationStepCard({
   onDependencyClick: (anchor: string) => void;
   onConflictClick: (anchor: string) => void;
   getSessionOrder: (sessionId: string) => number;
+  checkedItemKeys: ReadonlySet<string>;
+  onCheckedChange: (itemKey: string, checked: boolean) => void;
 }) {
   const Icon = step.type === "exchange" ? Shuffle : ArrowLeftRight;
 
@@ -230,6 +251,8 @@ function ModificationStepCard({
           onDependencyClick={onDependencyClick}
           onConflictClick={onConflictClick}
           getSessionOrder={getSessionOrder}
+          checkedItemKeys={checkedItemKeys}
+          onCheckedChange={onCheckedChange}
         />
       </div>
     </article>
@@ -246,6 +269,8 @@ function ExchangeClusterCard({
   onDependencyClick,
   onConflictClick,
   getSessionOrder,
+  checkedItemKeys,
+  onCheckedChange,
 }: {
   steps: ExportModificationStep[];
   index: number;
@@ -256,6 +281,8 @@ function ExchangeClusterCard({
   onDependencyClick: (anchor: string) => void;
   onConflictClick: (anchor: string) => void;
   getSessionOrder: (sessionId: string) => number;
+  checkedItemKeys: ReadonlySet<string>;
+  onCheckedChange: (itemKey: string, checked: boolean) => void;
 }) {
   const clusterSessionIds = new Set(
     steps.flatMap((step) => step.session_ids.map((sessionId) => normalizeId(sessionId))),
@@ -290,6 +317,8 @@ function ExchangeClusterCard({
               onDependencyClick={onDependencyClick}
               onConflictClick={onConflictClick}
               getSessionOrder={getSessionOrder}
+              checkedItemKeys={checkedItemKeys}
+              onCheckedChange={onCheckedChange}
             />
           );
         })}
@@ -307,6 +336,8 @@ export default function ModificationPlanSection({
   onDependencyClick,
   onConflictClick,
   getSessionOrder,
+  checkedItemKeys,
+  onCheckedChange,
 }: {
   items: ModificationPlanItem[];
   dependencyLookup: DependencyLookup;
@@ -316,6 +347,8 @@ export default function ModificationPlanSection({
   onDependencyClick: (anchor: string) => void;
   onConflictClick: (anchor: string) => void;
   getSessionOrder: (sessionId: string) => number;
+  checkedItemKeys: ReadonlySet<string>;
+  onCheckedChange: (itemKey: string, checked: boolean) => void;
 }) {
   return (
     <ExportSection title="Plano de Modificações" defaultOpen>
@@ -334,6 +367,8 @@ export default function ModificationPlanSection({
                 onDependencyClick={onDependencyClick}
                 onConflictClick={onConflictClick}
                 getSessionOrder={getSessionOrder}
+                checkedItemKeys={checkedItemKeys}
+                onCheckedChange={onCheckedChange}
               />
             ) : (
               <ModificationStepCard
@@ -347,6 +382,8 @@ export default function ModificationPlanSection({
                 onDependencyClick={onDependencyClick}
                 onConflictClick={onConflictClick}
                 getSessionOrder={getSessionOrder}
+                checkedItemKeys={checkedItemKeys}
+                onCheckedChange={onCheckedChange}
               />
             ),
           )}
