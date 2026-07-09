@@ -79,19 +79,27 @@ function calculateTimetableLayout(panelCount: number): TimetableLayout {
     };
   }
 
-  const rows = Math.max(1, Math.ceil(Math.max(panelCount, 1) / 2));
-  const pageChromePx = window.innerWidth >= 1024 ? 166 : 176;
-  const cardChromePx = 62;
+  const columns = window.innerWidth >= 1280 ? 3 : 2;
+  const rows = Math.max(1, Math.ceil(Math.max(panelCount, 1) / columns));
+  const pageChromePx = window.innerWidth >= 1024 ? 188 : 184;
+  const cardChromePx = 90;
   const rowGapPx = 12;
   const availableCardHeight = Math.floor(
     (window.innerHeight - pageChromePx - rowGapPx * (rows - 1)) / rows,
   );
   const previewSlotHeight = window.innerWidth >= 1536 ? 16 : window.innerWidth >= 1024 ? 14 : 12;
+  const maxHeight = Math.max(48, availableCardHeight - cardChromePx);
+  const fittedSlotHeight = previewSlotHeightFor(
+    FULL_TIMETABLE_WINDOW,
+    maxHeight,
+    previewSlotHeight,
+  );
+  const previewGridHeight = slotCountForTimeWindow(FULL_TIMETABLE_WINDOW) * fittedSlotHeight + 24;
 
   return {
-    allowCardScroll: false,
+    allowCardScroll: previewGridHeight > maxHeight,
     isPreviewMode,
-    maxHeight: Math.max(80, availableCardHeight - cardChromePx),
+    maxHeight,
     previewSlotHeight,
   };
 }
@@ -162,10 +170,10 @@ function previewSlotHeightFor(
   maxGridHeight: number,
   preferredSlotHeight: number,
 ): number {
-  const gridHeaderHeight = 22;
+  const gridHeaderHeight = 24;
   const slotCount = slotCountForTimeWindow(timeWindow);
   const fittedHeight = Math.floor((maxGridHeight - gridHeaderHeight) / slotCount);
-  return Math.max(4, Math.min(preferredSlotHeight, fittedHeight));
+  return Math.max(3, Math.min(preferredSlotHeight, fittedHeight));
 }
 
 function ContextPanel({
@@ -455,7 +463,7 @@ export default function ExportSessionContextPage() {
       <DashboardNavbar projectId={pid} isReady={!!project.data?.ingestion_finished_at} />
 
       <main
-        className={`flex-1 min-h-0 ${timetableLayout.isPreviewMode ? "overflow-hidden" : "overflow-auto"}`}
+        className={`min-h-0 flex-1 ${timetableLayout.isPreviewMode ? "overflow-hidden" : "overflow-auto"}`}
       >
         <div
           className={`flex h-full w-full flex-col ${
@@ -485,7 +493,7 @@ export default function ExportSessionContextPage() {
               Esta aula exportada não traz salas, docentes ou turmas para contextualizar.
             </div>
           ) : (
-            <div className="grid flex-1 content-start gap-3 pb-3 md:grid-cols-2">
+            <div className="grid flex-1 content-start gap-3 pb-3 md:grid-cols-2 xl:grid-cols-3">
               {panels.map((panel) => (
                 <ContextPanel
                   key={panel.key}
