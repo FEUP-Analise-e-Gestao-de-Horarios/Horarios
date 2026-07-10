@@ -92,22 +92,6 @@ class ProjectExportView(View):
         )
 
         # -- Compute differences and conflicts ---------------------------------
-        # with Comparator(project_id) as comp:
-        #     start_time = time()
-        #     data = comp.database_differences()
-
-        #     data.update(comp.database_conflicts())
-        #     end_time = time()
-
-        #     print(f"time elapsed: {'%.2f' % (end_time - start_time)}")
-
-        #     return JsonResponse(
-        #         SuccessResponse(
-        #             message="Project export computed successfully",
-        #             data=data,
-        #         ).model_dump(),
-        #     )
-
         init_engine(general_db(project_id))
         init_engine(initial_db(project_id))
 
