@@ -116,13 +116,13 @@ function ChangeDetails({
       {hasUnsolvedConflict && (
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-0 animate-pulse bg-red-300/70"
+          className="pointer-events-none absolute inset-0 z-0 bg-red-300/70"
         />
       )}
       {isHighlighted && (
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-0 animate-pulse bg-amber-300/60"
+          className="pointer-events-none absolute inset-0 z-0 bg-amber-300/60"
         />
       )}
       <div className="relative z-10">

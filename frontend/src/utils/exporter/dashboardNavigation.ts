@@ -9,11 +9,17 @@ export interface ExportSessionPreview extends WeekGridEvent {
   week: string;
 }
 
+export function areConflictHighlightsEnabled(searchParams: URLSearchParams): boolean {
+  return searchParams.get("highlightConflicts") !== "false";
+}
+
 export function parseConflictWeeks(searchParams: URLSearchParams): Set<string> {
+  if (!areConflictHighlightsEnabled(searchParams)) return new Set();
   return new Set((searchParams.get("conflictWeeks") ?? "").split(",").filter(Boolean));
 }
 
 export function parseConflictSessionIds(searchParams: URLSearchParams): Set<string> {
+  if (!areConflictHighlightsEnabled(searchParams)) return new Set();
   return new Set((searchParams.get("conflictSessions") ?? "").split(",").filter(Boolean));
 }
 

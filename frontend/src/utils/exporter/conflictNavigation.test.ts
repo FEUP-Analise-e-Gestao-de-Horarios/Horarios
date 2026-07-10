@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  areConflictHighlightsEnabled,
   findTargetWeekBlockIndex,
   hasHighlightedSession,
   parseConflictSessionIds,
@@ -13,6 +14,28 @@ import {
   withExportSessionWeekBlock,
   withExportSessionPreview,
 } from "@/utils/exporter/dashboardNavigation";
+
+describe("conflict highlighting toggle", () => {
+  it("disables highlights without discarding their navigation context", () => {
+    const params = new URLSearchParams(
+      "conflictSessions=session-1&conflictWeeks=2026-01-05&highlightConflicts=false",
+    );
+
+    expect(areConflictHighlightsEnabled(params)).toBe(false);
+    expect(parseConflictSessionIds(params)).toEqual(new Set());
+    expect(parseConflictWeeks(params)).toEqual(new Set());
+    expect(params.get("conflictSessions")).toBe("session-1");
+    expect(params.get("conflictWeeks")).toBe("2026-01-05");
+  });
+
+  it("keeps added and removed session highlights when conflicts are hidden", () => {
+    const params = new URLSearchParams(
+      "conflictSessions=session-1&exportSession=session-2&highlightConflicts=false",
+    );
+
+    expect(parseHighlightedSessionIds(params)).toEqual(new Set(["session-2"]));
+  });
+});
 
 describe("parseConflictWeeks", () => {
   it("reads conflict weeks from the exporter navigation query", () => {
