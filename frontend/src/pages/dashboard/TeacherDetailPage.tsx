@@ -5,10 +5,12 @@ import { useProjectTeacher } from "@/api/hooks/project/teacher";
 import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
 import ExporterSessionPreviewFallback from "@/components/dashboard/ExporterSessionPreviewFallback";
 import SessionPopup from "@/components/dashboard/SessionPopup";
+import { useDashboardConflictHighlights } from "@/components/dashboard/useDashboardConflictHighlights";
 import WeekGrid, { type WeekGridEvent, type WeekGridMark } from "@/components/dashboard/WeekGrid";
 import type { RedBlockBase } from "@/types/project/red_block";
 import type { SessionResponse, WeekBlockResponse } from "@/types/project/sessions";
 import { formatBlockLabel } from "@/utils/date";
+import { findConflictingSessionIds, findConflictWeeks } from "@/utils/dashboard/conflicts";
 import {
   findTargetWeekBlockIndex,
   parseConflictWeeks,
@@ -27,13 +29,14 @@ export default function TeacherDetailPage() {
   const pid = projectId ?? "";
   const tid = teacherId ?? "";
   const targetWeek = searchParams.get("week");
-  const highlightedEventIds = parseHighlightedSessionIds(searchParams);
+  const exporterHighlightedEventIds = parseHighlightedSessionIds(searchParams);
   const highlightedEventTone = parseSessionHighlightTone(searchParams);
   const conflictWeeks = parseConflictWeeks(searchParams);
   const exportSessionPreview = parseExportSessionPreview(searchParams);
 
   const project = useProject(pid);
   const { data, isLoading, isError } = useProjectTeacher(pid, tid);
+  const { enabled: dashboardConflictHighlightsEnabled } = useDashboardConflictHighlights(pid);
 
   const blocks: WeekBlockResponse[] = data?.blocks ?? [];
   const displayBlocks = withExportSessionWeekBlock(blocks, exportSessionPreview);
@@ -75,6 +78,15 @@ export default function TeacherDetailPage() {
   );
 
   const redBlocks: RedBlockBase[] = data?.red_blocks ?? [];
+  const highlightedEventIds = dashboardConflictHighlightsEnabled
+    ? new Set([
+        ...exporterHighlightedEventIds,
+        ...findConflictingSessionIds(blockSessions, redBlocks),
+      ])
+    : exporterHighlightedEventIds;
+  const highlightedConflictWeeks = dashboardConflictHighlightsEnabled
+    ? new Set([...conflictWeeks, ...findConflictWeeks(blocks, redBlocks)])
+    : conflictWeeks;
   const marks: WeekGridMark[] = redBlocks.map((rb) => ({
     id: rb.id,
     weekday: rb.weekday,
@@ -149,7 +161,7 @@ export default function TeacherDetailPage() {
                   <div className="flex flex-wrap gap-1.5">
                     {displayBlocks.map((b, i) => {
                       const active = i === selectedBlockIdx;
-                      const hasConflictWeek = weekBlockHasConflict(b, conflictWeeks);
+                      const hasConflictWeek = weekBlockHasConflict(b, highlightedConflictWeeks);
                       return (
                         <button
                           key={b.weeks[0] ?? i}
