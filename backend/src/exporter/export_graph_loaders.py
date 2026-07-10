@@ -121,6 +121,9 @@ class ExportGraphSnapshotLoader:
                 session_rooms.c.session_id,
                 Room.id,
                 Room.name,
+                Room.type,
+                Room.size,
+                Room.seats,
             )
             .join(Room, Room.id == session_rooms.c.room_id)
             .where(session_rooms.c.session_id.in_(session_ids))
@@ -129,13 +132,25 @@ class ExportGraphSnapshotLoader:
 
         room_ids_by_session: dict[SessionId, list[str]] = defaultdict(list)
         rooms_by_session: dict[SessionId, list[str]] = defaultdict(list)
+        room_details_by_session: dict[SessionId, list[SessionSnapshot]] = defaultdict(list)
         for row in rows:
-            room_ids_by_session[row.session_id].append(normalize_id(row.id))
+            room_id = normalize_id(row.id)
+            room_ids_by_session[row.session_id].append(room_id)
             rooms_by_session[row.session_id].append(row.name)
+            room_details_by_session[row.session_id].append(
+                {
+                    "room_id": room_id,
+                    "room_name": row.name,
+                    "room_type": row.type,
+                    "room_size": row.size,
+                    "room_seats": row.seats,
+                },
+            )
 
         for session_id, snapshot in snapshots.items():
             snapshot["room_ids"] = tuple(room_ids_by_session[session_id])
             snapshot["rooms"] = rooms_by_session[session_id]
+            snapshot["room_details"] = tuple(room_details_by_session[session_id])
 
     def attach_teacher_snapshots(
         self,

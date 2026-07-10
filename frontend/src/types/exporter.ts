@@ -86,6 +86,7 @@ export interface ExportSessionSnapshot {
   weekday: Weekday;
   week: string;
   rooms: string[];
+  room_details?: ExportRoomRelationChange[];
   teachers: ExportTeacherSnapshot[];
   classes: string[];
   subjects: ExportSubjectsSnapshot[];
@@ -118,6 +119,7 @@ export interface ExportModificationStep {
   applies_to_all_weeks?: boolean;
   modifications: ExportSessionModifications;
   dependencies: string[];
+  dependency_conflicts?: Record<string, string[]>;
   session: ExportSessionSnapshot;
 }
 

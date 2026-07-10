@@ -7,6 +7,7 @@ exporter can report realistic added, removed, and modified sessions.
 
 Examples:
     python3 scripts/generate-exporter-changes.py --project-id 1
+    python3 scripts/generate-exporter-changes.py --project-id 1 --transitive-chain
     python3 scripts/generate-exporter-changes.py --db databases/projects/1/general_database.db
     python3 scripts/generate-exporter-changes.py --project-id 1 --dry-run
 """
@@ -50,6 +51,16 @@ def parse_args() -> argparse.Namespace:
         help="Print the planned changes without writing them.",
     )
     parser.add_argument(
+        "--transitive-chain",
+        action="store_true",
+        help="Create a three-session room dependency chain in the initial/general databases.",
+    )
+    parser.add_argument(
+        "--cyclic-chain",
+        action="store_true",
+        help="Create a three-session cyclic room dependency in the initial/general databases.",
+    )
+    parser.add_argument(
         "--backup",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -63,6 +74,10 @@ def resolve_db_path(args: argparse.Namespace) -> Path:
         return args.db.expanduser().resolve()
 
     return (args.projects_db_dir / str(args.project_id) / "general_database.db").resolve()
+
+
+def resolve_initial_db_path(general_db_path: Path) -> Path:
+    return general_db_path.with_name("initial_database.db")
 
 
 def connect(db_path: Path) -> sqlite3.Connection:
@@ -341,6 +356,96 @@ def mutate(conn: sqlite3.Connection, *, dry_run: bool) -> list[str]:
     return planned
 
 
+def create_transitive_chain(
+    initial: sqlite3.Connection,
+    general: sqlite3.Connection,
+    *,
+    dry_run: bool,
+    cyclic: bool = False,
+) -> list[str]:
+    """Create a dependency chain or cycle through one isolated room."""
+    sessions = initial.execute(
+        """
+        SELECT s.id, s.week, s.weekday, s.start_time, s.duration
+        FROM sessions AS s
+        WHERE EXISTS (
+            SELECT 1 FROM sessions_classes_subject AS scs WHERE scs.session_id = s.id
+        )
+        GROUP BY s.id
+        ORDER BY s.week, s.weekday, s.start_time, s.id
+        """,
+    ).fetchall()
+
+    selected: list[sqlite3.Row] = []
+    for session in sessions:
+        if not selected:
+            selected.append(session)
+            continue
+        if (
+            session["week"] == selected[0]["week"]
+            and session["weekday"] == selected[0]["weekday"]
+            and session["duration"] == selected[0]["duration"]
+            and session["start_time"] not in {row["start_time"] for row in selected}
+        ):
+            selected.append(session)
+        if len(selected) == 3:
+            break
+
+    if len(selected) < 3:
+        raise ScriptError("Could not find three same-day sessions with distinct times.")
+
+    room_id = "0000000000000000000000000cafe001"
+    room_name = "Exporter Transitive Chain"
+    for conn in (initial, general):
+        conn.execute(
+            "INSERT OR IGNORE INTO rooms (id, name, type, size, seats) VALUES (?, ?, ?, ?, ?)",
+            (room_id, room_name, "Test", None, None),
+        )
+
+    # Keep the baseline slots one hour apart. The current timetable remains
+    # conflict-free because the three sessions still occupy distinct slots.
+    baseline_times = [800, 900, 1000]
+    new_times = [900, 1000, 800] if cyclic else [1100, 800, 900]
+
+    for conn in (initial, general):
+        for row, baseline_time in zip(selected, baseline_times, strict=True):
+            conn.execute(
+                "UPDATE sessions SET start_time = ? WHERE id = ?",
+                (baseline_time, row["id"]),
+            )
+            conn.execute("DELETE FROM session_rooms WHERE session_id = ?", (row["id"],))
+            conn.execute(
+                "INSERT OR IGNORE INTO session_rooms (session_id, room_id) VALUES (?, ?)",
+                (row["id"], room_id),
+            )
+
+    if not dry_run:
+        for row, new_time in zip(selected, new_times, strict=True):
+            general.execute(
+                "UPDATE sessions SET start_time = ? WHERE id = ?",
+                (new_time, row["id"]),
+            )
+        general.execute("DELETE FROM modified_sessions")
+
+    labels = [
+        f"{row['id']} {baseline_time} -> {new_time}"
+        for row, baseline_time, new_time in zip(
+            selected,
+            baseline_times,
+            new_times,
+            strict=True,
+        )
+    ]
+    return [
+        f"created room {room_name}",
+        "created cyclic dependency A -> C -> B -> A"
+        if cyclic
+        else "created transitive chain A -> B -> C",
+        *labels,
+        "cleared cached exporter modification steps",
+    ]
+
+
 def make_backup(db_path: Path) -> Path:
     backup_path = db_path.with_suffix(f"{db_path.suffix}.bak")
     shutil.copy2(db_path, backup_path)
@@ -358,11 +463,34 @@ def main() -> int:
                 backup_path = make_backup(db_path)
                 print(f"Backup written: {backup_path}")
 
-            planned = mutate(conn, dry_run=args.dry_run)
-            if args.dry_run:
-                conn.rollback()
+            if args.transitive_chain or args.cyclic_chain:
+                if args.transitive_chain and args.cyclic_chain:
+                    raise ScriptError("Choose either --transitive-chain or --cyclic-chain.")
+                initial_path = resolve_initial_db_path(db_path)
+                if not initial_path.exists():
+                    raise ScriptError(f"Initial database not found: {initial_path}")
+                if args.backup and not args.dry_run:
+                    initial_backup = make_backup(initial_path)
+                    print(f"Backup written: {initial_backup}")
+                with connect(initial_path) as initial:
+                    planned = create_transitive_chain(
+                        initial,
+                        conn,
+                        dry_run=args.dry_run,
+                        cyclic=args.cyclic_chain,
+                    )
+                    if args.dry_run:
+                        initial.rollback()
+                        conn.rollback()
+                    else:
+                        initial.commit()
+                        conn.commit()
             else:
-                conn.commit()
+                planned = mutate(conn, dry_run=args.dry_run)
+                if args.dry_run:
+                    conn.rollback()
+                else:
+                    conn.commit()
 
         print("Exporter test changes:")
         for item in planned:

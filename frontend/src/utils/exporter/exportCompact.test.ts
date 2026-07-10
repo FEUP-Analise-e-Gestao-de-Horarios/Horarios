@@ -8,7 +8,12 @@ describe("compactExportToProjectExportPayload", () => {
       format: "compact_export_v1",
       entities: {
         rooms: {
-          room1: { room_name: "A1" },
+          room1: {
+            room_name: "A1",
+            room_type: "Laboratorio",
+            room_size: "Grande",
+            room_seats: "32",
+          },
         },
         teachers: {
           teacher1: {
@@ -130,6 +135,15 @@ describe("compactExportToProjectExportPayload", () => {
       subject_labels: ["TEST (TEST001)"],
     });
     expect(firstStep?.session.id).toBe("session1");
+    expect(firstStep?.session.room_details).toEqual([
+      {
+        room_id: "room1",
+        room_name: "A1",
+        room_type: "Laboratorio",
+        room_size: "Grande",
+        room_seats: "32",
+      },
+    ]);
     expect(expanded.added_removed_sessions.added[0]).toMatchObject({
       id: "new-session",
       room_details: [{ room_id: "room1", room_name: "A1" }],
@@ -145,6 +159,9 @@ describe("compactExportToProjectExportPayload", () => {
     expect(firstStep?.modifications.rooms?.added[0]).toEqual({
       room_id: "room1",
       room_name: "A1",
+      room_type: "Laboratorio",
+      room_size: "Grande",
+      room_seats: "32",
     });
     expect(firstStep?.modifications.class_subjects?.added[0]).toEqual({
       class_id: "class1",

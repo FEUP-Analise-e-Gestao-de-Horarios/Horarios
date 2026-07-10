@@ -60,10 +60,12 @@ describe("buildConflictLookup", () => {
     expect(lookup["019eaaaa"]).toEqual({
       anchor: "export-conflict-room-2026-01-12-monday-830-0",
       label: "Sala A1",
+      kind: "room",
     });
     expect(lookup["019ebbbb"]).toEqual({
       anchor: "export-conflict-teacher-2026-01-05-tuesday-1000-0",
       label: "Docente ABC",
+      kind: "teacher",
     });
   });
 });

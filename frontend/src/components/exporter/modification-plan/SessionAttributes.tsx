@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { ExportSessionSnapshot } from "@/types/exporter";
+import type { ExportRoomRelationChange, ExportSessionSnapshot } from "@/types/exporter";
 import { EntityChip } from "@/components/exporter/shared/EntityChip";
 import { formatDuration } from "@/utils/exporter/formatters";
 import { relationRecord, uniqueByLabel } from "@/utils/exporter/relations";
@@ -25,16 +25,37 @@ function TextValue({ label, value }: { label: string; value: string }) {
   );
 }
 
+function roomDetailsByLabel(roomDetails: readonly ExportRoomRelationChange[]) {
+  return new Map(
+    roomDetails.flatMap((room) =>
+      [room.room_id, room.room_name].filter(Boolean).map((label) => [label, room] as const),
+    ),
+  );
+}
+
+function displayRooms(
+  session: ExportSessionSnapshot,
+  fallbackRoomDetails: readonly ExportRoomRelationChange[],
+): unknown[] {
+  if (session.room_details?.length) return session.room_details;
+
+  const detailsByLabel = roomDetailsByLabel(fallbackRoomDetails);
+  return session.rooms.map((room) => detailsByLabel.get(room) ?? room);
+}
+
 export default function SessionAttributes({
   session,
   weekLabel,
+  fallbackRoomDetails = [],
 }: {
   session: ExportSessionSnapshot;
   weekLabel: string;
+  fallbackRoomDetails?: readonly ExportRoomRelationChange[];
 }) {
   const subjects = uniqueByLabel(session.subjects, (subject) => relationRecord(subject).label);
   const classes = uniqueByLabel(session.classes, (classCode) => classCode);
-  const rooms = uniqueByLabel(session.rooms, (room) => room);
+  const roomItems = displayRooms(session, fallbackRoomDetails);
+  const rooms = uniqueByLabel(roomItems, (room) => relationRecord(room).label);
   const teachers = uniqueByLabel(session.teachers, (teacher) => relationRecord(teacher).label);
 
   return (
@@ -60,9 +81,10 @@ export default function SessionAttributes({
         )}
         {!!rooms.length && (
           <AttributeGroup label="Salas">
-            {rooms.map((room) => (
-              <EntityChip key={room} item={room} />
-            ))}
+            {rooms.map((room) => {
+              const relation = relationRecord(room);
+              return <EntityChip key={relation.label} item={room} />;
+            })}
           </AttributeGroup>
         )}
         {!!teachers.length && (

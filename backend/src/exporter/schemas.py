@@ -142,6 +142,7 @@ class ExportSessionSnapshot(BaseModel):
     weekday: ExportString
     week: ExportString
     rooms: list[ExportString] = Field(default_factory=list)
+    room_details: list[ExportRoomRelationChange] = Field(default_factory=list)
     teachers: list[ExportTeacherSnapshot] = Field(default_factory=list)
     classes: list[ExportString] = Field(default_factory=list)
     subjects: list[ExportSubjectSnapshot] = Field(default_factory=list)
@@ -167,6 +168,7 @@ class ExportModificationStep(BaseModel):
     modifications: ExportSessionModifications
     dependencies: list[ExportString]
     session: ExportSessionSnapshot
+    dependency_conflicts: dict[str, list[str]] = Field(default_factory=dict)
 
 
 class ExportConflictBase(BaseModel):

@@ -10,6 +10,7 @@ from src.exporter.export_graph_loaders import ExportGraphSnapshotLoader, Resourc
 from src.exporter.export_graph_types import (
     RESOURCE_SPECS,
     ChangeBucket,
+    DependencyConflictMap,
     DependencyMap,
     ExportGraphStep,
     GraphPrimitive,
@@ -337,7 +338,8 @@ class ExportGraph:
 
         dependency_graph.add_nodes_from(self.changes.keys())
 
-        for resource_graph in graphs.values():
+        resource_kinds = {"rooms": "room", "teachers": "teacher", "classes": "class"}
+        for graph_name, resource_graph in graphs.items():
             for old_node, _new_node, edge_data in resource_graph.edges(data=True):
                 moving_sessions = edge_data.get("ids", [])
                 final_slot_sessions = resource_graph.nodes[old_node].get("ids", [])
@@ -359,10 +361,18 @@ class ExportGraph:
                         ):
                             continue
 
-                        dependency_graph.add_edge(
+                        if not dependency_graph.has_edge(
                             moving_change_key,
                             final_slot_change_key,
-                        )
+                        ):
+                            dependency_graph.add_edge(
+                                moving_change_key,
+                                final_slot_change_key,
+                                conflict_kinds=set(),
+                            )
+                        dependency_graph.edges[moving_change_key, final_slot_change_key][
+                            "conflict_kinds"
+                        ].add(resource_kinds[graph_name])
 
         return dependency_graph
 
@@ -436,6 +446,7 @@ class ExportGraph:
             ordered_modifications = self.get_graph_ordered_modifications()
 
         dependencies = self.get_dependencies() if use_graph else self.get_empty_dependencies()
+        dependency_conflicts = self.get_dependency_conflicts() if use_graph else {}
         change_key_by_session_id = {
             normalize_id(session_id): session_id for session_id in self.changes
         }
@@ -467,6 +478,7 @@ class ExportGraph:
                         cast(list[SessionId], step["session_ids"]),
                         cast(str, step["type"]),
                         dependencies,
+                        dependency_conflicts,
                     ),
                 ).model_dump(mode="json"),
             )
@@ -489,17 +501,19 @@ class ExportGraph:
         session_ids: list[SessionId],
         step_type: str,
         dependencies: DependencyMap,
+        dependency_conflicts: DependencyConflictMap | None = None,
     ) -> ExportGraphStep:
         """Build one export step from already grouped changed sessions."""
         return {
             "type": step_type,
-            **self.build_session_group(session_ids, dependencies),
+            **self.build_session_group(session_ids, dependencies, dependency_conflicts),
         }
 
     def build_session_group(
         self,
         session_ids: list[SessionId],
         dependencies: DependencyMap,
+        dependency_conflicts: DependencyConflictMap | None = None,
     ) -> ExportGraphStep:
         """Return one frontend-ready recurring-block modification group."""
         sorted_session_ids = self.sort_session_ids_by_week(session_ids)
@@ -527,7 +541,23 @@ class ExportGraph:
                 },
                 key=str,
             ),
+            "dependency_conflicts": self.build_dependency_conflicts(
+                sorted_session_ids,
+                dependency_conflicts or {},
+            ),
             "session": representative_session,
+        }
+
+    @staticmethod
+    def build_dependency_conflicts(
+        session_ids: list[SessionId],
+        dependency_conflicts: DependencyConflictMap,
+    ) -> dict[str, list[str]]:
+        return {
+            str(dependency): kinds
+            for session_id in session_ids
+            for dependency, kinds in dependency_conflicts.get(session_id, {}).items()
+            if dependency not in session_ids
         }
 
     def get_original_block_weeks(self, original_block_id: GraphPrimitive) -> list[GraphPrimitive]:
@@ -737,3 +767,23 @@ class ExportGraph:
             dependencies[cast(SessionId, node)] = sorted(node_dependencies, key=str)
 
         return dependencies
+
+    def get_dependency_conflicts(self) -> DependencyConflictMap:
+        """Return resource conflict kinds for each transitive dependency."""
+        if self.dependency_graph is None:
+            self.build_graph()
+
+        assert self.dependency_graph is not None
+        conflicts: DependencyConflictMap = {}
+        for node in self.dependency_graph.nodes:
+            node_conflicts: dict[SessionId, set[str]] = {}
+            for dependency in nx.ancestors(self.dependency_graph, node):
+                for path in nx.all_simple_paths(self.dependency_graph, node, dependency):
+                    for left, right in itertools.pairwise(path):
+                        node_conflicts.setdefault(dependency, set()).update(
+                            self.dependency_graph.edges[left, right].get("conflict_kinds", set()),
+                        )
+            conflicts[node] = {
+                dependency: sorted(kinds) for dependency, kinds in node_conflicts.items() if kinds
+            }
+        return conflicts

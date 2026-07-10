@@ -31,14 +31,19 @@ function SubjectTitle({ subject }: { subject: ExportSessionSnapshot["subjects"][
 
 function sessionTitle(session: ExportSessionSnapshot): ReactNode {
   const subjects = uniqueByLabel(session.subjects, subjectTitleLabel);
-  const classes = uniqueByLabel(session.classes, (classCode) => classCode).join(", ");
+  const classes = uniqueByLabel(session.classes, (classCode) => classCode);
 
-  if (!subjects.length && !classes) return "Sessão";
+  if (!subjects.length && !classes.length) return "Sessão";
 
   return (
     <>
-      {classes}
-      {subjects.length > 0 && classes && " · "}
+      {classes.map((classCode, index) => (
+        <span key={classCode} className={index === 0 ? "font-semibold" : undefined}>
+          {index > 0 && ", "}
+          {classCode}
+        </span>
+      ))}
+      {subjects.length > 0 && classes.length > 0 && " · "}
       {subjects.map((subject, index) => (
         <span key={subjectTitleLabel(subject)}>
           {index > 0 && ", "}
@@ -52,7 +57,10 @@ function sessionTitle(session: ExportSessionSnapshot): ReactNode {
 function changeTitle(session: ExportSessionSnapshot): ReactNode {
   return (
     <>
-      {sessionTitle(session)} · {WEEKDAY_LABELS[session.weekday]} {formatTime(session.start_time)}
+      {sessionTitle(session)} ·{" "}
+      <span className="font-semibold">
+        {WEEKDAY_LABELS[session.weekday]} {formatTime(session.start_time)}
+      </span>
     </>
   );
 }
@@ -94,6 +102,10 @@ function ChangeDetails({
   const conflictTarget = step.session_ids
     .map((sessionId) => conflictLookup[normalizeId(sessionId)])
     .find((target) => target !== undefined);
+  const fallbackRoomDetails = [
+    ...(step.modifications.rooms?.added ?? []),
+    ...(step.modifications.rooms?.removed ?? []),
+  ];
 
   return (
     <div
@@ -122,7 +134,7 @@ function ChangeDetails({
           onToggle={(event) => setIsAttributesOpen(event.currentTarget.open)}
         >
           <summary className="flex cursor-pointer list-none flex-wrap items-center gap-1.5 rounded px-1 py-0.5 marker:hidden hover:bg-white/50">
-            <span className="min-w-0 break-words text-sm font-semibold text-[#08060d]">
+            <span className="min-w-0 break-words text-sm font-normal text-[#08060d]">
               {changeTitle(step.session)}
             </span>
             {shouldShowWeekScope(step) && (
@@ -148,12 +160,15 @@ function ChangeDetails({
                   }
                 >
                   <AlertTriangle size={12} />
-                  Esta alteração causa um conflito por resolver
+                  {conflictTarget
+                    ? `Conflito de ${conflictTarget.kind === "room" ? "sala" : conflictTarget.kind === "teacher" ? "docente" : "turma"} por resolver: ${conflictTarget.label}`
+                    : "Conflito por resolver"}
                 </button>
               )}
               {!hasUnsolvedConflict && (
                 <DependencyLinks
                   dependencies={dependencies}
+                  dependencyConflicts={step.dependency_conflicts}
                   lookup={dependencyLookup}
                   currentOrder={Math.min(...step.session_ids.map(getSessionOrder))}
                   onDependencyClick={onDependencyClick}
@@ -168,6 +183,7 @@ function ChangeDetails({
               <div className="flex basis-full justify-end">
                 <DependencyLinks
                   dependencies={dependencies}
+                  dependencyConflicts={step.dependency_conflicts}
                   lookup={dependencyLookup}
                   currentOrder={Math.min(...step.session_ids.map(getSessionOrder))}
                   onDependencyClick={onDependencyClick}
@@ -177,7 +193,11 @@ function ChangeDetails({
             )}
           </summary>
           <div className="mt-1 px-1 pb-0.5">
-            <SessionAttributes session={step.session} weekLabel={formatWeekLabel(step)} />
+            <SessionAttributes
+              session={step.session}
+              weekLabel={formatWeekLabel(step)}
+              fallbackRoomDetails={fallbackRoomDetails}
+            />
           </div>
         </details>
         <div className="mt-1 flex flex-wrap gap-1">

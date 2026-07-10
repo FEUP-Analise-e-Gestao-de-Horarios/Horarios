@@ -3,6 +3,7 @@ import { normalizeId, shortId } from "@/utils/exporter/ids";
 
 export default function DependencyLinks({
   dependencies,
+  dependencyConflicts,
   lookup,
   currentOrder,
   onDependencyClick,
@@ -10,6 +11,7 @@ export default function DependencyLinks({
   className = "mt-2",
 }: {
   dependencies: string[];
+  dependencyConflicts?: Record<string, string[]>;
   lookup: DependencyLookup;
   currentOrder: number;
   onDependencyClick: (anchor: string) => void;
@@ -23,9 +25,28 @@ export default function DependencyLinks({
 
   if (!flaggedDependencies.length) return null;
 
+  const normalizedDependencyConflicts = Object.fromEntries(
+    Object.entries(dependencyConflicts ?? {}).map(([dependency, kinds]) => [
+      normalizeId(dependency),
+      kinds,
+    ]),
+  );
+  const conflictKinds = Array.from(
+    new Set(
+      flaggedDependencies.flatMap(
+        (dependency) => normalizedDependencyConflicts[normalizeId(String(dependency))] ?? [],
+      ),
+    ),
+  );
+  const conflictLabel = conflictKinds.length
+    ? `Conflito de ${conflictKinds
+        .map((kind) => (kind === "room" ? "sala" : kind === "teacher" ? "docente" : "turma"))
+        .join(", ")}`
+    : label;
+
   return (
     <div className={`inline-flex flex-wrap items-center gap-1 text-xs ${className}`}>
-      <span className="font-semibold text-red-700">{label}</span>
+      <span className="font-semibold text-red-700">{conflictLabel} resolvido pelo</span>
       {flaggedDependencies.map((dependency) => {
         const target = lookup[normalizeId(String(dependency))];
         if (!target) {

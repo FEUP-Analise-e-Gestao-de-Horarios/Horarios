@@ -128,19 +128,38 @@ function sessionForStep(
   payload: CompactProjectExportPayload,
 ): ExportModificationStep["session"] {
   const sessionId = step.session_ids[0] ?? "";
-  return (
-    findEntity(payload.entities.sessions, sessionId) ?? {
-      id: sessionId,
-      start_time: 0,
-      duration: 0,
-      weekday: "monday",
-      week: "",
-      rooms: [],
-      teachers: [],
-      classes: [],
-      subjects: [],
-    }
-  );
+  const session = findEntity(payload.entities.sessions, sessionId) ?? {
+    id: sessionId,
+    start_time: 0,
+    duration: 0,
+    weekday: "monday",
+    week: "",
+    rooms: [],
+    teachers: [],
+    classes: [],
+    subjects: [],
+  };
+
+  return withRoomDetails(session, payload);
+}
+
+function withRoomDetails(
+  session: ExportModificationStep["session"],
+  payload: CompactProjectExportPayload,
+): ExportModificationStep["session"] {
+  if (session.room_details?.length) return session;
+
+  const roomDetails = session.rooms
+    .map((roomLabel) => {
+      const match = Object.entries(payload.entities.rooms).find(
+        ([roomId, room]) => roomId === roomLabel || room.room_name === roomLabel,
+      );
+
+      return match ? { room_id: match[0], ...match[1] } : null;
+    })
+    .filter((room): room is ExportRoomRelationChange => room !== null);
+
+  return roomDetails.length ? { ...session, room_details: roomDetails } : session;
 }
 
 function baseConflict(conflict: CompactProjectExportPayload["conflicts"][number]) {

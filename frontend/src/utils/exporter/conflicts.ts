@@ -10,6 +10,7 @@ export type ConflictKind = "room" | "teacher" | "class";
 export interface ConflictTarget {
   anchor: string;
   label: string;
+  kind: ConflictKind;
 }
 
 export type ConflictLookup = Record<string, ConflictTarget>;
@@ -54,7 +55,7 @@ export function buildConflictLookup(data: ProjectExportPayload): ConflictLookup 
   function addConflict(kind: ConflictKind, row: ExportConflictBase, index: number, label: string) {
     const anchor = conflictCardAnchorId(kind, row, index);
     for (const sessionId of row.session_ids) {
-      lookup[normalizeId(sessionId)] ??= { anchor, label };
+      lookup[normalizeId(sessionId)] ??= { anchor, label, kind };
     }
   }
 
