@@ -4,7 +4,7 @@ import type { CourseGroup, CourseOption } from "./types";
 
 type DegreeOption = { acronym: string; name: string };
 type TeacherOption = { id: string; acronym: string; name: string };
-type RoomOption = { id: string; name: string; type: string | null };
+type RoomOption = { id: string; name: string; type: string | null; seats: string | null };
 
 interface UseScheduleOptionsParams {
   degrees: DegreeOption[] | undefined;
@@ -53,6 +53,7 @@ export function useScheduleOptions({ degrees, teachers, rooms }: UseScheduleOpti
         .sort((a, b) => a.acronym.localeCompare(b.acronym))
         .map((teacher) => ({
           id: teacher.id,
+          acronym: teacher.acronym,
           label: `${teacher.acronym} - ${teacher.name}`,
         })),
     [teachers],
@@ -67,6 +68,7 @@ export function useScheduleOptions({ degrees, teachers, rooms }: UseScheduleOpti
           id: room.id,
           label: room.name,
           type: room.type ?? "",
+          seats: room.seats,
         })),
     [rooms],
   );

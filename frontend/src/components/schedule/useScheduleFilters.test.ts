@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareTurnos } from "./useScheduleFilters";
+import { compareTurmas, compareTurnos } from "./useScheduleFilters";
 
 describe("compareTurnos", () => {
   it("orders regular turnos numerically", () => {
@@ -12,5 +12,23 @@ describe("compareTurnos", () => {
 
   it("keeps turno 0 last even against double-digit turnos", () => {
     expect(["10", "0", "3"].sort(compareTurnos)).toEqual(["3", "10", "0"]);
+  });
+});
+
+describe("compareTurmas", () => {
+  it("orders turma codes by numeric suffix, not lexically", () => {
+    expect(["1LEIC10", "1LEIC8", "1LEIC9"].sort(compareTurmas)).toEqual([
+      "1LEIC8",
+      "1LEIC9",
+      "1LEIC10",
+    ]);
+  });
+
+  it("handles zero-padded codes", () => {
+    expect(["1LEIC08", "1LEIC10", "1LEIC09"].sort(compareTurmas)).toEqual([
+      "1LEIC08",
+      "1LEIC09",
+      "1LEIC10",
+    ]);
   });
 });

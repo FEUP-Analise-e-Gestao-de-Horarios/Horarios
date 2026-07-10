@@ -1,10 +1,17 @@
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, type CSSProperties } from "react";
 import type { Weekday } from "@/types/project/weekday";
 import { hhmmToMinutes, minutesToTime } from "@/utils/time";
 import { WEEKDAYS, WEEKDAY_LABELS_SHORT } from "@/utils/weekdays";
+import EventArcsOverlay from "./EventArcsOverlay";
 import ScheduleEventCard from "./ScheduleEventCard";
-import { placeEventsOnGrid } from "./scheduleGrid";
-import { styleForSubject } from "./subjectColors";
+import {
+  assignLaneSegments,
+  computeColumnWidths,
+  computeRowHeights,
+  computeRowOccupancy,
+  placeEventsOnGrid,
+} from "./scheduleGrid";
+import { styleForSubject, type SubjectPalette } from "./subjectColors";
 import { TURMA_COLUMN_MAX_PX, TURMA_COLUMN_MIN_PX, useColumnResize } from "./useColumnResize";
 import { useGridTimeRange } from "./useGridTimeRange";
 
@@ -38,6 +45,20 @@ export interface WeekGridMark {
   id: string;
   weekday: Weekday;
   time: number;
+  /** Selection unavailability (#5); absent = generic red block. */
+  kind?: "unavailable";
+}
+
+const UNAVAILABLE_RED = "#e5484d";
+
+function markStyle(kind: WeekGridMark["kind"]): { className: string; style?: CSSProperties } {
+  if (kind === "unavailable") {
+    return {
+      className: "border-l-2",
+      style: { backgroundColor: `${UNAVAILABLE_RED}40`, borderColor: UNAVAILABLE_RED },
+    };
+  }
+  return { className: "bg-[#f7ddd7]/80 border-l-2 border-[#e0b0a5]" };
 }
 
 interface WeekGridProps {
@@ -65,6 +86,14 @@ interface WeekGridProps {
   hourLabelFontPx?: number;
   editingEventId?: string;
   selectedDays?: string[];
+  /** Per-UC colours; events fall back to a neutral style when absent. */
+  subjectPalette?: SubjectPalette;
+  /**
+   * Collapse rows/columns that hold no events or marks to reduce scroll (#13/#14).
+   * Set false to keep every slot full-size — e.g. while placing an event, so
+   * empty cells stay big enough to be a drop target (Phase 5 #6).
+   */
+  compactEmpty?: boolean;
 }
 
 const WEEKDAY_LABELS = WEEKDAYS.map((day) => WEEKDAY_LABELS_SHORT[day]);
@@ -75,13 +104,21 @@ const HEADER_PX = 40;
 // Width of the sticky time-label column. '08:00' at the 12px label font is
 // ~33px; 34px hugs it tight on both sides (PI ToDo #22).
 const TIME_COL_PX = 34;
+// Height of a collapsed (event-free) time-slot row: just tall enough for the
+// hour number to stay legible with no padding above/below (PI ToDo #13).
+const COMPACT_ROW_PX = 16;
+// Font size of the day-header labels (matches the `text-[10px]` class below);
+// used to size a fully-empty day down to its label width (PI ToDo #14).
+const DAY_HEADER_FONT_PX = 10;
 // Width each turma column gets in the default (un-resized) flexible layout.
 const TURMA_COLUMN_DEFAULT_MIN_PX = 64;
 // Pixels of horizontal scroll change required to count as a user gesture.
 const HORIZONTAL_SCROLL_THRESHOLD_PX = 8;
 
 function getTurmaHeaderStyle(shift?: number): string {
-  if (shift !== undefined && shift % 2 === 0) return "bg-[#f7ddd7] border-[#e0b0a5] text-[#8C2C19]";
+  // Alternating turnos get a neutral cool-grey tint (was orange); the brand
+  // colour is reserved for actions, not passive headers (#23).
+  if (shift !== undefined && shift % 2 === 0) return "bg-[#e7eaee] border-[#d3d8df] text-[#08060d]";
   return "bg-[#f9f7f4] text-[#08060d]";
 }
 
@@ -144,6 +181,8 @@ export default function WeekGrid({
   hourLabelFontPx,
   editingEventId,
   selectedDays,
+  subjectPalette,
+  compactEmpty = true,
 }: WeekGridProps) {
   const lastScrollLeftRef = useRef(0);
   const { gridRef, columnWidthPx, dragState, handleResizeStart, handleResizeKeyDown } =
@@ -185,14 +224,6 @@ export default function WeekGrid({
   const minSlotPx = slotHeightPx ?? MIN_SLOT_PX;
   const headerPx = headerHeightPx ?? HEADER_PX;
   const hourFontPx = hourLabelFontPx ?? 10;
-
-  const gridTemplateColumns = dragState
-    ? `${TIME_COL_PX}px ${Array.from({ length: turmaColumnCount }, (_, columnIndex) =>
-        columnIndex === dragState.colIndex ? `${dragState.width}px` : `${dragState.othersWidth}px`,
-      ).join(" ")}`
-    : columnWidthPx != null
-      ? `${TIME_COL_PX}px repeat(${turmaColumnCount}, ${columnWidthPx}px)`
-      : `${TIME_COL_PX}px repeat(${turmaColumnCount}, minmax(${TURMA_COLUMN_DEFAULT_MIN_PX}px, 1fr))`;
 
   const { gridStartMinutes, slotCount } = useGridTimeRange({
     events,
@@ -240,6 +271,85 @@ export default function WeekGrid({
     [marks, gridStartMinutes, slotCount, visibleDayIndices],
   );
 
+  // Empty row/column compaction (#13/#14); compactEmpty off keeps all full-size.
+  const rowOccupied = useMemo(
+    () =>
+      compactEmpty
+        ? // Marks (the #5 unavailability overlay) intentionally don't keep a row
+          // expanded — only real events drive row height.
+          computeRowOccupancy(placedEvents, [], slotCount)
+        : new Array<boolean>(slotCount).fill(true),
+    [compactEmpty, placedEvents, slotCount],
+  );
+
+  const { laned: lanedEvents, colLaneCount: rawColLaneCount } = useMemo(
+    () =>
+      assignLaneSegments(
+        placedEvents,
+        turmasCount,
+        turmaColumnCount,
+        placedMarks.map((m) => m.col),
+      ),
+    [placedEvents, turmasCount, turmaColumnCount, placedMarks],
+  );
+
+  const colLaneCount = useMemo(
+    () => (compactEmpty ? rawColLaneCount : rawColLaneCount.map((lanes) => Math.max(lanes, 1))),
+    [compactEmpty, rawColLaneCount],
+  );
+
+  // Width a fully-empty day collapses to: enough to show its (longest) day
+  // label on one line, with a little padding.
+  const emptyDayTotalPx = useMemo(() => {
+    const longest = Math.max(3, ...filteredLabels.map((label) => label?.length ?? 0));
+    return Math.ceil(longest * DAY_HEADER_FONT_PX * 0.8) + 20;
+  }, [filteredLabels]);
+
+  const fullRowTrack = `minmax(${minSlotPx}px, 1fr)`;
+  const compactRowPx = Math.max(COMPACT_ROW_PX, Math.ceil(hourFontPx * 1.5));
+  const gridTemplateRows = `${headerPx}px${
+    hasSecondaryHeader ? ` ${headerPx}px` : ""
+  } ${computeRowHeights(rowOccupied, fullRowTrack, compactRowPx).join(" ")}`;
+
+  // While dragging, occupied columns freeze at their pre-drag width so they
+  // don't reflow as the handle moves, and only the dragged column follows the
+  // pointer. Empty columns/days stay compacted just as they will after the
+  // commit, so releasing no longer pops them from full-width back to thin.
+  const turmaColumnTracks = dragState
+    ? computeColumnWidths(
+        colLaneCount,
+        turmasCount,
+        dragState.othersWidth,
+        TURMA_COLUMN_DEFAULT_MIN_PX,
+        TURMA_COLUMN_MIN_PX,
+        emptyDayTotalPx,
+      ).map((track, columnIndex) =>
+        columnIndex === dragState.colIndex ? `${dragState.width}px` : track,
+      )
+    : computeColumnWidths(
+        colLaneCount,
+        turmasCount,
+        columnWidthPx ?? null,
+        TURMA_COLUMN_DEFAULT_MIN_PX,
+        TURMA_COLUMN_MIN_PX,
+        emptyDayTotalPx,
+      );
+  const gridTemplateColumns = `${TIME_COL_PX}px ${turmaColumnTracks.join(" ")}`;
+
+  // Encode everything that fixes a card's position, not just the segment count:
+  // the grid tracks plus each event's day/row and every segment's start/span/lane.
+  // A same-size reshuffle (e.g. editing a session's time without changing which
+  // rows are occupied) leaves the tracks and counts identical, so without the
+  // positional fields the overlay would keep stale arcs until the next resize.
+  const arcSignature = `${gridTemplateColumns}|${gridTemplateRows}|${lanedEvents
+    .map(
+      (e) =>
+        `${e.ev.id}@${e.dayCol}:${e.rowStart}:${e.segments
+          .map((s) => `${s.start}/${s.span}/${s.lane}/${s.laneCount}`)
+          .join("+")}`,
+    )
+    .join(",")}`;
+
   if (events.length === 0 && marks.length === 0 && emptyMessage) {
     return (
       <div className="bg-white rounded-lg border border-[#e5e4e7] shadow-[0_2px_8px_rgba(0,0,0,0.06)] p-6 text-center text-sm text-[#6b6375]">
@@ -264,12 +374,9 @@ export default function WeekGrid({
       }}
     >
       <div
-        className="grid h-full w-max min-w-full"
+        className="relative grid h-full w-max min-w-full"
         ref={gridRef}
-        style={{
-          gridTemplateColumns,
-          gridTemplateRows: `${headerPx}px${hasSecondaryHeader ? ` ${headerPx}px` : ""} repeat(${slotCount}, minmax(${minSlotPx}px, 1fr))`,
-        }}
+        style={{ gridTemplateColumns, gridTemplateRows }}
       >
         <div
           className="sticky top-0 left-0 z-30 border-b border-r border-[#e5e4e7] bg-[#f9f7f4]"
@@ -282,7 +389,7 @@ export default function WeekGrid({
         {filteredLabels.map((label, visibleIdx) => (
           <div
             key={label}
-            className={`sticky top-0 z-20 border-b border-[#e5e4e7] bg-[#f9f7f4] px-2 py-1 text-center text-[10px] font-semibold uppercase tracking-wider text-[#08060d] ${
+            className={`sticky top-0 z-20 overflow-hidden whitespace-nowrap border-b border-[#e5e4e7] bg-[#f9f7f4] px-2 py-1 text-center text-[10px] font-semibold uppercase tracking-wider text-[#08060d] ${
               visibleIdx > 0 ? "border-l border-[#d8d5da]" : ""
             }`}
             style={{
@@ -342,8 +449,8 @@ export default function WeekGrid({
                           : (columnWidthPx ?? undefined)
                       }
                       onMouseDown={(event) => handleResizeStart(columnIndex, event)}
-                      onKeyDown={(event) => handleResizeKeyDown(columnIndex, event)}
-                      className={`absolute top-0 right-0 z-10 h-full w-2 cursor-col-resize hover:bg-[#8C2C19]/40 focus-visible:bg-[#8C2C19]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/80 ${
+                      onKeyDown={(event) => handleResizeKeyDown(event)}
+                      className={`absolute top-0 right-0 z-10 h-full w-2 cursor-col-resize hover:bg-[#8C2C19]/40 focus-visible:bg-[#8C2C19]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C73F24]/70 ${
                         dragState?.colIndex === columnIndex ? "bg-[#8C2C19]/60" : ""
                       }`}
                       title="Arrasta para redimensionar as colunas"
@@ -368,7 +475,7 @@ export default function WeekGrid({
           return (
             <div
               key={`t-${i}`}
-              className={`sticky left-0 z-10 flex items-center justify-center bg-white border-r border-[#e5e4e7] px-0 text-center text-[#6b6375] ${rowDividerClass}`}
+              className={`sticky left-0 z-20 flex items-center justify-center bg-white border-r border-[#e5e4e7] px-0 text-center text-[#6b6375] ${rowDividerClass}`}
               style={{
                 gridColumn: 1,
                 gridRow: i + headerRows + 1,
@@ -410,11 +517,13 @@ export default function WeekGrid({
 
         {placedMarks.map(({ mark, col, rowStart }) => {
           const dayIdx = col;
+          const { className, style } = markStyle(mark.kind);
           return (
             <div
               key={`m-${mark.id}`}
-              className="bg-[#f7ddd7]/80 border-l-2 border-[#e0b0a5] pointer-events-none"
+              className={`pointer-events-none ${className}`}
               style={{
+                ...style,
                 gridColumn: `${dayIdx * turmasCount + 2} / span ${turmasCount}`,
                 gridRow: rowStart + headerRows + 1,
               }}
@@ -423,17 +532,22 @@ export default function WeekGrid({
           );
         })}
 
-        {placedEvents.flatMap(({ ev, dayCol, rowStart, span, runs, weekRangeLabel }) => {
-          const style = styleForSubject(ev.uc);
+        {lanedEvents.flatMap(({ ev, dayCol, rowStart, span, segments, weekRangeLabel }) => {
+          const style = styleForSubject(subjectPalette, ev.uc, ev.type);
           const isEditingEvent = editingEventId === ev.id;
-          return runs.map((run) => (
+          const multiSegment = segments.length > 1;
+          return segments.map((seg, segIndex) => (
             <ScheduleEventCard
-              key={`e-${ev.id}-${run.start}`}
+              key={`e-${ev.id}-${seg.start}`}
               ev={ev}
-              startCol={dayCol * turmasCount + run.start + 2}
+              startCol={dayCol * turmasCount + seg.start + 2}
               startRow={rowStart + headerRows + 1}
-              colSpan={run.span}
+              colSpan={seg.span}
               rowSpan={span}
+              lane={seg.lane}
+              laneCount={seg.laneCount}
+              arcGroupId={multiSegment ? `${ev.id}-${dayCol}-${rowStart}` : undefined}
+              arcSegIndex={segIndex}
               style={style}
               isEditing={isEditingEvent}
               weekRangeLabel={weekRangeLabel}
@@ -441,6 +555,12 @@ export default function WeekGrid({
             />
           ));
         })}
+
+        <EventArcsOverlay
+          gridRef={gridRef}
+          signature={arcSignature}
+          minPeakY={headerPx * headerRows + 2}
+        />
       </div>
     </div>
   );

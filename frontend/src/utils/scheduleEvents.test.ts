@@ -200,6 +200,34 @@ describe("sessionToEvents", () => {
     expect(events[0]?.title).toBe("ALG, BD");
   });
 
+  it("de-duplicates repeated acronyms from a cross-course shared subject", () => {
+    const events = sessionToEvents(
+      makeSession({
+        subjects: [
+          makeSubject({ id: "u1", code: "VC01", acronym: "VC", name: "Visão por Computador" }),
+          makeSubject({ id: "u2", code: "VC02", acronym: "VC", name: "Visão por Computador" }),
+        ],
+      }),
+      NO_FILTERS,
+    );
+    expect(events[0]?.title).toBe("VC");
+    expect(events[0]?.subjectNames).toEqual(["Visão por Computador"]);
+  });
+
+  it("keeps distinct UCs that share an acronym split in title and subjectNames", () => {
+    const events = sessionToEvents(
+      makeSession({
+        subjects: [
+          makeSubject({ id: "u1", code: "SI01", acronym: "SI", name: "Sistemas de Informação" }),
+          makeSubject({ id: "u2", code: "SI02", acronym: "SI", name: "Segurança Informática" }),
+        ],
+      }),
+      NO_FILTERS,
+    );
+    expect(events[0]?.title).toBe("SI, SI");
+    expect(events[0]?.subjectNames).toEqual(["Sistemas de Informação", "Segurança Informática"]);
+  });
+
   it("falls back to the session type when there are no subjects", () => {
     const events = sessionToEvents(makeSession({ subjects: [] }), NO_FILTERS);
     expect(events[0]?.title).toBe("T");

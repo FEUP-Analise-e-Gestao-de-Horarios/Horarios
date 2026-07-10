@@ -1,5 +1,5 @@
 import { useId } from "react";
-import DropdownShell from "./DropdownShell";
+import DropdownShell, { DROPDOWN_SELECTED_OPTION_CLASS } from "./DropdownShell";
 import type { CourseGroup } from "./types";
 
 const CURSO_PANEL_CLASS =
@@ -40,7 +40,7 @@ export default function CursoDropdown({
             onToggle();
           }}
           className={[
-            "bg-[#1e2028] rounded px-3.5 py-2 text-sm whitespace-nowrap text-left border cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60",
+            "bg-[#1e2028] rounded px-3.5 py-2 text-sm whitespace-nowrap text-left border cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C73F24]/60",
             value === ""
               ? "text-red-400 border-red-900"
               : "text-white border-gray-600 hover:border-gray-400",
@@ -83,10 +83,8 @@ export default function CursoDropdown({
                           onSelect(option.value);
                         }}
                         className={[
-                          "w-full rounded px-2 py-1 text-[13px] cursor-pointer text-left border border-transparent hover:bg-white/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60",
-                          isSelected
-                            ? "text-amber-400 bg-amber-400/10 border-amber-500/20"
-                            : "text-white bg-transparent",
+                          "w-full rounded px-2 py-1 text-[13px] cursor-pointer text-left border border-transparent hover:bg-white/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C73F24]/60",
+                          isSelected ? DROPDOWN_SELECTED_OPTION_CLASS : "text-white bg-transparent",
                         ].join(" ")}
                         title={
                           option.description

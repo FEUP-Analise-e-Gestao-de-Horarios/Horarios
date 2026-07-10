@@ -76,7 +76,7 @@ export default function DrawerMultiSelect({
         aria-controls={panelId}
         aria-labelledby={`${labelId} ${baseId}-trigger-value`}
         onClick={onToggle}
-        className="w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2 text-left flex items-center justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60"
+        className="w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2 text-left flex items-center justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C73F24]/60"
       >
         <span id={`${baseId}-trigger-value`}>{triggerLabel}</span>
         <span aria-hidden="true" className="text-white/70">
@@ -98,7 +98,7 @@ export default function DrawerMultiSelect({
             onChange={(event) => onSearchChange(event.target.value)}
             placeholder="Pesquisar..."
             aria-label={`Pesquisar em ${label}`}
-            className="mb-2 w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60"
+            className="mb-2 w-full bg-[#2a303a] border border-white/20 rounded px-2.5 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C73F24]/60"
           />
           <div className={`${listMaxHeightClass} overflow-y-auto space-y-1`}>
             {groups.map((group, groupIndex) => {
@@ -124,7 +124,7 @@ export default function DrawerMultiSelect({
                           role="option"
                           aria-selected={isSelected}
                           onClick={() => onToggleOption(option.id)}
-                          className={`w-full px-2 py-1.5 text-left rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60 ${
+                          className={`w-full px-2 py-1.5 text-left rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C73F24]/60 ${
                             isSelected
                               ? "bg-red-900/40 text-white font-semibold"
                               : "text-white hover:bg-white/10"

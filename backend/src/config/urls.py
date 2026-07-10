@@ -22,11 +22,11 @@ projectpatterns = [
 
 urlpatterns = [
     # React URLs
-    path("", spa_view, name="dashboard"),
+    path("", spa_view, name="home"),
     path("login", spa_view, name="login"),
     path("forgot-password", spa_view, name="forgot-password"),
     path("change-password", spa_view, name="change-password"),
-    path("projects/<int:project_id>/", spa_view, name="schedule"),
+    path("projects/<int:project_id>", spa_view, name="schedule"),
     path("projects/<int:project_id>/dashboard", spa_view, name="dashboard"),
     path(
         "projects/<int:project_id>/dashboard/export-session",
@@ -57,6 +57,11 @@ urlpatterns = [
         "projects/<int:project_id>/dashboard/classes/<uuid:class_id>",
         spa_view,
         name="class-detail",
+    ),
+    path(
+        "projects/<int:project_id>/parallel-sessions",
+        spa_view,
+        name="parallel-sessions",
     ),
     # API endpoints
     path("api/projects/", include("src.projects.urls")),

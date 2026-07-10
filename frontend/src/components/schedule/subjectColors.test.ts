@@ -1,75 +1,82 @@
 import { describe, expect, it } from "vitest";
 import {
+  createSubjectPalette,
   DEFAULT_SUBJECT_STYLE,
-  DEFAULT_SUBJECT_STYLE_DARK,
+  PALETTE_SIZE,
   styleForSubject,
-  styleForSubjectDark,
+  type SubjectPalette,
 } from "./subjectColors";
 
-describe("styleForSubject", () => {
-  it("returns the default style for undefined", () => {
-    expect(styleForSubject(undefined)).toBe(DEFAULT_SUBJECT_STYLE);
+const HEX = /^#[0-9a-f]{6}$/;
+
+// One distinct UC name per palette slot.
+const FULL = Array.from({ length: PALETTE_SIZE }, (_, i) => `UC${i}`);
+
+describe("createSubjectPalette", () => {
+  it("provides at least 30 distinct hues", () => {
+    expect(PALETTE_SIZE).toBeGreaterThanOrEqual(30);
+    const palette = createSubjectPalette(FULL);
+    // Compare on the chip tone (one tone per hue) → all backgrounds distinct.
+    const backgrounds = FULL.map((uc) => styleForSubject(palette, uc).background);
+    expect(new Set(backgrounds).size).toBe(PALETTE_SIZE);
   });
 
-  it("returns the default style for the empty string", () => {
-    expect(styleForSubject("")).toBe(DEFAULT_SUBJECT_STYLE);
+  it("assigns colours deterministically by name", () => {
+    const a = createSubjectPalette(["Algoritmos", "Bases de Dados"]);
+    const b = createSubjectPalette(["Algoritmos", "Bases de Dados"]);
+    expect(styleForSubject(a, "Algoritmos", "TP")).toEqual(styleForSubject(b, "Algoritmos", "TP"));
   });
 
-  it("returns the same style for the same subject (stability)", () => {
-    expect(styleForSubject("Algoritmos")).toBe(styleForSubject("Algoritmos"));
+  it("cycles back to the first hue once UCs exceed the palette size", () => {
+    const palette = createSubjectPalette([...FULL, "WRAP"]);
+    expect(styleForSubject(palette, "WRAP", "TP")).toEqual(styleForSubject(palette, FULL[0], "TP"));
   });
 
-  it("returns a SubjectStyle with the bg/border/text triplet", () => {
-    const style = styleForSubject("Algoritmos");
-    expect(style).toHaveProperty("bg");
-    expect(style).toHaveProperty("border");
-    expect(style).toHaveProperty("text");
-  });
-
-  it("never returns the default style for a real subject name", () => {
-    // The hash should land in [0, palette.length); only undefined / empty
-    // string short-circuit to the default.
-    for (const name of ["A", "AA", "Algorítmos", "Lógica", "X".repeat(100)]) {
-      expect(styleForSubject(name)).not.toBe(DEFAULT_SUBJECT_STYLE);
-    }
-  });
-
-  it("normalises hashes that would otherwise be negative to a positive palette index", () => {
-    // Long inputs let the int32 hash wrap negative; the bug-fix referenced in
-    // subjectColors guards against `(-x % n)` returning negative.
-    const longName = "z".repeat(200);
-    const style = styleForSubject(longName);
-    expect(style).toHaveProperty("bg");
-    expect(style.bg).toMatch(/^bg-/);
+  it("ignores duplicate names, keeping the first assignment", () => {
+    const palette = createSubjectPalette(["X", "Y", "X"]);
+    expect(styleForSubject(palette, "X", "TP")).not.toBe(DEFAULT_SUBJECT_STYLE);
+    expect(styleForSubject(palette, "Y", "TP")).not.toBe(DEFAULT_SUBJECT_STYLE);
   });
 });
 
-describe("styleForSubjectDark", () => {
-  it("returns the dark default for undefined", () => {
-    expect(styleForSubjectDark(undefined)).toBe(DEFAULT_SUBJECT_STYLE_DARK);
+describe("styleForSubject", () => {
+  const palette: SubjectPalette = createSubjectPalette(["Algoritmos"]);
+
+  it("returns the default style when the palette or UC is missing", () => {
+    expect(styleForSubject(undefined, "Algoritmos", "TP")).toBe(DEFAULT_SUBJECT_STYLE);
+    expect(styleForSubject(palette, "Desconhecida", "TP")).toBe(DEFAULT_SUBJECT_STYLE);
+    expect(styleForSubject(palette, undefined, "TP")).toBe(DEFAULT_SUBJECT_STYLE);
+    expect(styleForSubject(palette, "", "TP")).toBe(DEFAULT_SUBJECT_STYLE);
   });
 
-  it("returns the dark default for the empty string", () => {
-    expect(styleForSubjectDark("")).toBe(DEFAULT_SUBJECT_STYLE_DARK);
+  it("returns CSS hex colours, not Tailwind classes", () => {
+    const style = styleForSubject(palette, "Algoritmos", "TP");
+    expect(style.background).toMatch(HEX);
+    expect(style.border).toMatch(HEX);
+    expect(style.text).toMatch(HEX);
   });
 
-  it("returns the same dark style for the same subject (stability)", () => {
-    expect(styleForSubjectDark("Algoritmos")).toBe(styleForSubjectDark("Algoritmos"));
+  it("gives T, TP, P and PL distinct shades of the same hue", () => {
+    const t = styleForSubject(palette, "Algoritmos", "T");
+    const tp = styleForSubject(palette, "Algoritmos", "TP");
+    const p = styleForSubject(palette, "Algoritmos", "P");
+    const pl = styleForSubject(palette, "Algoritmos", "PL");
+    const backgrounds = [t, tp, p, pl].map((s) => s.background);
+    // All four tones are visually distinct…
+    expect(new Set(backgrounds).size).toBe(4);
+    // …and ordered lightest (T) to strongest (PL).
+    expect(t.background > tp.background).toBe(true); // lighter hex → larger string
+    // …but share one hue, proved by the common text colour.
+    expect(new Set([t, tp, p, pl].map((s) => s.text)).size).toBe(1);
   });
 
-  it("returns a dark variant (using /15 alpha bg) for a real subject name", () => {
-    const style = styleForSubjectDark("Algoritmos");
-    expect(style.bg).toMatch(/\/15$/);
+  it("uses the middle tone for unknown types", () => {
+    const unknown = styleForSubject(palette, "Algoritmos", "ZZ");
+    const tp = styleForSubject(palette, "Algoritmos", "TP");
+    expect(unknown.background).toBe(tp.background);
   });
 
-  it("pairs light and dark variants from the same palette index for the same subject", () => {
-    // Both lookups use the same hash; they should pick the same palette entry,
-    // i.e. the colour family agrees (e.g. both blue).
-    const subject = "Programação";
-    const light = styleForSubject(subject);
-    const dark = styleForSubjectDark(subject);
-    const lightColor = light.bg.replace(/^bg-/, "").split("-")[0];
-    const darkColor = dark.bg.replace(/^bg-/, "").split("-")[0];
-    expect(lightColor).toBe(darkColor);
+  it("returns the chip tone when no type is given (navbar dropdown)", () => {
+    expect(styleForSubject(palette, "Algoritmos").background).toMatch(HEX);
   });
 });

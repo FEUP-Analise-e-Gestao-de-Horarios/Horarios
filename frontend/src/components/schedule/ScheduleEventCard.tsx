@@ -1,11 +1,32 @@
+import { type ReactNode } from "react";
 import { hhmmToMinutes, minutesToTime } from "@/utils/time";
 import { WEEKDAY_LABELS_LONG } from "@/utils/weekdays";
 import type { WeekGridEvent } from "./WeekGrid";
+import { RoomAvailability, TeacherHoverNames } from "./AvailabilityTooltipContent";
 import { SCHEDULE_EVENT_DATA_ATTR } from "./dismissable";
+import HoverTooltip from "./HoverTooltip";
 import MarqueeText from "./MarqueeText";
-import type { SubjectStyle } from "./subjectColors";
+import { SUBJECT_SELECTION_RING, type SubjectStyle } from "./subjectColors";
 
 const SLOT_MINUTES = 30;
+
+/** A card text element, optionally wrapped in a hover tooltip (PI ToDo #4). */
+function Field({
+  tip,
+  className,
+  children,
+}: {
+  tip?: ReactNode;
+  className?: string;
+  children: ReactNode;
+}) {
+  if (!tip) return <span className={className}>{children}</span>;
+  return (
+    <HoverTooltip className={className} content={tip}>
+      {children}
+    </HoverTooltip>
+  );
+}
 
 function getEventAriaLabel(ev: WeekGridEvent): string {
   const startMin = hhmmToMinutes(ev.startTime);
@@ -31,6 +52,14 @@ interface ScheduleEventCardProps {
   colSpan: number;
   /** Row span (in 30-min slots). */
   rowSpan: number;
+  /** Lane index when this event shares a column with overlapping events (#24). */
+  lane?: number;
+  /** Total lanes in this event's cluster; >1 means render side-by-side. */
+  laneCount?: number;
+  /** Event id shared by this event's segments, set only when it has >1 (#20). */
+  arcGroupId?: string;
+  /** This segment's order within the event, for arc ordering (#20). */
+  arcSegIndex?: number;
   style: SubjectStyle;
   isEditing: boolean;
   /**
@@ -58,49 +87,128 @@ export default function ScheduleEventCard({
   startRow,
   colSpan,
   rowSpan,
+  lane = 0,
+  laneCount = 1,
+  arcGroupId,
+  arcSegIndex,
   style,
   isEditing,
   weekRangeLabel = "",
   onClick,
 }: ScheduleEventCardProps) {
   const clickable = !!onClick;
+  // A 30-min event (single slot) is too short for the stacked title/type/body
+  // lines, so pack the info into two rows: [UC, teacher] / [type, room] (#24).
+  const compact = rowSpan === 1;
   const ariaLabel = weekRangeLabel
     ? `${getEventAriaLabel(ev)} — semanas ${weekRangeLabel}`
     : getEventAriaLabel(ev);
+
+  // Hover tooltips (#4): full UC name(s); teacher/room availability grids.
+  // The availability bodies only mount when the tooltip opens, so they fetch
+  // on hover, not on render.
+  const ucNames = ev.subjectNames?.length ? ev.subjectNames : ev.uc ? [ev.uc] : [];
+  const ucTip =
+    ucNames.length > 0 ? (
+      <span className="block font-semibold whitespace-pre-line">{ucNames.join("\n")}</span>
+    ) : undefined;
+  const roomsTip =
+    ev.rooms && ev.rooms.length > 0 ? (
+      ev.rooms.length === 1 ? (
+        <RoomAvailability roomId={ev.rooms[0]!.id} name={ev.rooms[0]!.name} fill />
+      ) : (
+        <div className="flex gap-3">
+          {ev.rooms.map((room) => (
+            <RoomAvailability key={room.id} roomId={room.id} name={room.name} />
+          ))}
+        </div>
+      )
+    ) : undefined;
   return (
     <button
       type="button"
       {...{ [SCHEDULE_EVENT_DATA_ATTR]: "" }}
+      data-arc-group={arcGroupId}
+      data-arc-seg={arcSegIndex}
+      data-arc-color={arcGroupId ? style.border : undefined}
       onClick={onClick ? () => onClick(ev) : undefined}
       aria-label={ariaLabel}
       aria-current={isEditing ? "true" : undefined}
-      className={`group relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/80 focus-visible:z-10 ${style.bg} ${style.text} ${
-        // Editing keeps the subject's own colors readable and signals selection
-        // with a light brand-red ring instead of a near-black fill (PI ToDo #11).
-        isEditing ? "border-[#C73F24] ring-2 ring-inset ring-[#C73F24] z-10" : style.border
+      className={`group relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C73F24]/70 focus-visible:z-10 ${
+        isEditing ? "z-10" : ""
       } ${clickable ? "cursor-pointer hover:brightness-95 transition" : "cursor-default"}`}
       style={{
         gridColumn: `${startCol} / span ${colSpan}`,
         gridRow: `${startRow} / span ${rowSpan}`,
+        ...(laneCount > 1
+          ? {
+              justifySelf: "start",
+              width: `calc(100% / ${laneCount})`,
+              marginLeft: `calc(100% * ${lane} / ${laneCount})`,
+            }
+          : null),
+        backgroundColor: style.background,
+        color: style.text,
+        // Editing keeps the subject's own colours and signals selection with a
+        // neutral ring that reads against any palette hue (PI ToDo #11).
+        borderColor: isEditing ? SUBJECT_SELECTION_RING : style.border,
+        boxShadow: isEditing ? `inset 0 0 0 2px ${SUBJECT_SELECTION_RING}` : undefined,
       }}
-      title={ev.title}
       disabled={!clickable}
     >
       <div
-        className="absolute inset-0 overflow-hidden px-1.5 py-1"
+        className="absolute inset-0 overflow-hidden px-1.5 py-0.5"
         style={{ maskImage: FADE_MASK, WebkitMaskImage: FADE_MASK }}
       >
-        {ev.title && <MarqueeText className="font-semibold">{ev.title}</MarqueeText>}
-        {ev.type && (
-          <MarqueeText className="text-[10px] uppercase leading-none opacity-70">
-            {ev.type}
-          </MarqueeText>
+        {compact ? (
+          <div className="flex h-full flex-col justify-center gap-px">
+            <div className="flex items-baseline gap-1">
+              {ev.title && (
+                <Field className="min-w-0 flex-1" tip={ucTip}>
+                  <MarqueeText className="font-semibold">{ev.title}</MarqueeText>
+                </Field>
+              )}
+              {ev.type && (
+                <MarqueeText className="min-w-0 max-w-[55%] text-[10px] uppercase leading-none opacity-70">
+                  {ev.type}
+                </MarqueeText>
+              )}
+            </div>
+            <div className="flex items-baseline gap-1">
+              {ev.teachers && ev.teachers.length > 0 && (
+                <TeacherHoverNames teachers={ev.teachers} className="min-w-0 flex-1" />
+              )}
+              {ev.sala && (
+                <Field className="min-w-0 max-w-[55%]" tip={roomsTip}>
+                  <MarqueeText className="opacity-80">{ev.sala}</MarqueeText>
+                </Field>
+              )}
+            </div>
+          </div>
+        ) : (
+          <>
+            {ev.title && (
+              <Field className="block" tip={ucTip}>
+                <MarqueeText className="font-semibold">{ev.title}</MarqueeText>
+              </Field>
+            )}
+            {ev.type && (
+              <MarqueeText className="text-[10px] uppercase leading-none opacity-70">
+                {ev.type}
+              </MarqueeText>
+            )}
+            {ev.teachers && ev.teachers.length > 0 && (
+              <TeacherHoverNames teachers={ev.teachers} className="block" />
+            )}
+            {ev.rooms && ev.rooms.length > 0 && (
+              <Field className="block" tip={roomsTip}>
+                <MarqueeText className="opacity-80">
+                  {ev.rooms.map((room) => room.name).join(", ")}
+                </MarqueeText>
+              </Field>
+            )}
+          </>
         )}
-        {ev.body?.map((line, i) => (
-          <MarqueeText key={i} className="opacity-80">
-            {line}
-          </MarqueeText>
-        ))}
       </div>
       {weekRangeLabel && (
         // Week range pinned to the bottom-right marks a session that only runs

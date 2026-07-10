@@ -3,7 +3,9 @@ import { useParams } from "react-router-dom";
 import WeekGrid from "@/components/schedule/WeekGrid";
 import EditEventDrawer from "@/components/schedule/EditEventDrawer";
 import ConflictsDrawer from "@/components/schedule/ConflictsDrawer";
+import DistributionModal from "@/components/schedule/DistributionModal";
 import ScheduleNavbar from "@/components/schedule/ScheduleNavbar";
+import { useEventUnavailability } from "@/components/schedule/useEventUnavailability";
 import { useEventEditor } from "@/components/schedule/useEventEditor";
 import { useProjectAccess } from "@/components/schedule/useProjectAccess";
 import { useParallelSessionsReminder } from "@/components/parallel/useParallelSessionsReminder";
@@ -13,6 +15,7 @@ import {
 } from "@/components/schedule/useScheduleFilters";
 import { useScheduleOptions } from "@/components/schedule/useScheduleOptions";
 import { useScheduleViewUrl } from "@/components/schedule/useScheduleViewUrl";
+import { createSubjectPalette } from "@/components/schedule/subjectColors";
 import { useTurnoTurmaSync } from "@/components/schedule/useTurnoTurmaSync";
 import { useProjectDegree, useProjectDegrees } from "@/api/hooks/project/degree";
 import { useProjectRooms } from "@/api/hooks/project/room";
@@ -51,6 +54,13 @@ export default function SchedulePage() {
 
   const eventEditor = useEventEditor();
   const [isConflictsDrawerOpen, setIsConflictsDrawerOpen] = useState(false);
+  const [isDistributionOpen, setIsDistributionOpen] = useState(false);
+
+  // Where the selected event's teacher(s)/room are unavailable (#5).
+  const unavailabilityMarks = useEventUnavailability(
+    projectId ?? "",
+    eventEditor.isOpen ? eventEditor.editingEvent : null,
+  );
 
   const canShowSchedule = curso !== "";
 
@@ -176,6 +186,13 @@ export default function SchedulePage() {
     setSemanas,
   });
 
+  // One palette for the whole page, keyed off the year's full UC list so each
+  // UC keeps its colour as the user changes other filters (#10).
+  const subjectPalette = useMemo(
+    () => createSubjectPalette(filters.ucOptions),
+    [filters.ucOptions],
+  );
+
   const handleSelectCurso = (nextCurso: string) => {
     setCurso(nextCurso);
     setAnos([]);
@@ -210,7 +227,7 @@ export default function SchedulePage() {
     <div className="h-screen bg-[#f0eeeb] flex flex-col overflow-hidden">
       <title>{project ? `Horário · ${project.name} · AGH` : "Horário · AGH"}</title>
       <ScheduleNavbar
-        anyDialogOpen={eventEditor.isOpen || isConflictsDrawerOpen}
+        anyDialogOpen={eventEditor.isOpen || isConflictsDrawerOpen || isDistributionOpen}
         projectId={projectId}
         curso={curso}
         setCurso={handleSelectCurso}
@@ -229,6 +246,7 @@ export default function SchedulePage() {
         weekOptions={filters.weekOptions}
         dayOptions={filters.dayOptions}
         ucOptions={filters.ucOptions}
+        subjectPalette={subjectPalette}
         turnoTurmaGroups={filters.turnoTurmaGroups}
         yearOptions={filters.yearOptions}
         courseOptions={courseOptions}
@@ -236,6 +254,13 @@ export default function SchedulePage() {
           void yearConflictsQuery.refetch();
           setIsConflictsDrawerOpen(true);
         }}
+        onViewDistribution={() => setIsDistributionOpen(true)}
+      />
+
+      <DistributionModal
+        open={isDistributionOpen}
+        onClose={() => setIsDistributionOpen(false)}
+        events={filters.scheduleEvents}
       />
 
       <ConflictsDrawer
@@ -280,6 +305,7 @@ export default function SchedulePage() {
           <div className="h-full min-h-0">
             <WeekGrid
               events={filters.scheduleEvents}
+              marks={unavailabilityMarks}
               emptyMessage="Sem eventos para mostrar"
               startTime={800}
               endTime={1930}
@@ -292,11 +318,12 @@ export default function SchedulePage() {
               includeEndSlot
               headerHeightPx={22}
               hourLabelFontPx={12}
-              slotHeightPx={26}
+              slotHeightPx={30}
               showHalfHourLabels
               showHalfHourDividers
               editingEventId={eventEditor.isOpen ? eventEditor.editingEvent?.id : undefined}
-              onEventClick={eventEditor.openEditor}
+              subjectPalette={subjectPalette}
+              onEventClick={(event) => eventEditor.openEditor(event, true)}
               onHorizontalScroll={() => eventEditor.setIsCollapsed(true)}
             />
           </div>

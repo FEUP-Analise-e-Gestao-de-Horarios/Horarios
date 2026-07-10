@@ -6,7 +6,7 @@ import CursoDropdown from "./CursoDropdown";
 import { SCHEDULE_NAVBAR_DATA_ATTR } from "./dismissable";
 import MultiDropdown from "./MultiDropdown";
 import TurnoTurmaDropdown, { type TurnoTurmaGroup } from "./TurnoTurmaDropdown";
-import { styleForSubjectDark } from "./subjectColors";
+import { styleForSubject, type SubjectPalette } from "./subjectColors";
 import type { CourseGroup, DropdownOption } from "./types";
 import { useDismissable } from "./useDismissable";
 
@@ -29,10 +29,12 @@ interface ScheduleNavbarProps {
   weekOptions: DropdownOption[];
   dayOptions: DropdownOption[];
   ucOptions: string[];
+  subjectPalette: SubjectPalette;
   turnoTurmaGroups: TurnoTurmaGroup[];
   yearOptions: DropdownOption[];
   courseOptions: CourseGroup[];
   onViewConflicts: () => void;
+  onViewDistribution: () => void;
   // When a drawer/dialog opens, any open filter dropdown should collapse.
   anyDialogOpen: boolean;
 }
@@ -58,10 +60,12 @@ export default function ScheduleNavbar({
   weekOptions,
   dayOptions,
   ucOptions,
+  subjectPalette,
   turnoTurmaGroups,
   yearOptions,
   courseOptions,
   onViewConflicts,
+  onViewDistribution,
   anyDialogOpen,
 }: ScheduleNavbarProps) {
   const primaryRedButtonClass =
@@ -151,7 +155,7 @@ export default function ScheduleNavbar({
         disabled={!curso}
         showLabel
         fitContent
-        getOptionStyle={styleForSubjectDark}
+        getOptionStyle={(uc) => styleForSubject(subjectPalette, uc)}
       />
 
       <TurnoTurmaDropdown
@@ -203,9 +207,9 @@ export default function ScheduleNavbar({
 
       <button
         type="button"
-        disabled
-        title="Funcionalidade ainda não disponível"
-        className="bg-transparent text-gray-500 font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 cursor-not-allowed"
+        onClick={onViewDistribution}
+        disabled={!curso}
+        className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors disabled:text-gray-500 disabled:hover:border-gray-600 disabled:hover:bg-transparent disabled:cursor-not-allowed"
       >
         Distribuição
       </button>
