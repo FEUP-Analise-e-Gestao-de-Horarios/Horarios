@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent, RefObject } from "react";
 import type { ParallelCandidateEdge, UUID } from "@/types/parallelSessions";
-import type { NodePosition } from "./parallelGraph";
+import type { NodePosition } from "./parallelGraphUtils";
 
 /** Coulomb-style repulsion strength between every pair of nodes. */
 const REPULSION = 16000;
