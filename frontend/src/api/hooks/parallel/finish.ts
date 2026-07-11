@@ -6,6 +6,7 @@ import { api } from "@/api/client";
 import { ROUTES } from "@/routes";
 import { queryKeys } from "@/api/queryKeys";
 import type { ParallelCandidateGraph, UUID } from "@/types/parallelSessions";
+import type { Project } from "@/types/project/project";
 import { getErrorMessage } from "@/api/errors";
 import { handleStaleConfirmError, type StaleConfirmScope } from "./errors";
 import type { SavingControls } from "./saving";
@@ -43,6 +44,16 @@ export function useParallelFinish(params: {
 
   const backRoute = ROUTES.SCHEDULE.replace(":projectId", projectId ?? "");
 
+  // Flip the cached project's flag right away so the schedule page — which reads
+  // the (inactive) detail query from cache — doesn't fire the "review parallel
+  // sessions" reminder off stale data before the background refetch lands.
+  const markDetailSelected = () => {
+    queryClient.setQueryData<Project>(
+      queryKeys.projects.detail(projectId ?? String(projectIdNum)),
+      (old) => (old ? { ...old, has_selected_parallel_sessions: true } : old),
+    );
+  };
+
   const handleBack = () => {
     rememberView();
     void navigate(backRoute);
@@ -62,6 +73,7 @@ export function useParallelFinish(params: {
     api
       .post(`/api/projects/${projectIdNum}/parallel-blocks/finish`, {})
       .then(() => {
+        markDetailSelected();
         // Refresh the project list so ProjectCard sees the updated flag.
         void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
         setShowFinishModal(false);
@@ -98,6 +110,7 @@ export function useParallelFinish(params: {
       .then(() => api.post(`/api/projects/${projectIdNum}/parallel-blocks/finish`, {}))
       .then(() => {
         setConfirmedSubjectIds(new Set(graphs.map((g) => g.subject.id)));
+        markDetailSelected();
         // Drop the cached candidates payload so its confirmed flags are refetched.
         void queryClient.invalidateQueries({
           queryKey: queryKeys.projects.parallelCandidates(String(projectIdNum)),
