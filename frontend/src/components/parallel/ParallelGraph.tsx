@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ParallelBlockNode, ParallelCandidateGraph, UUID } from "@/types/parallelSessions";
 import GraphInspector, { type HoverTarget } from "./GraphInspector";
-import { buildAdjacency } from "./parallelGraph";
+import { buildAdjacency } from "./parallelGraphUtils";
 import { useForceSimulation } from "./useForceSimulation";
 
 interface ParallelGraphProps {

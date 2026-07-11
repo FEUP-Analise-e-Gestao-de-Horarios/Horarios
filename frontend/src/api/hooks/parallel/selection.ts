@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { buildAdjacency, isConnectedSelection } from "@/components/parallel/parallelGraph";
+import { buildAdjacency, isConnectedSelection } from "@/components/parallel/parallelGraphUtils";
 import type { ParallelCandidateGraph, UUID } from "@/types/parallelSessions";
 
 /** Owns the per-component in-progress node selection and the single source of
