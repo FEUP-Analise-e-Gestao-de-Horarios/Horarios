@@ -87,6 +87,8 @@ export interface UseParallelSessionsReturn {
   handleRemoveGroups: (groupIds: string[]) => void;
   handleBack: () => void;
   handleNavigateHome: () => void;
+  handleNavigateExport: () => void;
+  handleNavigateDashboard: () => void;
   handleReset: () => void;
   confirmReset: () => void;
 }
@@ -211,6 +213,8 @@ export function useParallelSessions(): UseParallelSessionsReturn {
     handleRemoveGroups: groups.handleRemoveGroups,
     handleBack: finish.handleBack,
     handleNavigateHome: finish.handleNavigateHome,
+    handleNavigateExport: finish.handleNavigateExport,
+    handleNavigateDashboard: finish.handleNavigateDashboard,
     handleReset: finish.handleReset,
     confirmReset: finish.confirmReset,
   };

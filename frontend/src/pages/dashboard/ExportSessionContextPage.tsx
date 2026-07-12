@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useParams, useSearchParams } from "react-router-dom";
 import { X } from "lucide-react";
 import { api } from "@/api/client";
-import { useProject } from "@/api/hooks/project/project";
+import { useProjectAccess } from "@/api/hooks/project/access";
 import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
 import SessionPopup from "@/components/dashboard/SessionPopup";
 import WeekGrid, { type WeekGridEvent, type WeekGridMark } from "@/components/dashboard/WeekGrid";
@@ -359,7 +359,8 @@ export default function ExportSessionContextPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const [searchParams] = useSearchParams();
   const pid = projectId ?? "";
-  const project = useProject(pid);
+  const { project, isPending: isProjectPending, isError: isProjectError } = useProjectAccess(pid);
+  const isReady = !!project?.ingestion_finished_at;
   const preview = parseExportSessionPreview(searchParams);
   const contextIds = parseExportSessionContextIds(searchParams);
   const highlightedEventIds = parseHighlightedSessionIds(searchParams);
@@ -376,6 +377,7 @@ export default function ExportSessionContextPage() {
       ),
     enabled:
       !!pid &&
+      isReady &&
       !!preview &&
       (contextIds.classIds.length > 0 ||
         contextIds.roomIds.length > 0 ||
@@ -455,12 +457,28 @@ export default function ExportSessionContextPage() {
       ? "border-green-300 bg-green-50 text-green-800"
       : "border-red-300 bg-red-50 text-red-800";
 
+  if (isProjectError) {
+    return (
+      <div className="h-screen bg-[#f0eeeb] flex items-center justify-center text-center text-gray-500 text-lg">
+        Não foi possível carregar o projeto.
+      </div>
+    );
+  }
+
+  // Covers the not-yet-imported project too: useProjectAccess is redirecting to
+  // the dashboard, so hold the placeholder rather than flashing an empty page.
+  if (isProjectPending || !project?.ingestion_finished_at) {
+    return (
+      <div className="h-screen bg-[#f0eeeb] flex items-center justify-center text-center text-gray-500 text-lg">
+        A carregar…
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen flex flex-col bg-[#f0eeeb]">
-      <title>
-        {project.data ? `${pageTitle} · ${project.data.name} · AGH` : `${pageTitle} · AGH`}
-      </title>
-      <DashboardNavbar projectId={pid} isReady={!!project.data?.ingestion_finished_at} />
+      <title>{`${pageTitle} · ${project.name} · AGH`}</title>
+      <DashboardNavbar projectId={pid} isReady />
 
       <main
         className={`min-h-0 flex-1 ${timetableLayout.isPreviewMode ? "overflow-hidden" : "overflow-auto"}`}

@@ -7,7 +7,7 @@ import DistributionModal from "@/components/schedule/DistributionModal";
 import ScheduleNavbar from "@/components/schedule/ScheduleNavbar";
 import { useEventUnavailability } from "@/components/schedule/useEventUnavailability";
 import { useEventEditor } from "@/components/schedule/useEventEditor";
-import { useProjectAccess } from "@/components/schedule/useProjectAccess";
+import { useProjectAccess } from "@/api/hooks/project/access";
 import { useParallelSessionsReminder } from "@/components/parallel/useParallelSessionsReminder";
 import {
   pickSelectedYearNumber,

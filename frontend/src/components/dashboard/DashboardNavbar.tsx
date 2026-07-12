@@ -1,7 +1,8 @@
 import { Eye, EyeOff } from "lucide-react";
-import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { ROUTES } from "@/routes";
 import { buildPath } from "@/utils/routes";
+import MainNavMenu, { type MainNavItem } from "@/components/nav/MainNavMenu";
 import { useDashboardConflictHighlights } from "./useDashboardConflictHighlights";
 
 interface DashboardNavbarProps {
@@ -11,10 +12,17 @@ interface DashboardNavbarProps {
 
 export default function DashboardNavbar({ projectId, isReady }: DashboardNavbarProps) {
   const dashboardPath = buildPath(ROUTES.DASHBOARD, { projectId });
+  const exportPath = buildPath(ROUTES.EXPORT, { projectId });
   const { pathname } = useLocation();
+  // The detail pages (degree, teacher, room, …) share this navbar, so "Dados"
+  // is the way back up to the dashboard from them — but on the dashboard itself
+  // it leads nowhere and is only the dropdown handle.
   const isOnDashboard = pathname === dashboardPath;
-  const [searchParams] = useSearchParams();
+  // The exporter reuses this navbar, so the trigger has to name whichever of
+  // the two pages we are actually on.
+  const isOnExporter = pathname === exportPath;
   const isDashboardRoute = pathname === dashboardPath || pathname.startsWith(`${dashboardPath}/`);
+  const [searchParams] = useSearchParams();
   const isExporterContext =
     searchParams.has("conflictSessions") ||
     searchParams.has("conflictWeeks") ||
@@ -22,59 +30,41 @@ export default function DashboardNavbar({ projectId, isReady }: DashboardNavbarP
   const { enabled: conflictHighlightsEnabled, toggle: toggleConflictHighlights } =
     useDashboardConflictHighlights(projectId);
 
+  const items: MainNavItem[] = [
+    {
+      key: "dados",
+      label: "Dados",
+      to: isOnDashboard ? undefined : dashboardPath,
+      current: !isOnExporter,
+    },
+    {
+      key: "horario",
+      label: "Horário",
+      to: buildPath(ROUTES.SCHEDULE, { projectId }),
+      disabled: !isReady,
+      disabledTitle: "Horário ainda não disponível",
+    },
+    {
+      key: "paralelas",
+      label: "Aulas em Paralelo",
+      to: buildPath(ROUTES.PARALLEL_SESSIONS, { projectId }),
+      disabled: !isReady,
+      disabledTitle: "Aulas em paralelo ainda não disponíveis",
+    },
+    {
+      key: "exportar",
+      label: "Exportar",
+      to: isOnExporter ? undefined : exportPath,
+      current: isOnExporter,
+      disabled: !isReady,
+      disabledTitle: "Exportação ainda não disponível",
+    },
+    { key: "inicio", label: "Início", to: ROUTES.HOME },
+  ];
+
   return (
     <header className="px-6 py-3 bg-[#1e2028] flex items-center gap-2 border-b border-gray-700">
-      <Link
-        to={ROUTES.HOME}
-        className="bg-[#8C2C19] text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap hover:bg-[#A9361E] transition-colors"
-      >
-        Início
-      </Link>
-      {isOnDashboard ? (
-        <button
-          disabled
-          className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 opacity-40 cursor-not-allowed"
-        >
-          Dados
-        </button>
-      ) : (
-        <Link
-          to={dashboardPath}
-          className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 transition-colors hover:border-gray-400 hover:bg-white/5"
-        >
-          Dados
-        </Link>
-      )}
-      {isReady ? (
-        <Link
-          to={buildPath(ROUTES.SCHEDULE, { projectId })}
-          className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 transition-colors hover:border-gray-400 hover:bg-white/5"
-        >
-          Horário
-        </Link>
-      ) : (
-        <button
-          disabled
-          className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 opacity-40 cursor-not-allowed"
-        >
-          Horário
-        </button>
-      )}
-      {isReady ? (
-        <Link
-          to={buildPath(ROUTES.EXPORT, { projectId })}
-          className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 transition-colors hover:border-gray-400 hover:bg-white/5"
-        >
-          Exportar
-        </Link>
-      ) : (
-        <button
-          disabled
-          className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 opacity-40 cursor-not-allowed"
-        >
-          Exportar
-        </button>
-      )}
+      <MainNavMenu items={items} />
       {isDashboardRoute && !isExporterContext && (
         <button
           type="button"

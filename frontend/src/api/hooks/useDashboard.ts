@@ -19,7 +19,13 @@ function hasAddedRemovedNavigationData(data: ProjectExportPayload): boolean {
   );
 }
 
-export function useProjectExport(projectId: string) {
+/** `enabled` lets a caller hold the request back until the project is known to
+ * be importable — an export POST against an unimported project has no data to
+ * read and would only fault the backend's export engine. */
+export function useProjectExport(
+  projectId: string,
+  { enabled = true }: { enabled?: boolean } = {},
+) {
   const recalculateExportGraph = useRef(false);
   const refreshedAddedRemovedNavigation = useRef(false);
   const query = useQuery({
@@ -48,7 +54,7 @@ export function useProjectExport(projectId: string) {
 
       return data;
     },
-    enabled: !!projectId,
+    enabled: !!projectId && enabled,
     refetchOnWindowFocus: false,
     staleTime: 0,
   });

@@ -5,7 +5,8 @@ import { ROUTES } from "@/routes";
 import { buildPath } from "@/utils/routes";
 
 /**
- * Loads the project and gates access to the schedule on it:
+ * Loads the project and gates access to the pages that only make sense once the
+ * import has finished (the schedule and the parallel-sessions selection):
  *
  * - if no `projectId` is provided, redirects to `HOME`;
  * - if the project loads but its ingestion isn't finished, redirects to the
