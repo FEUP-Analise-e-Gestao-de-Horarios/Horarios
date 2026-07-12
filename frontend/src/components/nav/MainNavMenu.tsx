@@ -11,7 +11,11 @@ export interface MainNavItem {
   to?: string;
   /** Imperative action (e.g. programmatic navigation). */
   onClick?: () => void;
-  /** The page we are currently on: renders as the trigger, not in the panel. */
+  /**
+   * The page we are currently on: renders as the trigger, not in the panel.
+   * Leave both `to` and `onClick` off to say the trigger has nowhere to go, and
+   * it becomes a non-navigating dropdown handle.
+   */
   current?: boolean;
   /** Reachable but temporarily unavailable (e.g. schedule not generated yet). */
   disabled?: boolean;
@@ -25,11 +29,14 @@ const ITEM_BASE =
 /**
  * Collapses the primary cross-page navigation into a single hover dropdown.
  *
- * The trigger is the most relevant destination for the current page (the "you
- * are here" anchor); it navigates on click, and hovering or focusing it reveals
+ * The trigger is the "you are here" anchor; hovering or focusing it reveals
  * every other destination stacked underneath. Shared by the dashboard, schedule
  * and parallel-sessions headers so the main navigation looks and behaves
  * identically on every page.
+ *
+ * A trigger only navigates when it has somewhere to go — the dashboard's "Dados"
+ * leads back up from the detail pages, for instance. On the page it names, it
+ * carries no destination and is just the handle that opens the panel.
  *
  * The trigger and panel live inside one wrapper with a padded (not margined)
  * gap, so the pointer never leaves the hover region while travelling from the
@@ -46,8 +53,13 @@ export default function MainNavMenu({ items }: { items: MainNavItem[] }) {
 
   if (!trigger) return null;
 
-  const triggerClass =
-    "flex items-center gap-1.5 bg-[#8C2C19] text-white font-semibold pl-3.5 pr-2.5 py-2 rounded text-sm whitespace-nowrap hover:bg-[#A9361E] transition-colors cursor-pointer";
+  // A trigger with no destination is the page we are already on: it stays a
+  // focusable dropdown handle (so it opens without a pointer), but it does not
+  // navigate, so it must not look clickable either.
+  const inert = !trigger.to && !trigger.onClick;
+  const triggerClass = `flex items-center gap-1.5 bg-[#8C2C19] text-white font-semibold pl-3.5 pr-2.5 py-2 rounded text-sm whitespace-nowrap transition-colors ${
+    inert ? "cursor-default" : "hover:bg-[#A9361E] cursor-pointer"
+  }`;
   const chevron = (
     <ChevronDown
       className={`h-4 w-4 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
@@ -80,6 +92,12 @@ export default function MainNavMenu({ items }: { items: MainNavItem[] }) {
           aria-expanded={open}
           onFocus={() => setOpen(true)}
           onClick={() => {
+            // Nowhere to go: the click is the touch/keyboard way to open the
+            // panel, since those users get no hover.
+            if (inert) {
+              setOpen((wasOpen) => !wasOpen);
+              return;
+            }
             setOpen(false);
             trigger.onClick?.();
           }}

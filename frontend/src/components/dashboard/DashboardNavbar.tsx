@@ -1,3 +1,4 @@
+import { useLocation } from "react-router-dom";
 import { ROUTES } from "@/routes";
 import { buildPath } from "@/utils/routes";
 import MainNavMenu, { type MainNavItem } from "@/components/nav/MainNavMenu";
@@ -8,11 +9,17 @@ interface DashboardNavbarProps {
 }
 
 export default function DashboardNavbar({ projectId, isReady }: DashboardNavbarProps) {
+  const dashboardPath = buildPath(ROUTES.DASHBOARD, { projectId });
+  // The detail pages (degree, teacher, room, …) share this navbar, so "Dados"
+  // is the way back up to the dashboard from them — but on the dashboard itself
+  // it leads nowhere and is only the dropdown handle.
+  const isOnDashboard = useLocation().pathname === dashboardPath;
+
   const items: MainNavItem[] = [
     {
       key: "dados",
       label: "Dados",
-      to: buildPath(ROUTES.DASHBOARD, { projectId }),
+      to: isOnDashboard ? undefined : dashboardPath,
       current: true,
     },
     {

@@ -101,7 +101,6 @@ export default function ParallelSessionsPage() {
   return (
     <div className="h-screen flex flex-col bg-[#f0eeeb]">
       <ParallelHeader
-        projectId={projectId ?? ""}
         saving={saving}
         onNavigateHome={handleNavigateHome}
         onNavigateDashboard={handleNavigateDashboard}

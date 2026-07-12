@@ -101,12 +101,7 @@ export default function ScheduleNavbar({
     >
       <MainNavMenu
         items={[
-          {
-            key: "horario",
-            label: "Horário",
-            to: buildPath(ROUTES.SCHEDULE, { projectId }),
-            current: true,
-          },
+          { key: "horario", label: "Horário", current: true },
           { key: "dados", label: "Dados", to: buildPath(ROUTES.DASHBOARD, { projectId }) },
           {
             key: "paralelas",
