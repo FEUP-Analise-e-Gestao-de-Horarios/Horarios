@@ -1,6 +1,9 @@
 import MainNavMenu from "@/components/nav/MainNavMenu";
+import { ROUTES } from "@/routes";
+import { buildPath } from "@/utils/routes";
 
 export default function ParallelHeader({
+  projectId,
   saving,
   onNavigateHome,
   onNavigateDashboard,
@@ -8,6 +11,7 @@ export default function ParallelHeader({
   onReset,
   onFinish,
 }: {
+  projectId: string;
   saving: boolean;
   onNavigateHome: () => void;
   onNavigateDashboard: () => void;
@@ -19,7 +23,12 @@ export default function ParallelHeader({
     <header className="shrink-0 sticky top-0 z-50 px-6 py-3 bg-[#1e2028] flex items-center gap-2 w-full flex-wrap border-b border-gray-700">
       <MainNavMenu
         items={[
-          { key: "paralelas", label: "Aulas em Paralelo", current: true },
+          {
+            key: "paralelas",
+            label: "Aulas em Paralelo",
+            to: buildPath(ROUTES.PARALLEL_SESSIONS, { projectId }),
+            current: true,
+          },
           { key: "horario", label: "Horário", onClick: onBack },
           { key: "dados", label: "Dados", onClick: onNavigateDashboard },
           { key: "inicio", label: "Início", onClick: onNavigateHome },
