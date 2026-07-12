@@ -1,3 +1,5 @@
+import { useParams } from "react-router-dom";
+import { useProjectAccess } from "@/api/hooks/project/access";
 import { useParallelSessionsView } from "@/components/parallel/useParallelSessionsView";
 import ParallelHeader from "@/components/parallel/ParallelHeader";
 import SubjectSelectors from "@/components/parallel/SubjectSelectors";
@@ -9,6 +11,12 @@ import FinishModal from "@/components/parallel/FinishModal";
 import StaleConfirmModal from "@/components/parallel/StaleConfirmModal";
 
 export default function ParallelSessionsPage() {
+  const { projectId } = useParams<{ projectId: string }>();
+  const {
+    project,
+    isPending: isProjectPending,
+    isError: isProjectError,
+  } = useProjectAccess(projectId);
   const {
     saving,
     handleNavigateHome,
@@ -71,6 +79,24 @@ export default function ParallelSessionsPage() {
     staleConfirmScope,
     setStaleConfirmScope,
   } = useParallelSessionsView();
+
+  if (isProjectError) {
+    return (
+      <div className="h-screen bg-[#f0eeeb] flex items-center justify-center text-center text-gray-500 text-lg">
+        Não foi possível carregar o projeto.
+      </div>
+    );
+  }
+
+  // Covers the not-yet-imported project too: useProjectAccess is redirecting to
+  // the dashboard, so hold the placeholder rather than flashing an empty page.
+  if (isProjectPending || !project?.ingestion_finished_at) {
+    return (
+      <div className="h-screen bg-[#f0eeeb] flex items-center justify-center text-center text-gray-500 text-lg">
+        A carregar…
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col bg-[#f0eeeb]">

@@ -26,6 +26,8 @@ export default function DashboardNavbar({ projectId, isReady }: DashboardNavbarP
       key: "paralelas",
       label: "Aulas em Paralelo",
       to: buildPath(ROUTES.PARALLEL_SESSIONS, { projectId }),
+      disabled: !isReady,
+      disabledTitle: "Aulas em paralelo ainda não disponíveis",
     },
     { key: "inicio", label: "Início", to: ROUTES.HOME },
   ];
