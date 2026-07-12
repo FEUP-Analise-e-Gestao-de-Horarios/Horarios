@@ -64,6 +64,11 @@ export function useParallelFinish(params: {
     void navigate(ROUTES.HOME);
   };
 
+  const handleNavigateDashboard = () => {
+    rememberView();
+    void navigate(ROUTES.DASHBOARD.replace(":projectId", projectId ?? ""));
+  };
+
   // Mark this project's parallel-selection step done, then leave for the
   // schedule. Set on every Terminar exit (confirmed or not) so the home card
   // stops routing back here; only leaves once the write lands.
@@ -183,6 +188,7 @@ export function useParallelFinish(params: {
     finishLater,
     handleBack,
     handleNavigateHome,
+    handleNavigateDashboard,
     handleReset,
     confirmReset,
   };
