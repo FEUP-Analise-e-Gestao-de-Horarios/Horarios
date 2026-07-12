@@ -12,6 +12,7 @@ export default function ParallelSessionsPage() {
   const {
     saving,
     handleNavigateHome,
+    handleNavigateDashboard,
     handleBack,
     handleReset,
     handleFinish,
@@ -76,6 +77,7 @@ export default function ParallelSessionsPage() {
       <ParallelHeader
         saving={saving}
         onNavigateHome={handleNavigateHome}
+        onNavigateDashboard={handleNavigateDashboard}
         onBack={handleBack}
         onReset={handleReset}
         onFinish={handleFinish}

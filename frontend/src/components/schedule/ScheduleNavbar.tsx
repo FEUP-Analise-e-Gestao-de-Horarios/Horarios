@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
 import { ROUTES } from "@/routes";
 import { buildPath } from "@/utils/routes";
+import MainNavMenu from "@/components/nav/MainNavMenu";
 import CursoDropdown from "./CursoDropdown";
 import { SCHEDULE_NAVBAR_DATA_ATTR } from "./dismissable";
 import MultiDropdown from "./MultiDropdown";
@@ -68,11 +68,8 @@ export default function ScheduleNavbar({
   onViewDistribution,
   anyDialogOpen,
 }: ScheduleNavbarProps) {
-  const primaryRedButtonClass =
-    "bg-[#8C2C19] text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap hover:bg-[#A9361E] transition-colors";
   const [openDropdown, setOpenDropdown] = useState<DropdownId | null>(null);
   const navRef = useRef<HTMLElement>(null);
-  const navigate = useNavigate();
 
   useDismissable(navRef, () => setOpenDropdown(null), { escape: true });
 
@@ -102,16 +99,23 @@ export default function ScheduleNavbar({
       {...{ [SCHEDULE_NAVBAR_DATA_ATTR]: "" }}
       className="relative z-50 shrink-0 px-6 py-3 bg-[#1e2028] flex items-center gap-2 w-full flex-wrap overflow-visible border-b border-gray-700"
     >
-      <Link to={ROUTES.HOME} className={primaryRedButtonClass}>
-        Início
-      </Link>
-
-      <Link
-        to={buildPath(ROUTES.DASHBOARD, { projectId })}
-        className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors"
-      >
-        Dados
-      </Link>
+      <MainNavMenu
+        items={[
+          {
+            key: "horario",
+            label: "Horário",
+            to: buildPath(ROUTES.SCHEDULE, { projectId }),
+            current: true,
+          },
+          { key: "dados", label: "Dados", to: buildPath(ROUTES.DASHBOARD, { projectId }) },
+          {
+            key: "paralelas",
+            label: "Aulas em Paralelo",
+            to: buildPath(ROUTES.PARALLEL_SESSIONS, { projectId }),
+          },
+          { key: "inicio", label: "Início", to: ROUTES.HOME },
+        ]}
+      />
       <button
         type="button"
         disabled
@@ -192,15 +196,6 @@ export default function ScheduleNavbar({
         disabled={!curso || weekOptions.length === 0}
         showLabel
       />
-
-      <div className="border-l border-gray-600 h-5 mx-1" />
-
-      <button
-        onClick={() => void navigate(buildPath(ROUTES.PARALLEL_SESSIONS, { projectId }))}
-        className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 hover:border-gray-400 hover:bg-white/5 transition-colors"
-      >
-        Editar Aulas em Paralelo
-      </button>
 
       <div className="border-l border-gray-600 h-5 mx-1" />
 

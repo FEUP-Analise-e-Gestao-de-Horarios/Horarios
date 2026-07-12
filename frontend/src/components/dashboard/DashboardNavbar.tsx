@@ -1,6 +1,6 @@
-import { Link, useLocation } from "react-router-dom";
 import { ROUTES } from "@/routes";
 import { buildPath } from "@/utils/routes";
+import MainNavMenu, { type MainNavItem } from "@/components/nav/MainNavMenu";
 
 interface DashboardNavbarProps {
   projectId: string;
@@ -8,47 +8,31 @@ interface DashboardNavbarProps {
 }
 
 export default function DashboardNavbar({ projectId, isReady }: DashboardNavbarProps) {
-  const dashboardPath = buildPath(ROUTES.DASHBOARD, { projectId });
-  const isOnDashboard = useLocation().pathname === dashboardPath;
+  const items: MainNavItem[] = [
+    {
+      key: "dados",
+      label: "Dados",
+      to: buildPath(ROUTES.DASHBOARD, { projectId }),
+      current: true,
+    },
+    {
+      key: "horario",
+      label: "Horário",
+      to: buildPath(ROUTES.SCHEDULE, { projectId }),
+      disabled: !isReady,
+      disabledTitle: "Horário ainda não disponível",
+    },
+    {
+      key: "paralelas",
+      label: "Aulas em Paralelo",
+      to: buildPath(ROUTES.PARALLEL_SESSIONS, { projectId }),
+    },
+    { key: "inicio", label: "Início", to: ROUTES.HOME },
+  ];
 
   return (
     <header className="px-6 py-3 bg-[#1e2028] flex items-center gap-2 border-b border-gray-700">
-      <Link
-        to={ROUTES.HOME}
-        className="bg-[#8C2C19] text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap hover:bg-[#A9361E] transition-colors"
-      >
-        Início
-      </Link>
-      {isOnDashboard ? (
-        <button
-          disabled
-          className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 opacity-40 cursor-not-allowed"
-        >
-          Dados
-        </button>
-      ) : (
-        <Link
-          to={dashboardPath}
-          className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 transition-colors hover:border-gray-400 hover:bg-white/5"
-        >
-          Dados
-        </Link>
-      )}
-      {isReady ? (
-        <Link
-          to={buildPath(ROUTES.SCHEDULE, { projectId })}
-          className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 transition-colors hover:border-gray-400 hover:bg-white/5"
-        >
-          Horário
-        </Link>
-      ) : (
-        <button
-          disabled
-          className="bg-transparent text-white font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 opacity-40 cursor-not-allowed"
-        >
-          Horário
-        </button>
-      )}
+      <MainNavMenu items={items} />
     </header>
   );
 }
