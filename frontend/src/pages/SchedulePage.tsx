@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
 import type { ClassBase } from "@/types/project/class";
@@ -91,8 +91,12 @@ export default function SchedulePage() {
   // it live and a placement click can write straight into it.
   const localEdits = useLocalSessionEdits();
   const [formState, dispatchForm] = useEventDrawerForm(eventEditor.editingEvent);
+  // Layout effect (not a plain effect): it must reset the form before the
+  // browser paints. Otherwise the just-opened event briefly renders with the
+  // previous event's (or the default) day/time/turma live-preview override
+  // merged onto it — a one-frame flash to the wrong slot before this runs.
   const lastEditingEventRef = useRef(eventEditor.editingEvent);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (lastEditingEventRef.current !== eventEditor.editingEvent) {
       lastEditingEventRef.current = eventEditor.editingEvent;
       dispatchForm({ type: "reset", event: eventEditor.editingEvent });
@@ -241,6 +245,11 @@ export default function SchedulePage() {
     );
   };
 
+  const classesForCodes = (codes: string[] | undefined): ClassBase[] =>
+    (codes ?? [])
+      .map((code) => overrideLookups.classesByCode.get(code))
+      .filter((classItem): classItem is ClassBase => !!classItem);
+
   // Warns (never blocks) when the draft moves the open event to a different
   // turma or into a slot its docente, sala or turma isn't available for — the
   // only two cases worth flagging.
@@ -302,13 +311,7 @@ export default function SchedulePage() {
       weekday: nextState.selectedWeekday,
       start_time: nextHhmm,
       duration: nextState.durationSlots,
-      ...(turmaChanged
-        ? {
-            classes: nextState.selectedTurmasOverride
-              .map((code) => overrideLookups.classesByCode.get(code))
-              .filter((classItem): classItem is ClassBase => !!classItem),
-          }
-        : {}),
+      ...(turmaChanged ? { classes: classesForCodes(nextState.selectedTurmasOverride) } : {}),
     });
     const warning = warningFor(editing, nextState);
     const move = `${slotLabel(editing.weekday, editing.startTime)} → ${slotLabel(nextState.selectedWeekday, nextHhmm)}`;
@@ -321,7 +324,9 @@ export default function SchedulePage() {
   };
 
   // Clicking a second, different event while one is open trades their slots
-  // instead of retargeting the drawer to the new one.
+  // *and* their turma — a full swap, so each card actually crosses over into
+  // the other's column when they belong to different classes, not just its
+  // own column at a different time.
   const swapEvents = (a: WeekGridEvent, b: WeekGridEvent) => {
     const previousA = localEdits.overrides[a.sessionId];
     const previousB = localEdits.overrides[b.sessionId];
@@ -329,11 +334,13 @@ export default function SchedulePage() {
       weekday: b.weekday,
       start_time: b.startTime,
       duration: b.duration,
+      classes: classesForCodes(b.classCodes),
     });
     localEdits.commit(b.sessionId, {
       weekday: a.weekday,
       start_time: a.startTime,
       duration: a.duration,
+      classes: classesForCodes(a.classCodes),
     });
     notifyChange({
       sessionIds: [a.sessionId, b.sessionId],
