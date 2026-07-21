@@ -49,15 +49,25 @@ class SessionSplitRequest(BaseModel):
 
     `class_ids` must be a non-empty, *proper* subset of the target session's
     current classes — detaching all of them is a rename, not a split (use
-    PATCH instead). The detached classes get their own new session, one row
-    per week in `weeks` (same fan-out semantics as `SessionPatchRequest`;
-    empty/omitted means just the target's own week), sharing a freshly
-    generated `original_block_id` so the split-off slot is a proper
-    recurring block in its own right. `teacher_ids`/`room_ids`/`subject_ids`
-    default to the target's own current values when omitted.
+    PATCH instead). Those classes are removed from the target session, one
+    row per week in `weeks` (same fan-out semantics as `SessionPatchRequest`;
+    empty/omitted means just the target's own week).
+
+    The detached slot's own new session teaches `new_class_ids` when given,
+    or `class_ids` itself when omitted — the common case, where the slot
+    keeps teaching the same class(es), just at a new time/teacher/room.
+    Setting `new_class_ids` to something else reassigns the detached slot to
+    a *different* class in the same move — `new_class_ids` needn't have
+    anything to do with `class_ids` or the target session's own classes.
+
+    The new session shares one freshly generated `original_block_id` across
+    every week in scope, so the split-off slot is a proper recurring block
+    in its own right. `teacher_ids`/`room_ids`/`subject_ids` default to the
+    target's own current values when omitted.
     """
 
     class_ids: list[UUID] = Field(min_length=1)
+    new_class_ids: list[UUID] | None = Field(default=None, min_length=1)
     weekday: WeekDay
     start_time: int = Field(ge=0, le=2359)
     duration: int = Field(ge=1)

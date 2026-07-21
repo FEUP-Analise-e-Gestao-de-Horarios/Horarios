@@ -188,6 +188,61 @@ def test_explicit_subject_ids_used_for_created_session(
     assert {s["id"] for s in created["subjects"]} == {str(other_subject.id)}
 
 
+def test_new_class_ids_reassigns_the_detached_slot_to_a_different_class(
+    auth_client: Client,
+    project: Project,
+    project_db,
+) -> None:
+    # classes[0] is detached off the shared session, but the resulting new
+    # session should teach a class that was never even part of it — the
+    # "move this turma's slot to a different turma entirely" case.
+    session_row, classes, _, year = _seed_three_class_session(project_db)
+    unrelated_class = make_class(project_db, year=year, code="2LEIC01")
+
+    response = _post(
+        auth_client,
+        _url(project.pk, session_row.id),
+        {
+            "class_ids": [str(classes[0].id)],
+            "new_class_ids": [str(unrelated_class.id)],
+            "weekday": "friday",
+            "start_time": 1600,
+            "duration": 1,
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    # classes[0] left the original (same as a plain split)...
+    assert {c["id"] for c in data["original"]["classes"]} == {
+        str(classes[1].id),
+        str(classes[2].id),
+    }
+    # ...but the new session teaches unrelated_class, not classes[0].
+    assert {c["id"] for c in data["created"]["classes"]} == {str(unrelated_class.id)}
+
+
+def test_unknown_new_class_id_returns_404(
+    auth_client: Client,
+    project: Project,
+    project_db,
+) -> None:
+    session_row, classes, _, _year = _seed_three_class_session(project_db)
+    response = _post(
+        auth_client,
+        _url(project.pk, session_row.id),
+        {
+            "class_ids": [str(classes[0].id)],
+            "new_class_ids": [str(uuid.uuid7())],
+            "weekday": "monday",
+            "start_time": 900,
+            "duration": 2,
+        },
+    )
+    assert response.status_code == 404
+    assert response.json()["error"] == "projects.classes.not_found"
+
+
 # ---------------------------------------------------------------------------
 # -- Validation
 # ---------------------------------------------------------------------------

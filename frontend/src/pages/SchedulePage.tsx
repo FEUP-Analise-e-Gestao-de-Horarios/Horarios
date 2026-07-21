@@ -537,11 +537,21 @@ export default function SchedulePage() {
   ) => {
     const classId = overrideLookups.classesByCode.get(origin.turma)?.id;
     if (!classId) return;
+    // Which turma(s) the detached slot ends up teaching: whatever the grid
+    // click or the drawer's turma picker landed on, same as a plain event
+    // can be moved to a different turma column. Defaults back to the turma
+    // that was clicked to start the split when nothing changed it.
+    const targetTurmas =
+      nextState.selectedTurmasOverride.length > 0
+        ? nextState.selectedTurmasOverride
+        : [origin.turma];
+    const newClassIds = classesForCodes(targetTurmas).map((c) => c.id);
     const weeks = weeksInScope(editingSynthetic, filters.selectedWeeks);
     const nextHhmm = timeToHhmm(nextState.startTime);
     const subject = overrideLookups.subjectsByName.get(nextState.selectedUcOverride);
     const split: SessionSplit = {
       class_ids: [classId],
+      ...(newClassIds.length > 0 ? { new_class_ids: newClassIds } : {}),
       weekday: nextState.selectedWeekday,
       start_time: nextHhmm,
       duration: nextState.durationSlots,
@@ -550,6 +560,8 @@ export default function SchedulePage() {
       ...(subject ? { subject_ids: [subject.id] } : {}),
       weeks,
     };
+    const resultLabel = targetTurmas.join(", ");
+    const pluralSuffix = targetTurmas.length > 1 ? "s" : "";
     splitSession.mutate(
       { sessionId: origin.sessionId, split },
       {
@@ -561,7 +573,7 @@ export default function SchedulePage() {
     );
     notifyChange({
       sessionIds: [origin.sessionId],
-      title: `${origin.turma} destacada`,
+      title: `${resultLabel} destacada${pluralSuffix}`,
       description: `${eventLabel(editingSynthetic)} passa a ter uma ocorrência própria em ${slotLabel(nextState.selectedWeekday, nextHhmm)}.`,
     });
     closeEditor();
@@ -869,17 +881,16 @@ export default function SchedulePage() {
                   return;
                 }
                 if (!eventEditor.editingEvent) return;
-                // While splitting, the turma is fixed to splitOrigin.turma —
-                // the click only picks the new day/time, never a different
-                // turma (that's the one thing that can't change here).
-                const placeAtTurma = splitOrigin ? undefined : turma;
+                // While splitting, crossing into a different turma column
+                // reassigns the detached slot to that turma too — same as
+                // it would for a plain single-turma event.
                 const nextState = eventDrawerFormReducer(formState, {
                   type: "placeAt",
                   weekday,
                   minutes,
-                  turma: placeAtTurma,
+                  turma,
                 });
-                dispatchForm({ type: "placeAt", weekday, minutes, turma: placeAtTurma });
+                dispatchForm({ type: "placeAt", weekday, minutes, turma });
                 if (splitOrigin) {
                   applySplit(splitOrigin, eventEditor.editingEvent, nextState);
                   return;

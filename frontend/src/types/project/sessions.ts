@@ -58,6 +58,14 @@ export interface SessionPatch {
  */
 export interface SessionSplit {
   class_ids: string[];
+  /**
+   * Classes the new session actually teaches; defaults to `class_ids` when
+   * omitted (the detached slot keeps teaching the same class, just at a new
+   * slot). Set differently to reassign the detached slot to a *different*
+   * turma in the same move — same as moving a plain single-turma event to a
+   * different turma column, but for one turma of a shared session.
+   */
+  new_class_ids?: string[];
   weekday: Weekday;
   /** HHMM encoding, same as SessionBase.start_time. */
   start_time: number;

@@ -239,6 +239,21 @@ class ProjectSessionSplitView(View):
                     "not a split; use PATCH instead.",
                 )
 
+            # The detached slot's own new session teaches new_class_ids when
+            # given — unlike class_ids, these needn't be classes the target
+            # session currently has, since this is how a detached slot gets
+            # reassigned to a different class altogether.
+            assigned_class_ids = (
+                validated.new_class_ids if validated.new_class_ids is not None else list(split_ids)
+            )
+            if validated.new_class_ids is not None:
+                missing_new_classes = ClassDAO(db_session).find_missing(assigned_class_ids)
+                if missing_new_classes:
+                    return ClassNotFoundResponse(
+                        "new_class_ids not found: "
+                        f"{', '.join(str(i) for i in missing_new_classes)}.",
+                    )
+
             if validated.teacher_ids is not None:
                 missing_teachers = TeacherDAO(db_session).find_missing(validated.teacher_ids)
                 if missing_teachers:
@@ -287,7 +302,7 @@ class ProjectSessionSplitView(View):
                 if validated.room_ids is not None
                 else [r.id for r in target.rooms]
             )
-            new_pairs = [(class_id, subject_id) for class_id in split_ids]
+            new_pairs = [(class_id, subject_id) for class_id in assigned_class_ids]
 
             new_block_id = uuid.uuid7()
             created_by_week: dict[object, SessionRow] = {}
