@@ -60,3 +60,20 @@ class SessionClassSubjectDAO(BaseDAO[SessionClassSubject]):
                 for class_id, subject_id in pairs
             ],
         )
+
+    def remove_classes(self, session_id: UUID, class_ids: Sequence[UUID]) -> None:
+        """Unlink the given classes from a session, leaving its other links intact.
+
+        Used by a session split: the classes being detached into a new
+        session are removed from the original without touching the classes
+        staying behind — unlike `replace_for_session`, which is a wholesale
+        replace.
+        """
+        if not class_ids:
+            return
+        self.session.execute(
+            delete(SessionClassSubject).where(
+                SessionClassSubject.session_id == session_id,
+                SessionClassSubject.class_id.in_(class_ids),
+            ),
+        )

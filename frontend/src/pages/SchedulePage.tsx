@@ -25,8 +25,8 @@ import {
   type SessionOverride,
 } from "@/components/schedule/useLocalSessionEdits";
 import { useProjectAccess } from "@/api/hooks/project/access";
-import { useUpdateSession } from "@/api/hooks/project/sessionMutations";
-import type { SessionPatch } from "@/types/project/sessions";
+import { useSplitSession, useUpdateSession } from "@/api/hooks/project/sessionMutations";
+import type { SessionPatch, SessionSplit } from "@/types/project/sessions";
 import { useParallelSessionsReminder } from "@/components/parallel/useParallelSessionsReminder";
 import {
   pickSelectedYearNumber,
@@ -159,8 +159,30 @@ export default function SchedulePage() {
     setPlacementMode(true);
     eventEditor.openEditor(event, true);
   };
+
+  // Set while editing a synthetic single-turma slice peeled off a
+  // multi-turma card (clicking one column of a shared lecture). Any commit
+  // made while this is set is a split, not a plain move/Guardar — see
+  // openSplitEditor/applySplit.
+  const [splitOrigin, setSplitOrigin] = useState<{
+    sessionId: string;
+    turma: string;
+  } | null>(null);
+
+  const openSplitEditor = (original: WeekGridEvent, turma: string) => {
+    setSplitOrigin({ sessionId: original.sessionId, turma });
+    const synthetic: WeekGridEvent = {
+      ...original,
+      id: `${original.sessionId}-split-${turma}`,
+      turma,
+      classCodes: [turma],
+    };
+    openEditor(synthetic);
+  };
+
   const closeEditor = () => {
     setPlacementMode(false);
+    setSplitOrigin(null);
     eventEditor.closeEditor();
   };
 
@@ -282,6 +304,8 @@ export default function SchedulePage() {
     );
   };
 
+  const splitSession = useSplitSession(projectId ?? "");
+
   // Availability (#5) for whatever is currently selected in the drawer —
   // including an unsaved docente/sala/turma change — not just the event's
   // original ones, so the red-block overlay and the conflict check below stay
@@ -353,12 +377,13 @@ export default function SchedulePage() {
     sessionIds: string[];
     title: string;
     description: string;
-    undo: () => void;
+    /** Omitted for actions with no undo path yet (e.g. a split). */
+    undo?: () => void;
   }) => {
     toast(opts.title, {
       id: `schedule-change-${opts.sessionIds.join("-")}`,
       description: opts.description,
-      action: { label: "Desfazer", onClick: opts.undo },
+      ...(opts.undo ? { action: { label: "Desfazer", onClick: opts.undo } } : {}),
     });
   };
 
@@ -498,14 +523,77 @@ export default function SchedulePage() {
     setSelectedSessionIds(new Set());
   };
 
-  const handleEventClick = (clicked: WeekGridEvent, domEvent: MouseEvent<HTMLButtonElement>) => {
+  // Detaches splitOrigin.turma off the shared session it came from into a
+  // brand new one, at whatever slot/docente/sala/uc the drawer/grid click
+  // committed. No local-edit preview — the local-edit layer only overrides
+  // existing session ids, it can't add a new one — so the grid only shows
+  // the result once the mutation resolves and the sessions query refetches.
+  // No undo yet either: reversing a split means merging a session back in,
+  // which isn't built.
+  const applySplit = (
+    origin: { sessionId: string; turma: string },
+    editingSynthetic: WeekGridEvent,
+    nextState: EventDrawerFormState,
+  ) => {
+    const classId = overrideLookups.classesByCode.get(origin.turma)?.id;
+    if (!classId) return;
+    const weeks = weeksInScope(editingSynthetic, filters.selectedWeeks);
+    const nextHhmm = timeToHhmm(nextState.startTime);
+    const subject = overrideLookups.subjectsByName.get(nextState.selectedUcOverride);
+    const split: SessionSplit = {
+      class_ids: [classId],
+      weekday: nextState.selectedWeekday,
+      start_time: nextHhmm,
+      duration: nextState.durationSlots,
+      teacher_ids: nextState.selectedDocenteOverride,
+      room_ids: nextState.selectedSalaOverride,
+      ...(subject ? { subject_ids: [subject.id] } : {}),
+      weeks,
+    };
+    splitSession.mutate(
+      { sessionId: origin.sessionId, split },
+      {
+        onError: () =>
+          toast.error("Não foi possível destacar a turma no servidor.", {
+            description: `${origin.turma} continua junta à aula original.`,
+          }),
+      },
+    );
+    notifyChange({
+      sessionIds: [origin.sessionId],
+      title: `${origin.turma} destacada`,
+      description: `${eventLabel(editingSynthetic)} passa a ter uma ocorrência própria em ${slotLabel(nextState.selectedWeekday, nextHhmm)}.`,
+    });
+    closeEditor();
+  };
+
+  const handleEventClick = (
+    clicked: WeekGridEvent,
+    domEvent: MouseEvent<HTMLButtonElement>,
+    clickedTurma: string | undefined,
+  ) => {
     if (domEvent.shiftKey) {
       toggleBulkSelection(clicked.sessionId);
       return;
     }
     const editing = eventEditor.isOpen ? eventEditor.editingEvent : null;
+    const isSharedAcrossTurmas = (clicked.classCodes?.length ?? 0) > 1;
     if (editing && editing.sessionId !== clicked.sessionId) {
+      if (splitOrigin) {
+        // Switching targets mid-split abandons it — the synthetic event
+        // carries the real session's id, so feeding it into swapEvents
+        // would overwrite the whole shared session's classes with
+        // whatever was clicked instead of detaching just one turma.
+        setSplitOrigin(null);
+        if (isSharedAcrossTurmas && clickedTurma) openSplitEditor(clicked, clickedTurma);
+        else openEditor(clicked);
+        return;
+      }
       swapEvents(editing, clicked);
+      return;
+    }
+    if (!editing && isSharedAcrossTurmas && clickedTurma) {
+      openSplitEditor(clicked, clickedTurma);
       return;
     }
     openEditor(clicked);
@@ -514,6 +602,10 @@ export default function SchedulePage() {
   const saveEdit = () => {
     const editing = eventEditor.editingEvent;
     if (!editing) return;
+    if (splitOrigin) {
+      applySplit(splitOrigin, editing, formState);
+      return;
+    }
     const previous = localEdits.overrides[editing.sessionId];
     const previousPatch = fullPatchFor(editing, overrideLookups);
     const weeks = weeksInScope(editing, filters.selectedWeeks);
@@ -535,10 +627,13 @@ export default function SchedulePage() {
 
   // Live preview of the open event's draft, layered over committed edits, so
   // the grid, lanes, arcs and distribution all recompute as the user edits —
-  // before Guardar makes it permanent.
+  // before Guardar makes it permanent. Skipped while splitting: the draft's
+  // classes are just [splitOrigin.turma], and it's keyed by the *original*
+  // session's id — previewing it would make the grid look like the shared
+  // session already lost every other turma before anything was committed.
   const effectiveOverrides = useMemo(() => {
     const editing = eventEditor.isOpen ? eventEditor.editingEvent : null;
-    if (!editing) return localEdits.overrides;
+    if (!editing || splitOrigin) return localEdits.overrides;
     const draft = buildSessionOverride(formState, overrideLookups);
     return {
       ...localEdits.overrides,
@@ -547,6 +642,7 @@ export default function SchedulePage() {
   }, [
     eventEditor.isOpen,
     eventEditor.editingEvent,
+    splitOrigin,
     formState,
     overrideLookups,
     localEdits.overrides,
@@ -773,13 +869,21 @@ export default function SchedulePage() {
                   return;
                 }
                 if (!eventEditor.editingEvent) return;
+                // While splitting, the turma is fixed to splitOrigin.turma —
+                // the click only picks the new day/time, never a different
+                // turma (that's the one thing that can't change here).
+                const placeAtTurma = splitOrigin ? undefined : turma;
                 const nextState = eventDrawerFormReducer(formState, {
                   type: "placeAt",
                   weekday,
                   minutes,
-                  turma,
+                  turma: placeAtTurma,
                 });
-                dispatchForm({ type: "placeAt", weekday, minutes, turma });
+                dispatchForm({ type: "placeAt", weekday, minutes, turma: placeAtTurma });
+                if (splitOrigin) {
+                  applySplit(splitOrigin, eventEditor.editingEvent, nextState);
+                  return;
+                }
                 applyPlacement(eventEditor.editingEvent, nextState);
                 // One click, one change: close so a follow-up click starts a
                 // fresh selection instead of continuing to move this event.

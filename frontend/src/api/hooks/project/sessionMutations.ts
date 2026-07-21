@@ -3,7 +3,12 @@ import { api } from "@/api/client";
 import { queryKeys } from "@/api/queryKeys";
 import { FLAGS } from "@/config/featureFlags";
 import type { ApiResponse } from "@/types/api";
-import type { SessionPatch, SessionResponse } from "@/types/project/sessions";
+import type {
+  SessionPatch,
+  SessionResponse,
+  SessionSplit,
+  SessionSplitResult,
+} from "@/types/project/sessions";
 
 /**
  * Move/edit a session (contract C1). While `FLAGS.sessionMutations` is off the
@@ -30,6 +35,42 @@ export function useUpdateSession(projectId: string) {
     },
     onSuccess: (updated) => {
       if (!updated) return;
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.projects.sessionsRoot(projectId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.projects.conflictsRoot(projectId),
+      });
+    },
+  });
+}
+
+/**
+ * Detach some of a session's classes into a brand new session. Unlike the
+ * placement/swap/Guardar mutations, a split has no local-edit preview —
+ * the local-edit layer only overrides existing session ids, it can't add a
+ * new one — so the grid only shows the result once this resolves and the
+ * sessions query refetches.
+ */
+export function useSplitSession(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      sessionId,
+      split,
+    }: {
+      sessionId: string;
+      split: SessionSplit;
+    }): Promise<SessionSplitResult | null> => {
+      if (!FLAGS.sessionMutations) return null;
+      const res = await api.post<ApiResponse<SessionSplitResult>>(
+        `/api/projects/${projectId}/sessions/${sessionId}/split/`,
+        split,
+      );
+      return res.data;
+    },
+    onSuccess: (result) => {
+      if (!result) return;
       void queryClient.invalidateQueries({
         queryKey: queryKeys.projects.sessionsRoot(projectId),
       });

@@ -1,3 +1,4 @@
+import uuid
 from uuid import UUID
 
 from django.http import HttpRequest, HttpResponse, JsonResponse
@@ -29,6 +30,8 @@ from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
 from src.projects.views.schemas.sessions import (
     SessionPatchRequest,
+    SessionSplitRequest,
+    SessionSplitResponse,
     SessionsQueryParams,
     SessionsResponse,
 )
@@ -199,5 +202,122 @@ class ProjectSessionView(View):
                 SuccessResponse(
                     message="Session updated successfully",
                     data=SessionDetails.from_session(target),
+                ).model_dump(),
+            )
+
+
+class ProjectSessionSplitView(View):
+    """API endpoint: detach some of a session's classes into a new session."""
+
+    @require_auth
+    @require_project
+    def post(self, request: HttpRequest, project_id: int, session_id: UUID) -> HttpResponse:
+        validated, err = validate_request_body(SessionSplitRequest, request.body)
+        if err is not None:
+            return err
+        assert validated is not None
+
+        with get_project_session(general_db(project_id)) as db_session:
+            session_dao = SessionDAO(db_session)
+            target = session_dao.get(session_id)
+            if target is None:
+                return SessionNotFoundResponse(f"Session not found: {session_id}.")
+
+            scs_dao = SessionClassSubjectDAO(db_session)
+            target_links = scs_dao.get_by_session(session_id)
+            current_class_ids = {link.class_id for link in target_links}
+            split_ids = set(validated.class_ids)
+
+            if not split_ids <= current_class_ids:
+                return ClassNotFoundResponse(
+                    "class_ids must be classes currently on this session; not on it: "
+                    f"{', '.join(str(i) for i in split_ids - current_class_ids)}.",
+                )
+            if split_ids == current_class_ids:
+                return InvalidBodyResponse(
+                    "class_ids covers every class on this session — that's a move, "
+                    "not a split; use PATCH instead.",
+                )
+
+            if validated.teacher_ids is not None:
+                missing_teachers = TeacherDAO(db_session).find_missing(validated.teacher_ids)
+                if missing_teachers:
+                    return TeacherNotFoundResponse()
+            if validated.room_ids is not None:
+                missing_rooms = RoomDAO(db_session).find_missing(validated.room_ids)
+                if missing_rooms:
+                    return RoomNotFoundResponse()
+
+            if validated.subject_ids is not None:
+                if len(validated.subject_ids) > 1:
+                    return InvalidBodyResponse(
+                        "A session may only teach a single subject; got "
+                        f"{len(validated.subject_ids)} subject_ids.",
+                    )
+                missing_subjects = SubjectDAO(db_session).find_missing(validated.subject_ids)
+                if missing_subjects:
+                    return SubjectNotFoundResponse(
+                        f"Subjects not found: {', '.join(str(i) for i in missing_subjects)}.",
+                    )
+                subject_id = validated.subject_ids[0] if validated.subject_ids else None
+                if subject_id is None:
+                    return InvalidBodyResponse("subject_ids is required.")
+            else:
+                # A session can in principle pair different classes with
+                # different subjects, so the detached subject is resolved
+                # from the classes actually being split off, not the
+                # session as a whole.
+                detached_subjects = {
+                    link.subject_id for link in target_links if link.class_id in split_ids
+                }
+                if len(detached_subjects) != 1:
+                    return InvalidBodyResponse(
+                        "Could not infer a single subject for the detached classes; "
+                        "specify subject_ids explicitly.",
+                    )
+                subject_id = next(iter(detached_subjects))
+
+            teacher_ids = (
+                validated.teacher_ids
+                if validated.teacher_ids is not None
+                else [t.id for t in target.teachers]
+            )
+            room_ids = (
+                validated.room_ids
+                if validated.room_ids is not None
+                else [r.id for r in target.rooms]
+            )
+            new_pairs = [(class_id, subject_id) for class_id in split_ids]
+
+            new_block_id = uuid.uuid7()
+            created_by_week: dict[object, SessionRow] = {}
+            for row in session_dao.get_siblings_in_weeks(target, validated.weeks):
+                scs_dao.remove_classes(row.id, list(split_ids))
+                new_row = session_dao.create(
+                    week=row.week,
+                    weekday=validated.weekday,
+                    start_time=validated.start_time,
+                    duration=validated.duration,
+                    type=row.type,
+                    original_block_id=new_block_id,
+                )
+                session_dao.replace_teachers(new_row, teacher_ids)
+                session_dao.replace_rooms(new_row, room_ids)
+                scs_dao.replace_for_session(new_row.id, new_pairs)
+                created_by_week[row.week] = new_row
+
+            db_session.commit()
+
+            representative = created_by_week.get(target.week) or next(
+                iter(created_by_week.values()),
+            )
+
+            return JsonResponse(
+                SuccessResponse(
+                    message="Session split successfully",
+                    data=SessionSplitResponse(
+                        original=SessionDetails.from_session(target),
+                        created=SessionDetails.from_session(representative),
+                    ),
                 ).model_dump(),
             )
