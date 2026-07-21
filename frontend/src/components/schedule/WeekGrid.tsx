@@ -89,11 +89,6 @@ interface WeekGridProps {
   editingEventId?: string;
   /** Sessions marked for a bulk move (shift-click); shown with a blue ring. */
   selectedSessionIds?: Set<string>;
-  /**
-   * The two sessions of the most recent swap, connected with a highlight arc
-   * so the trade is visible on the grid, not just in the toast.
-   */
-  swapHighlight?: { sessionIds: [string, string]; groupId: string } | null;
   selectedDays?: string[];
   /** Per-UC colours; events fall back to a neutral style when absent. */
   subjectPalette?: SubjectPalette;
@@ -107,7 +102,13 @@ interface WeekGridProps {
    */
   placementMode?: boolean;
   placementDurationSlots?: number;
-  onSlotClick?: (weekday: Weekday, minutes: number) => void;
+  /**
+   * `turma` is the class column the click landed in — undefined when there's
+   * no secondary turma header at all (a single-turma view). Passing it
+   * through lets a placement cross into a different class, not just move
+   * within the one the event already belongs to.
+   */
+  onSlotClick?: (weekday: Weekday, minutes: number, turma?: string) => void;
 }
 
 const WEEKDAY_LABELS = WEEKDAYS.map((day) => WEEKDAY_LABELS_SHORT[day]);
@@ -195,7 +196,6 @@ export default function WeekGrid({
   hourLabelFontPx,
   editingEventId,
   selectedSessionIds,
-  swapHighlight,
   selectedDays,
   subjectPalette,
   compactEmpty = true,
@@ -525,14 +525,16 @@ export default function WeekGrid({
                   : "";
               const isLastTurma = turmaIdx === turmasCount - 1;
               const isLastDay = visibleIdx === visibleDayIndices.length - 1;
-              // A click resolves to weekday + time only, not the turma column,
-              // so any cell in a valid row is an equivalent drop target.
+              // Which turma column the click landed in travels with the click,
+              // so a placement can cross into a different class instead of
+              // only ever moving within the one the event already has.
               const dayIndex = visibleDayIndices[visibleIdx];
               const weekday = dayIndex === undefined ? undefined : WEEKDAYS[dayIndex];
+              const clickedTurma = activeTurmas[turmaIdx];
               const isPlacementTarget =
                 validPlacementRows !== null && validPlacementRows.has(i) && weekday !== undefined;
               const place = isPlacementTarget
-                ? () => onSlotClick?.(weekday, gridStartMinutes + i * SLOT_MINUTES)
+                ? () => onSlotClick?.(weekday, gridStartMinutes + i * SLOT_MINUTES, clickedTurma)
                 : undefined;
               return (
                 <div
@@ -594,11 +596,6 @@ export default function WeekGrid({
           const style = styleForSubject(subjectPalette, ev.uc, ev.type);
           const isEditingEvent = editingEventId === ev.id;
           const multiSegment = segments.length > 1;
-          // The swap arc only takes over a single-segment card — a multi-segment
-          // event keeps its own same-event arc instead.
-          const swapIndex =
-            !multiSegment && swapHighlight ? swapHighlight.sessionIds.indexOf(ev.sessionId) : -1;
-          const isSwapped = swapIndex >= 0;
           return segments.map((seg, segIndex) => (
             <ScheduleEventCard
               key={`e-${ev.id}-${seg.start}`}
@@ -609,15 +606,8 @@ export default function WeekGrid({
               rowSpan={span}
               lane={seg.lane}
               laneCount={seg.laneCount}
-              arcGroupId={
-                multiSegment
-                  ? `${ev.id}-${dayCol}-${rowStart}`
-                  : isSwapped
-                    ? swapHighlight!.groupId
-                    : undefined
-              }
-              arcSegIndex={multiSegment ? segIndex : isSwapped ? swapIndex : undefined}
-              arcColor={isSwapped ? "#2563eb" : undefined}
+              arcGroupId={multiSegment ? `${ev.id}-${dayCol}-${rowStart}` : undefined}
+              arcSegIndex={multiSegment ? segIndex : undefined}
               style={style}
               isEditing={isEditingEvent}
               selected={selectedSessionIds?.has(ev.sessionId)}

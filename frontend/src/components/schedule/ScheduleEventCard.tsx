@@ -60,8 +60,6 @@ interface ScheduleEventCardProps {
   arcGroupId?: string;
   /** This segment's order within the event, for arc ordering (#20). */
   arcSegIndex?: number;
-  /** Overrides the arc's colour; defaults to the subject's own border colour. */
-  arcColor?: string;
   style: SubjectStyle;
   isEditing: boolean;
   /** Marked for a bulk move (shift-click); shown with a distinct blue ring. */
@@ -95,7 +93,6 @@ export default function ScheduleEventCard({
   laneCount = 1,
   arcGroupId,
   arcSegIndex,
-  arcColor,
   style,
   isEditing,
   selected = false,
@@ -136,7 +133,7 @@ export default function ScheduleEventCard({
       {...{ [SCHEDULE_EVENT_DATA_ATTR]: "" }}
       data-arc-group={arcGroupId}
       data-arc-seg={arcSegIndex}
-      data-arc-color={arcGroupId ? (arcColor ?? style.border) : undefined}
+      data-arc-color={arcGroupId ? style.border : undefined}
       onClick={onClick ? (domEvent) => onClick(ev, domEvent) : undefined}
       aria-label={ariaLabel}
       aria-current={isEditing ? "true" : undefined}

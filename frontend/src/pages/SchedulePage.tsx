@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
+import type { ClassBase } from "@/types/project/class";
 import type { Weekday } from "@/types/project/weekday";
 import WeekGrid, { type WeekGridEvent } from "@/components/schedule/WeekGrid";
 import EditEventDrawer from "@/components/schedule/EditEventDrawer";
@@ -124,20 +125,6 @@ export default function SchedulePage() {
     });
   };
 
-  // Briefly connects two just-swapped cards with an arc, so the trade is
-  // visible on the grid and not just in the toast.
-  const [swapHighlight, setSwapHighlight] = useState<{
-    sessionIds: [string, string];
-    groupId: string;
-  } | null>(null);
-  const swapHighlightTimeoutRef = useRef<number | undefined>(undefined);
-  useEffect(() => () => window.clearTimeout(swapHighlightTimeoutRef.current), []);
-  const flashSwapHighlight = (a: string, b: string) => {
-    window.clearTimeout(swapHighlightTimeoutRef.current);
-    setSwapHighlight({ sessionIds: [a, b], groupId: `swap-${Date.now()}` });
-    swapHighlightTimeoutRef.current = window.setTimeout(() => setSwapHighlight(null), 4000);
-  };
-
   const canShowSchedule = curso !== "";
 
   // --- query chain: degree → year → sessions ---------------------------
@@ -245,15 +232,21 @@ export default function SchedulePage() {
     eventEditor.isOpen ? draftClassIds : [],
   );
 
+  // Whether a draft/target turma selection differs from the event's own.
+  const turmaChangedFrom = (editing: WeekGridEvent, selectedTurmas: string[]): boolean => {
+    const originalTurmas = editing.classCodes ?? [];
+    return (
+      selectedTurmas.length !== originalTurmas.length ||
+      selectedTurmas.some((code) => !originalTurmas.includes(code))
+    );
+  };
+
   // Warns (never blocks) when the draft moves the open event to a different
   // turma or into a slot its docente, sala or turma isn't available for — the
   // only two cases worth flagging.
   const warningFor = (editing: WeekGridEvent, nextState: EventDrawerFormState): string | null => {
-    const originalTurmas = editing.classCodes ?? [];
-    const turmaChanged =
-      nextState.selectedTurmasOverride.length !== originalTurmas.length ||
-      nextState.selectedTurmasOverride.some((code) => !originalTurmas.includes(code));
-    if (turmaChanged) return "está a passar para uma turma diferente";
+    if (turmaChangedFrom(editing, nextState.selectedTurmasOverride))
+      return "está a passar para uma turma diferente";
     const conflict = slotOverlapsMarks(
       nextState.selectedWeekday,
       timeToHhmm(nextState.startTime),
@@ -296,16 +289,26 @@ export default function SchedulePage() {
     });
   };
 
-  // Grid placement click: commits only the slot (weekday/start/duration) —
-  // never whatever docente/sala/turma draft might also be pending — so it
-  // can't accidentally save an unrelated unsaved field.
+  // Grid placement click: commits the slot (weekday/start/duration) plus,
+  // when the click landed in a turma the event didn't already have, the
+  // turma reassignment too — never any other docente/sala/uc draft that
+  // might also be pending, so it can't accidentally save an unrelated
+  // unsaved field.
   const applyPlacement = (editing: WeekGridEvent, nextState: EventDrawerFormState) => {
     const previous = localEdits.overrides[editing.sessionId];
     const nextHhmm = timeToHhmm(nextState.startTime);
+    const turmaChanged = turmaChangedFrom(editing, nextState.selectedTurmasOverride);
     localEdits.commit(editing.sessionId, {
       weekday: nextState.selectedWeekday,
       start_time: nextHhmm,
       duration: nextState.durationSlots,
+      ...(turmaChanged
+        ? {
+            classes: nextState.selectedTurmasOverride
+              .map((code) => overrideLookups.classesByCode.get(code))
+              .filter((classItem): classItem is ClassBase => !!classItem),
+          }
+        : {}),
     });
     const warning = warningFor(editing, nextState);
     const move = `${slotLabel(editing.weekday, editing.startTime)} → ${slotLabel(nextState.selectedWeekday, nextHhmm)}`;
@@ -332,7 +335,6 @@ export default function SchedulePage() {
       start_time: a.startTime,
       duration: a.duration,
     });
-    flashSwapHighlight(a.sessionId, b.sessionId);
     notifyChange({
       sessionIds: [a.sessionId, b.sessionId],
       title: "Aulas trocadas",
@@ -655,11 +657,10 @@ export default function SchedulePage() {
               showHalfHourDividers
               editingEventId={eventEditor.isOpen ? eventEditor.editingEvent?.id : undefined}
               selectedSessionIds={selectedSessionIds}
-              swapHighlight={swapHighlight}
               subjectPalette={subjectPalette}
               placementMode={placementActive}
               placementDurationSlots={placementDurationSlots}
-              onSlotClick={(weekday, minutes) => {
+              onSlotClick={(weekday, minutes, turma) => {
                 if (isBulkMode) {
                   applyBulkMove(weekday, minutes, bulkSelectedEvents);
                   return;
@@ -669,9 +670,13 @@ export default function SchedulePage() {
                   type: "placeAt",
                   weekday,
                   minutes,
+                  turma,
                 });
-                dispatchForm({ type: "placeAt", weekday, minutes });
+                dispatchForm({ type: "placeAt", weekday, minutes, turma });
                 applyPlacement(eventEditor.editingEvent, nextState);
+                // One click, one change: close so a follow-up click starts a
+                // fresh selection instead of continuing to move this event.
+                closeEditor();
               }}
               onEventClick={handleEventClick}
               onHorizontalScroll={() => eventEditor.setIsCollapsed(true)}

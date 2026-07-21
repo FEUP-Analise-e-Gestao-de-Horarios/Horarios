@@ -81,7 +81,7 @@ export type EventDrawerFormAction =
   | { type: "toggleDocente"; id: string }
   | { type: "toggleSala"; id: string }
   | { type: "setTurmas"; value: string[] }
-  | { type: "placeAt"; weekday: Weekday; minutes: number };
+  | { type: "placeAt"; weekday: Weekday; minutes: number; turma?: string };
 
 export function getInitialEventDrawerFormState(event?: WeekGridEvent | null): EventDrawerFormState {
   if (event) {
@@ -154,7 +154,14 @@ export function eventDrawerFormReducer(
       return { ...state, selectedTurmasOverride: action.value };
     case "placeAt": {
       const startTime = minutesToTime(clampTimeMinutes(action.minutes));
-      return { ...state, selectedWeekday: action.weekday, startTime };
+      // Clicking inside a turma the event already spans just moves it in
+      // time; clicking a turma it doesn't have reassigns it to that one
+      // class alone — a deliberate move, not a multi-turma split.
+      const selectedTurmasOverride =
+        action.turma && !state.selectedTurmasOverride.includes(action.turma)
+          ? [action.turma]
+          : state.selectedTurmasOverride;
+      return { ...state, selectedWeekday: action.weekday, startTime, selectedTurmasOverride };
     }
   }
 }
