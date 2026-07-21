@@ -2,9 +2,8 @@ import { useMemo, useRef, useState, type Dispatch } from "react";
 import type { ConflictRecord } from "@/types/project/conflicts";
 import type { Weekday } from "@/types/project/weekday";
 import type { WeekGridEvent } from "@/components/schedule/WeekGrid";
-import { formatDurationSlots, timeToHhmm } from "@/utils/time";
+import { formatDurationSlots } from "@/utils/time";
 import { WEEKDAYS, WEEKDAY_LABELS_LONG } from "@/utils/weekdays";
-import ConfirmDialog from "./ConfirmDialog";
 import ConflictCard from "./ConflictCard";
 import { DRAWER_DISMISS_IGNORE_SELECTOR } from "./dismissable";
 import DrawerMultiSelect from "./DrawerMultiSelect";
@@ -36,19 +35,6 @@ function salaToOption(room: RoomOption) {
   return { id: room.id, label: `${room.label}${capacity}${type}` };
 }
 
-/** Inline amber warning shown while editing the event (PI ToDo #17, #18). */
-function DrawerWarning({ children }: { children: string }) {
-  return (
-    <div
-      role="alert"
-      className="flex items-start gap-2 rounded border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-200"
-    >
-      <span aria-hidden="true">⚠</span>
-      <span>{children}</span>
-    </div>
-  );
-}
-
 interface EditEventDrawerProps {
   open: boolean;
   onClose: () => void;
@@ -61,12 +47,17 @@ interface EditEventDrawerProps {
   roomOptions: RoomOption[];
   preferredUc?: string;
   event?: WeekGridEvent | null;
-  /** Lifted to the page so the grid can preview edits and place moves. */
+  /**
+   * Lifted to the page so the grid can preview edits live and a placement
+   * click can write straight into it. Field edits made here (UC, docente,
+   * sala, turma, duration, day/time typed or stepped in the drawer) stay a
+   * draft until Guardar; only a grid placement click commits on its own.
+   */
   formState: EventDrawerFormState;
   dispatch: Dispatch<EventDrawerFormAction>;
   placementMode: boolean;
   onTogglePlacement: () => void;
-  /** Commits the current edits into the local session override. */
+  /** Commits the current draft into the local session edit. */
   onSave: () => void;
 }
 
@@ -231,7 +222,7 @@ export default function EditEventDrawer({
   const eventTurmas = useMemo(() => new Set(event?.classCodes ?? []), [event?.classCodes]);
 
   // A shared event carries turmas from another course that aren't in this
-  // course's list — append them so they're visible and selectable (PI ToDo #18).
+  // course's list — append them so they're visible and selectable.
   const turmaDropdownOptions = useMemo(() => {
     const extra = (event?.classCodes ?? []).filter((code) => !turmaOptions.includes(code));
     return extra.length ? [...turmaOptions, ...extra] : turmaOptions;
@@ -295,42 +286,6 @@ export default function EditEventDrawer({
     [selectedTurmasOverride, turmaDropdownOptions],
   );
 
-  // Inline edit warnings (PI ToDo #17, #18).
-  // #17 — changed when the selection differs from the event's own turmas at open.
-  const turmasChanged = useMemo(() => {
-    if (effectiveSelectedTurmas.length !== eventTurmas.size) return true;
-    return effectiveSelectedTurmas.some((turma) => !eventTurmas.has(turma));
-  }, [effectiveSelectedTurmas, eventTurmas]);
-
-  // #18 — a class code outside this course's turma list belongs to another course
-  // (guarded against the transient empty option list while the course loads).
-  const isCrossCourse = useMemo(
-    () =>
-      turmaOptions.length > 0 &&
-      (event?.classCodes ?? []).some((code) => !turmaOptions.includes(code)),
-    [event, turmaOptions],
-  );
-
-  // A move = the slot (day/start/duration) differs from the event at open.
-  const movedSlot =
-    !!event &&
-    (selectedWeekday !== event.weekday ||
-      timeToHhmm(startTime) !== event.startTime ||
-      durationSlots !== event.duration);
-
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const confirmMessages = [
-    movedSlot
-      ? `Mover para ${WEEKDAY_LABELS_LONG[selectedWeekday]} às ${startTime} (${formatDurationSlots(durationSlots)}).`
-      : null,
-    turmasChanged ? "Está a mudar esta aula para uma turma diferente." : null,
-    isCrossCourse ? "Esta aula é partilhada com outro curso." : null,
-  ].filter((message): message is string => message !== null);
-  const handleGuardar = () => {
-    if (confirmMessages.length > 0) setConfirmOpen(true);
-    else onSave();
-  };
-
   if (!open) return null;
 
   return (
@@ -373,17 +328,6 @@ export default function EditEventDrawer({
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-          {(turmasChanged || isCrossCourse) && (
-            <div className="space-y-2">
-              {turmasChanged && (
-                <DrawerWarning>Está a mudar esta aula para uma turma diferente.</DrawerWarning>
-              )}
-              {isCrossCourse && (
-                <DrawerWarning>Esta aula é partilhada com outro curso.</DrawerWarning>
-              )}
-            </div>
-          )}
-
           <label className="block text-sm">
             <span className="mb-1.5 block text-white/90">UC Selecionada</span>
             <select
@@ -583,22 +527,11 @@ export default function EditEventDrawer({
 
           <button
             type="button"
-            onClick={handleGuardar}
+            onClick={onSave}
             className="w-full bg-[#c73f24] hover:bg-[#b3361f] text-white font-semibold rounded py-2.5 mt-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#c73f24]"
           >
             Guardar
           </button>
-
-          <ConfirmDialog
-            open={confirmOpen}
-            title="Confirmar alteração"
-            messages={confirmMessages}
-            onConfirm={() => {
-              setConfirmOpen(false);
-              onSave();
-            }}
-            onCancel={() => setConfirmOpen(false)}
-          />
 
           <div className="pt-4 border-t border-white/20">
             <h3 className="text-white/90 font-semibold mb-3">Conflitos Detectados</h3>

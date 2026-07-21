@@ -62,6 +62,27 @@ describe("eventDrawerFormReducer — duration", () => {
   });
 });
 
+describe("eventDrawerFormReducer — placeAt", () => {
+  it("sets the weekday and start time from a grid click", () => {
+    const next = eventDrawerFormReducer(baseState({ selectedWeekday: "monday" }), {
+      type: "placeAt",
+      weekday: "wednesday",
+      minutes: 630, // 10:30
+    });
+    expect(next.selectedWeekday).toBe("wednesday");
+    expect(next.startTime).toBe("10:30");
+  });
+
+  it("leaves duration untouched — the click target already fits it", () => {
+    const next = eventDrawerFormReducer(baseState({ durationSlots: 3 }), {
+      type: "placeAt",
+      weekday: "friday",
+      minutes: 480,
+    });
+    expect(next.durationSlots).toBe(3);
+  });
+});
+
 describe("formatDurationSlots", () => {
   it("formats slot counts as duration labels", () => {
     expect(formatDurationSlots(1)).toBe("30min");

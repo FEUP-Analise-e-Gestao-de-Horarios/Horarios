@@ -83,5 +83,19 @@ export function useLocalSessionEdits() {
     setOverrides((prev) => ({ ...prev, [sessionId]: { ...prev[sessionId], ...override } }));
   };
 
-  return { overrides, commit, clear: () => setOverrides({}) };
+  // Replaces a session's whole override (rather than merging), so undo can put
+  // it back exactly as it was before a commit — including dropping fields the
+  // commit added that weren't there before.
+  const replace = (sessionId: string, override: SessionOverride | undefined) => {
+    setOverrides((prev) => {
+      if (!override) {
+        const rest = { ...prev };
+        delete rest[sessionId];
+        return rest;
+      }
+      return { ...prev, [sessionId]: override };
+    });
+  };
+
+  return { overrides, commit, replace, clear: () => setOverrides({}) };
 }

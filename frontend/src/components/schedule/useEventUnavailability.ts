@@ -2,25 +2,28 @@ import { useMemo } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { queryKeys } from "@/api/queryKeys";
+import type { ClassDetail } from "@/types/project/class";
 import type { RoomDetail } from "@/types/project/room";
 import type { TeacherDetail } from "@/types/project/teacher";
-import type { WeekGridEvent, WeekGridMark } from "./WeekGrid";
+import type { WeekGridMark } from "./WeekGrid";
 
 const STALE_TIME_MS = 5 * 60 * 1000;
 
 /**
- * Red blocks of the selected event's teacher(s) and room(s), deduplicated into
+ * Red blocks of the given teacher(s), room(s) and turma(s), deduplicated into
  * grid marks (PI ToDo #5): each unavailable slot yields one `kind: "unavailable"`
- * mark, whether it's blocked by a teacher, the room, or both. Fetches the same
- * detail endpoints the hover tooltips use, so they're already cached.
+ * mark, whichever of the three it's blocked by. Fetches the same detail
+ * endpoints the hover tooltips use, so they're already cached. Callers pass
+ * whatever's currently selected in the edit drawer — including unsaved edits —
+ * not just the event's original teacher/room/turma, so the overlay stays
+ * accurate while editing.
  */
 export function useEventUnavailability(
   projectId: string,
-  event: WeekGridEvent | null | undefined,
+  teacherIds: string[],
+  roomIds: string[],
+  classIds: string[],
 ): WeekGridMark[] {
-  const teacherIds = event?.teachers?.map((teacher) => teacher.id) ?? [];
-  const roomIds = event?.rooms?.map((room) => room.id) ?? [];
-
   const teacherQueries = useQueries({
     queries: teacherIds.map((id) => ({
       queryKey: queryKeys.projects.teacher(projectId, id),
@@ -39,11 +42,22 @@ export function useEventUnavailability(
     })),
   });
 
+  const classQueries = useQueries({
+    queries: classIds.map((id) => ({
+      queryKey: queryKeys.projects.class(projectId, id),
+      queryFn: () => api.getData<ClassDetail>(`/api/projects/${projectId}/classes/${id}`),
+      enabled: !!projectId && !!id,
+      staleTime: STALE_TIME_MS,
+    })),
+  });
+
   const teacherData = teacherQueries.map((query) => query.data);
   const roomData = roomQueries.map((query) => query.data);
+  const classData = classQueries.map((query) => query.data);
   // Stable signatures so the memo recomputes only when the red blocks change.
   const teacherSignature = JSON.stringify(teacherData.map((data) => data?.red_blocks));
   const roomSignature = JSON.stringify(roomData.map((data) => data?.red_blocks));
+  const classSignature = JSON.stringify(classData.map((data) => data?.red_blocks));
 
   return useMemo(() => {
     const blocked = new Map<string, { weekday: string; hour: number }>();
@@ -54,6 +68,7 @@ export function useEventUnavailability(
     };
     teacherData.forEach((data) => add(data?.red_blocks));
     roomData.forEach((data) => add(data?.red_blocks));
+    classData.forEach((data) => add(data?.red_blocks));
 
     return [...blocked.entries()].map(([key, entry]) => ({
       id: `unavail-${key}`,
@@ -62,5 +77,5 @@ export function useEventUnavailability(
       kind: "unavailable" as const,
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teacherSignature, roomSignature]);
+  }, [teacherSignature, roomSignature, classSignature]);
 }

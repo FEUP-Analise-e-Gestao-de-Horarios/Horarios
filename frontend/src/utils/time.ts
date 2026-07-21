@@ -21,6 +21,11 @@ export function minutesToTime(totalMinutes: number): string {
   return `${hours}:${minutes}`;
 }
 
+/** Formats minutes since midnight as the `HHMM`-encoded integer sessions use. */
+export function minutesToHhmm(totalMinutes: number): number {
+  return Math.floor(totalMinutes / 60) * 100 + (totalMinutes % 60);
+}
+
 /** Formats a count of 30-min slots as a duration label: "30min", "1h", "1h30". */
 export function formatDurationSlots(slots: number): string {
   const totalMinutes = slots * 30;

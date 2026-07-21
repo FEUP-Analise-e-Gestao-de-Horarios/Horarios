@@ -1,4 +1,4 @@
-import { useMemo, useRef, type CSSProperties } from "react";
+import { useMemo, useRef, type CSSProperties, type MouseEvent } from "react";
 import type { Weekday } from "@/types/project/weekday";
 import { hhmmToMinutes, minutesToTime } from "@/utils/time";
 import { WEEKDAYS, WEEKDAY_LABELS_SHORT } from "@/utils/weekdays";
@@ -68,7 +68,7 @@ interface WeekGridProps {
   marks?: WeekGridMark[];
   startTime?: number;
   endTime?: number;
-  onEventClick?: (event: WeekGridEvent) => void;
+  onEventClick?: (event: WeekGridEvent, domEvent: MouseEvent<HTMLButtonElement>) => void;
   onHorizontalScroll?: () => void;
   emptyMessage?: string;
   weekdayLabels?: string[];
@@ -87,20 +87,23 @@ interface WeekGridProps {
   headerHeightPx?: number;
   hourLabelFontPx?: number;
   editingEventId?: string;
+  /** Sessions marked for a bulk move (shift-click); shown with a blue ring. */
+  selectedSessionIds?: Set<string>;
+  /**
+   * The two sessions of the most recent swap, connected with a highlight arc
+   * so the trade is visible on the grid, not just in the toast.
+   */
+  swapHighlight?: { sessionIds: [string, string]; groupId: string } | null;
   selectedDays?: string[];
   /** Per-UC colours; events fall back to a neutral style when absent. */
   subjectPalette?: SubjectPalette;
-  /**
-   * Collapse rows/columns that hold no events or marks to reduce scroll (#13/#14).
-   * Set false to keep every slot full-size — e.g. while placing an event, so
-   * empty cells stay big enough to be a drop target (Phase 5 #6).
-   */
+  /** Collapse rows/columns that hold no events or marks to reduce scroll (#13/#14). */
   compactEmpty?: boolean;
   /**
    * Placement mode for moving an event: empty cells become click targets that
-   * highlight on hover. `placementDurationSlots` drives which start rows are
-   * valid. Pair with `compactEmpty={false}` so collapsed rows expand back to
-   * full-size drop targets.
+   * highlight on hover, even while collapsed by `compactEmpty` — a row only
+   * grows once something actually occupies it. `placementDurationSlots` drives
+   * which start rows are valid.
    */
   placementMode?: boolean;
   placementDurationSlots?: number;
@@ -191,6 +194,8 @@ export default function WeekGrid({
   headerHeightPx,
   hourLabelFontPx,
   editingEventId,
+  selectedSessionIds,
+  swapHighlight,
   selectedDays,
   subjectPalette,
   compactEmpty = true,
@@ -589,6 +594,11 @@ export default function WeekGrid({
           const style = styleForSubject(subjectPalette, ev.uc, ev.type);
           const isEditingEvent = editingEventId === ev.id;
           const multiSegment = segments.length > 1;
+          // The swap arc only takes over a single-segment card — a multi-segment
+          // event keeps its own same-event arc instead.
+          const swapIndex =
+            !multiSegment && swapHighlight ? swapHighlight.sessionIds.indexOf(ev.sessionId) : -1;
+          const isSwapped = swapIndex >= 0;
           return segments.map((seg, segIndex) => (
             <ScheduleEventCard
               key={`e-${ev.id}-${seg.start}`}
@@ -599,10 +609,18 @@ export default function WeekGrid({
               rowSpan={span}
               lane={seg.lane}
               laneCount={seg.laneCount}
-              arcGroupId={multiSegment ? `${ev.id}-${dayCol}-${rowStart}` : undefined}
-              arcSegIndex={segIndex}
+              arcGroupId={
+                multiSegment
+                  ? `${ev.id}-${dayCol}-${rowStart}`
+                  : isSwapped
+                    ? swapHighlight!.groupId
+                    : undefined
+              }
+              arcSegIndex={multiSegment ? segIndex : isSwapped ? swapIndex : undefined}
+              arcColor={isSwapped ? "#2563eb" : undefined}
               style={style}
               isEditing={isEditingEvent}
+              selected={selectedSessionIds?.has(ev.sessionId)}
               weekRangeLabel={weekRangeLabel}
               onClick={onEventClick}
             />

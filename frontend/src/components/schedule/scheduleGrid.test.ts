@@ -9,6 +9,7 @@ import {
   computeValidPlacementSlots,
   formatWeekRanges,
   placeEventsOnGrid,
+  slotOverlapsMarks,
   toContiguousRuns,
   type PlacedEvent,
 } from "./scheduleGrid";
@@ -24,6 +25,26 @@ describe("computeValidPlacementSlots", () => {
 
   it("returns nothing when the duration cannot fit", () => {
     expect(computeValidPlacementSlots(2, 3)).toEqual([]);
+  });
+});
+
+describe("slotOverlapsMarks", () => {
+  const marks = [
+    { weekday: "monday" as const, time: 900 },
+    { weekday: "monday" as const, time: 930 },
+    { weekday: "tuesday" as const, time: 800 },
+  ];
+
+  it("detects a mark inside the slot's span", () => {
+    expect(slotOverlapsMarks("monday", 830, 2, marks)).toBe(true);
+  });
+
+  it("ignores marks on a different weekday", () => {
+    expect(slotOverlapsMarks("wednesday", 800, 4, marks)).toBe(false);
+  });
+
+  it("returns false when the span doesn't reach any mark", () => {
+    expect(slotOverlapsMarks("monday", 700, 2, marks)).toBe(false);
   });
 });
 

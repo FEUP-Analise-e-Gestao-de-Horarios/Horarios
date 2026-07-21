@@ -80,7 +80,8 @@ export type EventDrawerFormAction =
   | { type: "shiftDuration"; delta: number }
   | { type: "toggleDocente"; id: string }
   | { type: "toggleSala"; id: string }
-  | { type: "setTurmas"; value: string[] };
+  | { type: "setTurmas"; value: string[] }
+  | { type: "placeAt"; weekday: Weekday; minutes: number };
 
 export function getInitialEventDrawerFormState(event?: WeekGridEvent | null): EventDrawerFormState {
   if (event) {
@@ -151,6 +152,10 @@ export function eventDrawerFormReducer(
       };
     case "setTurmas":
       return { ...state, selectedTurmasOverride: action.value };
+    case "placeAt": {
+      const startTime = minutesToTime(clampTimeMinutes(action.minutes));
+      return { ...state, selectedWeekday: action.weekday, startTime };
+    }
   }
 }
 
