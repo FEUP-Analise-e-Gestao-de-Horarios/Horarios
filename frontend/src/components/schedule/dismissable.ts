@@ -7,5 +7,6 @@
  */
 export const SCHEDULE_EVENT_DATA_ATTR = "data-schedule-event";
 export const SCHEDULE_NAVBAR_DATA_ATTR = "data-schedule-navbar";
+export const SCHEDULE_PLACEMENT_DATA_ATTR = "data-schedule-placement";
 
-export const DRAWER_DISMISS_IGNORE_SELECTOR = `[${SCHEDULE_EVENT_DATA_ATTR}],[${SCHEDULE_NAVBAR_DATA_ATTR}]`;
+export const DRAWER_DISMISS_IGNORE_SELECTOR = `[${SCHEDULE_EVENT_DATA_ATTR}],[${SCHEDULE_NAVBAR_DATA_ATTR}],[${SCHEDULE_PLACEMENT_DATA_ATTR}]`;

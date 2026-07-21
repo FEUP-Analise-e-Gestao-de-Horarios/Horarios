@@ -1,12 +1,20 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import WeekGrid from "@/components/schedule/WeekGrid";
+import WeekGrid, { type WeekGridEvent } from "@/components/schedule/WeekGrid";
 import EditEventDrawer from "@/components/schedule/EditEventDrawer";
 import ConflictsDrawer from "@/components/schedule/ConflictsDrawer";
 import DistributionModal from "@/components/schedule/DistributionModal";
 import ScheduleNavbar from "@/components/schedule/ScheduleNavbar";
 import { useEventUnavailability } from "@/components/schedule/useEventUnavailability";
 import { useEventEditor } from "@/components/schedule/useEventEditor";
+import { useEventDrawerForm } from "@/components/schedule/useEventDrawerForm";
+import {
+  applySessionOverrides,
+  buildSessionOverride,
+  useLocalSessionEdits,
+  type OverrideLookups,
+  type SessionOverrides,
+} from "@/components/schedule/useLocalSessionEdits";
 import { useProjectAccess } from "@/api/hooks/project/access";
 import { useParallelSessionsReminder } from "@/components/parallel/useParallelSessionsReminder";
 import {
@@ -23,6 +31,7 @@ import { useProjectTeachers } from "@/api/hooks/project/teacher";
 import { useProjectSessions } from "@/api/hooks/project/sessions";
 import { useProjectConflicts } from "@/api/hooks/project/conflicts";
 import { useProjectYear } from "@/api/hooks/project/year";
+import { minutesToTime } from "@/utils/time";
 import { WEEKDAYS, WEEKDAY_LABELS_UPPER } from "@/utils/weekdays";
 
 export default function SchedulePage() {
@@ -55,6 +64,32 @@ export default function SchedulePage() {
   const eventEditor = useEventEditor();
   const [isConflictsDrawerOpen, setIsConflictsDrawerOpen] = useState(false);
   const [isDistributionOpen, setIsDistributionOpen] = useState(false);
+
+  // In-memory event edits: not persisted, cleared on course change. The edit
+  // drawer's form lives here (not inside the drawer) so the grid can preview
+  // it live and write a placement click's target into it.
+  const localEdits = useLocalSessionEdits();
+  const [formState, dispatchForm] = useEventDrawerForm(eventEditor.editingEvent);
+  const lastEditingEventRef = useRef(eventEditor.editingEvent);
+  useEffect(() => {
+    if (lastEditingEventRef.current !== eventEditor.editingEvent) {
+      lastEditingEventRef.current = eventEditor.editingEvent;
+      dispatchForm({ type: "reset", event: eventEditor.editingEvent });
+    }
+  }, [eventEditor.editingEvent, dispatchForm]);
+
+  // Click-to-place mode for moving the open event on the grid. On by default
+  // so clicking a slot moves the event without first toggling; the drawer has
+  // a button to turn it off.
+  const [placementMode, setPlacementMode] = useState(false);
+  const openEditor = (event: WeekGridEvent) => {
+    setPlacementMode(true);
+    eventEditor.openEditor(event, true);
+  };
+  const closeEditor = () => {
+    setPlacementMode(false);
+    eventEditor.closeEditor();
+  };
 
   // Where the selected event's teacher(s)/room are unavailable (#5).
   const unavailabilityMarks = useEventUnavailability(
@@ -136,6 +171,51 @@ export default function SchedulePage() {
     [saturdayProbeQuery.data],
   );
 
+  // Resolves the drawer form's ids/codes back to session entities.
+  const overrideLookups = useMemo<OverrideLookups>(
+    () => ({
+      teachersById: new Map((teachers ?? []).map((teacher) => [teacher.id, teacher])),
+      roomsById: new Map((rooms ?? []).map((room) => [room.id, room])),
+      subjectsByName: new Map(
+        (selectedYearDetail?.subjects ?? []).map((subject) => [subject.name, subject]),
+      ),
+      classesByCode: new Map(
+        (selectedYearDetail?.classes ?? []).map((classItem) => [classItem.code, classItem]),
+      ),
+    }),
+    [teachers, rooms, selectedYearDetail],
+  );
+
+  const saveEdit = () => {
+    const editing = eventEditor.editingEvent;
+    if (!editing) return;
+    localEdits.commit(editing.sessionId, buildSessionOverride(formState, overrideLookups));
+    closeEditor();
+  };
+
+  // Live preview of the open event's edits, layered over committed edits, so
+  // the grid, lanes, arcs and distribution all recompute as the user edits.
+  const effectiveOverrides = useMemo<SessionOverrides>(() => {
+    const editing = eventEditor.isOpen ? eventEditor.editingEvent : null;
+    if (!editing) return localEdits.overrides;
+    const live = buildSessionOverride(formState, overrideLookups);
+    return {
+      ...localEdits.overrides,
+      [editing.sessionId]: { ...localEdits.overrides[editing.sessionId], ...live },
+    };
+  }, [
+    eventEditor.isOpen,
+    eventEditor.editingEvent,
+    formState,
+    overrideLookups,
+    localEdits.overrides,
+  ]);
+
+  const overriddenSessions = useMemo(
+    () => applySessionOverrides(sessionsQuery.data, effectiveOverrides),
+    [sessionsQuery.data, effectiveOverrides],
+  );
+
   // --- derived filter view ---------------------------------------------
   const filters = useScheduleFilters({
     curso,
@@ -147,7 +227,7 @@ export default function SchedulePage() {
     semanas,
     selectedDegree,
     selectedYearDetail,
-    selectedYearWeeks: sessionsQuery.data,
+    selectedYearWeeks: overriddenSessions,
     hasSaturdaySessions,
   });
 
@@ -200,6 +280,7 @@ export default function SchedulePage() {
     setTurnos([]);
     setTurmas([]);
     setSemanas([]);
+    localEdits.clear();
   };
 
   if (!projectId) return null;
@@ -277,7 +358,7 @@ export default function SchedulePage() {
           open={eventEditor.isOpen}
           collapsed={eventEditor.isCollapsed}
           onCollapsedChange={eventEditor.setIsCollapsed}
-          onClose={eventEditor.closeEditor}
+          onClose={closeEditor}
           conflicts={yearConflicts}
           ucOptions={filters.ucOptions}
           turmaOptions={filters.turmaOrder}
@@ -285,6 +366,11 @@ export default function SchedulePage() {
           roomOptions={roomOptions}
           preferredUc={filters.effectiveUcs[0]}
           event={eventEditor.editingEvent}
+          formState={formState}
+          dispatch={dispatchForm}
+          placementMode={placementMode}
+          onTogglePlacement={() => setPlacementMode((on) => !on)}
+          onSave={saveEdit}
         />
         {!canShowSchedule ? (
           <div className="h-full flex items-center justify-center text-center text-gray-500 text-lg">
@@ -323,7 +409,14 @@ export default function SchedulePage() {
               showHalfHourDividers
               editingEventId={eventEditor.isOpen ? eventEditor.editingEvent?.id : undefined}
               subjectPalette={subjectPalette}
-              onEventClick={(event) => eventEditor.openEditor(event, true)}
+              compactEmpty={!placementMode}
+              placementMode={placementMode}
+              placementDurationSlots={formState.durationSlots}
+              onSlotClick={(weekday, minutes) => {
+                dispatchForm({ type: "setWeekday", value: weekday });
+                dispatchForm({ type: "normalizeStartTime", raw: minutesToTime(minutes) });
+              }}
+              onEventClick={openEditor}
               onHorizontalScroll={() => eventEditor.setIsCollapsed(true)}
             />
           </div>

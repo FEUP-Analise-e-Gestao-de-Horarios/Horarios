@@ -1,15 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type Dispatch } from "react";
 import type { ConflictRecord } from "@/types/project/conflicts";
 import type { Weekday } from "@/types/project/weekday";
 import type { WeekGridEvent } from "@/components/schedule/WeekGrid";
-import { formatDurationSlots } from "@/utils/time";
+import { formatDurationSlots, timeToHhmm } from "@/utils/time";
 import { WEEKDAYS, WEEKDAY_LABELS_LONG } from "@/utils/weekdays";
+import ConfirmDialog from "./ConfirmDialog";
 import ConflictCard from "./ConflictCard";
 import { DRAWER_DISMISS_IGNORE_SELECTOR } from "./dismissable";
 import DrawerMultiSelect from "./DrawerMultiSelect";
 import { useDismissable } from "./useDismissable";
 import { useDrawerSearch } from "./useDrawerSearch";
-import { toggleSelection, useEventDrawerForm } from "./useEventDrawerForm";
+import {
+  toggleSelection,
+  type EventDrawerFormAction,
+  type EventDrawerFormState,
+} from "./useEventDrawerForm";
 
 type TeacherOption = {
   id: string;
@@ -56,6 +61,13 @@ interface EditEventDrawerProps {
   roomOptions: RoomOption[];
   preferredUc?: string;
   event?: WeekGridEvent | null;
+  /** Lifted to the page so the grid can preview edits and place moves. */
+  formState: EventDrawerFormState;
+  dispatch: Dispatch<EventDrawerFormAction>;
+  placementMode: boolean;
+  onTogglePlacement: () => void;
+  /** Commits the current edits into the local session override. */
+  onSave: () => void;
 }
 
 export default function EditEventDrawer({
@@ -70,8 +82,12 @@ export default function EditEventDrawer({
   roomOptions,
   preferredUc,
   event,
+  formState,
+  dispatch,
+  placementMode,
+  onTogglePlacement,
+  onSave,
 }: EditEventDrawerProps) {
-  const [formState, dispatch] = useEventDrawerForm(event);
   const {
     selectedUcOverride,
     selectedDocenteOverride,
@@ -86,16 +102,6 @@ export default function EditEventDrawer({
   const salasSearch = useDrawerSearch();
   const turmasSearch = useDrawerSearch();
 
-  // The form is seeded lazily from `event` on mount; re-seed whenever the
-  // parent swaps in a different event (or any of its time-shape fields
-  // change) so the inputs don't get stuck displaying the previous event.
-  const lastEventRef = useRef(event);
-  useEffect(() => {
-    if (lastEventRef.current !== event) {
-      lastEventRef.current = event;
-      dispatch({ type: "reset", event });
-    }
-  }, [event, dispatch]);
   // Conflicts reference bare session ids (contract C2), so matching on
   // `sessionId` works for every event expanded from the session regardless of
   // which turma's card the user clicked.
@@ -305,6 +311,26 @@ export default function EditEventDrawer({
     [event, turmaOptions],
   );
 
+  // A move = the slot (day/start/duration) differs from the event at open.
+  const movedSlot =
+    !!event &&
+    (selectedWeekday !== event.weekday ||
+      timeToHhmm(startTime) !== event.startTime ||
+      durationSlots !== event.duration);
+
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const confirmMessages = [
+    movedSlot
+      ? `Mover para ${WEEKDAY_LABELS_LONG[selectedWeekday]} às ${startTime} (${formatDurationSlots(durationSlots)}).`
+      : null,
+    turmasChanged ? "Está a mudar esta aula para uma turma diferente." : null,
+    isCrossCourse ? "Esta aula é partilhada com outro curso." : null,
+  ].filter((message): message is string => message !== null);
+  const handleGuardar = () => {
+    if (confirmMessages.length > 0) setConfirmOpen(true);
+    else onSave();
+  };
+
   if (!open) return null;
 
   return (
@@ -463,6 +489,19 @@ export default function EditEventDrawer({
             </label>
           </div>
 
+          <button
+            type="button"
+            onClick={onTogglePlacement}
+            aria-pressed={placementMode}
+            className={`w-full rounded py-2 text-sm font-medium border transition-colors ${
+              placementMode
+                ? "border-[#c73f24] bg-[#c73f24]/20 text-white"
+                : "border-white/20 bg-[#2a303a] text-white/80 hover:text-white"
+            }`}
+          >
+            {placementMode ? "A mover — clique num espaço…" : "Mover no horário"}
+          </button>
+
           <div className="space-y-4" ref={dropdownAreaRef}>
             <DrawerMultiSelect
               label="Docentes"
@@ -542,20 +581,24 @@ export default function EditEventDrawer({
             </div>
           </div>
 
-          {/*
-            The drawer is still read-only: there is no save endpoint or onSave
-            prop yet, so the form edits live only in local state. Keep the
-            button visibly disabled until the persistence path is wired up
-            rather than shipping a button that silently does nothing.
-          */}
           <button
             type="button"
-            disabled
-            title="Edição ainda não disponível"
-            className="w-full bg-[#8c2d19]/40 text-white/50 font-semibold rounded py-2.5 mt-4 cursor-not-allowed"
+            onClick={handleGuardar}
+            className="w-full bg-[#c73f24] hover:bg-[#b3361f] text-white font-semibold rounded py-2.5 mt-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#c73f24]"
           >
             Guardar
           </button>
+
+          <ConfirmDialog
+            open={confirmOpen}
+            title="Confirmar alteração"
+            messages={confirmMessages}
+            onConfirm={() => {
+              setConfirmOpen(false);
+              onSave();
+            }}
+            onCancel={() => setConfirmOpen(false)}
+          />
 
           <div className="pt-4 border-t border-white/20">
             <h3 className="text-white/90 font-semibold mb-3">Conflitos Detectados</h3>

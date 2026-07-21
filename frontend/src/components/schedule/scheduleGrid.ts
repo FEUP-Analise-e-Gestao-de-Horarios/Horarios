@@ -14,6 +14,18 @@ export function buildArcPath(x1: number, y1: number, x2: number, y2: number, min
   return `M ${x1} ${y1} Q ${midX} ${peakY} ${x2} ${y2}`;
 }
 
+/**
+ * Row indices a class of `durationSlots` may start on without overflowing the
+ * grid. Unavailable slots stay valid targets — placing there is allowed, it
+ * just needs the user to confirm the move.
+ */
+export function computeValidPlacementSlots(slotCount: number, durationSlots: number): number[] {
+  const span = Math.max(1, durationSlots);
+  const slots: number[] = [];
+  for (let row = 0; row + span <= slotCount; row += 1) slots.push(row);
+  return slots;
+}
+
 export type ContiguousRun = { start: number; span: number };
 
 export type PlacedEvent = {

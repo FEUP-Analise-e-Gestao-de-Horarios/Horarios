@@ -2,6 +2,7 @@ import { useMemo, useRef, type CSSProperties } from "react";
 import type { Weekday } from "@/types/project/weekday";
 import { hhmmToMinutes, minutesToTime } from "@/utils/time";
 import { WEEKDAYS, WEEKDAY_LABELS_SHORT } from "@/utils/weekdays";
+import { SCHEDULE_PLACEMENT_DATA_ATTR } from "./dismissable";
 import EventArcsOverlay from "./EventArcsOverlay";
 import ScheduleEventCard from "./ScheduleEventCard";
 import {
@@ -9,6 +10,7 @@ import {
   computeColumnWidths,
   computeRowHeights,
   computeRowOccupancy,
+  computeValidPlacementSlots,
   placeEventsOnGrid,
 } from "./scheduleGrid";
 import { styleForSubject, type SubjectPalette } from "./subjectColors";
@@ -94,6 +96,15 @@ interface WeekGridProps {
    * empty cells stay big enough to be a drop target (Phase 5 #6).
    */
   compactEmpty?: boolean;
+  /**
+   * Placement mode for moving an event: empty cells become click targets that
+   * highlight on hover. `placementDurationSlots` drives which start rows are
+   * valid. Pair with `compactEmpty={false}` so collapsed rows expand back to
+   * full-size drop targets.
+   */
+  placementMode?: boolean;
+  placementDurationSlots?: number;
+  onSlotClick?: (weekday: Weekday, minutes: number) => void;
 }
 
 const WEEKDAY_LABELS = WEEKDAYS.map((day) => WEEKDAY_LABELS_SHORT[day]);
@@ -183,6 +194,9 @@ export default function WeekGrid({
   selectedDays,
   subjectPalette,
   compactEmpty = true,
+  placementMode = false,
+  placementDurationSlots = 1,
+  onSlotClick,
 }: WeekGridProps) {
   const lastScrollLeftRef = useRef(0);
   const { gridRef, columnWidthPx, dragState, handleResizeStart, handleResizeKeyDown } =
@@ -269,6 +283,13 @@ export default function WeekGrid({
         })
         .filter(<T,>(x: T | null): x is T => x !== null),
     [marks, gridStartMinutes, slotCount, visibleDayIndices],
+  );
+
+  // Start rows a moved class can land on without overflowing the grid.
+  const validPlacementRows = useMemo(
+    () =>
+      placementMode ? new Set(computeValidPlacementSlots(slotCount, placementDurationSlots)) : null,
+    [placementMode, slotCount, placementDurationSlots],
   );
 
   // Empty row/column compaction (#13/#14); compactEmpty off keeps all full-size.
@@ -499,16 +520,48 @@ export default function WeekGrid({
                   : "";
               const isLastTurma = turmaIdx === turmasCount - 1;
               const isLastDay = visibleIdx === visibleDayIndices.length - 1;
+              // A click resolves to weekday + time only, not the turma column,
+              // so any cell in a valid row is an equivalent drop target.
+              const dayIndex = visibleDayIndices[visibleIdx];
+              const weekday = dayIndex === undefined ? undefined : WEEKDAYS[dayIndex];
+              const isPlacementTarget =
+                validPlacementRows !== null && validPlacementRows.has(i) && weekday !== undefined;
+              const place = isPlacementTarget
+                ? () => onSlotClick?.(weekday, gridStartMinutes + i * SLOT_MINUTES)
+                : undefined;
               return (
                 <div
                   key={`c-${i}-${visibleIdx}-${turmaIdx}`}
+                  {...(isPlacementTarget ? { [SCHEDULE_PLACEMENT_DATA_ATTR]: "" } : {})}
+                  role={isPlacementTarget ? "button" : undefined}
+                  tabIndex={isPlacementTarget ? 0 : undefined}
+                  aria-label={
+                    isPlacementTarget
+                      ? `Mover para ${minutesToTime(gridStartMinutes + i * SLOT_MINUTES)}`
+                      : undefined
+                  }
                   className={`border-r border-[#e5e4e7] ${rowDividerClass} ${
                     turmaIdx === 0 && visibleIdx > 0 ? "border-l border-[#d8d5da]" : ""
-                  } ${isLastDay && isLastTurma ? "border-r-0" : ""}`}
+                  } ${isLastDay && isLastTurma ? "border-r-0" : ""} ${
+                    isPlacementTarget
+                      ? "cursor-pointer hover:bg-[#c73f24]/15 hover:ring-1 hover:ring-inset hover:ring-[#c73f24]"
+                      : ""
+                  }`}
                   style={{
                     gridColumn: visibleIdx * turmasCount + turmaIdx + 2,
                     gridRow: i + headerRows + 1,
                   }}
+                  onClick={place}
+                  onKeyDown={
+                    place
+                      ? (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            place();
+                          }
+                        }
+                      : undefined
+                  }
                 />
               );
             }),
