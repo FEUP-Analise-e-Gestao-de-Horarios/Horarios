@@ -25,8 +25,12 @@ import {
   type SessionOverride,
 } from "@/components/schedule/useLocalSessionEdits";
 import { useProjectAccess } from "@/api/hooks/project/access";
-import { useSplitSession, useUpdateSession } from "@/api/hooks/project/sessionMutations";
-import type { SessionPatch, SessionSplit } from "@/types/project/sessions";
+import {
+  useMergeSession,
+  useSplitSession,
+  useUpdateSession,
+} from "@/api/hooks/project/sessionMutations";
+import type { SessionMerge, SessionPatch, SessionSplit } from "@/types/project/sessions";
 import { useParallelSessionsReminder } from "@/components/parallel/useParallelSessionsReminder";
 import {
   pickSelectedYearNumber,
@@ -81,6 +85,23 @@ function overrideToPatch(override: SessionOverride): SessionPatch {
   if (override.classes) patch.class_ids = override.classes.map((c) => c.id);
   if (override.subjects) patch.subject_ids = override.subjects.map((s) => s.id);
   return patch;
+}
+
+// Whether two events are the same lecture minus which turmas they cover —
+// the only case a merge (recombining them back into one session) is valid
+// for. Doesn't check classes: two events that already shared a class
+// wouldn't be separate sessions to begin with.
+function canMerge(a: WeekGridEvent, b: WeekGridEvent): boolean {
+  if (a.weekday !== b.weekday || a.startTime !== b.startTime || a.duration !== b.duration) {
+    return false;
+  }
+  if (a.type !== b.type || a.uc !== b.uc) return false;
+  const sameIds = (x: { id: string }[] | undefined, y: { id: string }[] | undefined) => {
+    const xIds = new Set((x ?? []).map((item) => item.id));
+    const yIds = new Set((y ?? []).map((item) => item.id));
+    return xIds.size === yIds.size && [...xIds].every((id) => yIds.has(id));
+  };
+  return sameIds(a.teachers, b.teachers) && sameIds(a.rooms, b.rooms);
 }
 
 // Full field snapshot of a WeekGridEvent as a SessionPatch, resolving turma
@@ -305,6 +326,7 @@ export default function SchedulePage() {
   };
 
   const splitSession = useSplitSession(projectId ?? "");
+  const mergeSession = useMergeSession(projectId ?? "");
 
   // Availability (#5) for whatever is currently selected in the drawer —
   // including an unsaved docente/sala/turma change — not just the event's
@@ -579,6 +601,31 @@ export default function SchedulePage() {
     closeEditor();
   };
 
+  // Recombines two sessions that already match on everything but their
+  // classes back into one — the reverse of a split. No local-edit preview
+  // and no undo, same reasons as a split: the local-edit layer can't
+  // represent a session disappearing into another, and undoing a merge
+  // means re-splitting, which isn't built.
+  const mergeEvents = (source: WeekGridEvent, target: WeekGridEvent) => {
+    const weeks = weeksInScope(source, filters.selectedWeeks);
+    const merge: SessionMerge = { target_session_id: target.sessionId, weeks };
+    mergeSession.mutate(
+      { sessionId: source.sessionId, merge },
+      {
+        onError: () =>
+          toast.error("Não foi possível reagrupar as turmas no servidor.", {
+            description: `${eventLabel(source)} continua separada de ${eventLabel(target)}.`,
+          }),
+      },
+    );
+    notifyChange({
+      sessionIds: [source.sessionId, target.sessionId],
+      title: "Turmas reagrupadas",
+      description: `${eventLabel(source)} volta a fazer parte de ${eventLabel(target)}.`,
+    });
+    closeEditor();
+  };
+
   const handleEventClick = (
     clicked: WeekGridEvent,
     domEvent: MouseEvent<HTMLButtonElement>,
@@ -599,6 +646,10 @@ export default function SchedulePage() {
         setSplitOrigin(null);
         if (isSharedAcrossTurmas && clickedTurma) openSplitEditor(clicked, clickedTurma);
         else openEditor(clicked);
+        return;
+      }
+      if (canMerge(editing, clicked)) {
+        mergeEvents(editing, clicked);
         return;
       }
       swapEvents(editing, clicked);

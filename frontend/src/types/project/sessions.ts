@@ -85,6 +85,20 @@ export interface SessionSplitResult {
   created: SessionResponse;
 }
 
+// -- Merge (reverse of split) -----------------------------------------------
+/**
+ * POST body for /api/projects/<pid>/sessions/<sid>/merge/ — recombines the
+ * calling session's classes into `target_session_id`, deleting the caller.
+ * Only sessions that already match on weekday/start_time/duration/type/
+ * teachers/rooms/subject can merge — this doesn't reconcile any of those,
+ * it only recombines classes back onto one session.
+ */
+export interface SessionMerge {
+  target_session_id: string;
+  /** Same fan-out semantics as SessionPatch.weeks. */
+  weeks?: string[];
+}
+
 // -- Week blocks ---------------------------------------------------------
 export interface WeekBlockResponse {
   weeks: string[];

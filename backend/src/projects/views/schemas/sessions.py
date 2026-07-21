@@ -80,3 +80,20 @@ class SessionSplitRequest(BaseModel):
 class SessionSplitResponse(BaseModel):
     original: SessionDetails
     created: SessionDetails
+
+
+# -- Merge (reverse of split) --------------------------------------------
+class SessionMergeRequest(BaseModel):
+    """POST body for merging a session's classes into another session.
+
+    The two sessions must already match on weekday, start_time, duration,
+    type, teachers, rooms and subject — merge recombines two sessions that
+    only differ in which classes they cover, it doesn't reconcile anything
+    else. For each week both sessions have a row in (restricted to `weeks`
+    when given, same fan-out semantics as the other session endpoints), the
+    calling session's classes move onto the target's row and the calling
+    session's row is deleted; weeks only one side has are left untouched.
+    """
+
+    target_session_id: UUID
+    weeks: list[datetime.date] = Field(default_factory=list)

@@ -29,6 +29,7 @@ from src.projects.projects_db.models.session import Session as SessionRow
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
 from src.projects.views.schemas.sessions import (
+    SessionMergeRequest,
     SessionPatchRequest,
     SessionSplitRequest,
     SessionSplitResponse,
@@ -334,5 +335,104 @@ class ProjectSessionSplitView(View):
                         original=SessionDetails.from_session(target),
                         created=SessionDetails.from_session(representative),
                     ),
+                ).model_dump(),
+            )
+
+
+class ProjectSessionMergeView(View):
+    """API endpoint: merge a session's classes into another, deleting it (reverse of split)."""
+
+    @require_auth
+    @require_project
+    def post(self, request: HttpRequest, project_id: int, session_id: UUID) -> HttpResponse:
+        validated, err = validate_request_body(SessionMergeRequest, request.body)
+        if err is not None:
+            return err
+        assert validated is not None
+
+        with get_project_session(general_db(project_id)) as db_session:
+            session_dao = SessionDAO(db_session)
+            source = session_dao.get(session_id)
+            if source is None:
+                return SessionNotFoundResponse(f"Session not found: {session_id}.")
+            target = session_dao.get(validated.target_session_id)
+            if target is None:
+                return SessionNotFoundResponse(
+                    f"Session not found: {validated.target_session_id}.",
+                )
+            if source.id == target.id:
+                return InvalidBodyResponse("A session cannot be merged with itself.")
+
+            if (source.weekday, source.start_time, source.duration, source.type) != (
+                target.weekday,
+                target.start_time,
+                target.duration,
+                target.type,
+            ):
+                return InvalidBodyResponse(
+                    "Sessions must share the same weekday, start_time, duration and type to merge.",
+                )
+            if {t.id for t in source.teachers} != {t.id for t in target.teachers}:
+                return InvalidBodyResponse("Sessions must have the same teachers to merge.")
+            if {r.id for r in source.rooms} != {r.id for r in target.rooms}:
+                return InvalidBodyResponse("Sessions must have the same rooms to merge.")
+
+            scs_dao = SessionClassSubjectDAO(db_session)
+            if scs_dao.distinct_subject_ids(source.id) != scs_dao.distinct_subject_ids(target.id):
+                return InvalidBodyResponse("Sessions must teach the same subject to merge.")
+
+            source_by_week = {
+                row.week: row
+                for row in session_dao.get_siblings_in_weeks(
+                    source,
+                    validated.weeks,
+                )
+            }
+            target_by_week = {
+                row.week: row
+                for row in session_dao.get_siblings_in_weeks(
+                    target,
+                    validated.weeks,
+                )
+            }
+            weeks_to_merge = sorted(source_by_week.keys() & target_by_week.keys())
+            if not weeks_to_merge:
+                return InvalidBodyResponse(
+                    "Sessions don't share any week in scope — nothing to merge.",
+                )
+
+            # Validate before mutating anything, so a bad week never leaves a
+            # partially-merged pair of sessions behind.
+            for week in weeks_to_merge:
+                source_row = source_by_week[week]
+                target_row = target_by_week[week]
+                source_classes = {link.class_id for link in scs_dao.get_by_session(source_row.id)}
+                target_classes = {link.class_id for link in scs_dao.get_by_session(target_row.id)}
+                if source_classes & target_classes:
+                    return InvalidBodyResponse(
+                        f"Sessions already share a class in week {week} — nothing to merge.",
+                    )
+
+            for week in weeks_to_merge:
+                source_row = source_by_week[week]
+                target_row = target_by_week[week]
+                source_pairs = [
+                    (link.class_id, link.subject_id)
+                    for link in scs_dao.get_by_session(source_row.id)
+                ]
+                target_pairs = [
+                    (link.class_id, link.subject_id)
+                    for link in scs_dao.get_by_session(target_row.id)
+                ]
+                scs_dao.remove_classes(source_row.id, [class_id for class_id, _ in source_pairs])
+                scs_dao.replace_for_session(target_row.id, target_pairs + source_pairs)
+                session_dao.delete(source_row)
+
+            db_session.commit()
+
+            return JsonResponse(
+                SuccessResponse(
+                    message="Sessions merged successfully",
+                    data=SessionDetails.from_session(target),
                 ).model_dump(),
             )

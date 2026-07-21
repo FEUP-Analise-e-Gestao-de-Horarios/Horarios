@@ -455,3 +455,19 @@ class SessionDAO(BaseDAO[Session]):
         by_id = {s.id: s for s in siblings}
         by_id[session_row.id] = session_row
         return list(by_id.values())
+
+    # -------------------------------------------------------------------
+    # -- Delete
+    # -------------------------------------------------------------------
+
+    def delete(self, session_row: Session) -> None:
+        """Delete a session row.
+
+        Used by a session merge (the reverse of a split): once a session's
+        classes have all been moved elsewhere via
+        `SessionClassSubjectDAO.remove_classes`, the now-empty row is
+        deleted outright. Callers must clear `session_class_subjects` first
+        — that relationship has no delete cascade configured, since nothing
+        else in the app deletes a session with classes still attached.
+        """
+        self.session.delete(session_row)

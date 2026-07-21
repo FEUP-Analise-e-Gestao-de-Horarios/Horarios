@@ -14,6 +14,7 @@ from src.projects.views.parallel_blocks import (
 from src.projects.views.project import ProjectsView, ProjectView
 from src.projects.views.rooms import ProjectRoomsView, ProjectRoomView
 from src.projects.views.sessions import (
+    ProjectSessionMergeView,
     ProjectSessionSplitView,
     ProjectSessionsView,
     ProjectSessionView,
@@ -62,6 +63,7 @@ session_patterns = [
     # routes above, since PATCH can't rely on Django's APPEND_SLASH redirect.
     path("<uuid:session_id>/", ProjectSessionView.as_view()),
     path("<uuid:session_id>/split/", ProjectSessionSplitView.as_view()),
+    path("<uuid:session_id>/merge/", ProjectSessionMergeView.as_view()),
 ]
 
 parallel_block_group_patterns = [
