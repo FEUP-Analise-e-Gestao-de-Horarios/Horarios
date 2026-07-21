@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
+import { toast } from "sonner";
 import WeekGrid, { type WeekGridEvent } from "@/components/schedule/WeekGrid";
 import EditEventDrawer from "@/components/schedule/EditEventDrawer";
 import ConflictsDrawer from "@/components/schedule/ConflictsDrawer";
@@ -191,6 +192,7 @@ export default function SchedulePage() {
     if (!editing) return;
     localEdits.commit(editing.sessionId, buildSessionOverride(formState, overrideLookups));
     closeEditor();
+    toast("1 sessão alterada");
   };
 
   // Live preview of the open event's edits, layered over committed edits, so
