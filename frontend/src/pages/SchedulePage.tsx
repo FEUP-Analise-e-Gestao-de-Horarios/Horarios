@@ -25,6 +25,8 @@ import {
   type SessionOverride,
 } from "@/components/schedule/useLocalSessionEdits";
 import { useProjectAccess } from "@/api/hooks/project/access";
+import { useUpdateSession } from "@/api/hooks/project/sessionMutations";
+import type { SessionPatch } from "@/types/project/sessions";
 import { useParallelSessionsReminder } from "@/components/parallel/useParallelSessionsReminder";
 import {
   pickSelectedYearNumber,
@@ -53,6 +55,51 @@ function eventLabel(ev: WeekGridEvent): string {
 
 function slotLabel(weekday: Weekday, hhmm: number): string {
   return `${WEEKDAY_LABELS_LONG[weekday]} às ${String(Math.floor(hhmm / 100)).padStart(2, "0")}:${String(hhmm % 100).padStart(2, "0")}`;
+}
+
+// The weeks a commit should persist to on the backend: every week the event's
+// recurring block covers that's also currently selected/filtered — so moving
+// a class only affects the weeks the user is actually looking at, not every
+// week it has ever run. An empty filter means "all weeks selected".
+function weeksInScope(ev: WeekGridEvent, selectedWeeks: string[]): string[] {
+  const blockWeeks = ev.weeks ?? [];
+  if (selectedWeeks.length === 0) return blockWeeks;
+  const selected = new Set(selectedWeeks);
+  return blockWeeks.filter((week) => selected.has(week));
+}
+
+// Translates a local SessionOverride (entity objects) into the id-based
+// SessionPatch shape the backend expects — only the fields the override
+// actually set, so a partial local commit stays a partial PATCH.
+function overrideToPatch(override: SessionOverride): SessionPatch {
+  const patch: SessionPatch = {};
+  if (override.weekday !== undefined) patch.weekday = override.weekday;
+  if (override.start_time !== undefined) patch.start_time = override.start_time;
+  if (override.duration !== undefined) patch.duration = override.duration;
+  if (override.teachers) patch.teacher_ids = override.teachers.map((t) => t.id);
+  if (override.rooms) patch.room_ids = override.rooms.map((r) => r.id);
+  if (override.classes) patch.class_ids = override.classes.map((c) => c.id);
+  if (override.subjects) patch.subject_ids = override.subjects.map((s) => s.id);
+  return patch;
+}
+
+// Full field snapshot of a WeekGridEvent as a SessionPatch, resolving turma
+// codes and the UC name back to ids via the lookups. Used for undo: rather
+// than diffing, a compensating PATCH just restores every field to what it
+// was right before the commit being undone.
+function fullPatchFor(ev: WeekGridEvent, lookups: OverrideLookups): SessionPatch {
+  const subject = lookups.subjectsByName.get(ev.uc ?? "");
+  return {
+    weekday: ev.weekday,
+    start_time: ev.startTime,
+    duration: ev.duration,
+    teacher_ids: (ev.teachers ?? []).map((t) => t.id),
+    room_ids: (ev.rooms ?? []).map((r) => r.id),
+    class_ids: (ev.classCodes ?? [])
+      .map((code) => lookups.classesByCode.get(code)?.id)
+      .filter((id): id is string => !!id),
+    subject_ids: subject ? [subject.id] : [],
+  };
 }
 
 export default function SchedulePage() {
@@ -218,6 +265,23 @@ export default function SchedulePage() {
     [teachers, rooms, selectedYearDetail],
   );
 
+  // Persists a commit to the real backend (contract C1). A no-op while
+  // FLAGS.sessionMutations is off — the local-edit layer above is already
+  // the source of truth for the live preview either way, so this is purely
+  // about making the change stick past a refresh once the endpoint exists.
+  const updateSession = useUpdateSession(projectId ?? "");
+  const persistPatch = (sessionId: string, patch: SessionPatch) => {
+    updateSession.mutate(
+      { sessionId, patch },
+      {
+        onError: () =>
+          toast.error("Não foi possível guardar as alterações no servidor.", {
+            description: "A alteração continua visível localmente, mas não foi persistida.",
+          }),
+      },
+    );
+  };
+
   // Availability (#5) for whatever is currently selected in the drawer —
   // including an unsaved docente/sala/turma change — not just the event's
   // original ones, so the red-block overlay and the conflict check below stay
@@ -305,21 +369,28 @@ export default function SchedulePage() {
   // unsaved field.
   const applyPlacement = (editing: WeekGridEvent, nextState: EventDrawerFormState) => {
     const previous = localEdits.overrides[editing.sessionId];
+    const previousPatch = fullPatchFor(editing, overrideLookups);
+    const weeks = weeksInScope(editing, filters.selectedWeeks);
     const nextHhmm = timeToHhmm(nextState.startTime);
     const turmaChanged = turmaChangedFrom(editing, nextState.selectedTurmasOverride);
-    localEdits.commit(editing.sessionId, {
+    const override: SessionOverride = {
       weekday: nextState.selectedWeekday,
       start_time: nextHhmm,
       duration: nextState.durationSlots,
       ...(turmaChanged ? { classes: classesForCodes(nextState.selectedTurmasOverride) } : {}),
-    });
+    };
+    localEdits.commit(editing.sessionId, override);
+    persistPatch(editing.sessionId, { ...overrideToPatch(override), weeks });
     const warning = warningFor(editing, nextState);
     const move = `${slotLabel(editing.weekday, editing.startTime)} → ${slotLabel(nextState.selectedWeekday, nextHhmm)}`;
     notifyChange({
       sessionIds: [editing.sessionId],
       title: eventLabel(editing),
       description: warning ? `${move} — ${warning}.` : `${move}.`,
-      undo: () => localEdits.replace(editing.sessionId, previous),
+      undo: () => {
+        localEdits.replace(editing.sessionId, previous);
+        persistPatch(editing.sessionId, { ...previousPatch, weeks });
+      },
     });
   };
 
@@ -330,18 +401,26 @@ export default function SchedulePage() {
   const swapEvents = (a: WeekGridEvent, b: WeekGridEvent) => {
     const previousA = localEdits.overrides[a.sessionId];
     const previousB = localEdits.overrides[b.sessionId];
-    localEdits.commit(a.sessionId, {
+    const previousPatchA = fullPatchFor(a, overrideLookups);
+    const previousPatchB = fullPatchFor(b, overrideLookups);
+    const weeksA = weeksInScope(a, filters.selectedWeeks);
+    const weeksB = weeksInScope(b, filters.selectedWeeks);
+    const overrideA: SessionOverride = {
       weekday: b.weekday,
       start_time: b.startTime,
       duration: b.duration,
       classes: classesForCodes(b.classCodes),
-    });
-    localEdits.commit(b.sessionId, {
+    };
+    const overrideB: SessionOverride = {
       weekday: a.weekday,
       start_time: a.startTime,
       duration: a.duration,
       classes: classesForCodes(a.classCodes),
-    });
+    };
+    localEdits.commit(a.sessionId, overrideA);
+    localEdits.commit(b.sessionId, overrideB);
+    persistPatch(a.sessionId, { ...overrideToPatch(overrideA), weeks: weeksA });
+    persistPatch(b.sessionId, { ...overrideToPatch(overrideB), weeks: weeksB });
     notifyChange({
       sessionIds: [a.sessionId, b.sessionId],
       title: "Aulas trocadas",
@@ -349,6 +428,8 @@ export default function SchedulePage() {
       undo: () => {
         localEdits.replace(a.sessionId, previousA);
         localEdits.replace(b.sessionId, previousB);
+        persistPatch(a.sessionId, { ...previousPatchA, weeks: weeksA });
+        persistPatch(b.sessionId, { ...previousPatchB, weeks: weeksB });
       },
     });
     closeEditor();
@@ -369,6 +450,8 @@ export default function SchedulePage() {
     const minuteDelta = targetMinutes - hhmmToMinutes(anchor.startTime);
 
     const previousBySession = new Map<string, SessionOverride | undefined>();
+    const previousPatchBySession = new Map<string, SessionPatch>();
+    const weeksBySession = new Map<string, string[]>();
     const moves: string[] = [];
 
     for (const ev of selected) {
@@ -382,12 +465,17 @@ export default function SchedulePage() {
         Math.max(MIN_PLACEMENT_MINUTES, hhmmToMinutes(ev.startTime) + minuteDelta),
       );
       const newHhmm = minutesToHhmm(newMinutes);
+      const weeks = weeksInScope(ev, filters.selectedWeeks);
       previousBySession.set(ev.sessionId, localEdits.overrides[ev.sessionId]);
-      localEdits.commit(ev.sessionId, {
+      previousPatchBySession.set(ev.sessionId, fullPatchFor(ev, overrideLookups));
+      weeksBySession.set(ev.sessionId, weeks);
+      const override: SessionOverride = {
         weekday: newWeekday,
         start_time: newHhmm,
         duration: ev.duration,
-      });
+      };
+      localEdits.commit(ev.sessionId, override);
+      persistPatch(ev.sessionId, { ...overrideToPatch(override), weeks });
       moves.push(
         `${eventLabel(ev)}: ${slotLabel(ev.weekday, ev.startTime)} → ${slotLabel(newWeekday, newHhmm)}`,
       );
@@ -398,8 +486,13 @@ export default function SchedulePage() {
       title: `${selected.length} aulas movidas`,
       description: moves.join(" · "),
       undo: () => {
-        for (const [sessionId, previous] of previousBySession)
+        for (const [sessionId, previous] of previousBySession) {
           localEdits.replace(sessionId, previous);
+          const previousPatch = previousPatchBySession.get(sessionId);
+          if (previousPatch) {
+            persistPatch(sessionId, { ...previousPatch, weeks: weeksBySession.get(sessionId) });
+          }
+        }
       },
     });
     setSelectedSessionIds(new Set());
@@ -422,13 +515,20 @@ export default function SchedulePage() {
     const editing = eventEditor.editingEvent;
     if (!editing) return;
     const previous = localEdits.overrides[editing.sessionId];
-    localEdits.commit(editing.sessionId, buildSessionOverride(formState, overrideLookups));
+    const previousPatch = fullPatchFor(editing, overrideLookups);
+    const weeks = weeksInScope(editing, filters.selectedWeeks);
+    const override = buildSessionOverride(formState, overrideLookups);
+    localEdits.commit(editing.sessionId, override);
+    persistPatch(editing.sessionId, { ...overrideToPatch(override), weeks });
     const warning = warningFor(editing, formState);
     notifyChange({
       sessionIds: [editing.sessionId],
       title: eventLabel(editing),
       description: warning ? `Guardado — ${warning}.` : "Alterações guardadas.",
-      undo: () => localEdits.replace(editing.sessionId, previous),
+      undo: () => {
+        localEdits.replace(editing.sessionId, previous);
+        persistPatch(editing.sessionId, { ...previousPatch, weeks });
+      },
     });
     closeEditor();
   };

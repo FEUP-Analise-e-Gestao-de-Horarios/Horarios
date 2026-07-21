@@ -35,6 +35,15 @@ export interface SessionPatch {
   room_ids?: string[];
   class_ids?: string[];
   subject_ids?: string[];
+  /**
+   * ISO date strings (a subset of the target session's `WeekGridEvent.weeks`).
+   * The backend fans the same patch out to every session sharing the
+   * target's `original_block_id` whose `week` is in this list, plus the
+   * target itself — so moving a recurring class only affects the weeks
+   * currently selected/filtered, not every week it has ever run. Omit or
+   * leave empty to patch only the target session.
+   */
+  weeks?: string[];
 }
 
 // -- Week blocks ---------------------------------------------------------

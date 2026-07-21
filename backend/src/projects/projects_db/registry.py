@@ -48,8 +48,14 @@ def init_engine(db_path: str | Path) -> Engine:
 
 
 def get_session(db_path: str | Path) -> Session:
-    """Return a new SQLAlchemy Session for the given DB path."""
-    return Session(get_engine(db_path))
+    """Return a new SQLAlchemy Session for the given DB path.
+
+    Goes through ``init_engine`` (not ``get_engine``) so a table added to the
+    ORM after a project's database file was first created still gets added on
+    next use — ``create_all`` is checkfirst and never touches already-existing
+    tables, so this is a no-op once a project's schema is current.
+    """
+    return Session(init_engine(db_path))
 
 
 def evict_engine(db_path: str | Path) -> None:
