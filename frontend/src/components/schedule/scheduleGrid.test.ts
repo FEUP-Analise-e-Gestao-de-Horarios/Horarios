@@ -6,11 +6,47 @@ import {
   computeColumnWidths,
   computeRowHeights,
   computeRowOccupancy,
+  computeValidPlacementSlots,
   formatWeekRanges,
   placeEventsOnGrid,
+  slotOverlapsMarks,
   toContiguousRuns,
   type PlacedEvent,
 } from "./scheduleGrid";
+
+describe("computeValidPlacementSlots", () => {
+  it("returns every start row that fits the duration before the grid ends", () => {
+    expect(computeValidPlacementSlots(4, 2)).toEqual([0, 1, 2]);
+  });
+
+  it("treats a non-positive duration as one slot", () => {
+    expect(computeValidPlacementSlots(3, 0)).toEqual([0, 1, 2]);
+  });
+
+  it("returns nothing when the duration cannot fit", () => {
+    expect(computeValidPlacementSlots(2, 3)).toEqual([]);
+  });
+});
+
+describe("slotOverlapsMarks", () => {
+  const marks = [
+    { weekday: "monday" as const, time: 900 },
+    { weekday: "monday" as const, time: 930 },
+    { weekday: "tuesday" as const, time: 800 },
+  ];
+
+  it("detects a mark inside the slot's span", () => {
+    expect(slotOverlapsMarks("monday", 830, 2, marks)).toBe(true);
+  });
+
+  it("ignores marks on a different weekday", () => {
+    expect(slotOverlapsMarks("wednesday", 800, 4, marks)).toBe(false);
+  });
+
+  it("returns false when the span doesn't reach any mark", () => {
+    expect(slotOverlapsMarks("monday", 700, 2, marks)).toBe(false);
+  });
+});
 
 const ALL_DAYS = [0, 1, 2, 3, 4, 5];
 // 08:00, half-hour slots, 19 slots covers up to 17:30.

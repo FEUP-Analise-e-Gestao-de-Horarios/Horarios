@@ -42,6 +42,7 @@ from src.core.errors import (
     ProjectNotFoundResponse,
     ProjectRenameDuplicatedNameResponse,
     RoomNotFoundResponse,
+    SessionNotFoundResponse,
     SubjectNotFoundResponse,
     TeacherNotFoundResponse,
     YearNotFoundResponse,
@@ -364,6 +365,20 @@ _ERROR_HELPER_CASES = [
         "Class A1 not found.",
         id="class_not_found_custom",
     ),
+    pytest.param(
+        SessionNotFoundResponse(),
+        404,
+        "projects.sessions.not_found",
+        "Session not found.",
+        id="session_not_found_default",
+    ),
+    pytest.param(
+        SessionNotFoundResponse("Session X not found."),
+        404,
+        "projects.sessions.not_found",
+        "Session X not found.",
+        id="session_not_found_custom",
+    ),
 ]
 
 
@@ -400,6 +415,7 @@ _API_ERROR_WIRE_CASES = [
     (ApiError.PROJECTS_YEARS_NOT_FOUND, "projects.years.not_found"),
     (ApiError.PROJECTS_SUBJECTS_NOT_FOUND, "projects.subjects.not_found"),
     (ApiError.PROJECTS_CLASSES_NOT_FOUND, "projects.classes.not_found"),
+    (ApiError.PROJECTS_SESSIONS_NOT_FOUND, "projects.sessions.not_found"),
     (
         ApiError.PROJECTS_PARALLEL_GROUPS_INVALID_CANDIDATES,
         "projects.parallel_groups.invalid_candidates",

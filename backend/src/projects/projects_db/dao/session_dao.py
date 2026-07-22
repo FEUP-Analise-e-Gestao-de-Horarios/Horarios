@@ -14,9 +14,11 @@ from src.projects.projects_db.models._secondary_tables import (
     session_teachers,
 )
 from src.projects.projects_db.models.class_ import Class
+from src.projects.projects_db.models.room import Room
 from src.projects.projects_db.models.session import Session
 from src.projects.projects_db.models.session_class_subject import SessionClassSubject
 from src.projects.projects_db.models.subject import Subject
+from src.projects.projects_db.models.teacher import Teacher
 from src.projects.projects_db.schemas.weekday import WeekDay
 
 
@@ -362,3 +364,64 @@ class SessionDAO(BaseDAO[Session]):
                 Session.type == type_,
             ),
         ).fetchall()
+
+    # -------------------------------------------------------------------
+    # -- Update (contract C1)
+    # -------------------------------------------------------------------
+
+    def update_fields(
+        self,
+        session_row: Session,
+        *,
+        weekday: WeekDay | None = None,
+        start_time: int | None = None,
+        duration: int | None = None,
+    ) -> None:
+        """Apply the given plain-column changes to `session_row` in place.
+
+        `None` means "leave unchanged" (a PATCH sends only changed fields),
+        not "clear the value" — every one of these columns is non-nullable.
+        """
+        if weekday is not None:
+            session_row.weekday = weekday
+        if start_time is not None:
+            session_row.start_time = start_time
+        if duration is not None:
+            session_row.duration = duration
+
+    def replace_teachers(self, session_row: Session, teacher_ids: Sequence[UUID]) -> None:
+        """Replace `session_row.teachers` wholesale with the given ids."""
+        session_row.teachers = list(
+            self.session.scalars(select(Teacher).where(Teacher.id.in_(teacher_ids))).all(),
+        )
+
+    def replace_rooms(self, session_row: Session, room_ids: Sequence[UUID]) -> None:
+        """Replace `session_row.rooms` wholesale with the given ids."""
+        session_row.rooms = list(
+            self.session.scalars(select(Room).where(Room.id.in_(room_ids))).all(),
+        )
+
+    def get_siblings_in_weeks(
+        self,
+        session_row: Session,
+        weeks: Sequence[datetime.date],
+    ) -> list[Session]:
+        """Return every session sharing `session_row`'s `original_block_id`.
+
+        Restricted to the given `weeks`, and always including `session_row`
+        itself regardless of whether its own week is in `weeks` — a PATCH
+        must never skip the session the client actually targeted. Used to
+        fan an edit out across the weeks a recurring block is being edited
+        for (see contract C1's `weeks` field).
+        """
+        if not weeks:
+            return [session_row]
+        siblings = self.session.scalars(
+            select(Session).where(
+                Session.original_block_id == session_row.original_block_id,
+                Session.week.in_(weeks),
+            ),
+        ).all()
+        by_id = {s.id: s for s in siblings}
+        by_id[session_row.id] = session_row
+        return list(by_id.values())

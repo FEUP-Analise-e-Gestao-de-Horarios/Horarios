@@ -11,16 +11,16 @@ interface DashboardNavbarProps {
 export default function DashboardNavbar({ projectId, isReady }: DashboardNavbarProps) {
   const dashboardPath = buildPath(ROUTES.DASHBOARD, { projectId });
   // The detail pages (degree, teacher, room, …) share this navbar, so "Dados"
-  // is the way back up to the dashboard from them — but on the dashboard itself
-  // it leads nowhere and is only the dropdown handle.
+  // is still shown there as the way back up to the dashboard — only on the
+  // dashboard's own root page is it the current page and omitted.
   const isOnDashboard = useLocation().pathname === dashboardPath;
 
   const items: MainNavItem[] = [
     {
       key: "dados",
       label: "Dados",
-      to: isOnDashboard ? undefined : dashboardPath,
-      current: true,
+      to: dashboardPath,
+      current: isOnDashboard,
     },
     {
       key: "horario",
@@ -36,7 +36,7 @@ export default function DashboardNavbar({ projectId, isReady }: DashboardNavbarP
       disabled: !isReady,
       disabledTitle: "Aulas em paralelo ainda não disponíveis",
     },
-    { key: "inicio", label: "Início", to: ROUTES.HOME },
+    { key: "inicio", label: "Início", to: ROUTES.HOME, primary: true },
   ];
 
   return (

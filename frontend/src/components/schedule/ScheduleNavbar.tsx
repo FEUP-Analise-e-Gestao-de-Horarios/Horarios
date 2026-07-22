@@ -108,7 +108,7 @@ export default function ScheduleNavbar({
             label: "Aulas em Paralelo",
             to: buildPath(ROUTES.PARALLEL_SESSIONS, { projectId }),
           },
-          { key: "inicio", label: "Início", to: ROUTES.HOME },
+          { key: "inicio", label: "Início", to: ROUTES.HOME, primary: true },
         ]}
       />
       <button

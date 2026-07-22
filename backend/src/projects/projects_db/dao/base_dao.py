@@ -1,6 +1,8 @@
+from collections.abc import Iterable
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.projects.projects_db.base import Base
@@ -47,3 +49,16 @@ class BaseDAO[T: Base]:
         if self.flush_on_create:
             self.session.flush()
         return instance
+
+    def find_missing(self, ids: Iterable[UUID]) -> list[UUID]:
+        """Return the subset of `ids` that don't match any row of this model.
+
+        Deduplicates the input; order is not preserved.
+        """
+        unique = set(ids)
+        if not unique:
+            return []
+        existing = set(
+            self.session.scalars(select(self.model.id).where(self.model.id.in_(unique))).all(),
+        )
+        return list(unique - existing)

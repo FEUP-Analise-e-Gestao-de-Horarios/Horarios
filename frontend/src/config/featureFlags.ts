@@ -12,8 +12,11 @@ function envFlag(value: unknown, fallback: boolean): boolean {
 }
 
 export const FLAGS = {
-  /** C1 — PATCH /api/projects/<pid>/sessions/<sid>/ */
-  sessionMutations: envFlag(import.meta.env.VITE_FLAG_SESSION_MUTATIONS, false),
-  /** C2/C3 — GET conflicts + conflict ignore endpoints */
+  /** C1 — PATCH /api/projects/<pid>/sessions/<sid>/ — now live on the backend. */
+  sessionMutations: envFlag(import.meta.env.VITE_FLAG_SESSION_MUTATIONS, true),
+  /**
+   * C2/C3 — GET conflicts + conflict ignore endpoints. Built separately by a
+   * colleague on another branch; leave off here until that branch merges.
+   */
   conflictsApi: envFlag(import.meta.env.VITE_FLAG_CONFLICTS_API, false),
 } as const;
