@@ -28,6 +28,7 @@ class ApiError(StrEnum):
     PROJECTS_YEARS_NOT_FOUND = "projects.years.not_found"
     PROJECTS_SUBJECTS_NOT_FOUND = "projects.subjects.not_found"
     PROJECTS_CLASSES_NOT_FOUND = "projects.classes.not_found"
+    PROJECTS_SESSIONS_NOT_FOUND = "projects.sessions.not_found"
 
     # Projects - Parallel groups
     PROJECTS_PARALLEL_GROUPS_INVALID_CANDIDATES = "projects.parallel_groups.invalid_candidates"
@@ -171,6 +172,14 @@ def ClassNotFoundResponse(message: str = "Class not found.") -> JsonResponse:
     return ErrorResponse(
         status=404,
         code=ApiError.PROJECTS_CLASSES_NOT_FOUND,
+        message=message,
+    )
+
+
+def SessionNotFoundResponse(message: str = "Session not found.") -> JsonResponse:
+    return ErrorResponse(
+        status=404,
+        code=ApiError.PROJECTS_SESSIONS_NOT_FOUND,
         message=message,
     )
 

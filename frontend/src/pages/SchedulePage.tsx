@@ -1,13 +1,32 @@
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { useParams } from "react-router-dom";
-import WeekGrid from "@/components/schedule/WeekGrid";
+import { toast } from "sonner";
+import type { ClassBase } from "@/types/project/class";
+import type { Weekday } from "@/types/project/weekday";
+import WeekGrid, { type WeekGridEvent } from "@/components/schedule/WeekGrid";
 import EditEventDrawer from "@/components/schedule/EditEventDrawer";
 import ConflictsDrawer from "@/components/schedule/ConflictsDrawer";
 import DistributionModal from "@/components/schedule/DistributionModal";
 import ScheduleNavbar from "@/components/schedule/ScheduleNavbar";
+import { slotOverlapsMarks } from "@/components/schedule/scheduleGrid";
 import { useEventUnavailability } from "@/components/schedule/useEventUnavailability";
 import { useEventEditor } from "@/components/schedule/useEventEditor";
+import {
+  eventDrawerFormReducer,
+  useEventDrawerForm,
+  type EventDrawerFormAction,
+  type EventDrawerFormState,
+} from "@/components/schedule/useEventDrawerForm";
+import {
+  applySessionOverrides,
+  buildSessionOverride,
+  useLocalSessionEdits,
+  type OverrideLookups,
+  type SessionOverride,
+} from "@/components/schedule/useLocalSessionEdits";
 import { useProjectAccess } from "@/api/hooks/project/access";
+import { useUpdateSession } from "@/api/hooks/project/sessionMutations";
+import type { SessionPatch } from "@/types/project/sessions";
 import { useParallelSessionsReminder } from "@/components/parallel/useParallelSessionsReminder";
 import {
   pickSelectedYearNumber,
@@ -23,7 +42,65 @@ import { useProjectTeachers } from "@/api/hooks/project/teacher";
 import { useProjectSessions } from "@/api/hooks/project/sessions";
 import { useProjectConflicts } from "@/api/hooks/project/conflicts";
 import { useProjectYear } from "@/api/hooks/project/year";
-import { WEEKDAYS, WEEKDAY_LABELS_UPPER } from "@/utils/weekdays";
+import { hhmmToMinutes, minutesToHhmm, timeToHhmm } from "@/utils/time";
+import { WEEKDAYS, WEEKDAY_LABELS_LONG, WEEKDAY_LABELS_UPPER } from "@/utils/weekdays";
+
+// Same bounds the drawer's own time field clamps to.
+const MIN_PLACEMENT_MINUTES = 7 * 60;
+const MAX_PLACEMENT_MINUTES = 19 * 60 + 30;
+
+function eventLabel(ev: WeekGridEvent): string {
+  return ev.title ?? ev.uc ?? "Aula";
+}
+
+function slotLabel(weekday: Weekday, hhmm: number): string {
+  return `${WEEKDAY_LABELS_LONG[weekday]} às ${String(Math.floor(hhmm / 100)).padStart(2, "0")}:${String(hhmm % 100).padStart(2, "0")}`;
+}
+
+// The weeks a commit should persist to on the backend: every week the event's
+// recurring block covers that's also currently selected/filtered — so moving
+// a class only affects the weeks the user is actually looking at, not every
+// week it has ever run. An empty filter means "all weeks selected".
+function weeksInScope(ev: WeekGridEvent, selectedWeeks: string[]): string[] {
+  const blockWeeks = ev.weeks ?? [];
+  if (selectedWeeks.length === 0) return blockWeeks;
+  const selected = new Set(selectedWeeks);
+  return blockWeeks.filter((week) => selected.has(week));
+}
+
+// Translates a local SessionOverride (entity objects) into the id-based
+// SessionPatch shape the backend expects — only the fields the override
+// actually set, so a partial local commit stays a partial PATCH.
+function overrideToPatch(override: SessionOverride): SessionPatch {
+  const patch: SessionPatch = {};
+  if (override.weekday !== undefined) patch.weekday = override.weekday;
+  if (override.start_time !== undefined) patch.start_time = override.start_time;
+  if (override.duration !== undefined) patch.duration = override.duration;
+  if (override.teachers) patch.teacher_ids = override.teachers.map((t) => t.id);
+  if (override.rooms) patch.room_ids = override.rooms.map((r) => r.id);
+  if (override.classes) patch.class_ids = override.classes.map((c) => c.id);
+  if (override.subjects) patch.subject_ids = override.subjects.map((s) => s.id);
+  return patch;
+}
+
+// Full field snapshot of a WeekGridEvent as a SessionPatch, resolving turma
+// codes and the UC name back to ids via the lookups. Used for undo: rather
+// than diffing, a compensating PATCH just restores every field to what it
+// was right before the commit being undone.
+function fullPatchFor(ev: WeekGridEvent, lookups: OverrideLookups): SessionPatch {
+  const subject = lookups.subjectsByName.get(ev.uc ?? "");
+  return {
+    weekday: ev.weekday,
+    start_time: ev.startTime,
+    duration: ev.duration,
+    teacher_ids: (ev.teachers ?? []).map((t) => t.id),
+    room_ids: (ev.rooms ?? []).map((r) => r.id),
+    class_ids: (ev.classCodes ?? [])
+      .map((code) => lookups.classesByCode.get(code)?.id)
+      .filter((id): id is string => !!id),
+    subject_ids: subject ? [subject.id] : [],
+  };
+}
 
 export default function SchedulePage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -56,11 +133,48 @@ export default function SchedulePage() {
   const [isConflictsDrawerOpen, setIsConflictsDrawerOpen] = useState(false);
   const [isDistributionOpen, setIsDistributionOpen] = useState(false);
 
-  // Where the selected event's teacher(s)/room are unavailable (#5).
-  const unavailabilityMarks = useEventUnavailability(
-    projectId ?? "",
-    eventEditor.isOpen ? eventEditor.editingEvent : null,
-  );
+  // In-memory event edits: not persisted, cleared on course change. The
+  // drawer's form lives here (not inside the drawer) so the grid can preview
+  // it live and a placement click can write straight into it.
+  const localEdits = useLocalSessionEdits();
+  const [formState, dispatchForm] = useEventDrawerForm(eventEditor.editingEvent);
+  // Layout effect (not a plain effect): it must reset the form before the
+  // browser paints. Otherwise the just-opened event briefly renders with the
+  // previous event's (or the default) day/time/turma live-preview override
+  // merged onto it — a one-frame flash to the wrong slot before this runs.
+  const lastEditingEventRef = useRef(eventEditor.editingEvent);
+  useLayoutEffect(() => {
+    if (lastEditingEventRef.current !== eventEditor.editingEvent) {
+      lastEditingEventRef.current = eventEditor.editingEvent;
+      dispatchForm({ type: "reset", event: eventEditor.editingEvent });
+    }
+  }, [eventEditor.editingEvent, dispatchForm]);
+
+  // Click-to-place mode for moving the open event on the grid. On by default
+  // so clicking a slot moves the event without first toggling; the drawer has
+  // a button to turn it off. A placement click commits on its own — dropdown
+  // and stepper edits inside the drawer stay a draft until Guardar.
+  const [placementMode, setPlacementMode] = useState(false);
+  const openEditor = (event: WeekGridEvent) => {
+    setPlacementMode(true);
+    eventEditor.openEditor(event, true);
+  };
+  const closeEditor = () => {
+    setPlacementMode(false);
+    eventEditor.closeEditor();
+  };
+
+  // Sessions marked with shift-click for a bulk move; cleared on a course
+  // change or once the move is applied.
+  const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
+  const toggleBulkSelection = (sessionId: string) => {
+    setSelectedSessionIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(sessionId)) next.delete(sessionId);
+      else next.add(sessionId);
+      return next;
+    });
+  };
 
   const canShowSchedule = curso !== "";
 
@@ -136,6 +250,313 @@ export default function SchedulePage() {
     [saturdayProbeQuery.data],
   );
 
+  // Resolves the drawer form's ids/codes back to session entities.
+  const overrideLookups = useMemo<OverrideLookups>(
+    () => ({
+      teachersById: new Map((teachers ?? []).map((teacher) => [teacher.id, teacher])),
+      roomsById: new Map((rooms ?? []).map((room) => [room.id, room])),
+      subjectsByName: new Map(
+        (selectedYearDetail?.subjects ?? []).map((subject) => [subject.name, subject]),
+      ),
+      classesByCode: new Map(
+        (selectedYearDetail?.classes ?? []).map((classItem) => [classItem.code, classItem]),
+      ),
+    }),
+    [teachers, rooms, selectedYearDetail],
+  );
+
+  // Persists a commit to the real backend (contract C1). A no-op while
+  // FLAGS.sessionMutations is off — the local-edit layer above is already
+  // the source of truth for the live preview either way, so this is purely
+  // about making the change stick past a refresh once the endpoint exists.
+  const updateSession = useUpdateSession(projectId ?? "");
+  const persistPatch = (sessionId: string, patch: SessionPatch) => {
+    updateSession.mutate(
+      { sessionId, patch },
+      {
+        onError: () =>
+          toast.error("Não foi possível guardar as alterações no servidor.", {
+            description: "A alteração continua visível localmente, mas não foi persistida.",
+          }),
+      },
+    );
+  };
+
+  // Availability (#5) for whatever is currently selected in the drawer —
+  // including an unsaved docente/sala/turma change — not just the event's
+  // original ones, so the red-block overlay and the conflict check below stay
+  // accurate while editing. Covers teacher, room AND turma red blocks.
+  const draftClassIds = useMemo(
+    () =>
+      formState.selectedTurmasOverride
+        .map((code) => overrideLookups.classesByCode.get(code)?.id)
+        .filter((id): id is string => !!id),
+    [formState.selectedTurmasOverride, overrideLookups],
+  );
+  const unavailabilityMarks = useEventUnavailability(
+    projectId ?? "",
+    eventEditor.isOpen ? formState.selectedDocenteOverride : [],
+    eventEditor.isOpen ? formState.selectedSalaOverride : [],
+    eventEditor.isOpen ? draftClassIds : [],
+  );
+
+  // Whether a draft/target turma selection differs from the event's own.
+  const turmaChangedFrom = (editing: WeekGridEvent, selectedTurmas: string[]): boolean => {
+    const originalTurmas = editing.classCodes ?? [];
+    return (
+      selectedTurmas.length !== originalTurmas.length ||
+      selectedTurmas.some((code) => !originalTurmas.includes(code))
+    );
+  };
+
+  const classesForCodes = (codes: string[] | undefined): ClassBase[] =>
+    (codes ?? [])
+      .map((code) => overrideLookups.classesByCode.get(code))
+      .filter((classItem): classItem is ClassBase => !!classItem);
+
+  // Warns (never blocks) when the draft moves the open event to a different
+  // turma or into a slot its docente, sala or turma isn't available for — the
+  // only two cases worth flagging.
+  const warningFor = (editing: WeekGridEvent, nextState: EventDrawerFormState): string | null => {
+    if (turmaChangedFrom(editing, nextState.selectedTurmasOverride))
+      return "está a passar para uma turma diferente";
+    const conflict = slotOverlapsMarks(
+      nextState.selectedWeekday,
+      timeToHhmm(nextState.startTime),
+      nextState.durationSlots,
+      unavailabilityMarks,
+    );
+    if (conflict) return "o novo horário está fora da disponibilidade do docente, sala ou turma";
+    return null;
+  };
+
+  // Live, non-committing warning as the user builds up a draft in the drawer.
+  // Raw typing in the start-time field is skipped — it's mid-edit, not a real
+  // value yet.
+  const dispatchFormAndWarn = (action: EventDrawerFormAction) => {
+    dispatchForm(action);
+    if (action.type === "setStartTime") return;
+    const editing = eventEditor.editingEvent;
+    if (!editing) return;
+    const nextState = eventDrawerFormReducer(formState, action);
+    const toastId = `schedule-warning-${editing.sessionId}`;
+    const warning = warningFor(editing, nextState);
+    if (warning) toast(`${eventLabel(editing)} — aviso`, { id: toastId, description: warning });
+    else toast.dismiss(toastId);
+  };
+
+  // Every committing action (grid move, swap, Guardar) shows one toast naming
+  // what changed and offering to undo it. A stable id per session set means
+  // rapid repeats on the same session(s) update in place; different sessions
+  // stack instead of replacing each other.
+  const notifyChange = (opts: {
+    sessionIds: string[];
+    title: string;
+    description: string;
+    undo: () => void;
+  }) => {
+    toast(opts.title, {
+      id: `schedule-change-${opts.sessionIds.join("-")}`,
+      description: opts.description,
+      action: { label: "Desfazer", onClick: opts.undo },
+    });
+  };
+
+  // Grid placement click: commits the slot (weekday/start/duration) plus,
+  // when the click landed in a turma the event didn't already have, the
+  // turma reassignment too — never any other docente/sala/uc draft that
+  // might also be pending, so it can't accidentally save an unrelated
+  // unsaved field.
+  const applyPlacement = (editing: WeekGridEvent, nextState: EventDrawerFormState) => {
+    const previous = localEdits.overrides[editing.sessionId];
+    const previousPatch = fullPatchFor(editing, overrideLookups);
+    const weeks = weeksInScope(editing, filters.selectedWeeks);
+    const nextHhmm = timeToHhmm(nextState.startTime);
+    const turmaChanged = turmaChangedFrom(editing, nextState.selectedTurmasOverride);
+    const override: SessionOverride = {
+      weekday: nextState.selectedWeekday,
+      start_time: nextHhmm,
+      duration: nextState.durationSlots,
+      ...(turmaChanged ? { classes: classesForCodes(nextState.selectedTurmasOverride) } : {}),
+    };
+    localEdits.commit(editing.sessionId, override);
+    persistPatch(editing.sessionId, { ...overrideToPatch(override), weeks });
+    const warning = warningFor(editing, nextState);
+    const move = `${slotLabel(editing.weekday, editing.startTime)} → ${slotLabel(nextState.selectedWeekday, nextHhmm)}`;
+    notifyChange({
+      sessionIds: [editing.sessionId],
+      title: eventLabel(editing),
+      description: warning ? `${move} — ${warning}.` : `${move}.`,
+      undo: () => {
+        localEdits.replace(editing.sessionId, previous);
+        persistPatch(editing.sessionId, { ...previousPatch, weeks });
+      },
+    });
+  };
+
+  // Clicking a second, different event while one is open trades their slots
+  // *and* their turma — a full swap, so each card actually crosses over into
+  // the other's column when they belong to different classes, not just its
+  // own column at a different time.
+  const swapEvents = (a: WeekGridEvent, b: WeekGridEvent) => {
+    const previousA = localEdits.overrides[a.sessionId];
+    const previousB = localEdits.overrides[b.sessionId];
+    const previousPatchA = fullPatchFor(a, overrideLookups);
+    const previousPatchB = fullPatchFor(b, overrideLookups);
+    const weeksA = weeksInScope(a, filters.selectedWeeks);
+    const weeksB = weeksInScope(b, filters.selectedWeeks);
+    const overrideA: SessionOverride = {
+      weekday: b.weekday,
+      start_time: b.startTime,
+      duration: b.duration,
+      classes: classesForCodes(b.classCodes),
+    };
+    const overrideB: SessionOverride = {
+      weekday: a.weekday,
+      start_time: a.startTime,
+      duration: a.duration,
+      classes: classesForCodes(a.classCodes),
+    };
+    localEdits.commit(a.sessionId, overrideA);
+    localEdits.commit(b.sessionId, overrideB);
+    persistPatch(a.sessionId, { ...overrideToPatch(overrideA), weeks: weeksA });
+    persistPatch(b.sessionId, { ...overrideToPatch(overrideB), weeks: weeksB });
+    notifyChange({
+      sessionIds: [a.sessionId, b.sessionId],
+      title: "Aulas trocadas",
+      description: `${eventLabel(a)} (${slotLabel(a.weekday, a.startTime)}) ↔ ${eventLabel(b)} (${slotLabel(b.weekday, b.startTime)})`,
+      undo: () => {
+        localEdits.replace(a.sessionId, previousA);
+        localEdits.replace(b.sessionId, previousB);
+        persistPatch(a.sessionId, { ...previousPatchA, weeks: weeksA });
+        persistPatch(b.sessionId, { ...previousPatchB, weeks: weeksB });
+      },
+    });
+    closeEditor();
+  };
+
+  // Moves every selected session by the same day/time offset the anchor
+  // (first selected) needs to reach the clicked slot. Each session clamps to
+  // the grid's own bounds independently, so the offset can't push one off the
+  // edge even if it fits for the others.
+  const applyBulkMove = (
+    targetWeekday: Weekday,
+    targetMinutes: number,
+    selected: WeekGridEvent[],
+  ) => {
+    const anchor = selected[0];
+    if (!anchor) return;
+    const dayDelta = WEEKDAYS.indexOf(targetWeekday) - WEEKDAYS.indexOf(anchor.weekday);
+    const minuteDelta = targetMinutes - hhmmToMinutes(anchor.startTime);
+
+    const previousBySession = new Map<string, SessionOverride | undefined>();
+    const previousPatchBySession = new Map<string, SessionPatch>();
+    const weeksBySession = new Map<string, string[]>();
+    const moves: string[] = [];
+
+    for (const ev of selected) {
+      const dayIndex = Math.min(
+        WEEKDAYS.length - 1,
+        Math.max(0, WEEKDAYS.indexOf(ev.weekday) + dayDelta),
+      );
+      const newWeekday = WEEKDAYS[dayIndex]!;
+      const newMinutes = Math.min(
+        MAX_PLACEMENT_MINUTES,
+        Math.max(MIN_PLACEMENT_MINUTES, hhmmToMinutes(ev.startTime) + minuteDelta),
+      );
+      const newHhmm = minutesToHhmm(newMinutes);
+      const weeks = weeksInScope(ev, filters.selectedWeeks);
+      previousBySession.set(ev.sessionId, localEdits.overrides[ev.sessionId]);
+      previousPatchBySession.set(ev.sessionId, fullPatchFor(ev, overrideLookups));
+      weeksBySession.set(ev.sessionId, weeks);
+      const override: SessionOverride = {
+        weekday: newWeekday,
+        start_time: newHhmm,
+        duration: ev.duration,
+      };
+      localEdits.commit(ev.sessionId, override);
+      persistPatch(ev.sessionId, { ...overrideToPatch(override), weeks });
+      moves.push(
+        `${eventLabel(ev)}: ${slotLabel(ev.weekday, ev.startTime)} → ${slotLabel(newWeekday, newHhmm)}`,
+      );
+    }
+
+    notifyChange({
+      sessionIds: selected.map((ev) => ev.sessionId),
+      title: `${selected.length} aulas movidas`,
+      description: moves.join(" · "),
+      undo: () => {
+        for (const [sessionId, previous] of previousBySession) {
+          localEdits.replace(sessionId, previous);
+          const previousPatch = previousPatchBySession.get(sessionId);
+          if (previousPatch) {
+            persistPatch(sessionId, { ...previousPatch, weeks: weeksBySession.get(sessionId) });
+          }
+        }
+      },
+    });
+    setSelectedSessionIds(new Set());
+  };
+
+  const handleEventClick = (clicked: WeekGridEvent, domEvent: MouseEvent<HTMLButtonElement>) => {
+    if (domEvent.shiftKey) {
+      toggleBulkSelection(clicked.sessionId);
+      return;
+    }
+    const editing = eventEditor.isOpen ? eventEditor.editingEvent : null;
+    if (editing && editing.sessionId !== clicked.sessionId) {
+      swapEvents(editing, clicked);
+      return;
+    }
+    openEditor(clicked);
+  };
+
+  const saveEdit = () => {
+    const editing = eventEditor.editingEvent;
+    if (!editing) return;
+    const previous = localEdits.overrides[editing.sessionId];
+    const previousPatch = fullPatchFor(editing, overrideLookups);
+    const weeks = weeksInScope(editing, filters.selectedWeeks);
+    const override = buildSessionOverride(formState, overrideLookups);
+    localEdits.commit(editing.sessionId, override);
+    persistPatch(editing.sessionId, { ...overrideToPatch(override), weeks });
+    const warning = warningFor(editing, formState);
+    notifyChange({
+      sessionIds: [editing.sessionId],
+      title: eventLabel(editing),
+      description: warning ? `Guardado — ${warning}.` : "Alterações guardadas.",
+      undo: () => {
+        localEdits.replace(editing.sessionId, previous);
+        persistPatch(editing.sessionId, { ...previousPatch, weeks });
+      },
+    });
+    closeEditor();
+  };
+
+  // Live preview of the open event's draft, layered over committed edits, so
+  // the grid, lanes, arcs and distribution all recompute as the user edits —
+  // before Guardar makes it permanent.
+  const effectiveOverrides = useMemo(() => {
+    const editing = eventEditor.isOpen ? eventEditor.editingEvent : null;
+    if (!editing) return localEdits.overrides;
+    const draft = buildSessionOverride(formState, overrideLookups);
+    return {
+      ...localEdits.overrides,
+      [editing.sessionId]: { ...localEdits.overrides[editing.sessionId], ...draft },
+    };
+  }, [
+    eventEditor.isOpen,
+    eventEditor.editingEvent,
+    formState,
+    overrideLookups,
+    localEdits.overrides,
+  ]);
+
+  const overriddenSessions = useMemo(
+    () => applySessionOverrides(sessionsQuery.data, effectiveOverrides),
+    [sessionsQuery.data, effectiveOverrides],
+  );
+
   // --- derived filter view ---------------------------------------------
   const filters = useScheduleFilters({
     curso,
@@ -147,9 +568,22 @@ export default function SchedulePage() {
     semanas,
     selectedDegree,
     selectedYearDetail,
-    selectedYearWeeks: sessionsQuery.data,
+    selectedYearWeeks: overriddenSessions,
     hasSaturdaySessions,
   });
+
+  const bulkSelectedEvents = useMemo(
+    () =>
+      [...selectedSessionIds]
+        .map((id) => filters.scheduleEvents.find((ev) => ev.sessionId === id))
+        .filter((ev): ev is WeekGridEvent => !!ev),
+    [selectedSessionIds, filters.scheduleEvents],
+  );
+  const isBulkMode = bulkSelectedEvents.length > 1;
+  const placementActive = placementMode || isBulkMode;
+  const placementDurationSlots = isBulkMode
+    ? Math.max(...bulkSelectedEvents.map((ev) => ev.duration))
+    : formState.durationSlots;
 
   // --- cascade ops ------------------------------------------------------
   const { handleSelectTurnos, handleSelectTurmas } = useTurnoTurmaSync({
@@ -200,6 +634,8 @@ export default function SchedulePage() {
     setTurnos([]);
     setTurmas([]);
     setSemanas([]);
+    localEdits.clear();
+    setSelectedSessionIds(new Set());
   };
 
   if (!projectId) return null;
@@ -277,7 +713,7 @@ export default function SchedulePage() {
           open={eventEditor.isOpen}
           collapsed={eventEditor.isCollapsed}
           onCollapsedChange={eventEditor.setIsCollapsed}
-          onClose={eventEditor.closeEditor}
+          onClose={closeEditor}
           conflicts={yearConflicts}
           ucOptions={filters.ucOptions}
           turmaOptions={filters.turmaOrder}
@@ -285,6 +721,11 @@ export default function SchedulePage() {
           roomOptions={roomOptions}
           preferredUc={filters.effectiveUcs[0]}
           event={eventEditor.editingEvent}
+          formState={formState}
+          dispatch={dispatchFormAndWarn}
+          placementMode={placementMode}
+          onTogglePlacement={() => setPlacementMode((on) => !on)}
+          onSave={saveEdit}
         />
         {!canShowSchedule ? (
           <div className="h-full flex items-center justify-center text-center text-gray-500 text-lg">
@@ -322,8 +763,29 @@ export default function SchedulePage() {
               showHalfHourLabels
               showHalfHourDividers
               editingEventId={eventEditor.isOpen ? eventEditor.editingEvent?.id : undefined}
+              selectedSessionIds={selectedSessionIds}
               subjectPalette={subjectPalette}
-              onEventClick={(event) => eventEditor.openEditor(event, true)}
+              placementMode={placementActive}
+              placementDurationSlots={placementDurationSlots}
+              onSlotClick={(weekday, minutes, turma) => {
+                if (isBulkMode) {
+                  applyBulkMove(weekday, minutes, bulkSelectedEvents);
+                  return;
+                }
+                if (!eventEditor.editingEvent) return;
+                const nextState = eventDrawerFormReducer(formState, {
+                  type: "placeAt",
+                  weekday,
+                  minutes,
+                  turma,
+                });
+                dispatchForm({ type: "placeAt", weekday, minutes, turma });
+                applyPlacement(eventEditor.editingEvent, nextState);
+                // One click, one change: close so a follow-up click starts a
+                // fresh selection instead of continuing to move this event.
+                closeEditor();
+              }}
+              onEventClick={handleEventClick}
               onHorizontalScroll={() => eventEditor.setIsCollapsed(true)}
             />
           </div>

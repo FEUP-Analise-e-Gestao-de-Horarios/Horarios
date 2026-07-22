@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { type MouseEvent, type ReactNode } from "react";
 import { hhmmToMinutes, minutesToTime } from "@/utils/time";
 import { WEEKDAY_LABELS_LONG } from "@/utils/weekdays";
 import type { WeekGridEvent } from "./WeekGrid";
@@ -62,12 +62,14 @@ interface ScheduleEventCardProps {
   arcSegIndex?: number;
   style: SubjectStyle;
   isEditing: boolean;
+  /** Marked for a bulk move (shift-click); shown with a distinct blue ring. */
+  selected?: boolean;
   /**
    * Compact week range (e.g. "1-7") shown at the bottom when the session runs
    * in only some of the selected weeks. Empty for sessions spanning them all.
    */
   weekRangeLabel?: string;
-  onClick?: (event: WeekGridEvent) => void;
+  onClick?: (event: WeekGridEvent, domEvent: MouseEvent<HTMLButtonElement>) => void;
 }
 
 // Each card fades its bottom edge so clipped text trails off visually instead
@@ -93,6 +95,7 @@ export default function ScheduleEventCard({
   arcSegIndex,
   style,
   isEditing,
+  selected = false,
   weekRangeLabel = "",
   onClick,
 }: ScheduleEventCardProps) {
@@ -131,9 +134,10 @@ export default function ScheduleEventCard({
       data-arc-group={arcGroupId}
       data-arc-seg={arcSegIndex}
       data-arc-color={arcGroupId ? style.border : undefined}
-      onClick={onClick ? () => onClick(ev) : undefined}
+      onClick={onClick ? (domEvent) => onClick(ev, domEvent) : undefined}
       aria-label={ariaLabel}
       aria-current={isEditing ? "true" : undefined}
+      aria-pressed={selected}
       className={`group relative my-[1px] rounded border text-left text-[11px] leading-tight overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C73F24]/70 focus-visible:z-10 ${
         isEditing ? "z-10" : ""
       } ${clickable ? "cursor-pointer hover:brightness-95 transition" : "cursor-default"}`}
@@ -150,9 +154,14 @@ export default function ScheduleEventCard({
         backgroundColor: style.background,
         color: style.text,
         // Editing keeps the subject's own colours and signals selection with a
-        // neutral ring that reads against any palette hue (PI ToDo #11).
-        borderColor: isEditing ? SUBJECT_SELECTION_RING : style.border,
-        boxShadow: isEditing ? `inset 0 0 0 2px ${SUBJECT_SELECTION_RING}` : undefined,
+        // neutral ring that reads against any palette hue (PI ToDo #11); a
+        // shift-click bulk selection gets a distinct blue ring instead.
+        borderColor: isEditing ? SUBJECT_SELECTION_RING : selected ? "#2563eb" : style.border,
+        boxShadow: isEditing
+          ? `inset 0 0 0 2px ${SUBJECT_SELECTION_RING}`
+          : selected
+            ? "inset 0 0 0 2px #2563eb"
+            : undefined,
       }}
       disabled={!clickable}
     >

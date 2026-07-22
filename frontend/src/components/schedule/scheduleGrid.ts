@@ -1,4 +1,5 @@
-import { hhmmToMinutes } from "@/utils/time";
+import type { Weekday } from "@/types/project/weekday";
+import { hhmmToMinutes, minutesToHhmm } from "@/utils/time";
 import { WEEKDAYS } from "@/utils/weekdays";
 import type { WeekGridEvent } from "./WeekGrid";
 
@@ -12,6 +13,36 @@ export function buildArcPath(x1: number, y1: number, x2: number, y2: number, min
   const peakY = Math.max(minPeakY, Math.min(y1, y2) - lift);
   const midX = (x1 + x2) / 2;
   return `M ${x1} ${y1} Q ${midX} ${peakY} ${x2} ${y2}`;
+}
+
+/**
+ * Row indices a class of `durationSlots` may start on without overflowing the
+ * grid. Unavailable slots stay valid targets — placing there is allowed, it
+ * just triggers a warning.
+ */
+export function computeValidPlacementSlots(slotCount: number, durationSlots: number): number[] {
+  const span = Math.max(1, durationSlots);
+  const slots: number[] = [];
+  for (let row = 0; row + span <= slotCount; row += 1) slots.push(row);
+  return slots;
+}
+
+/** Whether a class of `durationSlots` starting at `startHhmm` on `weekday` overlaps any mark. */
+export function slotOverlapsMarks(
+  weekday: Weekday,
+  startHhmm: number,
+  durationSlots: number,
+  marks: { weekday: Weekday; time: number }[],
+): boolean {
+  const markTimes = new Set(
+    marks.filter((mark) => mark.weekday === weekday).map((mark) => mark.time),
+  );
+  if (markTimes.size === 0) return false;
+  const startMinutes = hhmmToMinutes(startHhmm);
+  for (let i = 0; i < durationSlots; i += 1) {
+    if (markTimes.has(minutesToHhmm(startMinutes + i * SLOT_MINUTES))) return true;
+  }
+  return false;
 }
 
 export type ContiguousRun = { start: number; span: number };
