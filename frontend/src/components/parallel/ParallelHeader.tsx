@@ -22,7 +22,7 @@ export default function ParallelHeader({
           { key: "paralelas", label: "Aulas em Paralelo", current: true },
           { key: "horario", label: "Horário", onClick: onBack },
           { key: "dados", label: "Dados", onClick: onNavigateDashboard },
-          { key: "inicio", label: "Início", onClick: onNavigateHome },
+          { key: "inicio", label: "Início", onClick: onNavigateHome, primary: true },
         ]}
       />
 
