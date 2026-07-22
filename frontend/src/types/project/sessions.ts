@@ -46,59 +46,6 @@ export interface SessionPatch {
   weeks?: string[];
 }
 
-// -- Split -----------------------------------------------------------------
-/**
- * POST body for /api/projects/<pid>/sessions/<sid>/split/ — detaches
- * `class_ids` (a non-empty, proper subset of the session's current classes)
- * into a brand new session at the given slot. The target session keeps its
- * other classes untouched, so a class removed from the middle of a
- * contiguous turma span leaves a gap the grid renders as two segments of
- * the same session, connected by its existing same-session arc — nothing
- * extra to draw.
- */
-export interface SessionSplit {
-  class_ids: string[];
-  /**
-   * Classes the new session actually teaches; defaults to `class_ids` when
-   * omitted (the detached slot keeps teaching the same class, just at a new
-   * slot). Set differently to reassign the detached slot to a *different*
-   * turma in the same move — same as moving a plain single-turma event to a
-   * different turma column, but for one turma of a shared session.
-   */
-  new_class_ids?: string[];
-  weekday: Weekday;
-  /** HHMM encoding, same as SessionBase.start_time. */
-  start_time: number;
-  /** Duration in 30-minute slots, same as SessionBase.duration. */
-  duration: number;
-  /** Defaults to the target session's own teachers/rooms when omitted. */
-  teacher_ids?: string[];
-  room_ids?: string[];
-  /** Required when the detached classes don't all share one subject. */
-  subject_ids?: string[];
-  /** Same fan-out semantics as SessionPatch.weeks. */
-  weeks?: string[];
-}
-
-export interface SessionSplitResult {
-  original: SessionResponse;
-  created: SessionResponse;
-}
-
-// -- Merge (reverse of split) -----------------------------------------------
-/**
- * POST body for /api/projects/<pid>/sessions/<sid>/merge/ — recombines the
- * calling session's classes into `target_session_id`, deleting the caller.
- * Only sessions that already match on weekday/start_time/duration/type/
- * teachers/rooms/subject can merge — this doesn't reconcile any of those,
- * it only recombines classes back onto one session.
- */
-export interface SessionMerge {
-  target_session_id: string;
-  /** Same fan-out semantics as SessionPatch.weeks. */
-  weeks?: string[];
-}
-
 // -- Week blocks ---------------------------------------------------------
 export interface WeekBlockResponse {
   weeks: string[];

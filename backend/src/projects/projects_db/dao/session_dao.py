@@ -36,36 +36,6 @@ class SessionDAO(BaseDAO[Session]):
     def __init__(self, session: DBSession) -> None:
         super().__init__(Session, session)
 
-    # -------------------------------------------------------------------
-    # -- Create
-    # -------------------------------------------------------------------
-
-    def create(
-        self,
-        *,
-        week: datetime.date,
-        weekday: WeekDay,
-        start_time: int,
-        duration: int,
-        type: str,
-        original_block_id: UUID,
-    ) -> Session:
-        """Create and persist a new session row.
-
-        Used by a session split (a class detached from a shared session
-        becomes its own recurring slot, one row per week in scope, sharing a
-        freshly generated `original_block_id`) — never by ingestion, which
-        writes rows directly.
-        """
-        return self._create(
-            week=week,
-            weekday=weekday,
-            start_time=start_time,
-            duration=duration,
-            type=type,
-            original_block_id=original_block_id,
-        )
-
     @classmethod
     def _load_options(cls, includes: Iterable[Include]) -> list[LoaderOption]:
         """Translate a collection of :class:`Include` flags into SQLAlchemy load options."""
@@ -455,19 +425,3 @@ class SessionDAO(BaseDAO[Session]):
         by_id = {s.id: s for s in siblings}
         by_id[session_row.id] = session_row
         return list(by_id.values())
-
-    # -------------------------------------------------------------------
-    # -- Delete
-    # -------------------------------------------------------------------
-
-    def delete(self, session_row: Session) -> None:
-        """Delete a session row.
-
-        Used by a session merge (the reverse of a split): once a session's
-        classes have all been moved elsewhere via
-        `SessionClassSubjectDAO.remove_classes`, the now-empty row is
-        deleted outright. Callers must clear `session_class_subjects` first
-        — that relationship has no delete cascade configured, since nothing
-        else in the app deletes a session with classes still attached.
-        """
-        self.session.delete(session_row)

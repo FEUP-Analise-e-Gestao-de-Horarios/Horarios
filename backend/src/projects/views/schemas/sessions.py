@@ -6,7 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from src.projects.projects_db.schemas.weekday import WeekDay
-from src.projects.views.schemas.week_blocks import SessionDetails, WeekBlock
+from src.projects.views.schemas.week_blocks import WeekBlock
 
 
 # -- Query params ------------------------------------------------------
@@ -40,60 +40,4 @@ class SessionPatchRequest(BaseModel):
     room_ids: list[UUID] | None = None
     class_ids: list[UUID] | None = None
     subject_ids: list[UUID] | None = None
-    weeks: list[datetime.date] = Field(default_factory=list)
-
-
-# -- Split ---------------------------------------------------------------
-class SessionSplitRequest(BaseModel):
-    """POST body for splitting classes off a session into a new one.
-
-    `class_ids` must be a non-empty, *proper* subset of the target session's
-    current classes — detaching all of them is a rename, not a split (use
-    PATCH instead). Those classes are removed from the target session, one
-    row per week in `weeks` (same fan-out semantics as `SessionPatchRequest`;
-    empty/omitted means just the target's own week).
-
-    The detached slot's own new session teaches `new_class_ids` when given,
-    or `class_ids` itself when omitted — the common case, where the slot
-    keeps teaching the same class(es), just at a new time/teacher/room.
-    Setting `new_class_ids` to something else reassigns the detached slot to
-    a *different* class in the same move — `new_class_ids` needn't have
-    anything to do with `class_ids` or the target session's own classes.
-
-    The new session shares one freshly generated `original_block_id` across
-    every week in scope, so the split-off slot is a proper recurring block
-    in its own right. `teacher_ids`/`room_ids`/`subject_ids` default to the
-    target's own current values when omitted.
-    """
-
-    class_ids: list[UUID] = Field(min_length=1)
-    new_class_ids: list[UUID] | None = Field(default=None, min_length=1)
-    weekday: WeekDay
-    start_time: int = Field(ge=0, le=2359)
-    duration: int = Field(ge=1)
-    teacher_ids: list[UUID] | None = None
-    room_ids: list[UUID] | None = None
-    subject_ids: list[UUID] | None = None
-    weeks: list[datetime.date] = Field(default_factory=list)
-
-
-class SessionSplitResponse(BaseModel):
-    original: SessionDetails
-    created: SessionDetails
-
-
-# -- Merge (reverse of split) --------------------------------------------
-class SessionMergeRequest(BaseModel):
-    """POST body for merging a session's classes into another session.
-
-    The two sessions must already match on weekday, start_time, duration,
-    type, teachers, rooms and subject — merge recombines two sessions that
-    only differ in which classes they cover, it doesn't reconcile anything
-    else. For each week both sessions have a row in (restricted to `weeks`
-    when given, same fan-out semantics as the other session endpoints), the
-    calling session's classes move onto the target's row and the calling
-    session's row is deleted; weeks only one side has are left untouched.
-    """
-
-    target_session_id: UUID
     weeks: list[datetime.date] = Field(default_factory=list)

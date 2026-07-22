@@ -68,17 +68,7 @@ interface WeekGridProps {
   marks?: WeekGridMark[];
   startTime?: number;
   endTime?: number;
-  /**
-   * `clickedTurma` is which turma column of the card was actually clicked —
-   * meaningful when the event spans several (e.g. a shared lecture), so a
-   * click can target just one without the caller re-deriving it from pixel
-   * position. Always resolvable, even for a single-turma card.
-   */
-  onEventClick?: (
-    event: WeekGridEvent,
-    domEvent: MouseEvent<HTMLButtonElement>,
-    clickedTurma: string | undefined,
-  ) => void;
+  onEventClick?: (event: WeekGridEvent, domEvent: MouseEvent<HTMLButtonElement>) => void;
   onHorizontalScroll?: () => void;
   emptyMessage?: string;
   weekdayLabels?: string[];
@@ -139,21 +129,6 @@ const DAY_HEADER_FONT_PX = 10;
 const TURMA_COLUMN_DEFAULT_MIN_PX = 64;
 // Pixels of horizontal scroll change required to count as a user gesture.
 const HORIZONTAL_SCROLL_THRESHOLD_PX = 8;
-
-// Which turma a click landed on, within a card that may span several
-// contiguous turma columns (a shared lecture). `seg` is the specific
-// rendered segment the click hit; `activeTurmas` is the same ordered list
-// used to place every card, so `seg.start` already indexes into it.
-function resolveClickedTurma(
-  domEvent: MouseEvent<HTMLButtonElement>,
-  seg: { start: number; span: number },
-  activeTurmas: string[],
-): string | undefined {
-  const rect = domEvent.currentTarget.getBoundingClientRect();
-  const ratio = rect.width > 0 ? (domEvent.clientX - rect.left) / rect.width : 0;
-  const offset = Math.min(seg.span - 1, Math.max(0, Math.floor(ratio * seg.span)));
-  return activeTurmas[seg.start + offset];
-}
 
 function getTurmaHeaderStyle(shift?: number): string {
   // Alternating turnos get a neutral cool-grey tint (was orange); the brand
@@ -637,16 +612,7 @@ export default function WeekGrid({
               isEditing={isEditingEvent}
               selected={selectedSessionIds?.has(ev.sessionId)}
               weekRangeLabel={weekRangeLabel}
-              onClick={
-                onEventClick
-                  ? (event, domEvent) =>
-                      onEventClick(
-                        event,
-                        domEvent,
-                        resolveClickedTurma(domEvent, seg, activeTurmas),
-                      )
-                  : undefined
-              }
+              onClick={onEventClick}
             />
           ));
         })}
