@@ -4,6 +4,7 @@ export default function ParallelHeader({
   saving,
   onNavigateHome,
   onNavigateDashboard,
+  onNavigateExport,
   onBack,
   onReset,
   onFinish,
@@ -11,6 +12,7 @@ export default function ParallelHeader({
   saving: boolean;
   onNavigateHome: () => void;
   onNavigateDashboard: () => void;
+  onNavigateExport: () => void;
   onBack: () => void;
   onReset: () => void;
   onFinish: () => void;
@@ -22,6 +24,7 @@ export default function ParallelHeader({
           { key: "paralelas", label: "Aulas em Paralelo", current: true },
           { key: "horario", label: "Horário", onClick: onBack },
           { key: "dados", label: "Dados", onClick: onNavigateDashboard },
+          { key: "exportar", label: "Exportar", onClick: onNavigateExport },
           { key: "inicio", label: "Início", onClick: onNavigateHome },
         ]}
       />

@@ -1,12 +1,18 @@
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
+from src.projects.projects_db.dao.conflict_resource_dao import (
+    ConflictResourceColumn,
+    ConflictResourceDAO,
+    ConflictResourceJoin,
+    ConflictResourceSpec,
+)
 from src.projects.projects_db.models._secondary_tables import session_teachers
+from src.projects.projects_db.models.session import Session
 from src.projects.projects_db.models.session_class_subject import SessionClassSubject
 from src.projects.projects_db.models.teacher import Teacher
 from src.projects.projects_db.models.teacher_red_block import TeacherRedBlock
-from src.projects.projects_db.schemas.teacher import TeacherStats
+from src.projects.projects_db.schemas.teacher import TeacherConflict, TeacherStats
 
 
 class TeacherDAO(BaseDAO[Teacher]):
@@ -81,3 +87,35 @@ class TeacherDAO(BaseDAO[Teacher]):
         ).all()
 
         return [TeacherStats.model_validate(row, from_attributes=True) for row in rows]
+
+    def get_conflicting_slots(self) -> list[TeacherConflict]:
+        """Return overlapping teacher allocations grouped into conflict windows.
+
+        Each result represents one overlapping window for a teacher on a given
+        week and weekday. The returned ``start_time`` and ``duration`` span the
+        full conflicting window, and ``session_ids`` contains every session in
+        that overlap cluster.
+        """
+        rows = ConflictResourceDAO(self.session).get_conflicting_slots(
+            ConflictResourceSpec(
+                model=Teacher,
+                id_column=ConflictResourceColumn("teacher_id", Teacher.id),
+                identifying_columns=(
+                    ConflictResourceColumn("teacher_number", Teacher.number),
+                    ConflictResourceColumn("teacher_acronym", Teacher.acronym),
+                    ConflictResourceColumn("teacher_name", Teacher.name),
+                ),
+                joins=(
+                    ConflictResourceJoin(
+                        session_teachers,
+                        session_teachers.c.teacher_id == Teacher.id,
+                    ),
+                    ConflictResourceJoin(
+                        Session,
+                        Session.id == session_teachers.c.session_id,
+                    ),
+                ),
+            ),
+        )
+
+        return [TeacherConflict(**row) for row in rows]

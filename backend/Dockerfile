@@ -1,7 +1,8 @@
 FROM python:3.14-slim
 
 RUN useradd --uid 1000 --create-home appuser
-COPY --from=ghcr.io/astral-sh/uv:0.11.3 /uv /uvx /bin/
+ARG UV_VERSION=0.11.3
+RUN python -m pip install --no-cache-dir "uv==${UV_VERSION}"
 
 WORKDIR /workspace/backend
 

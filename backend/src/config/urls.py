@@ -9,11 +9,16 @@ from django.urls import include, path
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.generic import TemplateView
 
+from src.projects.views.export import ProjectExportView
+
 # SPA (Single Page Application) for React
 spa_view = ensure_csrf_cookie(
     TemplateView.as_view(template_name="index.html"),
 )
 
+projectpatterns = [
+    path("export/<int:project_id>", ProjectExportView.as_view()),
+]
 
 urlpatterns = [
     # React URLs
@@ -23,6 +28,11 @@ urlpatterns = [
     path("change-password", spa_view, name="change-password"),
     path("projects/<int:project_id>", spa_view, name="schedule"),
     path("projects/<int:project_id>/dashboard", spa_view, name="dashboard"),
+    path(
+        "projects/<int:project_id>/dashboard/export-session",
+        spa_view,
+        name="export-session-context",
+    ),
     path(
         "projects/<int:project_id>/dashboard/degrees/<uuid:degree_id>",
         spa_view,
@@ -57,4 +67,5 @@ urlpatterns = [
     path("api/projects/", include("src.projects.urls")),
     path("api/auth/", include("src.login.urls")),
     path("admin/", admin.site.urls, name="admin"),  # TODO Check URL
+    path("project/", include(projectpatterns)),
 ]

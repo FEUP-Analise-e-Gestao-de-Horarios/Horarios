@@ -108,17 +108,10 @@ export default function ScheduleNavbar({
             label: "Aulas em Paralelo",
             to: buildPath(ROUTES.PARALLEL_SESSIONS, { projectId }),
           },
+          { key: "exportar", label: "Exportar", to: buildPath(ROUTES.EXPORT, { projectId }) },
           { key: "inicio", label: "Início", to: ROUTES.HOME },
         ]}
       />
-      <button
-        type="button"
-        disabled
-        title="Funcionalidade ainda não disponível"
-        className="bg-transparent text-gray-500 font-semibold px-3.5 py-2 rounded text-sm whitespace-nowrap border border-gray-600 cursor-not-allowed"
-      >
-        Exportar
-      </button>
 
       <div className="border-l border-gray-600 h-5 mx-1" />
 

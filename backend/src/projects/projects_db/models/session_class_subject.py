@@ -18,6 +18,7 @@ class SessionClassSubject(Base):
         UniqueConstraint("session_id", "class_id", name="uq_session_class"),
         Index("ix_sessions_classes_subject_class_id", "class_id"),
         Index("ix_sessions_classes_subject_subject_id", "subject_id"),
+        Index("ix_sessions_classes_subject_class_session", "class_id", "session_id"),
     )
 
     # UUIDs

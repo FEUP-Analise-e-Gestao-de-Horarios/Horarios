@@ -24,6 +24,7 @@ class ApiError(StrEnum):
     # Projects - Entities
     PROJECTS_ROOMS_NOT_FOUND = "projects.rooms.not_found"
     PROJECTS_TEACHERS_NOT_FOUND = "projects.teachers.not_found"
+    PROJECTS_SESSIONS_NOT_FOUND = "projects.sessions.not_found"
     PROJECTS_DEGREES_NOT_FOUND = "projects.degrees.not_found"
     PROJECTS_YEARS_NOT_FOUND = "projects.years.not_found"
     PROJECTS_SUBJECTS_NOT_FOUND = "projects.subjects.not_found"
@@ -140,6 +141,14 @@ def TeacherNotFoundResponse() -> JsonResponse:
         status=404,
         code=ApiError.PROJECTS_TEACHERS_NOT_FOUND,
         message="Teacher not found.",
+    )
+
+
+def SessionNotFoundResponse() -> JsonResponse:
+    return ErrorResponse(
+        status=404,
+        code=ApiError.PROJECTS_SESSIONS_NOT_FOUND,
+        message="Session not found.",
     )
 
 

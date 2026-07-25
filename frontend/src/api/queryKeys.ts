@@ -19,6 +19,7 @@ export const queryKeys = {
     room: (id: string, roomId: string) => ["projects", id, "rooms", roomId] as const,
     subject: (id: string, subjectId: string) => ["projects", id, "subjects", subjectId] as const,
     class: (id: string, classId: string) => ["projects", id, "classes", classId] as const,
+    export: (id: string) => ["projects", id, "export"] as const,
     conflicts: (id: string, scope: string, yearId: string, includeIgnored: boolean) =>
       ["projects", id, "conflicts", scope, yearId, includeIgnored] as const,
     sessions: (id: string, filters: SessionsQueryFilters) =>

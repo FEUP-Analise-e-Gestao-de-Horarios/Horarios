@@ -396,6 +396,7 @@ _API_ERROR_WIRE_CASES = [
     (ApiError.PROJECTS_RENAME_DUPLICATED_NAME, "projects.rename.duplicated_name"),
     (ApiError.PROJECTS_ROOMS_NOT_FOUND, "projects.rooms.not_found"),
     (ApiError.PROJECTS_TEACHERS_NOT_FOUND, "projects.teachers.not_found"),
+    (ApiError.PROJECTS_SESSIONS_NOT_FOUND, "projects.sessions.not_found"),
     (ApiError.PROJECTS_DEGREES_NOT_FOUND, "projects.degrees.not_found"),
     (ApiError.PROJECTS_YEARS_NOT_FOUND, "projects.years.not_found"),
     (ApiError.PROJECTS_SUBJECTS_NOT_FOUND, "projects.subjects.not_found"),

@@ -5,12 +5,20 @@ from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session as DBSession
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
+from src.projects.projects_db.dao.conflict_resource_dao import (
+    ConflictResourceColumn,
+    ConflictResourceDAO,
+    ConflictResourceJoin,
+    ConflictResourceSpec,
+)
 from src.projects.projects_db.models import (
     Class,
     SessionClassSubject,
 )
 from src.projects.projects_db.models._secondary_tables import session_teachers
-from src.projects.projects_db.schemas.class_ import ClassStats
+from src.projects.projects_db.models.session import Session
+from src.projects.projects_db.models.subject import Subject
+from src.projects.projects_db.schemas.class_ import ClassConflict, ClassStats
 
 
 class ClassDAO(BaseDAO[Class]):
@@ -126,3 +134,57 @@ class ClassDAO(BaseDAO[Class]):
         rows = self.session.execute(stmt).all()
 
         return [ClassStats.model_validate(row, from_attributes=True) for row in rows]
+
+    # -------------------------------------------------------------------
+    # -- Get Others
+    # -------------------------------------------------------------------
+
+    def get_subjects(self, class_id: UUID) -> list[Subject]:
+        """Return distinct subjects associated with the given class."""
+        return list(
+            self.session.scalars(
+                select(Subject)
+                .join(SessionClassSubject, SessionClassSubject.subject_id == Subject.id)
+                .where(SessionClassSubject.class_id == class_id)
+                .distinct(),
+            ).all(),
+        )
+
+    def get_sessions(self, class_id: UUID) -> list[Session]:
+        """Return distinct sessions that the given class participates in."""
+        return list(
+            self.session.scalars(
+                select(DBSession)
+                .join(SessionClassSubject, SessionClassSubject.session_id == Session.id)
+                .where(SessionClassSubject.class_id == class_id)
+                .distinct(),
+            ).all(),
+        )
+
+    def get_conflicting_slots(self) -> list[ClassConflict]:
+        """Return overlapping class allocations grouped into conflict windows.
+
+        Each result represents one overlapping window for a class on a given
+        week and weekday. The returned ``start_time`` and ``duration`` span the
+        full conflicting window, and ``session_ids`` contains every session in
+        that overlap cluster.
+        """
+        rows = ConflictResourceDAO(self.session).get_conflicting_slots(
+            ConflictResourceSpec(
+                model=Class,
+                id_column=ConflictResourceColumn("class_id", Class.id),
+                identifying_columns=(ConflictResourceColumn("class_code", Class.code),),
+                joins=(
+                    ConflictResourceJoin(
+                        SessionClassSubject,
+                        SessionClassSubject.class_id == Class.id,
+                    ),
+                    ConflictResourceJoin(
+                        Session,
+                        Session.id == SessionClassSubject.session_id,
+                    ),
+                ),
+            ),
+        )
+
+        return [ClassConflict(**row) for row in rows]

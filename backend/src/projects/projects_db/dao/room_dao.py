@@ -2,10 +2,17 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.projects.projects_db.dao.base_dao import BaseDAO
+from src.projects.projects_db.dao.conflict_resource_dao import (
+    ConflictResourceColumn,
+    ConflictResourceDAO,
+    ConflictResourceJoin,
+    ConflictResourceSpec,
+)
 from src.projects.projects_db.models._secondary_tables import session_rooms
 from src.projects.projects_db.models.room import Room
 from src.projects.projects_db.models.room_red_block import RoomRedBlock
-from src.projects.projects_db.schemas.room import RoomStats
+from src.projects.projects_db.models.session import Session as SessionModel
+from src.projects.projects_db.schemas.room import RoomConflict, RoomStats
 
 
 class RoomDAO(BaseDAO[Room]):
@@ -78,3 +85,31 @@ class RoomDAO(BaseDAO[Room]):
         ).all()
 
         return [RoomStats.model_validate(row, from_attributes=True) for row in rows]
+
+    def get_conflicting_slots(self) -> list[RoomConflict]:
+        """Return overlapping room allocations grouped into conflict windows.
+
+        Each result represents one overlapping window for a room on a given
+        week and weekday. The returned ``start_time`` and ``duration`` span the
+        full conflicting window, and ``session_ids`` contains every session in
+        that overlap cluster.
+        """
+        rows = ConflictResourceDAO(self.session).get_conflicting_slots(
+            ConflictResourceSpec(
+                model=Room,
+                id_column=ConflictResourceColumn("room_id", Room.id),
+                identifying_columns=(ConflictResourceColumn("room_name", Room.name),),
+                joins=(
+                    ConflictResourceJoin(
+                        session_rooms,
+                        session_rooms.c.room_id == Room.id,
+                    ),
+                    ConflictResourceJoin(
+                        SessionModel,
+                        SessionModel.id == session_rooms.c.session_id,
+                    ),
+                ),
+            ),
+        )
+
+        return [RoomConflict(**row) for row in rows]

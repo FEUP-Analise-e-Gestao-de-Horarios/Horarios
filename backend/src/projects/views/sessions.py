@@ -1,15 +1,29 @@
+from http import HTTPStatus
+from uuid import UUID
+
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views import View
 
 from src.core.decorators import require_auth, require_project
 from src.core.errors import (
     ClassNotFoundResponse,
+    NotAuthenticatedResponse,
+    ProjectNotFoundResponse,
+    SessionNotFoundResponse,
     SubjectNotFoundResponse,
     YearNotFoundResponse,
 )
 from src.core.schemas import SuccessResponse
 from src.core.validation import validate_query_params
-from src.projects.projects_db.dao import ClassDAO, SessionDAO, SubjectDAO, YearDAO
+from src.projects.models import Project
+from src.projects.projects_db.dao import (
+    ClassDAO,
+    ExportCacheDAO,
+    SessionDAO,
+    SubjectDAO,
+    YearDAO,
+)
+from src.projects.projects_db.dao.modified_session_dao import ModifiedSessionDAO
 from src.projects.projects_db.paths import general_db
 from src.projects.projects_db.registry import get_session as get_project_session
 from src.projects.views.schemas.sessions import SessionsQueryParams, SessionsResponse
@@ -78,3 +92,39 @@ class ProjectSessionsView(View):
                     data=SessionsResponse(blocks=blocks),
                 ).model_dump(),
             )
+
+
+class ProjectSessionView(View):
+    """API endpoint: delete a single session from a project."""
+
+    def delete(
+        self,
+        request: HttpRequest,
+        project_id: int,
+        session_id: str | UUID,
+    ) -> HttpResponse:
+        # -- Check user auth ---------------------------------------------------
+        if not request.user.is_authenticated:
+            return NotAuthenticatedResponse()
+
+        # -- Fetch project -----------------------------------------------------
+        try:
+            Project.objects.get(pk=project_id)
+        except Project.DoesNotExist:
+            return ProjectNotFoundResponse()
+
+        # -- Delete session from project DB -----------------------------------
+        with get_project_session(general_db(project_id)) as db_session:
+            session_uuid = session_id if isinstance(session_id, UUID) else UUID(session_id)
+            deleted = SessionDAO(db_session).delete_by_id(session_uuid)
+            if not deleted:
+                return SessionNotFoundResponse()
+
+            ExportCacheDAO(db_session).clear_project_export_payload()
+            ModifiedSessionDAO(db_session).clear_modification_steps()
+            db_session.commit()
+
+        return JsonResponse(
+            {"message": "Session deleted successfully"},
+            status=HTTPStatus.OK,
+        )

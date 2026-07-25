@@ -2,6 +2,11 @@ from django.urls import include, path
 
 from src.projects.views.classes import ProjectClassesView, ProjectClassView
 from src.projects.views.degrees import ProjectDegreesView, ProjectDegreeView
+from src.projects.views.export import (
+    ProjectExportChecklistView,
+    ProjectExportSessionContextView,
+    ProjectExportView,
+)
 from src.projects.views.parallel_blocks import (
     ProjectParallelBlockCandidateView,
     ProjectParallelBlockGroupsView,
@@ -13,7 +18,7 @@ from src.projects.views.parallel_blocks import (
 )
 from src.projects.views.project import ProjectsView, ProjectView
 from src.projects.views.rooms import ProjectRoomsView, ProjectRoomView
-from src.projects.views.sessions import ProjectSessionsView
+from src.projects.views.sessions import ProjectSessionsView, ProjectSessionView
 from src.projects.views.stats import ProjectStatsView
 from src.projects.views.subjects import ProjectSubjectsView, ProjectSubjectView
 from src.projects.views.teachers import ProjectTeachersView, ProjectTeacherView
@@ -53,6 +58,7 @@ class_patterns = [
 
 session_patterns = [
     path("", ProjectSessionsView.as_view()),
+    path("<uuid:session_id>", ProjectSessionView.as_view()),
 ]
 
 parallel_block_group_patterns = [
@@ -75,6 +81,9 @@ parallel_block_patterns = [
 
 project_patterns = [
     path("stats", ProjectStatsView.as_view()),
+    path("export/session-context", ProjectExportSessionContextView.as_view()),
+    path("export/checklist", ProjectExportChecklistView.as_view()),
+    path("export", ProjectExportView.as_view()),
     path("rooms/", include(room_patterns)),
     path("teachers/", include(teacher_patterns)),
     path("degrees/", include(degree_patterns)),

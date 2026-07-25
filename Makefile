@@ -15,7 +15,7 @@ local-setup:
 	cd backend && uv sync --frozen
 	@echo ""
 	@echo "--- Installing frontend dependencies (npm) ---"
-	cd frontend && npm install
+	cd frontend && npm install --include=optional
 	@echo ""
 	@echo "--- Installing git pre-commit hooks ---"
 	cd backend && uv run pre-commit install

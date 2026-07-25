@@ -76,7 +76,7 @@ make local-setup
 This will:
 
 - Install backend dependencies (`uv sync`)
-- Install frontend dependencies (`npm install`)
+- Install frontend dependencies (`npm install --include=optional`)
 - Install the git pre-commit hooks (`uv run pre-commit install`)
 
 ---

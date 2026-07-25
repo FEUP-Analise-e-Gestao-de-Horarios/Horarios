@@ -24,13 +24,18 @@ class Session(Base):
     __table_args__ = (
         UniqueConstraint("week", "original_block_id"),
         Index("ix_sessions_week_original_block_id", "week", "original_block_id"),
+        Index("ix_sessions_conflict_slot", "week", "weekday", "start_time", "duration", "id"),
         # Covers the per-block min/max(week) lookup in the parallel-candidate
         # query; also serves plain original_block_id filters as a prefix.
         Index("ix_sessions_original_block_id_week", "original_block_id", "week"),
     )
 
     # UUIDs
-    id: Mapped[UUID] = mapped_column(Uuid(native_uuid=False), primary_key=True, default=uuid.uuid7)
+    id: Mapped[UUID] = mapped_column(
+        Uuid(native_uuid=False),
+        primary_key=True,
+        default=uuid.uuid7,
+    )
 
     # Data
     week: Mapped[datetime.date] = mapped_column(Date, index=True)
@@ -41,13 +46,17 @@ class Session(Base):
     original_block_id: Mapped[UUID] = mapped_column(Uuid(native_uuid=False))
 
     # Relationships
-    rooms: Mapped[list[Room]] = relationship(secondary=session_rooms, back_populates="sessions")
+    rooms: Mapped[list[Room]] = relationship(
+        secondary=session_rooms,
+        back_populates="sessions",
+    )
     teachers: Mapped[list[Teacher]] = relationship(
         secondary=session_teachers,
         back_populates="sessions",
     )
     session_class_subjects: Mapped[list[SessionClassSubject]] = relationship(
         back_populates="session",
+        cascade="all, delete-orphan",
     )
 
     def __str__(self) -> str:
