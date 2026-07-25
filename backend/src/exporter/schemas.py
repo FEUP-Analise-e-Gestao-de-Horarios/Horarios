@@ -6,7 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
-type ExportPrimitive = str | int | float | bool | None | date | UUID
+type ExportPrimitive = str | int | float | bool | date | UUID | None
 type ExportJsonValue = ExportPrimitive | list[ExportJsonValue] | dict[str, ExportJsonValue]
 type PayloadFormat = Literal["compact", "expanded"]
 type CompactExportConflictKind = Literal["room", "teacher", "class"]

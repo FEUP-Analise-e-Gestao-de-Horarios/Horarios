@@ -7,7 +7,7 @@ from src.projects.projects_db.schemas.weekday import WeekDay
 type Resource = str | int
 type ResourceNode = tuple[Resource, int, str, str]
 type SessionId = str | UUID
-type GraphPrimitive = str | int | float | bool | None | date | UUID
+type GraphPrimitive = str | int | float | bool | date | UUID | None
 type GraphValue = GraphPrimitive | tuple[GraphValue, ...] | list[GraphValue] | dict[str, GraphValue]
 type SessionSnapshot = dict[str, GraphValue]
 type ChangeBucket = dict[str, GraphValue]
