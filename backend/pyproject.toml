@@ -8,7 +8,7 @@ dependencies = [
     "django==6.0.7",
     "pydantic==2.13.4",
     "requests==2.34.2",
-    "sqlalchemy==2.0.51",
+    "sqlalchemy==2.0.52",
     "whitenoise==6.12.0",
 ]
 
